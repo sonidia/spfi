@@ -1,4 +1,3 @@
-import Papa from "papaparse";
 import { isRef, ref, type Ref } from "vue";
 
 export function useGoogleSheet(url: string | Ref<string>) {
@@ -25,17 +24,23 @@ export function useGoogleSheet(url: string | Ref<string>) {
 
       const text = await res.text();
 
-      const parsed = Papa.parse<string[]>(text, {
-        skipEmptyLines: true,
-      });
+      // STRICT CLIENT-ONLY IMPORT:
+      // Ensure PapaParse is only ever touched on the client side.
+      // nitro.externals and the Vite plugin in nuxt.config.ts handle the build-time protection.
+      if (import.meta.client) {
+        const Papa = (await import("papaparse")).default;
+        const parsed = Papa.parse<string[]>(text, {
+          skipEmptyLines: true,
+        });
 
-      const data = parsed.data as string[][];
+        const data = parsed.data as string[][];
 
-      if (!data.length) throw new Error("Sheet trống hoặc không có dữ liệu");
+        if (!data.length) throw new Error("Sheet trống hoặc không có dữ liệu");
 
-      headers.value = data[0] || [];
-      rows.value = data.slice(1).map((row) => row.map(cleanCell));
-      filteredRows.value = rows.value;
+        headers.value = data[0] || [];
+        rows.value = data.slice(1).map((row) => row.map(cleanCell));
+        filteredRows.value = rows.value;
+      }
     } catch (e: any) {
       error.value = e.message || "Unknown error";
     } finally {
