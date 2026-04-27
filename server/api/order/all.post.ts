@@ -1,6 +1,11 @@
 import axios from "axios";
 import { createError, defineEventHandler, readBody } from "h3";
-import { SocksProxyAgent } from "socks-proxy-agent";
+import {
+  buildProxyVariants,
+  createProxyAgent,
+  resolveStoreCookieData,
+  resolveStoreDomain,
+} from "../../utils/store-proxy";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -13,25 +18,52 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const domain = storeId.includes(".") ? storeId : `${storeId}.myshopify.com`;
+  const storeCookie = resolveStoreCookieData(event, storeId);
+  const sock = String(storeCookie?.sock || "").trim();
+  if (!sock) {
+    throw createError({
+      statusCode: 400,
+      statusMessage:
+        "Missing sock proxy for this store. Please update it in Manager page.",
+    });
+  }
+
+  const domain = resolveStoreDomain(storeId, storeCookie?.domain);
   const baseURL = `https://${domain}/admin/api/2026-04`;
   const headers = {
     "X-Shopify-Access-Token": token,
     "Content-Type": "application/json",
   };
+  const proxyVariants = buildProxyVariants(sock);
 
-  const proxy = "socks5://minhtuan3101:123456tt@31.57.41.147:5723";
-  const agent = new SocksProxyAgent(proxy);
+  if (proxyVariants.length === 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage:
+        "Invalid sock proxy format. Please verify this store's proxy in Manager page.",
+    });
+  }
 
   try {
-    const ordersRes = await axios.get(`${baseURL}/orders.json`, {
-      headers,
-      httpAgent: agent,
-      httpsAgent: agent,
-      params: { status: "any" },
-    });
+    let lastError: any;
 
-    return ordersRes.data;
+    for (const proxyUrl of proxyVariants) {
+      const agent = createProxyAgent(proxyUrl);
+      try {
+        const ordersRes = await axios.get(`${baseURL}/orders.json`, {
+          headers,
+          httpAgent: agent,
+          httpsAgent: agent,
+          params: { status: "any" },
+        });
+
+        return ordersRes.data;
+      } catch (error: any) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error("Unknown proxy error");
   } catch (err: any) {
     const message =
       err.response?.data?.errors || err.response?.data?.message || err.message;

@@ -88,10 +88,10 @@ onMounted(() => {
 // ── Per-store cookie data ─────────────────────────────────────────────────────
 interface StoreInfo {
   id: string;
+  domain: string;
   hasToken: boolean;
   expired: boolean;
   expiryLabel: string;
-  clientId: string;
 }
 
 function getStoreInfo(id: string): StoreInfo {
@@ -100,10 +100,10 @@ function getStoreInfo(id: string): StoreInfo {
   if (!data || typeof data !== "object") {
     return {
       id,
+      domain: "",
       hasToken: false,
       expired: false,
       expiryLabel: "",
-      clientId: "",
     };
   }
   const now = Date.now();
@@ -118,10 +118,10 @@ function getStoreInfo(id: string): StoreInfo {
   }
   return {
     id,
+    domain: data.domain || "",
     hasToken,
     expired,
     expiryLabel,
-    clientId: data.clientId || "",
   };
 }
 
@@ -132,6 +132,64 @@ const storeList = computed<StoreInfo[]>(() =>
 // ── Delete store ──────────────────────────────────────────────────────────────
 function deleteStore(id: string) {
   formStore.removeKnownStore(id);
+}
+
+// ── Edit store ───────────────────────────────────────────────────────────────
+const showEditModal = ref(false);
+const editingStoreId = ref("");
+const editDomain = ref("");
+const editSock = ref("");
+const editClientId = ref("");
+const editClientSecret = ref("");
+const editError = ref("");
+
+function openEditModal(id: string) {
+  const cookie = useCookie<any>(id);
+  const data = cookie.value || {};
+
+  editingStoreId.value = id;
+  editDomain.value = data.domain || "";
+  editSock.value = data.sock || "";
+  editClientId.value = data.clientId || "";
+  editClientSecret.value = data.clientSecret || "";
+  editError.value = "";
+  showEditModal.value = true;
+}
+
+function closeEditModal() {
+  showEditModal.value = false;
+  editingStoreId.value = "";
+  editDomain.value = "";
+  editSock.value = "";
+  editClientId.value = "";
+  editClientSecret.value = "";
+  editError.value = "";
+}
+
+function saveEditedStore() {
+  if (!editingStoreId.value) return;
+
+  const id = editingStoreId.value;
+  const cookie = useCookie<any>(id, { maxAge: 60 * 60 * 24 * 365 * 10 });
+  const previous =
+    cookie.value && typeof cookie.value === "object" ? cookie.value : {};
+
+  if (!editClientId.value.trim() || !editClientSecret.value.trim()) {
+    editError.value = "Client ID và Client Secret không được để trống.";
+    return;
+  }
+
+  cookie.value = {
+    ...previous,
+    domain: editDomain.value.trim(),
+    sock: editSock.value.trim(),
+    clientId: editClientId.value.trim(),
+    clientSecret: editClientSecret.value.trim(),
+  };
+
+  genSuccess.value = `Store \"${id}\" updated successfully.`;
+  editError.value = "";
+  closeEditModal();
 }
 
 async function addShop() {
@@ -458,7 +516,7 @@ async function testProxy(id: string) {
         <span class="count-badge">{{ storeList.length }}</span>
       </div>
       <div class="store-row" v-for="store in storeList" :key="store.id">
-        <div class="store-id">{{ store.id }}</div>
+        <div class="store-id">{{ store.domain || "(No domain)" }}</div>
         <div class="store-meta">
           <span v-if="!store.hasToken" class="tag tag-warn">No token</span>
           <span v-else-if="store.expired" class="tag tag-err">Expired</span>
@@ -474,9 +532,6 @@ async function testProxy(id: string) {
           </span>
           <span v-if="store.expiryLabel" class="expiry">{{
             store.expiryLabel
-          }}</span>
-          <span v-if="store.clientId" class="client-id">{{
-            store.clientId
           }}</span>
 
           <!-- proxy check result tooltip-like tag -->
@@ -507,6 +562,9 @@ async function testProxy(id: string) {
           >
             {{ rotatingIds[store.id] ? "Rotating…" : "Rotate" }}
           </button>
+          <button class="btn-outline" @click="openEditModal(store.id)">
+            Edit
+          </button>
           <button class="btn-danger" @click="deleteStore(store.id)">
             Delete
           </button>
@@ -516,6 +574,61 @@ async function testProxy(id: string) {
 
     <div v-else class="empty-state">
       No stores configured yet. Add one below.
+    </div>
+
+    <div
+      v-if="showEditModal"
+      class="modal-backdrop"
+      @click.self="closeEditModal"
+    >
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 class="modal-title">Edit Store</h3>
+          <button class="btn-ghost" @click="closeEditModal">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="field field-full">
+            <label class="field-label">Store ID</label>
+            <input class="inp" :value="editingStoreId" disabled />
+          </div>
+          <div class="field field-full">
+            <label class="field-label">Domain</label>
+            <input
+              v-model="editDomain"
+              type="text"
+              class="inp"
+              placeholder="myshop.store"
+            />
+          </div>
+          <div class="field field-full">
+            <label class="field-label">Sock (Proxy URL)</label>
+            <input
+              v-model="editSock"
+              type="text"
+              class="inp"
+              placeholder="IP:Port:User:Pass"
+            />
+          </div>
+          <div class="field field-50">
+            <label class="field-label">Client ID</label>
+            <input v-model="editClientId" type="text" class="inp" />
+          </div>
+          <div class="field field-50">
+            <label class="field-label">Client Secret</label>
+            <input v-model="editClientSecret" type="text" class="inp" />
+          </div>
+        </div>
+
+        <div v-if="editError" class="alert alert-err modal-alert">
+          {{ editError }}
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-outline" @click="closeEditModal">Cancel</button>
+          <button class="btn-primary" @click="saveEditedStore">Save</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -620,11 +733,6 @@ async function testProxy(id: string) {
 .expiry {
   font-size: 12px;
   color: var(--text-secondary, #6d6d6d);
-}
-.client-id {
-  font-size: 11px;
-  color: var(--text-muted, #9e9e9e);
-  font-family: monospace;
 }
 .store-actions {
   margin-left: auto;
@@ -810,5 +918,63 @@ async function testProxy(id: string) {
   border-radius: var(--radius, 8px);
   box-shadow: var(--shadow);
   margin-bottom: 20px;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+.modal-card {
+  width: min(640px, 100%);
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.btn-ghost {
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.btn-ghost:hover {
+  background: var(--bg);
+}
+.modal-body {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+.modal-alert {
+  margin: 0 16px;
 }
 </style>
