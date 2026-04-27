@@ -1,71 +1,81 @@
 <template>
-  <div class="page" id="app">
-    <!-- Loading state -->
-    <div v-if="orderStore.isLoading" id="loading">Loading order...</div>
-    <div v-else-if="orderStore.error" id="loading" style="color: red">
-      {{ orderStore.error }}
-    </div>
-
-    <!-- ════════════════════════════════════════ SCREEN: LIST -->
-    <template v-else>
-      <div class="page-header">
-        <span class="page-title">Orders</span>
-      </div>
-      <div class="page-meta">
-        {{ orders.length }} order{{ orders.length !== 1 ? "s" : "" }}
-      </div>
-      <div class="left-col">
-        <NuxtLink
-          v-for="(order, index) in orders"
-          :key="order.id || index"
-          class="card order-card"
-          style="cursor: pointer; text-decoration: none; color: inherit; display: block;"
-          :to="`/order/${order.id}`"
-        >
-          <div
-            class="card-header"
-            style="justify-content: flex-start; gap: 8px"
-          >
-            <span class="card-title">{{
-              nilVal(order.name, "#" + order.order_number)
-            }}</span>
-            <template v-for="badge in getOrderBadges(order)" :key="badge.cls">
-              <span class="badge" :class="badge.cls">{{ badge.label }}</span>
-            </template>
-          </div>
-          <div class="sidebar-body">
-            <div class="sidebar-value">
-              {{ fmtDateTime(order.created_at) || "—" }}
-            </div>
-            <div class="sidebar-value" style="font-weight: 500">
-              {{
-                fmtMoney(
-                  nilVal(
-                    order.total_price,
-                    nilVal(order.current_total_price, "0.00"),
-                  ),
-                  nilVal(order.currency, "CAD"),
-                )
-              }}
-            </div>
-          </div>
-        </NuxtLink>
-      </div>
+  <NuxtLayout name="shop">
+    <template #title>
+      <span class="page-title">Orders</span>
     </template>
-  </div>
+
+    <div class="page" id="app">
+      <!-- Loading state -->
+      <div v-if="orderStore.isLoading" id="loading">Loading order...</div>
+      <div v-else-if="orderStore.error" id="loading" style="color: red">
+        {{ orderStore.error }}
+      </div>
+
+      <!-- ════════════════════════════════════════ SCREEN: LIST -->
+      <div v-else>
+        <div class="page-meta">
+          {{ orders.length }} order{{ orders.length !== 1 ? "s" : "" }}
+        </div>
+        <div class="left-col">
+          <NuxtLink
+            v-for="(order, index) in orders"
+            :key="order.id || index"
+            class="card order-card"
+            style="
+              cursor: pointer;
+              text-decoration: none;
+              color: inherit;
+              display: block;
+            "
+            :to="`/order/${order.id}`"
+          >
+            <div
+              class="card-header"
+              style="justify-content: flex-start; gap: 8px"
+            >
+              <span class="card-title">{{
+                nilVal(order.name, "#" + order.order_number)
+              }}</span>
+              <template v-for="badge in getOrderBadges(order)" :key="badge.cls">
+                <span class="badge" :class="badge.cls">{{ badge.label }}</span>
+              </template>
+            </div>
+            <div class="sidebar-body">
+              <div class="sidebar-value">
+                {{ fmtDateTime(order.created_at) || "—" }}
+              </div>
+              <div class="sidebar-value" style="font-weight: 500">
+                {{
+                  fmtMoney(
+                    nilVal(
+                      order.total_price,
+                      nilVal(order.current_total_price, "0.00"),
+                    ),
+                    nilVal(order.currency, "CAD"),
+                  )
+                }}
+              </div>
+            </div>
+          </NuxtLink>
+        </div>
+      </div>
+    </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useOrderStore } from "../../stores/order";
-import { nilVal, getOrderBadges, fmtDateTime, fmtMoney } from "../../utils/order";
-
-definePageMeta({ layout: "shop" });
+import {
+  fmtDateTime,
+  fmtMoney,
+  getOrderBadges,
+  nilVal,
+} from "../../utils/order";
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
 
-// ── State ─────────────────────────────────────────────────────────────────────
 const orders = computed(() => orderStore.orders);
 
 // ── Data loading ──────────────────────────────────────────────────────────────

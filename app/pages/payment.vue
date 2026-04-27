@@ -1,42 +1,63 @@
 <template>
-  <section class="page">
-    <!-- ════════════════ LOADING STATE -->
-    <div v-if="paymentStore.isLoading" class="empty">Loading payment data…</div>
-
-    <!-- ════════════════ EMPTY / NOT FETCHED -->
-    <div
-      v-else-if="
-        !paymentStore.isLoading &&
-        paymentStore.payouts.length === 0 &&
-        !paymentStore.error
-      "
-      class="empty"
-    >
-      Select a store from the selector above to view payment data.
-    </div>
-
-    <!-- ════════════════ SCREEN 1: PAYOUTS LIST -->
-    <div v-else-if="currentScreen === 'list'" class="screen">
-      <div class="page-header">
-        <div>
-          <div class="breadcrumb">
-            <span class="page-title">Payouts</span>
-          </div>
-        </div>
-        <button class="btn btn-secondary">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M3 10h14M10 3l7 7-7 7" />
-          </svg>
-          Export
-        </button>
+  <NuxtLayout name="shop">
+    <template #title>
+      <div v-if="currentScreen === 'list'" class="breadcrumb">
+         <span class="page-title">Payouts</span>
       </div>
+      <div v-else-if="currentScreen === 'detail' && currentPayout" class="breadcrumb">
+        <button class="breadcrumb-back" @click="showScreen('list')">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M13 4l-6 6 6 6" />
+          </svg>
+        </button>
+        <span class="page-title">Payout details</span>
+        <span class="badge" :class="currentPayout.status === 'paid' ? 'badge-paid' : ''">
+          {{ currentPayout.status === "paid" ? "Deposited" : capitalize(currentPayout.status) }}
+        </span>
+      </div>
+      <div v-else-if="currentScreen === 'tx' && currentTx" class="breadcrumb">
+        <button class="breadcrumb-back" @click="showScreen('detail')">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M13 4l-6 6 6 6" />
+          </svg>
+        </button>
+        <span class="page-title">{{ capitalize(currentTx.type) }} details</span>
+      </div>
+    </template>
+
+    <section class="page">
+      <!-- ════════════════ LOADING STATE -->
+      <div v-if="paymentStore.isLoading" class="empty">Loading payment data…</div>
+
+      <!-- ════════════════ EMPTY / NOT FETCHED -->
+      <div
+        v-else-if="
+          !paymentStore.isLoading &&
+          paymentStore.payouts.length === 0 &&
+          !paymentStore.error
+        "
+        class="empty"
+      >
+        Select a store from the selector above to view payment data.
+      </div>
+
+      <!-- ════════════════ SCREEN 1: PAYOUTS LIST -->
+      <div v-if="currentScreen === 'list'" class="screen">
+        <div class="page-header" style="justify-content: flex-end;">
+          <button class="btn btn-secondary">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 10h14M10 3l7 7-7 7" />
+            </svg>
+            Export
+          </button>
+        </div>
 
       <!-- Balance Card -->
       <div class="card" v-if="currentBalance">
@@ -159,40 +180,10 @@
     </div>
 
     <!-- ════════════════ SCREEN 2: PAYOUT DETAIL -->
+    <!-- ════════════════ SCREEN 2: PAYOUT DETAIL -->
     <div v-if="currentScreen === 'detail' && currentPayout" class="screen">
-      <div class="page-header">
-        <div>
-          <div class="breadcrumb">
-            <button
-              class="breadcrumb-back"
-              title="Back"
-              @click="showScreen('list')"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <path d="M13 4l-6 6 6 6" />
-              </svg>
-            </button>
-            <span class="page-title">Payout details</span>
-            <span
-              class="badge"
-              :class="currentPayout.status === 'paid' ? 'badge-deposited' : ''"
-            >
-              {{
-                currentPayout.status === "paid"
-                  ? "Deposited"
-                  : capitalize(currentPayout.status)
-              }}
-            </span>
-          </div>
-          <div class="page-date">{{ fmtDate(currentPayout.date) }}</div>
-        </div>
+      <div class="page-header" style="justify-content: flex-end;">
+        <div v-if="false"> <!-- Title moved to layout --> </div>
         <button class="btn btn-primary">Export</button>
       </div>
 
@@ -345,31 +336,10 @@
     </div>
 
     <!-- ════════════════ SCREEN 3: TRANSACTION DETAIL -->
+    <!-- ════════════════ SCREEN 3: TRANSACTION DETAIL -->
     <div v-if="currentScreen === 'tx' && currentTx" class="screen">
-      <div class="page-header">
-        <div>
-          <div class="breadcrumb">
-            <button
-              class="breadcrumb-back"
-              title="Back"
-              @click="showScreen('detail')"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <path d="M13 4l-6 6 6 6" />
-              </svg>
-            </button>
-            <span class="page-title"
-              >{{ capitalize(currentTx.type) }} details</span
-            >
-          </div>
-        </div>
+      <div class="page-header" style="justify-content: flex-end;">
+        <div v-if="false"> <!-- Title moved to layout --> </div>
         <button class="btn btn-secondary">Export</button>
       </div>
 
@@ -485,15 +455,14 @@
         </div>
       </div>
     </div>
-  </section>
+    </section>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import type { Transaction } from "../stores/payment";
 import { usePaymentStore } from "../stores/payment";
-
-definePageMeta({ layout: "shop" });
 
 // ── Store ────────────────────────────────────────────────
 const paymentStore = usePaymentStore();

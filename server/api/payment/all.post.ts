@@ -1,4 +1,6 @@
+import axios from "axios";
 import { createError, defineEventHandler, readBody } from "h3";
+import { SocksProxyAgent } from "socks-proxy-agent";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
@@ -18,24 +20,39 @@ export default defineEventHandler(async (event) => {
     "Content-Type": "application/json",
   };
 
+  const proxy = "socks5://minhtuan3101:123456tt@31.57.41.147:5723";
+  const agent = new SocksProxyAgent(proxy);
+
   try {
-    const [balance, payoutsRes] = await Promise.all([
-      $fetch<any>("/shopify_payments/balance.json", { baseURL, headers }).then(
-        (r) => r.balance,
-      ),
-      $fetch<any>("/shopify_payments/payouts.json", { baseURL, headers }),
+    const [balanceRes, payoutsRes] = await Promise.all([
+      axios.get(`${baseURL}/shopify_payments/balance.json`, {
+        headers,
+        httpAgent: agent,
+        httpsAgent: agent,
+      }),
+      axios.get(`${baseURL}/shopify_payments/payouts.json`, {
+        headers,
+        httpAgent: agent,
+        httpsAgent: agent,
+      }),
     ]);
 
-    const payouts = payoutsRes.payouts ?? [];
+    const balance = balanceRes.data.balance;
+    const payouts = payoutsRes.data.payouts ?? [];
 
     const txResults = await Promise.all(
-      payouts.map((payout: any) =>
-        $fetch<any>("/shopify_payments/balance/transactions.json", {
-          baseURL,
-          headers,
-          query: { payout_id: payout.id },
-        }).then((res: any) => ({ payoutId: payout.id, data: res })),
-      ),
+      payouts.map(async (payout: any) => {
+        const res = await axios.get(
+          `${baseURL}/shopify_payments/balance/transactions.json`,
+          {
+            headers,
+            httpAgent: agent,
+            httpsAgent: agent,
+            params: { payout_id: payout.id },
+          },
+        );
+        return { payoutId: payout.id, data: res.data };
+      }),
     );
 
     const transactionsByPayout: Record<string, any[]> = {};
@@ -49,7 +66,8 @@ export default defineEventHandler(async (event) => {
       transactionsByPayout,
     };
   } catch (err: any) {
-    const message = err.data?.errors || err.data?.message || err.message;
+    const message =
+      err.response?.data?.errors || err.response?.data?.message || err.message;
     throw createError({
       statusCode: err.response?.status || 500,
       statusMessage: message,

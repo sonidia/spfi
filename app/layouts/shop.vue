@@ -28,7 +28,7 @@ watch(
     if (["/order", "/payment"].includes(newPath)) {
       fetchCurrent();
     }
-  }
+  },
 );
 
 // ── Shop selector ────────────────────────────────────────────────────────────
@@ -71,7 +71,11 @@ function fetchCurrent() {
 
   if (route.path === "/order" && !orderStore.orders.length) {
     orderStore.fetchAll(sid, token);
-  } else if (route.path === "/payment" && !paymentStore.payouts.length && !paymentStore.balance) {
+  } else if (
+    route.path === "/payment" &&
+    !paymentStore.payouts.length &&
+    !paymentStore.balance
+  ) {
     paymentStore.fetchAll(sid, token);
   }
 }
@@ -89,65 +93,69 @@ const noStores = computed(() => formStore.knownStores.length === 0);
   <div class="layout">
     <!-- Shop selector bar -->
     <div class="shop-bar">
-      <template v-if="noStores">
-        <span class="no-stores-hint">
-          No stores configured —
-          <NuxtLink to="/token" class="shop-bar-link"
-            >Go to Token page</NuxtLink
+      <!-- Page Title Slot (Left) -->
+      <div class="shop-bar-left">
+        <slot name="title" />
+      </div>
+
+      <!-- Controls (Right) -->
+      <div class="shop-bar-right">
+        <template v-if="noStores">
+          <span class="no-stores-hint">
+            No stores configured —
+            <NuxtLink to="/token" class="shop-bar-link"
+              >Go to Token page</NuxtLink
+            >
+          </span>
+        </template>
+        <template v-else>
+          <select
+            class="shop-select"
+            :value="formStore.storeId"
+            @change="onSelectStore(($event.target as HTMLSelectElement).value)"
           >
-        </span>
-      </template>
-      <template v-else>
-        <select
-          class="shop-select"
-          :value="formStore.storeId"
-          @change="onSelectStore(($event.target as HTMLSelectElement).value)"
-        >
-          <option value="" disabled>Select a store…</option>
-          <option v-for="id in formStore.knownStores" :key="id" :value="id">
-            {{ id }}
-          </option>
-        </select>
-      </template>
+            <option value="" disabled>Select a store…</option>
+            <option v-for="id in formStore.knownStores" :key="id" :value="id">
+              {{ id }}
+            </option>
+          </select>
+        </template>
 
-      <button
-        class="btn-fetch"
-        :disabled="isFetching || !formStore.storeId"
-        @click="fetchCurrent"
-      >
-        <svg
-          v-if="isFetching"
-          class="spin"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
+        <button
+          class="btn-fetch"
+          :disabled="isFetching || !formStore.storeId"
+          @click="fetchCurrent"
         >
-          <path
-            d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-          />
-        </svg>
-        <svg
-          v-else
-          width="14"
-          height="14"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        {{ isFetching ? "Loading…" : "Fetch" }}
-      </button>
-
-      <NuxtLink to="/token" class="shop-bar-link manage-link"
-        >Manage tokens →</NuxtLink
-      >
+          <svg
+            v-if="isFetching"
+            class="spin"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path
+              d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+            />
+          </svg>
+          <svg
+            v-else
+            width="14"
+            height="14"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          {{ isFetching ? "Loading…" : "Fetch" }}
+        </button>
+      </div>
     </div>
 
     <slot />
@@ -158,11 +166,24 @@ const noStores = computed(() => formStore.knownStores.length === 0);
 .shop-bar {
   max-width: 100%;
   margin: 0 auto;
-  padding: 10px 0;
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.shop-bar-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.shop-bar-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 .shop-select {
   height: 31px;
@@ -204,10 +225,9 @@ const noStores = computed(() => formStore.knownStores.length === 0);
 }
 .manage-link,
 .shop-bar-link {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--blue);
   text-decoration: none;
-  margin-left: auto;
 }
 .manage-link:hover,
 .shop-bar-link:hover {

@@ -5,9 +5,7 @@ import Nav from "./components/Nav.vue";
 <template>
   <main class="app-root">
     <Nav />
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
+    <NuxtPage />
   </main>
 </template>
 

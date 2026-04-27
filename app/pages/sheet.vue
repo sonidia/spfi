@@ -1,82 +1,250 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useGoogleSheet } from "../composables/useGoogleSheet";
+import { computed, onMounted, ref } from "vue";
 import { useLocalStorage } from "../composables/useLocalStorage";
+import { useSheetService } from "../composables/useSheetService";
 
-// Recent sheets stored in localStorage
+type StoredSheet = {
+  source: string;
+  label: string;
+  ranges: string[];
+};
+
+type LegacyStoredSheet = {
+  source?: string;
+  label?: string;
+  range?: string;
+  ranges?: string[];
+};
+
 const { state: sheetList, set: setSheetList } = useLocalStorage<
-  { url: string; label: string }[]
->("sheet-viewer:recent", []);
-
-const inputValue = ref("");
-const sheetUrl = ref("");
-
-// Normalize: accept full URL or just a Sheet ID
-function normalizeInput(raw: string): string {
-  const trimmed = raw.trim();
-
-  // Already a full export URL
-  if (trimmed.includes("export?format=csv")) return trimmed;
-
-  // Full spreadsheet URL → extract ID and convert
-  const urlMatch = trimmed.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  if (urlMatch) {
-    return `https://docs.google.com/spreadsheets/d/${urlMatch[1]}/export?format=csv&gid=0`;
-  }
-
-  // Bare Sheet ID (alphanumeric + dash/underscore, 20+ chars)
-  if (/^[a-zA-Z0-9_-]{20,}$/.test(trimmed)) {
-    return `https://docs.google.com/spreadsheets/d/${trimmed}/export?format=csv&gid=0`;
-  }
-
-  return trimmed;
-}
-
-function extractLabel(url: string): string {
-  const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-  return match && match[1]
-    ? match[1].slice(0, 16) + "…"
-    : url.slice(0, 24) + "…";
-}
-
-function saveToRecent(url: string) {
-  const label = extractLabel(url);
-  const existing = sheetList.value.filter(
-    (s: { url: string }) => s.url !== url,
-  );
-  setSheetList([{ url, label }, ...existing].slice(0, 10));
-}
+  (StoredSheet | LegacyStoredSheet)[]
+>("proxy:sheet-viewer:recent", []);
 
 const {
-  loading,
-  error,
-  headers,
-  filteredRows,
-  load: loadSheet,
-} = useGoogleSheet(sheetUrl);
+  loading: sheetLoading,
+  error: sheetError,
+  headers: sheetHeaders,
+  filteredRows: sheetFilteredRows,
+  loadByInput,
+  buildSheetLabel,
+  buildRangeFromSheetName,
+  loadMetaByInput,
+} = useSheetService();
 
-async function addAndLoadSheet() {
-  if (!inputValue.value) return;
-  const normalized = normalizeInput(inputValue.value);
-  sheetUrl.value = normalized;
-  await loadSheet();
-  if (!error.value) {
-    saveToRecent(normalized);
-    inputValue.value = ""; // clear input on success
+const sheetInputValue = ref("");
+const sheetRangeInput = ref("");
+const selectedSheetRanges = ref<Record<string, string>>({});
+const isSheetModalOpen = ref(false);
+const sheetModalTitle = ref("");
+
+const recentSheets = computed<StoredSheet[]>(() =>
+  normalizeSheetEntries(sheetList.value || []),
+);
+
+function truncateUrl(url: string): string {
+  if (url.length <= 50) return url;
+  return url.slice(0, 47) + "...";
+}
+
+function normalizeSheetNameFromRange(value: string): string {
+  const beforeBang = value.split("!")[0]?.trim() || "";
+  if (!beforeBang) return "";
+  const unquoted = beforeBang.replace(/^'/, "").replace(/'$/, "");
+  return unquoted.replace(/''/g, "'").trim();
+}
+
+function normalizeSheetEntries(
+  items: (StoredSheet | LegacyStoredSheet)[],
+): StoredSheet[] {
+  const normalized = new Map<string, StoredSheet>();
+
+  for (const item of items || []) {
+    const source = String(item?.source || "").trim();
+    if (!source) continue;
+
+    const legacyRange = (item as LegacyStoredSheet)?.range;
+    const rangesFromField = Array.isArray(item?.ranges)
+      ? item.ranges
+      : legacyRange
+        ? [legacyRange]
+        : [];
+
+    const ranges = Array.from(
+      new Set(
+        rangesFromField
+          .map((range) =>
+            String(range || "").includes("!")
+              ? normalizeSheetNameFromRange(String(range || ""))
+              : String(range || "").trim(),
+          )
+          .filter(Boolean),
+      ),
+    );
+
+    const prev = normalized.get(source);
+    const mergedRanges = Array.from(
+      new Set([...(prev?.ranges || []), ...ranges]),
+    );
+
+    normalized.set(source, {
+      source,
+      label:
+        String(item?.label || "").trim() ||
+        prev?.label ||
+        buildSheetLabel(source) ||
+        source.slice(0, 16) + "…",
+      ranges: mergedRanges,
+    });
+  }
+
+  return Array.from(normalized.values()).slice(0, 10);
+}
+
+function persistRecentSheets(items: StoredSheet[]) {
+  setSheetList(items);
+}
+
+function upsertRecentSheet(entry: StoredSheet) {
+  const existing = recentSheets.value.filter(
+    (sheet) => sheet.source !== entry.source,
+  );
+
+  persistRecentSheets([
+    {
+      ...entry,
+      ranges: Array.from(
+        new Set(entry.ranges.map((r) => r.trim()).filter(Boolean)),
+      ),
+    },
+    ...existing,
+  ]);
+}
+
+function toRangeExpression(input?: string): string | undefined {
+  const value = String(input || "").trim();
+  if (!value) return undefined;
+  if (value.includes("!")) return value;
+  return buildRangeFromSheetName(value);
+}
+
+function getSelectedSheetName(sheet: StoredSheet): string {
+  const selected = selectedSheetRanges.value[sheet.source];
+  if (selected) return selected;
+  return sheet.ranges[0] || "";
+}
+
+function setSelectedSheetName(source: string, sheetName: string) {
+  selectedSheetRanges.value = {
+    ...selectedSheetRanges.value,
+    [source]: sheetName,
+  };
+}
+
+function handleSheetRangeChange(source: string, event: Event) {
+  const target = event.target as HTMLSelectElement | null;
+  if (!target) return;
+  setSelectedSheetName(source, target.value || "");
+}
+
+async function readSheetMetaSafe(source: string) {
+  try {
+    return await loadMetaByInput(source);
+  } catch {
+    return null;
   }
 }
 
-function loadSheetData(url: string) {
-  sheetUrl.value = url;
-  loadSheet().then(() => {
-    if (!error.value) saveToRecent(url);
-  });
+onMounted(() => {
+  const normalizedRecentSheets = normalizeSheetEntries(sheetList.value || []);
+  if (
+    JSON.stringify(normalizedRecentSheets) !==
+    JSON.stringify(sheetList.value || [])
+  ) {
+    persistRecentSheets(normalizedRecentSheets);
+  }
+
+  // Load default sheets if no sheets in localStorage
+  if (normalizedRecentSheets.length === 0) {
+    persistRecentSheets(defaultSheets);
+  }
+
+  for (const sheet of normalizedRecentSheets.length > 0
+    ? normalizedRecentSheets
+    : defaultSheets) {
+    const firstRange = sheet.ranges[0];
+    if (firstRange) {
+      setSelectedSheetName(sheet.source, firstRange);
+    }
+  }
+});
+
+async function addAndLoadSheet() {
+  const source = sheetInputValue.value.trim();
+  if (!source) return;
+
+  await loadByInput(source);
+
+  if (!sheetError.value) {
+    const meta = await readSheetMetaSafe(source);
+    const ranges = meta?.sheets?.length ? meta.sheets : [];
+
+    upsertRecentSheet({
+      source,
+      label:
+        String(meta?.title || "").trim() ||
+        buildSheetLabel(source) ||
+        source.slice(0, 16) + "…",
+      ranges,
+    });
+
+    const firstRange = ranges[0];
+    if (firstRange) {
+      setSelectedSheetName(source, firstRange);
+    }
+
+    sheetInputValue.value = "";
+  }
 }
 
-function removeSheet(url: string) {
-  setSheetList(
-    sheetList.value.filter((s: { url: string }) => s.url !== url),
+async function loadSheetViewerData(sheet: StoredSheet) {
+  const selectedSheetName = getSelectedSheetName(sheet);
+  const rangeToLoad = toRangeExpression(selectedSheetName);
+
+  await loadByInput(sheet.source, rangeToLoad);
+  if (!sheetError.value) {
+    const meta = await readSheetMetaSafe(sheet.source);
+    const ranges = meta?.sheets?.length
+      ? meta.sheets
+      : sheet.ranges.length
+        ? sheet.ranges
+        : [];
+
+    upsertRecentSheet({
+      source: sheet.source,
+      label: String(meta?.title || "").trim() || sheet.label,
+      ranges,
+    });
+
+    const nextSelectedSheetName = selectedSheetName || ranges[0];
+    if (nextSelectedSheetName) {
+      setSelectedSheetName(sheet.source, nextSelectedSheetName);
+    }
+
+    sheetModalTitle.value = selectedSheetName
+      ? `${String(meta?.title || sheet.label)} • ${selectedSheetName}`
+      : String(meta?.title || sheet.label);
+    isSheetModalOpen.value = true;
+  }
+}
+
+function removeRecentSheet(source: string) {
+  persistRecentSheets(
+    recentSheets.value.filter((sheet) => sheet.source !== source),
   );
+
+  const nextSelected = { ...selectedSheetRanges.value };
+  delete nextSelected[source];
+  selectedSheetRanges.value = nextSelected;
 }
 </script>
 
@@ -87,216 +255,179 @@ function removeSheet(url: string) {
       <p class="page-sub">Manage your Google Sheets to view data</p>
     </div>
 
-    <!-- ── Configured sheets ── -->
-    <section class="card" v-if="sheetList.length">
-      <div class="card-head">
-        <span class="card-title">Configured Sheets</span>
-        <span class="count-badge">{{ sheetList.length }}</span>
-      </div>
-      <div class="store-row" v-for="sheet in sheetList" :key="sheet.url">
-        <div class="store-id">{{ sheet.label }}</div>
-        <div class="store-meta">
-          <span class="expiry">{{ sheet.url.slice(0, 50) + "..." }}</span>
-        </div>
-        <div class="store-actions">
-          <button class="btn-outline" @click="loadSheetData(sheet.url)">
-            View
-          </button>
-          <button class="btn-danger" @click="removeSheet(sheet.url)">
-            Delete
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Add new sheet ── -->
     <section class="card">
       <div class="card-head">
-        <span class="card-title">Add Sheet</span>
-      </div>
-      <div class="add-form">
-        <div class="field field-wide">
-          <input
-            v-model="inputValue"
-            class="inp"
-            type="text"
-            placeholder="URL, link Google Sheet, hoặc Sheet ID…"
-            @keydown.enter="addAndLoadSheet"
-          />
+        <div class="card-head-row">
+          <span class="card-title">Sheet</span>
+          <div class="sheet-add-form">
+            <div class="sheet-field-wide">
+              <input
+                v-model="sheetInputValue"
+                class="sheet-inp"
+                type="text"
+                placeholder="Google Sheet URL hoặc Spreadsheet ID…"
+                @keydown.enter="addAndLoadSheet"
+              />
+            </div>
+            <button
+              class="sheet-btn-primary"
+              :disabled="sheetLoading || !sheetInputValue.trim()"
+              @click="addAndLoadSheet"
+            >
+              {{ sheetLoading ? "Loading…" : "Load & Add" }}
+            </button>
+          </div>
         </div>
-        <button
-          class="btn-primary"
-          :disabled="loading || !inputValue.trim()"
-          @click="addAndLoadSheet"
-        >
-          {{ loading ? "Loading…" : "Load & Add" }}
-        </button>
       </div>
-      <div v-if="error" class="alert alert-err">{{ error }}</div>
+
+      <div v-if="sheetError" class="alert alert-err">{{ sheetError }}</div>
+
+      <div v-if="recentSheets.length">
+        <div
+          class="sheet-store-row"
+          v-for="sheet in recentSheets"
+          :key="sheet.source"
+        >
+          <div class="sheet-store-id">{{ sheet.label }}</div>
+          <div class="sheet-store-meta">
+            <a class="sheet-url" :href="sheet.source" target="_blank">{{
+              truncateUrl(sheet.source)
+            }}</a>
+            <span v-if="sheet.ranges.length" class="sheet-expiry"
+              >• {{ sheet.ranges.length }} tab(s)</span
+            >
+          </div>
+          <div class="sheet-store-actions">
+            <select
+              v-if="sheet.ranges.length"
+              class="sheet-select"
+              :value="getSelectedSheetName(sheet)"
+              @change="handleSheetRangeChange(sheet.source, $event)"
+            >
+              <option
+                v-for="rangeName in sheet.ranges"
+                :key="rangeName"
+                :value="rangeName"
+              >
+                {{ rangeName }}
+              </option>
+            </select>
+            <button
+              class="sheet-btn-outline"
+              @click="loadSheetViewerData(sheet)"
+            >
+              View
+            </button>
+            <button
+              class="sheet-btn-danger"
+              @click="removeRecentSheet(sheet.source)"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet-viewer-section">
+        <div v-if="sheetLoading" class="sheet-status sheet-status--loading">
+          <span class="sheet-spinner" />
+          Đang tải dữ liệu...
+        </div>
+      </div>
     </section>
 
-    <!-- ── Status & Table Viewer ── -->
-    <div class="viewer-section">
-      <div v-if="loading" class="status status--loading">
-        <span class="spinner" />
-        Đang tải dữ liệu...
-      </div>
-
-      <div v-if="filteredRows && filteredRows.length" class="table-wrap">
-        <table>
+    <SheetDataModal
+      :open="isSheetModalOpen"
+      :title="sheetModalTitle"
+      @close="isSheetModalOpen = false"
+    >
+      <div class="sheet-table-wrap">
+        <table v-if="sheetFilteredRows && sheetFilteredRows.length">
           <thead>
             <tr>
-              <th v-for="(h, i) in headers" :key="i">
+              <th v-for="(h, i) in sheetHeaders" :key="i">
                 {{ h }}
-                <span v-if="i === 0" class="badge"
-                  >{{ filteredRows.length }} dòng</span
+                <span v-if="i === 0" class="sheet-badge"
+                  >{{ sheetFilteredRows.length }} dòng</span
                 >
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in filteredRows" :key="i">
+            <tr v-for="(row, i) in sheetFilteredRows" :key="i">
               <td v-for="(cell, j) in row" :key="j">{{ cell }}</td>
             </tr>
           </tbody>
         </table>
+        <div v-else class="sheet-empty-modal">
+          Không có dữ liệu để hiển thị.
+        </div>
       </div>
-    </div>
+    </SheetDataModal>
   </div>
 </template>
 
 <style scoped>
 .sheet-page {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 28px 20px 48px;
+  padding: 28px 24px 60px;
   font-size: 14px;
 }
+
 .page-header {
   margin-bottom: 24px;
 }
+
 .page-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
+
 .page-sub {
   font-size: 13px;
   color: var(--text-secondary, #6d6d6d);
 }
 
-/* Card */
 .card {
   background: var(--surface);
-  border-radius: var(--radius, 8px);
-  box-shadow: var(--shadow);
-  margin-bottom: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
+
 .card-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.01);
 }
+
 .card-title {
   font-weight: 600;
-  font-size: 14px;
-}
-.count-badge {
-  background: #e8e8e8;
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 20px;
+  font-size: 15px;
 }
 
-/* Store rows */
-.store-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.store-row:last-child {
-  border-bottom: none;
-}
-.store-id {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-primary);
-  width: fit-content;
-}
-.store-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  flex-wrap: wrap;
-}
-.expiry {
-  font-size: 12px;
-  color: var(--text-secondary, #6d6d6d);
-}
-.store-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-}
-.btn-outline {
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s, opacity 0.15s;
-}
-.btn-outline:hover:not(:disabled) {
-  background: var(--bg);
-}
-.btn-outline:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-danger {
-  padding: 5px 12px;
-  border: 1px solid #fcc;
-  border-radius: 6px;
-  background: #fff;
-  color: var(--red);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s;
-}
-.btn-danger:hover {
-  background: #fce8e8;
-}
-
-/* Add form */
-.add-form {
+.sheet-add-form {
   display: flex;
   gap: 12px;
   align-items: flex-end;
   padding: 16px 18px;
   flex-wrap: wrap;
 }
-.field-wide {
+
+.sheet-field-wide {
   flex: 2;
-  min-width: 160px;
+  min-width: 180px;
 }
-.inp {
+
+.sheet-inp {
   width: 100%;
   border: 1px solid var(--border);
   padding: 7px 10px;
@@ -305,11 +436,13 @@ function removeSheet(url: string) {
   font-size: 13px;
   box-sizing: border-box;
 }
-.inp:focus {
+
+.sheet-inp:focus {
   outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
-.btn-primary {
+
+.sheet-btn-primary {
   height: 32px;
   padding: 0 16px;
   background: var(--text-primary, #1a1a1a);
@@ -324,80 +457,154 @@ function removeSheet(url: string) {
   flex-shrink: 0;
   transition: opacity 0.15s;
 }
-.btn-primary:disabled {
+
+.sheet-btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.btn-primary:hover:not(:disabled) {
+
+.sheet-btn-primary:hover:not(:disabled) {
   opacity: 0.85;
 }
 
-/* Alerts */
-.alert {
-  margin: 0 18px 14px;
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-.alert-err {
-  background: #fce8e8;
-  color: var(--red);
+.sheet-store-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
-/* Viewer & Table */
-.viewer-section {
-  margin-top: 20px;
-}
-.status {
+.sheet-store-id {
+  font-weight: 600;
   font-size: 13px;
-  margin-bottom: 1rem;
+  color: var(--text-primary);
+  width: fit-content;
+}
+
+.sheet-store-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.sheet-expiry {
+  font-size: 12px;
+  color: var(--text-secondary, #6d6d6d);
+}
+
+.sheet-store-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.sheet-select {
+  min-width: 150px;
+  max-width: 220px;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.sheet-btn-outline {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+}
+
+.sheet-btn-outline:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.sheet-btn-danger {
+  padding: 5px 12px;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.sheet-btn-danger:hover {
+  background: #fce8e8;
+}
+
+.sheet-viewer-section {
+  margin-top: 8px;
+}
+
+.sheet-status {
+  font-size: 13px;
+  margin: 0 18px 14px;
   padding: 10px 14px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.status--loading {
+
+.sheet-status--loading {
   background: #f5f5f5;
   color: #666;
   border: 1px solid #e5e5e5;
 }
-.spinner {
+
+.sheet-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
   border: 2px solid #ddd;
   border-top-color: #534ab7;
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: sheet-spin 0.7s linear infinite;
   flex-shrink: 0;
 }
-@keyframes spin {
+
+@keyframes sheet-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.table-wrap {
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  right: 50%;
-  margin-left: -50vw;
-  margin-right: -50vw;
+.sheet-table-wrap {
+  width: 100%;
   border-top: 1px solid var(--border);
   background: var(--surface);
   overflow-x: auto;
 }
-table {
+
+.sheet-table-wrap table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
-thead tr {
+
+.sheet-table-wrap thead tr {
   background: #f9f9f9;
 }
-th {
+
+.sheet-table-wrap th {
   padding: 10px 20px;
   text-align: left;
   font-weight: 500;
@@ -408,19 +615,22 @@ th {
   border-bottom: 1px solid #e5e5e5;
   white-space: nowrap;
 }
-td {
+
+.sheet-table-wrap td {
   padding: 10px 20px;
   color: #111;
   border-bottom: 1px solid #f0f0f0;
 }
-tbody tr:last-child td {
+
+.sheet-table-wrap tbody tr:last-child td {
   border-bottom: none;
 }
-tbody tr:hover {
+
+.sheet-table-wrap tbody tr:hover {
   background: #fafafa;
 }
 
-.badge {
+.sheet-badge {
   display: inline-block;
   font-size: 10px;
   padding: 2px 7px;
@@ -432,5 +642,32 @@ tbody tr:hover {
   text-transform: none;
   letter-spacing: 0;
 }
-</style>
 
+.sheet-empty-modal {
+  padding: 18px;
+  color: var(--text-secondary, #6d6d6d);
+  font-size: 13px;
+}
+
+.alert {
+  margin: 0 20px 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.sheet-url {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.sheet-url:hover {
+  text-decoration: underline;
+}
+
+.card-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+</style>

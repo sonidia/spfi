@@ -11,10 +11,10 @@
       <span class="topbar-title">Shopify</span>
     </div>
     <div class="nav-list">
-      <NuxtLink to="/sheet">Sheet</NuxtLink>
       <NuxtLink to="/order">Order</NuxtLink>
       <NuxtLink to="/payment">Payment</NuxtLink>
-      <NuxtLink to="/token">Token</NuxtLink>
+      <NuxtLink to="/manager">Manager</NuxtLink>
+      <NuxtLink to="/sheet">Sheet</NuxtLink>
     </div>
   </nav>
 </template>
@@ -58,19 +58,21 @@
   gap: 4px;
 }
 .nav-list a {
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   padding: 5px 12px;
   border-radius: 6px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   text-decoration: none;
 }
 .nav-list a:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 .nav-list a.router-link-active {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 </style>

@@ -1,14 +1,7 @@
 <template>
-  <div class="page" id="app">
-    <!-- Loading state -->
-    <div v-if="orderStore.isLoading" id="loading">Loading order...</div>
-    <div v-else-if="orderStore.error" id="loading" style="color: red">
-      {{ orderStore.error }}
-    </div>
-
-    <!-- ════════════════════════════════════════ SCREEN: ORDER DETAIL -->
-    <template v-else-if="currentOrder">
-      <div class="page-header">
+  <NuxtLayout name="shop">
+    <template #title>
+      <div style="display: flex; align-items: center; gap: 10px;">
         <NuxtLink
           to="/order"
           style="
@@ -17,11 +10,12 @@
             color: var(--text-link);
             cursor: pointer;
             font-size: 14px;
-            margin-right: 10px;
             text-decoration: none;
+            display: flex;
+            align-items: center;
           "
         >
-          ← Back to Orders
+          ←
         </NuxtLink>
         <span class="page-title">{{
           nilVal(currentOrder.name, "#" + currentOrder.order_number)
@@ -33,10 +27,21 @@
           <span class="badge" :class="badge.cls">{{ badge.label }}</span>
         </template>
       </div>
-      <div class="page-meta">
-        {{ fmtDateTime(currentOrder.created_at) || "—" }} from
-        {{ getSource(currentOrder) }}
+    </template>
+
+    <div class="page" id="app">
+      <!-- Loading state -->
+      <div v-if="orderStore.isLoading" id="loading">Loading order...</div>
+      <div v-else-if="orderStore.error" id="loading" style="color: red">
+        {{ orderStore.error }}
       </div>
+
+      <!-- ════════════════════════════════════════ SCREEN: ORDER DETAIL -->
+      <template v-else-if="currentOrder">
+        <div class="page-meta">
+          {{ fmtDateTime(currentOrder.created_at) || "—" }} from
+          {{ getSource(currentOrder) }}
+        </div>
 
       <div class="grid">
         <!-- Left column -->
@@ -326,6 +331,18 @@
               </div>
             </div>
           </div>
+
+          <!-- Timeline -->
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-header">
+              <span class="card-title">Timeline</span>
+            </div>
+            <div style="padding: 0 16px 16px;">
+              <OrderTransactions
+                :order="currentOrder"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- Sidebar -->
@@ -452,8 +469,9 @@
       </div>
     </template>
     
-    <div v-else id="loading">Order not found.</div>
-  </div>
+      <div v-else id="loading">Order not found.</div>
+    </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -481,8 +499,6 @@ import {
   getDiscount,
   getItemCount
 } from "../../utils/order";
-
-definePageMeta({ layout: "shop" });
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
