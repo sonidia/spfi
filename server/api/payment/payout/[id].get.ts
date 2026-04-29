@@ -1,5 +1,5 @@
 import axios from "axios";
-import { createError, defineEventHandler, getQuery, getRouterParam } from "h3";
+import { createError, defineEventHandler, getQuery } from "h3";
 import {
   buildProxyVariants,
   createProxyAgent,
@@ -8,22 +8,15 @@ import {
 } from "../../../../utils/proxy/store-proxy";
 
 export default defineEventHandler(async (event) => {
-  const orderId = getRouterParam(event, "id");
+  const payoutId = event.context.params?.id;
   const query = getQuery(event);
-  const storeId = query.storeId as string;
-  const token = query.token as string;
+  const storeId = String(query.storeId || "");
+  const token = String(query.token || "");
 
-  if (!orderId) {
+  if (!storeId || !token || !payoutId) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Order ID is required.",
-    });
-  }
-
-  if (!storeId || !token) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Store ID and Access Token are required.",
+      statusMessage: "storeId, token and payout id are required.",
     });
   }
 
@@ -53,34 +46,41 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  try {
-    let lastError: any;
-
-    for (const proxyUrl of proxyVariants) {
-      const agent = createProxyAgent(proxyUrl);
-      try {
-        const res = await axios.get(
-          `${baseURL}/orders/${orderId}/transactions.json`,
+  let lastError: any;
+  for (const proxyUrl of proxyVariants) {
+    const agent = createProxyAgent(proxyUrl);
+    try {
+      const [payoutRes, txRes] = await Promise.all([
+        axios.get(
+          `${baseURL}/shopify_payments/payouts/${payoutId}.json`,
+          { headers, httpAgent: agent, httpsAgent: agent },
+        ),
+        axios.get(
+          `${baseURL}/shopify_payments/balance/transactions.json`,
           {
             headers,
             httpAgent: agent,
             httpsAgent: agent,
+            params: { payout_id: payoutId },
           },
-        );
+        ),
+      ]);
 
-        return res.data;
-      } catch (error: any) {
-        lastError = error;
-      }
+      return {
+        payout: payoutRes.data.payout,
+        transactions: txRes.data.transactions ?? [],
+      };
+    } catch (error: any) {
+      lastError = error;
     }
-
-    throw lastError || new Error("Unknown proxy error");
-  } catch (err: any) {
-    const message =
-      err.response?.data?.errors || err.response?.data?.message || err.message;
-    throw createError({
-      statusCode: err.response?.status || 500,
-      statusMessage: message,
-    });
   }
+
+  const message =
+    lastError?.response?.data?.errors ||
+    lastError?.response?.data?.message ||
+    lastError?.message;
+  throw createError({
+    statusCode: lastError?.response?.status || 500,
+    statusMessage: message,
+  });
 });

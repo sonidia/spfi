@@ -105,6 +105,7 @@ export function getSource(order: any) {
     draft_orders: "Draft Order",
     shopify_draft_order: "Draft Order",
   };
+  if (!order) return "Online Store";
   return (
     sourceMap[order.source_name] ||
     capitalize(order.source_name) ||
@@ -133,7 +134,8 @@ export function fulfillmentBadge(status: string) {
   return { cls: cls[status] || "badge-archived", label: capitalize(status) };
 }
 export function getOrderBadges(order: any) {
-  const badges = [];
+  const badges: any[] = [];
+  if (!order) return badges;
   if (order.financial_status) {
     const b = financialBadge(order.financial_status);
     if (b) badges.push(b);
@@ -149,14 +151,15 @@ export function getOrderBadges(order: any) {
   return badges;
 }
 export function getCustomerName(order: any) {
+  if (!order || !order.customer) return null;
   const cust = order.customer;
-  if (!cust) return null;
   const name = [nilVal(cust.first_name, ""), nilVal(cust.last_name, "")]
     .filter(Boolean)
     .join(" ");
   return name || null;
 }
 export function getCustomerEmail(order: any) {
+  if (!order) return null;
   return (
     nilVal(order.customer?.email) ||
     nilVal(order.email) ||
@@ -165,20 +168,24 @@ export function getCustomerEmail(order: any) {
   );
 }
 export function getSubtotal(order: any) {
+  if (!order) return "0.00";
   return nilVal(
     order.subtotal_price,
     nilVal(order.current_subtotal_price, "0.00"),
   );
 }
 export function getTax(order: any) {
+  if (!order) return "0.00";
   return nilVal(order.total_tax, nilVal(order.current_total_tax, "0.00"));
 }
 export function getDiscount(order: any) {
+  if (!order) return "0.00";
   return nilVal(
     order.total_discounts,
     nilVal(order.current_total_discounts, "0.00"),
   );
 }
 export function getItemCount(order: any) {
+  if (!order) return 0;
   return (order.line_items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
 }

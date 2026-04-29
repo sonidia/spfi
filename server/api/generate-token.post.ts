@@ -7,7 +7,7 @@ import {
   inspectProxyInput,
   maskProxyUrl,
   normalizeProxyUrl,
-} from "../utils/proxy";
+} from "../../utils/proxy/proxy";
 
 function toRawProxyVariant(sock: string): string | null {
   const raw = String(sock || "").trim();

@@ -31,18 +31,23 @@ export type ProxySheetLoadPreset = {
 export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
 export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";
 
-export const QUAN_LY_SHEET_URL = "https://docs.google.com/spreadsheets/d/1QbchbP0eeMjcrafXUTPmHwZsUZmIeJOZPUFULqBzy3s/edit?gid=0#gid=0";
+export const QUAN_LY_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1QbchbP0eeMjcrafXUTPmHwZsUZmIeJOZPUFULqBzy3s/edit?gid=0#gid=0";
+
+export const BUFF1_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/18IPUGpt_WpmSt3txEZY5Zx94p15Qlr36jhZutsE2evg/edit?gid=660632124#gid=660632124";
+
+export const BUFF2_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1ZLAMxVu_nyWWD_R9DWCICI57oXJPnTtMqYuLTit8_4A/edit?gid=0#gid=0";
 
 export const defaultSheets: StoredSheet[] = [];
 
-// Bạn có thể custom lại startRow/columns tại đây theo từng sheet/tab
 export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
   {
     source: QUAN_LY_SHEET_URL,
     tab: "quản lý",
     startRow: 3,
     columns: {
-      // 0-based indexes: A=0, B=1, ...
       storeId: 1,
       shop: 1,
       domain: 2,
@@ -50,7 +55,7 @@ export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
     },
   },
   {
-    source: "https://docs.google.com/spreadsheets/d/18IPUGpt_WpmSt3txEZY5Zx94p15Qlr36jhZutsE2evg/edit?gid=660632124#gid=660632124",
+    source: BUFF1_SHEET_URL,
     tab: "order 1",
     startRow: 5,
     columns: {
@@ -61,7 +66,7 @@ export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
     },
   },
   {
-    source: "https://docs.google.com/spreadsheets/d/1ZLAMxVu_nyWWD_R9DWCICI57oXJPnTtMqYuLTit8_4A/edit?gid=0#gid=0",
+    source: BUFF2_SHEET_URL,
     tab: "Sheet1",
     startRow: 3,
     columns: {
@@ -74,8 +79,10 @@ export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
 ];
 
 export const machineSheets: Record<string, string> = {
-  "MÁY 1": "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0",
-  "MÁY 2": "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0",
+  "MÁY 1":
+    "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0",
+  "MÁY 2":
+    "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0",
 };
 
 export function getProxySheetPreset(

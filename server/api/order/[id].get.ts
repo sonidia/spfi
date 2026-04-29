@@ -1,5 +1,5 @@
 import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
+import { createError, defineEventHandler, getQuery } from "h3";
 import {
   buildProxyVariants,
   createProxyAgent,
@@ -8,41 +8,32 @@ import {
 } from "../../../utils/proxy/store-proxy";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
-  const { storeId, token } = body;
+  const id = event.context.params?.id;
+  const { storeId, token } = getQuery(event);
 
-  if (!storeId || !token) {
+  if (!id || !storeId || !token) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Store ID and Access Token are required.",
+      statusMessage: "ID, Store ID and Access Token are required.",
     });
   }
 
-  const storeCookie = resolveStoreCookieData(event, storeId);
+  const storeCookie = resolveStoreCookieData(event, String(storeId));
   const sock = String(storeCookie?.sock || "").trim();
   if (!sock) {
     throw createError({
       statusCode: 400,
-      statusMessage:
-        "Missing sock proxy for this store. Please update it in Manager page.",
+      statusMessage: "Missing sock proxy for this store.",
     });
   }
 
-  const domain = resolveStoreDomain(storeId, storeCookie?.domain);
+  const domain = resolveStoreDomain(String(storeId), storeCookie?.domain);
   const baseURL = `https://${domain}/admin/api/2026-04`;
   const headers = {
-    "X-Shopify-Access-Token": token,
+    "X-Shopify-Access-Token": String(token),
     "Content-Type": "application/json",
   };
   const proxyVariants = buildProxyVariants(sock);
-
-  if (proxyVariants.length === 0) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        "Invalid sock proxy format. Please verify this store's proxy in Manager page.",
-    });
-  }
 
   try {
     let lastError: any;
@@ -50,14 +41,13 @@ export default defineEventHandler(async (event) => {
     for (const proxyUrl of proxyVariants) {
       const agent = createProxyAgent(proxyUrl);
       try {
-        const ordersRes = await axios.get(`${baseURL}/orders.json`, {
+        const orderRes = await axios.get(`${baseURL}/orders/${id}.json`, {
           headers,
           httpAgent: agent,
           httpsAgent: agent,
-          params: { status: "any" },
         });
 
-        return ordersRes.data;
+        return orderRes.data;
       } catch (error: any) {
         lastError = error;
       }

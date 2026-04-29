@@ -1,9 +1,14 @@
 <script lang="ts" setup>
+import { useLoading } from "./composables/useLoading";
 import Nav from "./components/Nav.vue";
+import LoadingOverlay from "./components/LoadingOverlay.vue";
+
+const { loading } = useLoading();
 </script>
 
 <template>
   <main class="app-root">
+    <LoadingOverlay :visible="loading" />
     <Nav />
     <NuxtPage />
   </main>
@@ -81,7 +86,7 @@ select {
 
 .layout,
 .page {
-  max-width: 900px;
+  max-width: 1028px;
   margin: 0 auto;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <nav class="topbar">
-    <div class="brand">
+    <NuxtLink class="brand" to="/">
       <div class="topbar-logo">
         <svg viewBox="0 0 24 24">
           <path
@@ -9,10 +9,11 @@
         </svg>
       </div>
       <span class="topbar-title">Shopify</span>
-    </div>
+    </NuxtLink>
     <div class="nav-list">
       <NuxtLink to="/order">Order</NuxtLink>
       <NuxtLink to="/payment">Payment</NuxtLink>
+      <NuxtLink to="/payment/transactions">Transactions</NuxtLink>
       <NuxtLink to="/manager">Manager</NuxtLink>
       <NuxtLink to="/sheet">Sheet</NuxtLink>
     </div>

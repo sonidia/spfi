@@ -2,7 +2,7 @@ import axios from "axios";
 import { createError, defineEventHandler, readBody } from "h3";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { SocksProxyAgent } from "socks-proxy-agent";
-import { maskProxyUrl, normalizeProxyUrl } from "../utils/proxy";
+import { maskProxyUrl, normalizeProxyUrl } from "../../utils/proxy/proxy";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);

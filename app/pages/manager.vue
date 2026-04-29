@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import { useSheetService } from "../composables/useSheetService";
-import { useFormStore } from "../stores/form";
 import {
   QUAN_LY_SHEET_URL,
   getProxySheetPreset,
   machineSheets,
-} from "../utils/sheets";
+} from "../../utils/sheets";
+import { useSheetService } from "../composables/useSheetService";
+import { useFormStore } from "../stores/form";
 
 definePageMeta({ layout: false }); // uses default layout (no shop bar)
 
@@ -29,6 +29,10 @@ const proxyResults = ref<
 >({});
 const genError = ref("");
 const genSuccess = ref("");
+
+// ── Search and Sort state ──────────────────────────────────────────────────
+const searchQuery = ref("");
+const sortOrder = ref("expiry_desc"); // domain_asc, domain_desc, expiry_asc, expiry_desc
 
 // ── Progress steps for findShop ─────────────────────────────────────────────
 const findShopSteps = ref([
@@ -128,6 +132,34 @@ function getStoreInfo(id: string): StoreInfo {
 const storeList = computed<StoreInfo[]>(() =>
   formStore.knownStores.map(getStoreInfo),
 );
+
+const filteredStoreList = computed(() => {
+  let list = [...storeList.value];
+
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter((s) => s.domain.toLowerCase().includes(q));
+  }
+
+  list.sort((a, b) => {
+    if (sortOrder.value === "domain_asc")
+      return a.domain.localeCompare(b.domain);
+    if (sortOrder.value === "domain_desc")
+      return b.domain.localeCompare(a.domain);
+
+    const cookieA = useCookie<any>(a.id).value || {};
+    const cookieB = useCookie<any>(b.id).value || {};
+    const timeA = cookieA.expiresTime || 0;
+    const timeB = cookieB.expiresTime || 0;
+
+    if (sortOrder.value === "expiry_asc") return timeA - timeB;
+    if (sortOrder.value === "expiry_desc") return timeB - timeA;
+
+    return 0;
+  });
+
+  return list;
+});
 
 // ── Delete store ──────────────────────────────────────────────────────────────
 function deleteStore(id: string) {
@@ -258,10 +290,10 @@ async function addShop() {
         throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
       }
 
-      if (machineMatch.proxyUrl) newSock.value = machineMatch.proxyUrl.trim();
-      if (machineMatch.storeId) newStoreId.value = machineMatch.storeId;
-      if (machineMatch.clientId) newClientId.value = machineMatch.clientId;
-      if (machineMatch.clientSecret)
+      if (machineMatch.proxyUrl && !newSock.value.trim()) newSock.value = machineMatch.proxyUrl.trim();
+      if (machineMatch.storeId && !newStoreId.value.trim()) newStoreId.value = machineMatch.storeId;
+      if (machineMatch.clientId && !newClientId.value.trim()) newClientId.value = machineMatch.clientId;
+      if (machineMatch.clientSecret && !newClientSecret.value.trim())
         newClientSecret.value = machineMatch.clientSecret;
 
       // Update local variables for token gen
@@ -269,6 +301,15 @@ async function addShop() {
       cId = newClientId.value;
       cSec = newClientSecret.value;
       setStep("MACHINE_FETCH", "done");
+    }
+
+    // 1.5 – Check if this store is already configured
+    if (sId && formStore.knownStores.includes(sId)) {
+      const dom = newDomain.value.trim() || sId;
+      genError.value = `"${dom}" is already in the configured stores list (store: ${sId}).`;
+      isFindingShop.value = false;
+      resetSteps();
+      return;
     }
 
     // 2. Token Generation Phase
@@ -417,29 +458,25 @@ async function testProxy(id: string) {
     <!-- ── Add new store ── -->
     <section class="card">
       <div class="card-head">
-        <span class="card-title">Add Store</span>
+        <input
+          v-model="newDomain"
+          type="text"
+          placeholder="Your store domain (e.g., myshop.store)"
+          class="inp domain_inp"
+        />
         <div class="card-actions">
           <button
             class="btn-primary"
             :disabled="isFindingShop"
             @click="addShop"
           >
-            {{ isFindingShop ? "Processing…" : "Add" }}
+            {{ isFindingShop ? "Processing…" : "Add connect" }}
           </button>
         </div>
       </div>
       <div class="add-form">
-        <div class="field field-25">
-          <label class="field-label">Domain</label>
-          <input
-            v-model="newDomain"
-            type="text"
-            placeholder="myshop.store"
-            class="inp"
-          />
-        </div>
-        <div class="field field-40">
-          <label class="field-label">Sock (Proxy URL)</label>
+        <div class="field field-50">
+          <label class="field-label">Sock/Proxy</label>
           <input
             v-model="newSock"
             type="text"
@@ -447,8 +484,8 @@ async function testProxy(id: string) {
             class="inp"
           />
         </div>
-        <div class="field field-35">
-          <label class="field-label">Store ID / Shop Name</label>
+        <div class="field field-50">
+          <label class="field-label">Store ID</label>
           <input
             v-model="newStoreId"
             type="text"
@@ -512,10 +549,81 @@ async function testProxy(id: string) {
     <!-- ── Store list ── -->
     <section class="card" v-if="storeList.length">
       <div class="card-head">
-        <span class="card-title">Configured Stores</span>
-        <span class="count-badge">{{ storeList.length }}</span>
+        <div class="card-head-title">
+          <span class="card-title">Configured Stores</span>
+          <span class="count-badge">{{ filteredStoreList.length }}</span>
+        </div>
+        <div class="card-head-actions">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search domain..."
+            class="search-inp"
+          />
+          <BasePopover align="right">
+            <template #trigger="{ isOpen }">
+              <button class="btn-sort" :class="{ 'is-active': isOpen }">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M3 6h14M3 10h10M3 14h7" />
+                </svg>
+              </button>
+            </template>
+            <template #default="{ close }">
+              <div class="popover-menu">
+                <div
+                  class="popover-item"
+                  :class="{ active: sortOrder === 'domain_asc' }"
+                  @click="
+                    sortOrder = 'domain_asc';
+                    close();
+                  "
+                >
+                  Domain (A-Z)
+                </div>
+                <div
+                  class="popover-item"
+                  :class="{ active: sortOrder === 'domain_desc' }"
+                  @click="
+                    sortOrder = 'domain_desc';
+                    close();
+                  "
+                >
+                  Domain (Z-A)
+                </div>
+                <div class="popover-divider"></div>
+                <div
+                  class="popover-item"
+                  :class="{ active: sortOrder === 'expiry_asc' }"
+                  @click="
+                    sortOrder = 'expiry_asc';
+                    close();
+                  "
+                >
+                  Expiry (Oldest)
+                </div>
+                <div
+                  class="popover-item"
+                  :class="{ active: sortOrder === 'expiry_desc' }"
+                  @click="
+                    sortOrder = 'expiry_desc';
+                    close();
+                  "
+                >
+                  Expiry (Newest)
+                </div>
+              </div>
+            </template>
+          </BasePopover>
+        </div>
       </div>
-      <div class="store-row" v-for="store in storeList" :key="store.id">
+      <div class="store-row" v-for="store in filteredStoreList" :key="store.id">
         <div class="store-id">{{ store.domain || "(No domain)" }}</div>
         <div class="store-meta">
           <span v-if="!store.hasToken" class="tag tag-warn">No token</span>
@@ -659,8 +767,8 @@ async function testProxy(id: string) {
   border-radius: var(--radius, 8px);
   box-shadow: var(--shadow);
   margin-bottom: 20px;
-  overflow: hidden;
 }
+
 .card-head {
   display: flex;
   align-items: center;
@@ -668,10 +776,21 @@ async function testProxy(id: string) {
   padding: 10px 18px;
   border-bottom: 1px solid var(--border);
 }
+.card-head-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .card-actions {
   display: flex;
   gap: 8px;
 }
+
 .card-title {
   font-weight: 600;
   font-size: 14px;
@@ -789,6 +908,65 @@ async function testProxy(id: string) {
   outline: 2px solid var(--blue);
   outline-offset: 1px;
 }
+.domain_inp {
+  width: 40%;
+}
+.search-inp {
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 180px;
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.search-inp:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+.btn-sort {
+  display: flex;
+  align-items: center;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-sort:hover,
+.btn-sort.is-active {
+  background: #f6f6f6;
+  border-color: var(--blue);
+}
+.popover-menu {
+  padding: 4px;
+}
+.popover-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+.popover-item:hover {
+  background: #f4f6f8;
+}
+.popover-item.active {
+  color: var(--blue);
+  font-weight: 600;
+  background: #f0f7ff;
+}
+.popover-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
 .field-label {
   display: block;
   font-size: 11px;
@@ -803,18 +981,11 @@ async function testProxy(id: string) {
   gap: 12px;
   padding: 16px 18px;
 }
-.field-25 {
-  grid-column: span 5;
-}
-.field-40 {
-  grid-column: span 8;
-}
-.field-35 {
-  grid-column: span 7;
-}
+
 .field-50 {
   grid-column: span 10;
 }
+
 .field-full {
   grid-column: span 20;
 }
@@ -872,8 +1043,8 @@ async function testProxy(id: string) {
 }
 
 .btn-primary {
-  height: 32px;
-  padding: 0 16px;
+  height: 30px;
+  padding: 0 14px;
   background: var(--text-primary, #1a1a1a);
   color: #fff;
   border: none;

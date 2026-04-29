@@ -65,13 +65,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import { useOrderStore } from "../../stores/order";
 import {
   fmtDateTime,
   fmtMoney,
   getOrderBadges,
   nilVal,
-} from "../../utils/order";
+} from "../../../utils/order";
+import { useOrderStore } from "../../stores/order";
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();

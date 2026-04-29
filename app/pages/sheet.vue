@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { defaultSheets } from "../../utils/sheets";
 import { useLocalStorage } from "../composables/useLocalStorage";
 import { useSheetService } from "../composables/useSheetService";
+
+definePageMeta({ layout: false });
 
 type StoredSheet = {
   source: string;
@@ -255,29 +258,27 @@ function removeRecentSheet(source: string) {
       <p class="page-sub">Manage your Google Sheets to view data</p>
     </div>
 
-    <section class="card">
-      <div class="card-head">
-        <div class="card-head-row">
-          <span class="card-title">Sheet</span>
-          <div class="sheet-add-form">
-            <div class="sheet-field-wide">
-              <input
-                v-model="sheetInputValue"
-                class="sheet-inp"
-                type="text"
-                placeholder="Google Sheet URL hoặc Spreadsheet ID…"
-                @keydown.enter="addAndLoadSheet"
-              />
-            </div>
-            <button
-              class="sheet-btn-primary"
-              :disabled="sheetLoading || !sheetInputValue.trim()"
-              @click="addAndLoadSheet"
-            >
-              {{ sheetLoading ? "Loading…" : "Load & Add" }}
-            </button>
-          </div>
+    <section :class="['card', { 'card--empty': recentSheets.length === 0 }]">
+      <div class="sheet-add-form">
+        <div class="sheet-field-wide">
+          <input
+            v-model="sheetInputValue"
+            :class="[
+              'sheet-inp',
+              { 'sheet-inp--wide': recentSheets.length === 0 },
+            ]"
+            type="text"
+            placeholder="Google Sheet URL hoặc Spreadsheet ID…"
+            @keydown.enter="addAndLoadSheet"
+          />
         </div>
+        <button
+          class="sheet-btn-primary"
+          :disabled="sheetLoading || !sheetInputValue.trim()"
+          @click="addAndLoadSheet"
+        >
+          {{ sheetLoading ? "Loading…" : "Load & Add" }}
+        </button>
       </div>
 
       <div v-if="sheetError" class="alert alert-err">{{ sheetError }}</div>
@@ -298,20 +299,14 @@ function removeRecentSheet(source: string) {
             >
           </div>
           <div class="sheet-store-actions">
-            <select
+            <BaseSelect
               v-if="sheet.ranges.length"
-              class="sheet-select"
-              :value="getSelectedSheetName(sheet)"
-              @change="handleSheetRangeChange(sheet.source, $event)"
-            >
-              <option
-                v-for="rangeName in sheet.ranges"
-                :key="rangeName"
-                :value="rangeName"
-              >
-                {{ rangeName }}
-              </option>
-            </select>
+              class-name="sheet-select-custom"
+              :model-value="getSelectedSheetName(sheet)"
+              :options="sheet.ranges.map((r) => ({ label: r, value: r }))"
+              @change="setSelectedSheetName(sheet.source, $event)"
+            />
+
             <button
               class="sheet-btn-outline"
               @click="loadSheetViewerData(sheet)"
@@ -396,17 +391,13 @@ function removeRecentSheet(source: string) {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   margin-bottom: 24px;
-  overflow: hidden;
   border: 1px solid var(--border);
 }
 
-.card-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.01);
+.card--empty {
+  background: transparent;
+  box-shadow: none;
+  border: none;
 }
 
 .card-title {
@@ -418,7 +409,6 @@ function removeRecentSheet(source: string) {
   display: flex;
   gap: 12px;
   align-items: flex-end;
-  padding: 16px 18px;
   flex-wrap: wrap;
 }
 
@@ -435,6 +425,10 @@ function removeRecentSheet(source: string) {
   font-family: inherit;
   font-size: 13px;
   box-sizing: border-box;
+  transition: width 0.3s ease;
+}
+.sheet-inp--wide {
+  width: 100%;
 }
 
 .sheet-inp:focus {
@@ -500,6 +494,11 @@ function removeRecentSheet(source: string) {
   margin-left: auto;
   display: flex;
   gap: 8px;
+}
+
+.sheet-select-custom {
+  min-width: 150px;
+  max-width: 220px;
 }
 
 .sheet-select {
@@ -663,11 +662,5 @@ function removeRecentSheet(source: string) {
 
 .sheet-url:hover {
   text-decoration: underline;
-}
-
-.card-head-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 </style>

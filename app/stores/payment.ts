@@ -50,8 +50,12 @@ export interface Balance {
 export const usePaymentStore = defineStore("payment", () => {
   const balance = ref<Balance | null>(null);
   const payouts = ref<Payout[]>([]);
+  // Individual full payout details cached by ID
+  const payoutDetails = ref<Record<string, Payout>>({});
   // Map: payoutId → Transaction[]
   const transactionsByPayout = ref<Record<string, Transaction[]>>({});
+  
+  const balanceTransactions = ref<any[]>([]);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -84,15 +88,94 @@ export const usePaymentStore = defineStore("payment", () => {
     }
   }
 
+  async function fetchBalanceTransactions(
+    storeId: string,
+    token: string,
+    force = false,
+  ) {
+    if (!storeId || !token) {
+      error.value = "Store ID and Access Token are required.";
+      return;
+    }
+
+    if (!force && balanceTransactions.value.length > 0) return;
+
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const res = await $fetch<any>("/api/payment/balance-transactions", {
+        method: "POST",
+        body: { storeId, token },
+      });
+      balanceTransactions.value = (res.transactions || []).filter(
+        (t: any) => t.type !== "payout",
+      );
+    } catch (err: any) {
+      error.value = err.message || "Failed to load transactions";
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   /** Lấy transactions của một payout cụ thể */
   function getTransactionsForPayout(payoutId: number): Transaction[] {
     return transactionsByPayout.value[String(payoutId)] ?? [];
   }
 
+  /** Fetch a single payout + its transactions (with cache) */
+  async function fetchPayoutDetail(
+    storeId: string,
+    token: string,
+    payoutId: number,
+    force = false,
+  ) {
+    // Already have full payout cached? Skip fetch unless forced
+    if (!force && payoutDetails.value[String(payoutId)] && transactionsByPayout.value[String(payoutId)]?.length) return;
+
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const response = await $fetch<any>(
+        `/api/payment/payout/${payoutId}`,
+        {
+          params: { storeId, token },
+        },
+      );
+
+      if (response.payout) {
+        // Cache detailed version
+        payoutDetails.value[String(payoutId)] = response.payout;
+        
+        // Also update lightweight list if present
+        const listIndex = payouts.value.findIndex(p => p.id === payoutId);
+        if (listIndex > -1) {
+          payouts.value[listIndex] = response.payout;
+        } else {
+          payouts.value = [response.payout, ...payouts.value];
+        }
+      }
+
+      // Cache transactions
+      transactionsByPayout.value[String(payoutId)] =
+        response.transactions ?? [];
+    } catch (err: any) {
+      error.value =
+        err?.data?.statusMessage ??
+        err?.message ??
+        "Failed to fetch payout detail.";
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   function $reset() {
     balance.value = null;
     payouts.value = [];
+    payoutDetails.value = {};
     transactionsByPayout.value = {};
+    balanceTransactions.value = [];
     error.value = null;
     isLoading.value = false;
   }
@@ -100,10 +183,14 @@ export const usePaymentStore = defineStore("payment", () => {
   return {
     balance,
     payouts,
+    payoutDetails,
     transactionsByPayout,
+    balanceTransactions,
     isLoading,
     error,
     fetchAll,
+    fetchBalanceTransactions,
+    fetchPayoutDetail,
     getTransactionsForPayout,
     $reset,
   };

@@ -1,7 +1,7 @@
 <template>
   <NuxtLayout name="shop">
     <template #title>
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px">
         <NuxtLink
           to="/order"
           style="
@@ -18,7 +18,7 @@
           ←
         </NuxtLink>
         <span class="page-title">{{
-          nilVal(currentOrder.name, "#" + currentOrder.order_number)
+          nilVal(currentOrder?.name, currentOrder?.order_number ? "#" + currentOrder.order_number : "Loading...")
         }}</span>
         <template
           v-for="badge in getOrderBadges(currentOrder)"
@@ -43,432 +43,440 @@
           {{ getSource(currentOrder) }}
         </div>
 
-      <div class="grid">
-        <!-- Left column -->
-        <div class="left-col">
-          <!-- Fulfillments -->
-          <template
-            v-if="
-              currentOrder.fulfillments && currentOrder.fulfillments.length > 0
-            "
-          >
-            <div
-              v-for="(f, fi) in currentOrder.fulfillments"
-              :key="fi"
-              class="card"
+        <div class="grid">
+          <!-- Left column -->
+          <div class="left-col">
+            <!-- Fulfillments -->
+            <template
+              v-if="
+                currentOrder.fulfillments &&
+                currentOrder.fulfillments.length > 0
+              "
             >
-              <div class="card-header">
-                <div class="card-header-left">
-                  <span
-                    v-if="f.status === 'success'"
-                    style="
-                      color: var(--green);
-                      font-weight: 600;
-                      font-size: 14px;
-                      display: flex;
-                      align-items: center;
-                      gap: 6px;
-                    "
-                  >
-                    <span v-html="ICONS.box"></span> Fulfilled
-                  </span>
-                  <span
-                    v-else
-                    style="
-                      color: var(--text-sub);
-                      font-weight: 600;
-                      font-size: 14px;
-                    "
-                  >
-                    {{ capitalize(f.status || "") }}
-                  </span>
-                  <span
-                    style="
-                      font-size: 13px;
-                      color: var(--text-sub);
-                      display: flex;
-                      align-items: center;
-                      gap: 4px;
-                    "
-                  >
-                    <span v-html="ICONS.pin"></span>
-                    {{ serviceName(nilVal(f.service, "Manual")) }}
-                  </span>
+              <div
+                v-for="(f, fi) in currentOrder.fulfillments"
+                :key="fi"
+                class="card"
+              >
+                <div class="card-header">
+                  <div class="card-header-left">
+                    <span
+                      v-if="f.status === 'success'"
+                      style="
+                        color: var(--green);
+                        font-weight: 600;
+                        font-size: 14px;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                      "
+                    >
+                      <span v-html="ICONS.box"></span> Fulfilled
+                    </span>
+                    <span
+                      v-else
+                      style="
+                        color: var(--text-sub);
+                        font-weight: 600;
+                        font-size: 14px;
+                      "
+                    >
+                      {{ capitalize(f.status || "") }}
+                    </span>
+                    <span
+                      style="
+                        font-size: 13px;
+                        color: var(--text-sub);
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                      "
+                    >
+                      <span v-html="ICONS.pin"></span>
+                      {{ serviceName(nilVal(f.service, "Manual")) }}
+                    </span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <span
+                      v-if="nilVal(f.name, '')"
+                      style="font-size: 13px; color: var(--text-sub)"
+                      >{{ f.name }}</span
+                    >
+                    <button class="kebab">···</button>
+                  </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px">
-                  <span
-                    v-if="nilVal(f.name, '')"
-                    style="font-size: 13px; color: var(--text-sub)"
-                    >{{ f.name }}</span
-                  >
-                  <button class="kebab">···</button>
-                </div>
-              </div>
 
-              <!-- Tracking block -->
-              <div v-if="nilVal(f.shipment_status)" class="tracking-info">
-                <span
-                  :class="
-                    f.shipment_status === 'delivered'
-                      ? 'transit-badge delivered-badge'
-                      : 'transit-badge'
-                  "
+                <!-- Tracking block -->
+                <div v-if="nilVal(f.shipment_status)" class="tracking-info">
+                  <span
+                    :class="
+                      f.shipment_status === 'delivered'
+                        ? 'transit-badge delivered-badge'
+                        : 'transit-badge'
+                    "
+                  >
+                    <span v-html="ICONS.truck"></span
+                    >{{ getShipmentLabel(f.shipment_status) }}
+                  </span>
+                  <div v-if="nilVal(f.created_at)" class="tracking-row">
+                    <span v-html="ICONS.cal"></span> {{ fmtDate(f.created_at) }}
+                  </div>
+                  <div v-if="nilVal(f.created_at)" class="tracking-row">
+                    <span v-html="ICONS.deliver"></span> Deliver by
+                    {{ getDeliverBy(f.created_at) }}
+                  </div>
+                  <div v-if="nilVal(f.tracking_number)" class="tracking-row">
+                    <span v-html="ICONS.link"></span>
+                    {{
+                      nilVal(f.tracking_company)
+                        ? f.tracking_company + " tracking: "
+                        : "Tracking: "
+                    }}
+                    <a :href="nilVal(f.tracking_url) || '#'" target="_blank">{{
+                      f.tracking_number
+                    }}</a>
+                  </div>
+                </div>
+
+                <!-- Fulfillment line items -->
+                <div
+                  v-for="(item, ii) in f.line_items || []"
+                  :key="ii"
+                  class="line-item"
                 >
-                  <span v-html="ICONS.truck"></span
-                  >{{ getShipmentLabel(f.shipment_status) }}
-                </span>
-                <div v-if="nilVal(f.created_at)" class="tracking-row">
-                  <span v-html="ICONS.cal"></span> {{ fmtDate(f.created_at) }}
-                </div>
-                <div v-if="nilVal(f.created_at)" class="tracking-row">
-                  <span v-html="ICONS.deliver"></span> Deliver by
-                  {{ getDeliverBy(f.created_at) }}
-                </div>
-                <div v-if="nilVal(f.tracking_number)" class="tracking-row">
-                  <span v-html="ICONS.link"></span>
-                  {{
-                    nilVal(f.tracking_company)
-                      ? f.tracking_company + " tracking: "
-                      : "Tracking: "
-                  }}
-                  <a :href="nilVal(f.tracking_url) || '#'" target="_blank">{{
-                    f.tracking_number
-                  }}</a>
+                  <div class="product-img">📦</div>
+                  <div class="product-info">
+                    <div class="product-name">
+                      {{ item.name || item.title || "—" }}
+                    </div>
+                    <div
+                      v-if="nilVal(item.variant_title)"
+                      class="product-variant"
+                    >
+                      {{ item.variant_title }}
+                    </div>
+                    <div v-if="nilVal(item.sku)" class="product-sku">
+                      {{ item.sku }}
+                    </div>
+                  </div>
+                  <div class="product-price">
+                    {{
+                      fmtMoney(item.price, nilVal(currentOrder.currency, "CAD"))
+                    }}
+                    × {{ item.quantity || 1 }}
+                  </div>
+                  <div class="product-total">
+                    {{
+                      fmtMoney(
+                        (
+                          parseFloat(item.price || 0) * (item.quantity || 1)
+                        ).toFixed(2),
+                        nilVal(currentOrder.currency, "CAD"),
+                      )
+                    }}
+                  </div>
                 </div>
               </div>
+            </template>
 
-              <!-- Fulfillment line items -->
-              <div
-                v-for="(item, ii) in f.line_items || []"
-                :key="ii"
-                class="line-item"
-              >
-                <div class="product-img">📦</div>
-                <div class="product-info">
-                  <div class="product-name">
-                    {{ item.name || item.title || "—" }}
-                  </div>
-                  <div
-                    v-if="nilVal(item.variant_title)"
-                    class="product-variant"
-                  >
-                    {{ item.variant_title }}
-                  </div>
-                  <div v-if="nilVal(item.sku)" class="product-sku">
-                    {{ item.sku }}
+            <!-- Unfulfilled (no fulfillments) -->
+            <template v-else>
+              <div v-if="(currentOrder.line_items || []).length" class="card">
+                <div class="card-header">
+                  <div class="card-header-left">
+                    <span
+                      style="
+                        color: var(--text-sub);
+                        font-weight: 600;
+                        font-size: 14px;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                      "
+                    >
+                      <span v-html="ICONS.box"></span> Unfulfilled
+                    </span>
                   </div>
                 </div>
-                <div class="product-price">
-                  {{
-                    fmtMoney(item.price, nilVal(currentOrder.currency, "CAD"))
-                  }}
-                  × {{ item.quantity || 1 }}
-                </div>
-                <div class="product-total">
-                  {{
-                    fmtMoney(
-                      (
-                        parseFloat(item.price || 0) * (item.quantity || 1)
-                      ).toFixed(2),
-                      nilVal(currentOrder.currency, "CAD"),
-                    )
-                  }}
+                <div
+                  v-for="(item, ii) in currentOrder.line_items || []"
+                  :key="ii"
+                  class="line-item"
+                >
+                  <div class="product-img">📦</div>
+                  <div class="product-info">
+                    <div class="product-name">
+                      {{ item.name || item.title || "—" }}
+                    </div>
+                    <div
+                      v-if="nilVal(item.variant_title)"
+                      class="product-variant"
+                    >
+                      {{ item.variant_title }}
+                    </div>
+                    <div v-if="nilVal(item.sku)" class="product-sku">
+                      {{ item.sku }}
+                    </div>
+                  </div>
+                  <div class="product-price">
+                    {{
+                      fmtMoney(item.price, nilVal(currentOrder.currency, "CAD"))
+                    }}
+                    × {{ item.quantity || 1 }}
+                  </div>
+                  <div class="product-total">
+                    {{
+                      fmtMoney(
+                        (
+                          parseFloat(item.price || 0) * (item.quantity || 1)
+                        ).toFixed(2),
+                        nilVal(currentOrder.currency, "CAD"),
+                      )
+                    }}
+                  </div>
                 </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-          <!-- Unfulfilled (no fulfillments) -->
-          <template v-else>
-            <div v-if="(currentOrder.line_items || []).length" class="card">
+            <!-- Payment card -->
+            <div class="card">
               <div class="card-header">
                 <div class="card-header-left">
-                  <span
-                    style="
-                      color: var(--text-sub);
-                      font-weight: 600;
-                      font-size: 14px;
-                      display: flex;
-                      align-items: center;
-                      gap: 6px;
-                    "
+                  <span style="color: var(--green)" v-html="ICONS.card"></span>
+                  <span class="card-title" style="color: var(--green)"
+                    >Paid</span
                   >
-                    <span v-html="ICONS.box"></span> Unfulfilled
-                  </span>
                 </div>
               </div>
-              <div
-                v-for="(item, ii) in currentOrder.line_items || []"
-                :key="ii"
-                class="line-item"
-              >
-                <div class="product-img">📦</div>
-                <div class="product-info">
-                  <div class="product-name">
-                    {{ item.name || item.title || "—" }}
-                  </div>
-                  <div
-                    v-if="nilVal(item.variant_title)"
-                    class="product-variant"
+              <div class="payment-rows">
+                <div class="payment-row">
+                  <span
+                    >Subtotal
+                    <span style="font-size: 12px; color: var(--text-sub)"
+                      >{{ getItemCount(currentOrder) }} item{{
+                        getItemCount(currentOrder) !== 1 ? "s" : ""
+                      }}</span
+                    ></span
                   >
-                    {{ item.variant_title }}
-                  </div>
-                  <div v-if="nilVal(item.sku)" class="product-sku">
-                    {{ item.sku }}
-                  </div>
-                </div>
-                <div class="product-price">
-                  {{
-                    fmtMoney(item.price, nilVal(currentOrder.currency, "CAD"))
-                  }}
-                  × {{ item.quantity || 1 }}
-                </div>
-                <div class="product-total">
-                  {{
+                  <span>{{
                     fmtMoney(
-                      (
-                        parseFloat(item.price || 0) * (item.quantity || 1)
-                      ).toFixed(2),
+                      getSubtotal(currentOrder),
                       nilVal(currentOrder.currency, "CAD"),
                     )
-                  }}
+                  }}</span>
                 </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Payment card -->
-          <div class="card">
-            <div class="card-header">
-              <div class="card-header-left">
-                <span style="color: var(--green)" v-html="ICONS.card"></span>
-                <span class="card-title" style="color: var(--green)">Paid</span>
-              </div>
-            </div>
-            <div class="payment-rows">
-              <div class="payment-row">
-                <span
-                  >Subtotal
-                  <span style="font-size: 12px; color: var(--text-sub)"
-                    >{{ getItemCount(currentOrder) }} item{{
-                      getItemCount(currentOrder) !== 1 ? "s" : ""
+                <div
+                  v-if="parseFloat(getDiscount(currentOrder)) > 0"
+                  class="payment-row"
+                >
+                  <span>Discount</span>
+                  <span
+                    >-{{
+                      fmtMoney(
+                        getDiscount(currentOrder),
+                        nilVal(currentOrder.currency, "CAD"),
+                      )
                     }}</span
-                  ></span
-                >
-                <span>{{
-                  fmtMoney(
-                    getSubtotal(currentOrder),
-                    nilVal(currentOrder.currency, "CAD"),
-                  )
-                }}</span>
-              </div>
-              <div
-                v-if="parseFloat(getDiscount(currentOrder)) > 0"
-                class="payment-row"
-              >
-                <span>Discount</span>
-                <span
-                  >-{{
+                  >
+                </div>
+                <div class="payment-row">
+                  <span
+                    >Shipping
+                    <span style="font-size: 12px; color: var(--text-sub)">{{
+                      nilVal(
+                        currentOrder.shipping_lines?.[0]?.title,
+                        "Shipping",
+                      )
+                    }}</span></span
+                  >
+                  <span>{{
                     fmtMoney(
-                      getDiscount(currentOrder),
+                      nilVal(
+                        currentOrder.total_shipping_price_set?.shop_money
+                          ?.amount,
+                        "0.00",
+                      ),
                       nilVal(currentOrder.currency, "CAD"),
                     )
-                  }}</span
-                >
-              </div>
-              <div class="payment-row">
-                <span
-                  >Shipping
-                  <span style="font-size: 12px; color: var(--text-sub)">{{
-                    nilVal(currentOrder.shipping_lines?.[0]?.title, "Shipping")
-                  }}</span></span
-                >
-                <span>{{
-                  fmtMoney(
-                    nilVal(
-                      currentOrder.total_shipping_price_set?.shop_money?.amount,
-                      "0.00",
-                    ),
-                    nilVal(currentOrder.currency, "CAD"),
-                  )
-                }}</span>
-              </div>
-              <div
-                v-if="parseFloat(getTax(currentOrder)) > 0"
-                class="payment-row"
-              >
-                <span>Tax</span>
-                <span>{{
-                  fmtMoney(
-                    getTax(currentOrder),
-                    nilVal(currentOrder.currency, "CAD"),
-                  )
-                }}</span>
-              </div>
-              <div class="payment-row total">
-                <span>Total</span>
-                <span>{{
-                  fmtMoney(
-                    nilVal(
-                      currentOrder.total_price,
-                      nilVal(currentOrder.current_total_price, "0.00"),
-                    ),
-                    nilVal(currentOrder.currency, "CAD"),
-                  )
-                }}</span>
-              </div>
-              <div class="payment-row paid-row">
-                <span><span class="paid-badge-inline">Paid</span></span>
-                <span>{{
-                  fmtMoney(
-                    nilVal(
-                      currentOrder.total_price,
-                      nilVal(currentOrder.current_total_price, "0.00"),
-                    ),
-                    nilVal(currentOrder.currency, "CAD"),
-                  )
-                }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Timeline -->
-          <div class="card" style="margin-top: 16px;">
-            <div class="card-header">
-              <span class="card-title">Timeline</span>
-            </div>
-            <div style="padding: 0 16px 16px;">
-              <OrderTransactions
-                :order="currentOrder"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- Sidebar -->
-        <div class="sidebar">
-          <!-- Notes (only if there is a note) -->
-          <div v-if="nilVal(currentOrder.note)" class="card">
-            <div class="card-header">
-              <span class="card-title">Notes</span>
-              <button class="icon-btn" v-html="ICONS.edit"></button>
-            </div>
-            <div class="sidebar-body">
-              <span class="sidebar-value">{{ currentOrder.note }}</span>
-            </div>
-          </div>
-
-          <!-- Customer -->
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Customer</span>
-              <button class="icon-btn" v-html="ICONS.dots"></button>
-            </div>
-            <div class="sidebar-body">
-              <div class="sidebar-section">
-                <a
-                  v-if="getCustomerName(currentOrder)"
-                  href="#"
-                  class="sidebar-link"
-                  style="font-weight: 500"
-                  >{{ getCustomerName(currentOrder) }}</a
-                >
-                <span v-else class="sidebar-sub">Guest</span>
-                <div class="sidebar-sub" style="margin-top: 2px">
-                  {{ nilVal(currentOrder.customer?.orders_count, 1) }} order{{
-                    nilVal(currentOrder.customer?.orders_count, 1) !== 1
-                      ? "s"
-                      : ""
-                  }}
+                  }}</span>
                 </div>
-              </div>
-              <div class="sidebar-section">
-                <div class="sidebar-label">Contact information</div>
-                <a
-                  v-if="getCustomerEmail(currentOrder)"
-                  :href="'mailto:' + getCustomerEmail(currentOrder)"
-                  class="sidebar-link"
-                  >{{ getCustomerEmail(currentOrder) }}</a
-                >
-                <div v-else class="sidebar-sub">No email</div>
-                <div class="sidebar-sub" style="margin-top: 2px">
-                  {{
-                    nilVal(currentOrder.customer?.phone) ||
-                    nilVal(currentOrder.phone) ||
-                    "No phone number"
-                  }}
-                </div>
-              </div>
-              <div v-if="currentOrder.shipping_address" class="sidebar-section">
-                <div class="sidebar-label">Shipping address</div>
                 <div
-                  class="sidebar-value"
-                  v-html="formatAddress(currentOrder.shipping_address)"
-                ></div>
-                <a
-                  v-if="currentOrder.shipping_address.latitude != null"
-                  :href="`https://maps.google.com/?q=${currentOrder.shipping_address.latitude},${currentOrder.shipping_address.longitude}`"
-                  target="_blank"
-                  class="sidebar-link"
-                  style="display: inline-block; margin-top: 4px"
-                  >View map</a
+                  v-if="parseFloat(getTax(currentOrder)) > 0"
+                  class="payment-row"
                 >
-              </div>
-              <div class="sidebar-section">
-                <div class="sidebar-label">Billing address</div>
-                <div
-                  v-if="
-                    addressSame(
-                      currentOrder.shipping_address,
-                      currentOrder.billing_address,
+                  <span>Tax</span>
+                  <span>{{
+                    fmtMoney(
+                      getTax(currentOrder),
+                      nilVal(currentOrder.currency, "CAD"),
                     )
-                  "
-                  class="sidebar-sub"
-                >
-                  Same as shipping address
+                  }}</span>
                 </div>
-                <div
-                  v-else-if="currentOrder.billing_address"
-                  class="sidebar-value"
-                  v-html="formatAddress(currentOrder.billing_address)"
-                ></div>
-                <div v-else class="sidebar-sub">No billing address</div>
+                <div class="payment-row total">
+                  <span>Total</span>
+                  <span>{{
+                    fmtMoney(
+                      nilVal(
+                        currentOrder.total_price,
+                        nilVal(currentOrder.current_total_price, "0.00"),
+                      ),
+                      nilVal(currentOrder.currency, "CAD"),
+                    )
+                  }}</span>
+                </div>
+                <div class="payment-row paid-row">
+                  <span><span class="paid-badge-inline">Paid</span></span>
+                  <span>{{
+                    fmtMoney(
+                      nilVal(
+                        currentOrder.total_price,
+                        nilVal(currentOrder.current_total_price, "0.00"),
+                      ),
+                      nilVal(currentOrder.currency, "CAD"),
+                    )
+                  }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="card" style="margin-top: 16px">
+              <div class="card-header">
+                <span class="card-title">Timeline</span>
+              </div>
+              <div style="padding: 0 16px 16px">
+                <OrderTransactions :order="currentOrder" />
               </div>
             </div>
           </div>
 
-          <!-- Conversion summary -->
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Conversion summary</span>
-            </div>
-            <div class="sidebar-body">
-              <div
-                v-if="nilVal(currentOrder.customer?.orders_count, 1) === 1"
-                class="conversion-item"
-              >
-                <span v-html="ICONS.user"></span> This is their 1st order
+          <!-- Sidebar -->
+          <div class="sidebar">
+            <!-- Notes (only if there is a note) -->
+            <div v-if="nilVal(currentOrder.note)" class="card">
+              <div class="card-header">
+                <span class="card-title">Notes</span>
+                <button class="icon-btn" v-html="ICONS.edit"></button>
               </div>
-              <div class="conversion-item">
-                <span v-html="ICONS.clock"></span>
-                <template v-if="!nilVal(currentOrder.referring_site)"
-                  >1st session was direct to your store</template
-                >
-                <template v-else>
+              <div class="sidebar-body">
+                <span class="sidebar-value">{{ currentOrder.note }}</span>
+              </div>
+            </div>
+
+            <!-- Customer -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Customer</span>
+                <button class="icon-btn" v-html="ICONS.dots"></button>
+              </div>
+              <div class="sidebar-body">
+                <div class="sidebar-section">
                   <a
-                    :href="currentOrder.referring_site"
+                    v-if="getCustomerName(currentOrder)"
+                    href="#"
+                    class="sidebar-link"
+                    style="font-weight: 500"
+                    >{{ getCustomerName(currentOrder) }}</a
+                  >
+                  <span v-else class="sidebar-sub">Guest</span>
+                  <div class="sidebar-sub" style="margin-top: 2px">
+                    {{ nilVal(currentOrder.customer?.orders_count, 1) }} order{{
+                      nilVal(currentOrder.customer?.orders_count, 1) !== 1
+                        ? "s"
+                        : ""
+                    }}
+                  </div>
+                </div>
+                <div class="sidebar-section">
+                  <div class="sidebar-label">Contact information</div>
+                  <a
+                    v-if="getCustomerEmail(currentOrder)"
+                    :href="'mailto:' + getCustomerEmail(currentOrder)"
+                    class="sidebar-link"
+                    >{{ getCustomerEmail(currentOrder) }}</a
+                  >
+                  <div v-else class="sidebar-sub">No email</div>
+                  <div class="sidebar-sub" style="margin-top: 2px">
+                    {{
+                      nilVal(currentOrder.customer?.phone) ||
+                      nilVal(currentOrder.phone) ||
+                      "No phone number"
+                    }}
+                  </div>
+                </div>
+                <div
+                  v-if="currentOrder.shipping_address"
+                  class="sidebar-section"
+                >
+                  <div class="sidebar-label">Shipping address</div>
+                  <div
+                    class="sidebar-value"
+                    v-html="formatAddress(currentOrder.shipping_address)"
+                  ></div>
+                  <a
+                    v-if="currentOrder.shipping_address.latitude != null"
+                    :href="`https://maps.google.com/?q=${currentOrder.shipping_address.latitude},${currentOrder.shipping_address.longitude}`"
                     target="_blank"
                     class="sidebar-link"
-                    >{{ currentOrder.referring_site }}</a
+                    style="display: inline-block; margin-top: 4px"
+                    >View map</a
                   >
-                </template>
+                </div>
+                <div class="sidebar-section">
+                  <div class="sidebar-label">Billing address</div>
+                  <div
+                    v-if="
+                      addressSame(
+                        currentOrder.shipping_address,
+                        currentOrder.billing_address,
+                      )
+                    "
+                    class="sidebar-sub"
+                  >
+                    Same as shipping address
+                  </div>
+                  <div
+                    v-else-if="currentOrder.billing_address"
+                    class="sidebar-value"
+                    v-html="formatAddress(currentOrder.billing_address)"
+                  ></div>
+                  <div v-else class="sidebar-sub">No billing address</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Conversion summary -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title">Conversion summary</span>
+              </div>
+              <div class="sidebar-body">
+                <div
+                  v-if="nilVal(currentOrder.customer?.orders_count, 1) === 1"
+                  class="conversion-item"
+                >
+                  <span v-html="ICONS.user"></span> This is their 1st order
+                </div>
+                <div class="conversion-item">
+                  <span v-html="ICONS.clock"></span>
+                  <template v-if="!nilVal(currentOrder.referring_site)"
+                    >1st session was direct to your store</template
+                  >
+                  <template v-else>
+                    <a
+                      :href="currentOrder.referring_site"
+                      target="_blank"
+                      class="sidebar-link"
+                      >{{ currentOrder.referring_site }}</a
+                    >
+                  </template>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </template>
-    
+      </template>
+
       <div v-else id="loading">Order not found.</div>
     </div>
   </NuxtLayout>
@@ -477,28 +485,28 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { useOrderStore } from "../../stores/order";
 import {
-  ICONS,
-  nilVal,
+  addressSame,
+  capitalize,
   fmtDate,
   fmtDateTime,
   fmtMoney,
-  capitalize,
-  addressSame,
   formatAddress,
-  serviceName,
-  getShipmentLabel,
-  getDeliverBy,
-  getSource,
-  getOrderBadges,
-  getCustomerName,
   getCustomerEmail,
+  getCustomerName,
+  getDeliverBy,
+  getDiscount,
+  getItemCount,
+  getOrderBadges,
+  getShipmentLabel,
+  getSource,
   getSubtotal,
   getTax,
-  getDiscount,
-  getItemCount
-} from "../../utils/order";
+  ICONS,
+  nilVal,
+  serviceName,
+} from "../../../utils/order";
+import { useOrderStore } from "../../stores/order";
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
@@ -507,9 +515,10 @@ const route = useRoute();
 // ── State ─────────────────────────────────────────────────────────────────────
 const currentOrder = computed(() => {
   const orderId = route.params.id;
-  return orderStore.orders.find((o: any) => o.id?.toString() === orderId) || null;
+  return (
+    orderStore.orders.find((o: any) => o.id?.toString() === orderId) || null
+  );
 });
-
 </script>
 
 <style scoped>

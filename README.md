@@ -74,21 +74,6 @@ bun run preview
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
 
-## Google Sheet (Service Account) for Proxy page
-
-To enable **Load Sheet** on `/proxy`, configure these environment variables in `spf/.env`:
-
-- `GOOGLE_SERVICE_ACCOUNT_JSON` (full JSON string of service account) **or**
-	- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-	- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (keep `\n` escaped in `.env`)
-- `GOOGLE_SHEET_SPREADSHEET_ID`
-- `GOOGLE_SHEET_RANGE` (default: `Sheet1!A:Z`)
-
-Optional public defaults for client requests:
-
-- `NUXT_PUBLIC_GOOGLE_SHEET_SPREADSHEET_ID`
-- `NUXT_PUBLIC_GOOGLE_SHEET_RANGE`
-
 Expected header aliases in sheet for auto-fill on `/proxy`:
 
 - Store ID: `store id`, `store_id`, `storeId`, `id`

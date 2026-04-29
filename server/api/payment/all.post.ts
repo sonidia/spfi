@@ -5,7 +5,7 @@ import {
   createProxyAgent,
   resolveStoreCookieData,
   resolveStoreDomain,
-} from "../../utils/store-proxy";
+} from "../../../utils/proxy/store-proxy";
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);

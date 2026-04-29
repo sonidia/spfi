@@ -2,11 +2,14 @@
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
+import { useLoading } from "../composables/useLoading";
 
 const formStore = useFormStore();
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const route = useRoute();
+
+const { loading: globalLoading } = useLoading();
 
 onMounted(() => {
   formStore.loadKnownStores();
@@ -21,6 +24,15 @@ onMounted(() => {
   }
 });
 
+const isFetching = computed(() => {
+  const path = route.path;
+  if (path === "/order" || path.startsWith("/order/")) return orderStore.isLoading;
+  if (path.startsWith("/payment")) return paymentStore.isLoading;
+  return false;
+});
+
+const noStores = computed(() => formStore.knownStores.length === 0);
+
 // Auto-fetch when switching between Order/Payment tabs
 watch(
   () => route.path,
@@ -29,6 +41,17 @@ watch(
       fetchCurrent();
     }
   },
+);
+
+watch(
+  isFetching,
+  (val) => {
+    if (val) globalLoading.value = true;
+    else {
+      globalLoading.value = false;
+    }
+  },
+  { immediate: true },
 );
 
 // ── Shop selector ────────────────────────────────────────────────────────────
@@ -53,7 +76,7 @@ function resolveToken(sid: string): string | null {
 }
 
 // ── Fetch for the current page ───────────────────────────────────────────────
-function fetchCurrent() {
+function fetchCurrent(force = false) {
   const sid = formStore.storeId;
   if (!sid) return;
   const token = resolveToken(sid);
@@ -61,32 +84,40 @@ function fetchCurrent() {
   if (!token) {
     const msg = "Token expired or missing. Please go to Token page.";
     if (route.path === "/order") orderStore.error = msg;
-    if (route.path === "/payment") paymentStore.error = msg;
+    if (route.path.startsWith("/payment")) paymentStore.error = msg;
     return;
   }
 
   // Clear previous errors
-  if (route.path === "/order") orderStore.error = null;
-  if (route.path === "/payment") paymentStore.error = null;
+  if (route.path.startsWith("/order")) orderStore.error = null;
+  if (route.path.startsWith("/payment")) paymentStore.error = null;
 
-  if (route.path === "/order" && !orderStore.orders.length) {
-    orderStore.fetchAll(sid, token);
-  } else if (
-    route.path === "/payment" &&
-    !paymentStore.payouts.length &&
-    !paymentStore.balance
-  ) {
-    paymentStore.fetchAll(sid, token);
+  if (route.path === "/order") {
+    if (force || !orderStore.hasFetchedAll) orderStore.fetchAll(sid, token);
+  } else if (route.path.startsWith("/order/")) {
+    const idMatch = route.path.match(/\/order\/(\d+)/);
+    if (idMatch) {
+      orderStore.fetchById(sid, token, idMatch[1], force);
+    }
+  } else if (route.path === "/payment") {
+    if (force || (!paymentStore.payouts.length && !paymentStore.balance)) {
+      paymentStore.fetchAll(sid, token);
+    }
+  } else if (route.path === "/payment/transactions") {
+    paymentStore.fetchBalanceTransactions(sid, token, force);
+  } else if (route.path.startsWith("/payment/payout/")) {
+    const idMatch = route.path.match(/\/payment\/payout\/(\d+)/);
+    if (idMatch) {
+      paymentStore.fetchPayoutDetail(sid, token, Number(idMatch[1]), force);
+    }
   }
 }
 
-const isFetching = computed(() => {
-  if (route.path === "/order") return orderStore.isLoading;
-  if (route.path === "/payment") return paymentStore.isLoading;
-  return false;
-});
-
-const noStores = computed(() => formStore.knownStores.length === 0);
+// ── Get domain label for store select ────────────────────────────────────────
+function getStoreDomain(id: string): string {
+  const cookie = useCookie<any>(id);
+  return cookie.value?.domain || "";
+}
 </script>
 
 <template>
@@ -103,28 +134,29 @@ const noStores = computed(() => formStore.knownStores.length === 0);
         <template v-if="noStores">
           <span class="no-stores-hint">
             No stores configured —
-            <NuxtLink to="/token" class="shop-bar-link"
-              >Go to Token page</NuxtLink
+            <NuxtLink to="/manager" class="shop-bar-link"
+              >Go to Manager page</NuxtLink
             >
           </span>
         </template>
         <template v-else>
-          <select
-            class="shop-select"
-            :value="formStore.storeId"
-            @change="onSelectStore(($event.target as HTMLSelectElement).value)"
-          >
-            <option value="" disabled>Select a store…</option>
-            <option v-for="id in formStore.knownStores" :key="id" :value="id">
-              {{ id }}
-            </option>
-          </select>
+          <BaseSelect
+            :model-value="formStore.storeId"
+            :options="
+              formStore.knownStores.map((id) => ({
+                label: getStoreDomain(id) || id,
+                value: id,
+              }))
+            "
+            placeholder="Select a store…"
+            @change="onSelectStore"
+          />
         </template>
 
         <button
           class="btn-fetch"
           :disabled="isFetching || !formStore.storeId"
-          @click="fetchCurrent"
+          @click="fetchCurrent(true)"
         >
           <svg
             v-if="isFetching"
@@ -153,7 +185,7 @@ const noStores = computed(() => formStore.knownStores.length === 0);
               clip-rule="evenodd"
             />
           </svg>
-          {{ isFetching ? "Loading…" : "Fetch" }}
+          {{ isFetching ? "Loading…" : "Refresh" }}
         </button>
       </div>
     </div>
