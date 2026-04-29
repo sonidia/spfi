@@ -13,7 +13,6 @@
     <div class="nav-list">
       <NuxtLink to="/order">Order</NuxtLink>
       <NuxtLink to="/payment">Payment</NuxtLink>
-      <NuxtLink to="/payment/transactions">Transactions</NuxtLink>
       <NuxtLink to="/manager">Manager</NuxtLink>
       <NuxtLink to="/sheet">Sheet</NuxtLink>
     </div>

@@ -65,13 +65,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import {
-  fmtDateTime,
-  fmtMoney,
-  getOrderBadges,
-  nilVal,
-} from "../../../utils/order";
-import { useOrderStore } from "../../stores/order";
+import { useOrderStore } from "~/stores/order";
+import { fmtDateTime, fmtMoney, getOrderBadges, nilVal } from "~~/utils/order";
+
+definePageMeta({ layout: false });
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
@@ -88,18 +85,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 20px;
-  font-family: "DM Sans", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.5;
-  min-height: 100vh;
-}
-
 .page-header {
   display: flex;
   align-items: center;

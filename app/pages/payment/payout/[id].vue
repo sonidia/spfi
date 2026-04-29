@@ -221,6 +221,8 @@ import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
 import { usePaymentStore } from "../../../stores/payment";
 
+definePageMeta({ layout: false });
+
 const route = useRoute();
 const formStore = useFormStore();
 const paymentStore = usePaymentStore();
@@ -332,17 +334,6 @@ function getOrderNumber(tx: Transaction) {
 </script>
 
 <style scoped>
-/* ─── PAGE CONTAINER ─── */
-.page {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 20px;
-  font-family: inherit;
-  color: var(--text-primary, #1a1a1a);
-  min-height: 100vh;
-}
-
-/* Copied and adjusted from payment.vue styles as needed */
 .screen {
   display: block;
   animation: fadeIn 0.18s ease;

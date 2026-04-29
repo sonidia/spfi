@@ -2,7 +2,7 @@
   <NuxtLayout name="shop">
     <template #title>
       <div class="breadcrumb">
-        <span class="page-title">Payouts</span>
+        <span class="page-title">Payment</span>
       </div>
     </template>
 
@@ -26,22 +26,6 @@
 
       <!-- ════════════════ SCREEN 1: PAYOUTS LIST -->
       <div class="screen">
-        <div class="page-header" style="justify-content: flex-end">
-          <button class="btn btn-secondary">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M3 10h14M10 3l7 7-7 7" />
-            </svg>
-            Export
-          </button>
-        </div>
-
         <!-- Balance Card -->
         <div class="card" v-if="currentBalance">
           <div class="overview-card">
@@ -159,36 +143,152 @@
           <div v-if="filteredPayouts.length === 0" class="empty">
             No payouts found.
           </div>
-          <div class="pagination">
-            <button class="pag-btn" disabled>&#8592;</button>
-            <button class="pag-btn" disabled>&#8594;</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="page">
+      <div v-if="paymentStore.isLoading" class="empty">
+        Loading transactions…
+      </div>
+      <div v-else-if="paymentStore.error" class="empty error">
+        {{ paymentStore.error }}
+      </div>
+      <div v-else class="screen">
+        <div class="card">
+          <div class="table-header">
+            <h3>Transactions</h3>
+            <div class="table-actions">
+              <button class="icon-btn">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="9" cy="9" r="6" />
+                  <path d="m15 15 3 3" />
+                </svg>
+              </button>
+              <button class="icon-btn">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M3 5h14M6 10h8M9 15h2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <!-- <th>Payout date</th> -->
+                <th>Payout status</th>
+                <th>Order</th>
+                <th>Type</th>
+                <th>Payment</th>
+                <th class="right">Amount</th>
+                <th class="right">Fee</th>
+                <th class="right">Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tx in paymentStore.balanceTransactions" :key="tx.id">
+                <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
+                <!-- <td class="td-date">
+                  <NuxtLink
+                    v-if="tx.payout_id"
+                    :to="`/payment/payout/${tx.payout_id}`"
+                    class="link"
+                  >
+                    {{ getPayoutDate(tx) }}
+                  </NuxtLink>
+                  <span v-else>{{ getPayoutDate(tx) }}</span>
+                </td> -->
+                <td>
+                  <span
+                    class="badge"
+                    :class="
+                      tx.payout_status === 'paid'
+                        ? 'badge-deposited'
+                        : 'badge-pending'
+                    "
+                  >
+                    {{
+                      tx.payout_status === "paid"
+                        ? "Deposited"
+                        : capitalize(tx.payout_status)
+                    }}
+                  </span>
+                </td>
+                <td class="td-order">
+                  <a v-if="getOrderNumber(tx)" class="link"
+                    >#{{ getOrderNumber(tx) }}</a
+                  >
+                  <span v-else>—</span>
+                </td>
+                <td class="td-type">{{ capitalize(tx.type) }}</td>
+                <td>
+                  <span class="payment-method">
+                    <span class="card-brand" v-if="tx.type === 'charge'"
+                      >Visa</span
+                    >
+                    <span v-else>—</span>
+                  </span>
+                </td>
+                <td class="right td-amount">
+                  ${{ Math.abs(parseFloat(tx.amount)).toFixed(2) }}
+                  <span class="chevron-sm">▾</span>
+                </td>
+                <td class="right td-fee">
+                  <template v-if="parseFloat(tx.fee)">
+                    -${{ parseFloat(tx.fee).toFixed(2) }}
+                    <span class="chevron-sm">▾</span>
+                  </template>
+                  <template v-else>—</template>
+                </td>
+                <td class="right td-net" style="font-weight: 700">
+                  ${{ Math.abs(parseFloat(tx.net)).toFixed(2) }}
+                  <span style="font-weight: normal; font-size: 11px">USD</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div
+            v-if="paymentStore.balanceTransactions.length === 0"
+            class="empty"
+          >
+            No balance transactions found.
           </div>
         </div>
       </div>
-
-      <!-- Payout details have been moved to /payment/payout/[id] -->
     </section>
   </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { usePaymentStore } from "../../stores/payment";
-
 import { useRouter } from "vue-router";
+import { capitalize, fmtDate } from "~/helpers";
+import { useFormStore } from "~/stores/form";
+import { usePaymentStore } from "~/stores/payment";
 
-// ── Store ────────────────────────────────────────────────
+definePageMeta({ layout: false });
+
+const formStore = useFormStore();
 const paymentStore = usePaymentStore();
 const router = useRouter();
 
-onMounted(() => {
-  // Logic handled by shop layout or persistent store
-});
-
-// ── Local UI state ───────────────────────────────────────
 const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
 
-// ── Computed from store ──────────────────────────────────
 const filteredPayouts = computed(() =>
   paymentStore.payouts.filter(
     (p) => payoutsFilter.value === "all" || p.status === payoutsFilter.value,
@@ -201,23 +301,6 @@ const currentBalance = computed(() => {
   if (Array.isArray(b)) return b[0] ?? null;
   return b;
 });
-
-// ── Helpers ──────────────────────────────────────────────
-function fmtDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function capitalize(s: string) {
-  if (!s) return "";
-  return (
-    String(s).charAt(0).toUpperCase() + String(s).slice(1).replace(/_/g, " ")
-  );
-}
 
 function getPayoutProcessedDate(payoutId: number) {
   const txs = paymentStore.transactionsByPayout[String(payoutId)] || [];
@@ -233,20 +316,56 @@ function filterPayouts(filter: "all" | "paid" | "in_transit") {
 function openPayoutDetail(payoutId: number) {
   router.push(`/payment/payout/${payoutId}`);
 }
+
+onMounted(() => {
+  if (formStore.storeId) {
+    const token = resolveToken(formStore.storeId);
+    if (token) paymentStore.fetchBalanceTransactions(formStore.storeId, token);
+  }
+});
+
+watch(
+  () => formStore.storeId,
+  () => {
+    if (formStore.storeId) {
+      const token = resolveToken(formStore.storeId);
+      if (token)
+        paymentStore.fetchBalanceTransactions(formStore.storeId, token);
+    }
+  },
+);
+
+function resolveToken(sid: string): string | null {
+  // Use raw document.cookie fallback if outside Nuxt context, but we are client side anyway
+  const storeCookie = useCookie<any>(sid);
+  const data = storeCookie.value;
+  const now = Date.now();
+  if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
+    return data.accessToken;
+  }
+  return null;
+}
+
+function getPayoutDate(tx: any) {
+  // Balance transactions might not have expected payout date natively embedded on them.
+  // Using processed_at or a placeholder for now, Shopify API payout transactions usually
+  // need combining with Payouts to get the exact scheduled date, or it may be omitted.
+  if (tx.payout_id && tx.payout_status === "paid") {
+    // A paid transaction's processed date is close to payout date
+    // We just format a mock or available date.
+    return fmtDate(tx.processed_at); // fallback
+  }
+  return "Pending...";
+}
+
+function getOrderNumber(tx: any) {
+  if (!tx.source_order_id) return null;
+  const orderMap: Record<number, string> = {};
+  return orderMap[tx.source_order_id] || tx.source_order_id;
+}
 </script>
 
 <style scoped>
-/* ─── PAGE CONTAINER ─── */
-.page {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 20px;
-  font-family: inherit;
-  color: var(--text-primary);
-  min-height: 100vh;
-}
-
-/* ─── SCREEN ─── */
 .screen {
   display: block;
   animation: fadeIn 0.18s ease;
@@ -315,6 +434,11 @@ function openPayoutDetail(payoutId: number) {
 .badge-paid {
   background: var(--green-bg);
   color: var(--green);
+}
+
+.badge-pending {
+  background: #e5e7eb;
+  color: #374151;
 }
 
 /* ─── BUTTONS ─── */
@@ -593,38 +717,6 @@ td.right {
 .td-net {
   color: var(--text-primary);
   font-weight: 600;
-}
-
-/* ─── PAGINATION ─── */
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border);
-}
-.pag-btn {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-family: var(--font);
-  font-size: 14px;
-  transition: all 0.15s;
-  line-height: 1;
-}
-.pag-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.pag-btn:not(:disabled):hover {
-  background: #f0f0f0;
 }
 
 /* ─── TX DETAIL ─── */

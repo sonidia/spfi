@@ -18,7 +18,12 @@
           ←
         </NuxtLink>
         <span class="page-title">{{
-          nilVal(currentOrder?.name, currentOrder?.order_number ? "#" + currentOrder.order_number : "Loading...")
+          nilVal(
+            currentOrder?.name,
+            currentOrder?.order_number
+              ? "#" + currentOrder.order_number
+              : "Loading...",
+          )
         }}</span>
         <template
           v-for="badge in getOrderBadges(currentOrder)"
@@ -483,8 +488,10 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: false });
 import { computed } from "vue";
 import { useRoute } from "vue-router";
+import { useOrderStore } from "~/stores/order";
 import {
   addressSame,
   capitalize,
@@ -505,8 +512,7 @@ import {
   ICONS,
   nilVal,
   serviceName,
-} from "../../../utils/order";
-import { useOrderStore } from "../../stores/order";
+} from "~~/utils/order";
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
@@ -522,18 +528,6 @@ const currentOrder = computed(() => {
 </script>
 
 <style scoped>
-.page {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 20px;
-  font-family: "DM Sans", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.5;
-  min-height: 100vh;
-}
-
 .page-header {
   display: flex;
   align-items: center;

@@ -51,7 +51,7 @@ watch(
       globalLoading.value = false;
     }
   },
-  { immediate: true },
+  { immediate: false },
 );
 
 // ── Shop selector ────────────────────────────────────────────────────────────

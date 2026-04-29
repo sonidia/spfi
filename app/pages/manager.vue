@@ -1,13 +1,13 @@
 <script lang="ts" setup>
+import { useSheetService } from "~/composables/useSheetService";
+import { useFormStore } from "~/stores/form";
 import {
   QUAN_LY_SHEET_URL,
   getProxySheetPreset,
   machineSheets,
-} from "../../utils/sheets";
-import { useSheetService } from "../composables/useSheetService";
-import { useFormStore } from "../stores/form";
+} from "~~/utils/sheets";
 
-definePageMeta({ layout: false }); // uses default layout (no shop bar)
+definePageMeta({ layout: false });
 
 const formStore = useFormStore();
 
@@ -290,9 +290,12 @@ async function addShop() {
         throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
       }
 
-      if (machineMatch.proxyUrl && !newSock.value.trim()) newSock.value = machineMatch.proxyUrl.trim();
-      if (machineMatch.storeId && !newStoreId.value.trim()) newStoreId.value = machineMatch.storeId;
-      if (machineMatch.clientId && !newClientId.value.trim()) newClientId.value = machineMatch.clientId;
+      if (machineMatch.proxyUrl && !newSock.value.trim())
+        newSock.value = machineMatch.proxyUrl.trim();
+      if (machineMatch.storeId && !newStoreId.value.trim())
+        newStoreId.value = machineMatch.storeId;
+      if (machineMatch.clientId && !newClientId.value.trim())
+        newClientId.value = machineMatch.clientId;
       if (machineMatch.clientSecret && !newClientSecret.value.trim())
         newClientSecret.value = machineMatch.clientSecret;
 

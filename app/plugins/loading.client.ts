@@ -1,18 +1,18 @@
 export default defineNuxtPlugin((nuxtApp) => {
   const { loading } = useLoading();
-
-  nuxtApp.hook("app:page:start", () => {
+  const router = useRouter();
+ 
+  router.beforeEach(() => {
     loading.value = true;
   });
-
-  nuxtApp.hook("app:page:finish", () => {
+ 
+  router.afterEach(() => {
     setTimeout(() => {
       loading.value = false;
-    }, 200);
+    }, 150);
   });
-
-  // Fallback for errors
-  nuxtApp.hook("vue:error", () => {
+ 
+  router.onError(() => {
     loading.value = false;
   });
 });

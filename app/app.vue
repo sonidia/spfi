@@ -1,16 +1,20 @@
 <script lang="ts" setup>
 import { useLoading } from "./composables/useLoading";
+import { useTokenRotation } from "./composables/useTokenRotation";
 import Nav from "./components/Nav.vue";
 import LoadingOverlay from "./components/LoadingOverlay.vue";
 
 const { loading } = useLoading();
+useTokenRotation();
 </script>
 
 <template>
   <main class="app-root">
     <LoadingOverlay :visible="loading" />
     <Nav />
-    <NuxtPage />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
   </main>
 </template>
 
