@@ -11,10 +11,10 @@
       <span class="topbar-title">Shopify</span>
     </NuxtLink>
     <div class="nav-list">
+      <NuxtLink to="/manager">Manager</NuxtLink>
       <NuxtLink to="/bulking">Bulking</NuxtLink>
       <NuxtLink to="/order">Order</NuxtLink>
       <NuxtLink to="/payment">Payment</NuxtLink>
-      <NuxtLink to="/manager">Manager</NuxtLink>
       <NuxtLink to="/sheet">Sheet</NuxtLink>
     </div>
   </nav>
