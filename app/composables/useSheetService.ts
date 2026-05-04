@@ -243,6 +243,34 @@ export function useSheetService() {
       .filter((row) => !!row.storeId || !!row.domain || !!row.proxyUrl);
   }
 
+  async function updateSheetValues(options: {
+    spreadsheetId?: string;
+    range: string;
+    values: any[][];
+  }) {
+    loading.value = true;
+    error.value = null;
+    try {
+      await waitForRateLimit();
+      const response = await $fetch<any>("/api/sheet/update", {
+        method: "POST",
+        body: {
+          spreadsheetId:
+            options.spreadsheetId || runtimeConfig.public.googleSheetSpreadsheetId,
+          range: options.range,
+          values: options.values,
+        },
+      });
+      return response;
+    } catch (e: any) {
+      error.value =
+        e?.data?.statusMessage || e.message || "Failed to update sheet";
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     loading,
     error,
@@ -253,6 +281,7 @@ export function useSheetService() {
     buildSheetLabel,
     buildRangeFromSheetName,
     readSheetValues,
+    updateSheetValues,
     readSheetMeta,
     loadByInput,
     loadMetaByInput,
