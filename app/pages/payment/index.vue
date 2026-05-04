@@ -24,10 +24,10 @@
         Select a store from the selector above to view payment data.
       </div>
 
-      <!-- ════════════════ SCREEN 1: PAYOUTS LIST -->
-      <div class="screen">
+      <!-- ════════════════ SCREEN 1: CONTENT -->
+      <div v-else class="screen">
         <!-- Balance Card -->
-        <div class="card" v-if="currentBalance">
+        <div class="card" v-if="currentBalance && activeTab === 'payouts'">
           <div class="overview-card">
             <div
               class="overview-left"
@@ -49,225 +49,157 @@
           </div>
         </div>
 
-        <!-- Payouts Table Card -->
+        <!-- Main Card -->
         <div class="card">
           <div class="table-header">
             <button
               class="tab-btn"
-              :class="{ active: payoutsFilter === 'all' }"
-              @click="filterPayouts('all')"
+              :class="{ active: activeTab === 'transactions' }"
+              @click="activeTab = 'transactions'"
             >
-              All
+              Transactions
             </button>
             <button
               class="tab-btn"
-              :class="{ active: payoutsFilter === 'paid' }"
-              @click="filterPayouts('paid')"
+              :class="{ active: activeTab === 'payouts' }"
+              @click="activeTab = 'payouts'"
             >
-              Paid
+              Payouts
             </button>
-            <button
-              class="tab-btn"
-              :class="{ active: payoutsFilter === 'in_transit' }"
-              @click="filterPayouts('in_transit')"
-            >
-              In transit
-            </button>
-            <div class="table-actions">
-              <button class="icon-btn" title="Search">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <circle cx="9" cy="9" r="6" />
-                  <path d="m15 15 3 3" />
-                </svg>
-              </button>
-              <button class="icon-btn" title="Filter">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M3 5h14M6 10h8M9 15h2" />
-                </svg>
-              </button>
-            </div>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>Payout Date</th>
-                <th>Status</th>
-                <th>Transaction date</th>
-                <th class="right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="payout in filteredPayouts"
-                :key="payout.id"
-                @click="openPayoutDetail(payout.id)"
-              >
-                <td class="td-date">{{ fmtDate(payout.date) }}</td>
-                <td>
-                  <span
-                    class="badge"
-                    :class="payout.status === 'paid' ? 'badge-paid' : ''"
-                  >
-                    {{
-                      payout.status === "paid"
-                        ? "Deposited"
-                        : capitalize(payout.status)
-                    }}
-                  </span>
-                </td>
-                <td class="td-date">
-                  {{ getPayoutProcessedDate(payout.id) }}
-                </td>
-                <td class="right td-net">
-                  ${{ parseFloat(payout.amount).toFixed(2) }}
-                  {{ payout.currency }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-if="filteredPayouts.length === 0" class="empty">
-            No payouts found.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="page">
-      <div v-if="paymentStore.isLoading" class="empty">
-        Loading transactions…
-      </div>
-      <div v-else-if="paymentStore.error" class="empty error">
-        {{ paymentStore.error }}
-      </div>
-      <div v-else class="screen">
-        <div class="card">
-          <div class="table-header">
-            <h3>Transactions</h3>
-            <div class="table-actions">
-              <button class="icon-btn">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
+          <!-- PAYOUTS VIEW -->
+          <template v-if="activeTab === 'payouts'">
+            <table>
+              <thead>
+                <tr>
+                  <th>Payout Date</th>
+                  <th>Status</th>
+                  <th>Transaction date</th>
+                  <th class="right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="payout in filteredPayouts"
+                  :key="payout.id"
+                  @click="openPayoutDetail(payout.id)"
                 >
-                  <circle cx="9" cy="9" r="6" />
-                  <path d="m15 15 3 3" />
-                </svg>
-              </button>
-              <button class="icon-btn">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M3 5h14M6 10h8M9 15h2" />
-                </svg>
-              </button>
+                  <td class="td-date">{{ fmtDate(payout.date) }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      :class="payout.status === 'paid' ? 'badge-paid' : ''"
+                    >
+                      {{
+                        payout.status === "paid"
+                          ? "Deposited"
+                          : capitalize(payout.status)
+                      }}
+                    </span>
+                  </td>
+                  <td class="td-date">
+                    {{ getPayoutProcessedDate(payout.id) }}
+                  </td>
+                  <td class="right td-net">
+                    ${{ parseFloat(payout.amount).toFixed(2) }}
+                    {{ payout.currency }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="filteredPayouts.length === 0" class="empty">
+              No payouts found.
             </div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <!-- <th>Payout date</th> -->
-                <th>Payout status</th>
-                <th>Order</th>
-                <th>Type</th>
-                <th>Payment</th>
-                <th class="right">Amount</th>
-                <th class="right">Fee</th>
-                <th class="right">Net</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="tx in paymentStore.balanceTransactions" :key="tx.id">
-                <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
-                <!-- <td class="td-date">
-                  <NuxtLink
-                    v-if="tx.payout_id"
-                    :to="`/payment/payout/${tx.payout_id}`"
-                    class="link"
-                  >
-                    {{ getPayoutDate(tx) }}
-                  </NuxtLink>
-                  <span v-else>{{ getPayoutDate(tx) }}</span>
-                </td> -->
-                <td>
-                  <span
-                    class="badge"
-                    :class="
-                      tx.payout_status === 'paid'
-                        ? 'badge-deposited'
-                        : 'badge-pending'
-                    "
-                  >
-                    {{
-                      tx.payout_status === "paid"
-                        ? "Deposited"
-                        : capitalize(tx.payout_status)
-                    }}
-                  </span>
-                </td>
-                <td class="td-order">
-                  <a v-if="getOrderNumber(tx)" class="link"
-                    >#{{ getOrderNumber(tx) }}</a
-                  >
-                  <span v-else>—</span>
-                </td>
-                <td class="td-type">{{ capitalize(tx.type) }}</td>
-                <td>
-                  <span class="payment-method">
-                    <span class="card-brand" v-if="tx.type === 'charge'"
-                      >Visa</span
+          </template>
+
+          <!-- TRANSACTIONS VIEW -->
+          <template v-else-if="activeTab === 'transactions'">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Payout date</th>
+                  <th>Payout status</th>
+                  <th>Order</th>
+                  <th>Type</th>
+                  <th>Payment</th>
+                  <th class="right">Amount</th>
+                  <th class="right">Fee</th>
+                  <th class="right">Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="tx in paymentStore.balanceTransactions" :key="tx.id">
+                  <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
+                  <td class="td-date">
+                    <NuxtLink
+                      v-if="tx.payout_id"
+                      :to="`/payment/payout/${tx.payout_id}`"
+                      class="link"
+                    >
+                      {{ getPayoutDate(tx) }}
+                    </NuxtLink>
+                    <span v-else>{{ getPayoutDate(tx) }}</span>
+                  </td>
+                  <td>
+                    <span
+                      class="badge"
+                      :class="
+                        tx.payout_status === 'paid'
+                          ? 'badge-deposited'
+                          : 'badge-pending'
+                      "
+                    >
+                      {{
+                        tx.payout_status === "paid"
+                          ? "Deposited"
+                          : capitalize(tx.payout_status)
+                      }}
+                    </span>
+                  </td>
+                  <td class="td-order">
+                    <a v-if="getOrderNumber(tx)" class="link"
+                      >#{{ getOrderNumber(tx) }}</a
                     >
                     <span v-else>—</span>
-                  </span>
-                </td>
-                <td class="right td-amount">
-                  ${{ Math.abs(parseFloat(tx.amount)).toFixed(2) }}
-                  <span class="chevron-sm">▾</span>
-                </td>
-                <td class="right td-fee">
-                  <template v-if="parseFloat(tx.fee)">
-                    -${{ parseFloat(tx.fee).toFixed(2) }}
+                  </td>
+                  <td class="td-type">{{ capitalize(tx.type) }}</td>
+                  <td>
+                    <span class="payment-method">
+                      <span class="card-brand" v-if="tx.type === 'charge'"
+                        >Visa</span
+                      >
+                      <span v-else>—</span>
+                    </span>
+                  </td>
+                  <td class="right td-amount">
+                    ${{ Math.abs(parseFloat(tx.amount)).toFixed(2) }}
                     <span class="chevron-sm">▾</span>
-                  </template>
-                  <template v-else>—</template>
-                </td>
-                <td class="right td-net" style="font-weight: 700">
-                  ${{ Math.abs(parseFloat(tx.net)).toFixed(2) }}
-                  <span style="font-weight: normal; font-size: 11px">USD</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div
-            v-if="paymentStore.balanceTransactions.length === 0"
-            class="empty"
-          >
-            No balance transactions found.
-          </div>
+                  </td>
+                  <td class="right td-fee">
+                    <template v-if="parseFloat(tx.fee)">
+                      -${{ parseFloat(tx.fee).toFixed(2) }}
+                      <span class="chevron-sm">▾</span>
+                    </template>
+                    <template v-else>—</template>
+                  </td>
+                  <td class="right td-net" style="font-weight: 700">
+                    ${{ Math.abs(parseFloat(tx.net)).toFixed(2) }}
+                    <span style="font-weight: normal; font-size: 11px"
+                      >USD</span
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div
+              v-if="paymentStore.balanceTransactions.length === 0"
+              class="empty"
+            >
+              No balance transactions found.
+            </div>
+          </template>
         </div>
       </div>
     </section>
@@ -277,7 +209,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { capitalize, fmtDate } from "~/helpers";
+import {
+  addBusinessDays,
+  businessDaysBetween,
+  capitalize,
+  fmtDate,
+} from "~/helpers";
 import { useFormStore } from "~/stores/form";
 import { usePaymentStore } from "~/stores/payment";
 
@@ -288,6 +225,7 @@ const paymentStore = usePaymentStore();
 const router = useRouter();
 
 const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
+const activeTab = ref<"payouts" | "transactions">("transactions");
 
 const filteredPayouts = computed(() =>
   paymentStore.payouts.filter(
@@ -300,6 +238,26 @@ const currentBalance = computed(() => {
   if (!b) return null;
   if (Array.isArray(b)) return b[0] ?? null;
   return b;
+});
+
+const businessDaysOffset = computed(() => {
+  const transactionsWithPayout = paymentStore.balanceTransactions
+    .filter((tx) => tx.payout_id)
+    .sort(
+      (a, b) =>
+        new Date(a.processed_at).getTime() - new Date(b.processed_at).getTime(),
+    );
+
+  if (transactionsWithPayout.length === 0) return 0;
+
+  const oldestTx = transactionsWithPayout[0];
+  const payout = paymentStore.payouts.find((p) => p.id === oldestTx.payout_id);
+  if (!payout) return 0;
+
+  return businessDaysBetween(
+    new Date(oldestTx.processed_at),
+    new Date(payout.date),
+  );
 });
 
 function getPayoutProcessedDate(payoutId: number) {
@@ -347,13 +305,26 @@ function resolveToken(sid: string): string | null {
 }
 
 function getPayoutDate(tx: any) {
-  // Balance transactions might not have expected payout date natively embedded on them.
-  // Using processed_at or a placeholder for now, Shopify API payout transactions usually
-  // need combining with Payouts to get the exact scheduled date, or it may be omitted.
-  if (tx.payout_id && tx.payout_status === "paid") {
-    // A paid transaction's processed date is close to payout date
-    // We just format a mock or available date.
-    return fmtDate(tx.processed_at); // fallback
+  // 1. Direct lookup from API data
+  if (tx.payout_id) {
+    const payout = paymentStore.payouts.find((p: any) => p.id === tx.payout_id);
+    if (payout) {
+      return fmtDate(payout.date);
+    }
+  }
+
+  // 2. Prediction using business day offset
+  if (businessDaysOffset.value > 0) {
+    const predictedDate = addBusinessDays(
+      new Date(tx.processed_at),
+      businessDaysOffset.value,
+    );
+    return fmtDate(predictedDate.toISOString().split("T")[0] || "");
+  }
+
+  // 3. Fallback for paid transactions if no offset
+  if (tx.payout_status === "paid") {
+    return fmtDate(tx.processed_at);
   }
   return "Pending...";
 }
