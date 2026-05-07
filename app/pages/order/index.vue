@@ -24,8 +24,10 @@
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Total</th>
-                <th>Payment status</th>
+                <th>Financial status</th>
+                <th>Transaction status</th>
                 <th>Fulfillment status</th>
+
                 <th>Delivery status</th>
               </tr>
             </thead>
@@ -67,6 +69,21 @@
                     {{ financialBadge(order.financial_status)?.label }}
                   </span>
                 </td>
+                <td>
+                  <span
+                    v-if="getTransactionStatus(order.id)"
+                    class="badge"
+                    :class="
+                      transactionBadge(getTransactionStatus(order.id))?.cls
+                    "
+                  >
+                    {{
+                      transactionBadge(getTransactionStatus(order.id))?.label
+                    }}
+                  </span>
+                  <span v-else>—</span>
+                </td>
+
                 <td>
                   <span
                     class="badge"
@@ -157,7 +174,17 @@
                       </template>
                     </AppPopover>
                   </div>
-                  <span v-else>—</span>
+                  <div v-if="getTransactionStatus(order.id) === 'in_transit' && order.fulfillment_status !== 'fulfilled'">
+                    <button
+                      class="btn-add-track"
+                      @click.stop="addTracking(order)"
+                    >
+                      Add track
+                    </button>
+                  </div>
+                  <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
+                    >—</span
+                  >
                 </td>
               </tr>
             </tbody>
@@ -170,7 +197,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
+import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
+import { usePaymentStore } from "~/stores/payment";
 import {
   financialBadge,
   fmtDateTime,
@@ -179,14 +208,26 @@ import {
   getCustomerName,
   getShipmentLabel,
   nilVal,
+  transactionBadge,
 } from "~~/utils/order";
 
 definePageMeta({ layout: false });
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
+const paymentStore = usePaymentStore();
+const formStore = useFormStore();
 
 const orders = computed(() => orderStore.orders);
+const config = useRuntimeConfig();
+
+function getTransactionStatus(orderId: any) {
+  if (!orderId) return null;
+  const tx = paymentStore.balanceTransactions.find(
+    (t: any) => String(t.source_order_id) === String(orderId),
+  );
+  return tx?.payout_status || null;
+}
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 onMounted(() => {
@@ -194,7 +235,101 @@ onMounted(() => {
   if (orderStore.orders.length) {
     orderStore.error = null;
   }
+
+  // Fetch transactions if we have storeId
+  const sid = formStore.storeId;
+  if (sid) {
+    const cookie = useCookie<any>(sid);
+    const token = cookie.value?.accessToken;
+    if (token) {
+      paymentStore.fetchBalanceTransactions(sid, token);
+    }
+  }
 });
+
+async function addTracking(order: any) {
+  const sid = formStore.storeId;
+  const cookie = sid ? useCookie<any>(sid) : null;
+  const token = cookie?.value?.accessToken;
+
+  if (!sid || !token) {
+    alert("Error: Store ID or Access Token is missing. Please select a store first.");
+    return;
+  }
+
+  const provinceCode = order.customer?.default_address?.province_code || "CA";
+  const fulfillmentId = order.fulfillments?.[0]?.id;
+
+  try {
+    // 1. Get tracking number from our local proxy API
+    const tracktacoRes = await $fetch<any>(
+      "/api/tracktaco/get-trackingnr",
+      {
+        method: "POST",
+        body: {
+          state: provinceCode,
+          from: 1778150769166,
+          to: 1778237169166,
+          carrier: "fedex",
+        },
+      },
+    );
+
+    const trackingNr = tracktacoRes.trackingNr;
+    if (!trackingNr) {
+      throw new Error("No tracking number returned from Tracktaco");
+    }
+
+    // 2. Get fulfillment order ID
+    const foRes = await $fetch<any>(`/api/order/${order.id}/fulfillment_orders`, {
+      method: "GET",
+      params: { storeId: sid, token: token },
+    });
+    
+    // Find an open or in_progress fulfillment order
+    const openFO = foRes.fulfillment_orders?.find(
+      (fo: any) => fo.status === "open" || fo.status === "in_progress"
+    );
+
+    if (!openFO) {
+      throw new Error("No open fulfillment order found for this order.");
+    }
+
+    // 3. Prepare payload for fulfillment creation
+    const payload = {
+      storeId: sid,
+      token: token,
+      fulfillment: {
+        line_items_by_fulfillment_order: [
+          {
+            fulfillment_order_id: openFO.id,
+          },
+        ],
+        tracking_info: {
+          number: trackingNr,
+          url: `https://www.fedex.com/fedextrack/?trknbr=${trackingNr}`,
+        },
+      },
+    };
+
+    // 4. Call API to CREATE fulfillment
+    const response = await $fetch<any>(`/api/order/${order.id}/fulfill`, {
+      method: "POST",
+      body: payload,
+    });
+
+    console.log("Tracking updated/created:", response);
+    
+    // 3. Refresh orders to show new status/tracking
+    await orderStore.fetchAll(sid, token);
+    
+    alert(`Tracking updated successfully! (${trackingNr})`);
+  } catch (err: any) {
+    console.error("Failed to update tracking:", err);
+    const msg = err.data?.message || err.message || "Unknown error";
+    alert(`Failed to update tracking: ${msg}`);
+  }
+}
 </script>
 
 <style scoped>
@@ -410,6 +545,24 @@ onMounted(() => {
   padding: 60px 20px;
   color: var(--text-sub);
   font-size: 15px;
+}
+
+.btn-add-track {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-link);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-add-track:hover {
+  background: #f8f9fa;
+  border-color: var(--text-link);
 }
 
 .order-card:hover {

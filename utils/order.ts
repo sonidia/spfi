@@ -133,6 +133,17 @@ export function fulfillmentBadge(status: string) {
   };
   return { cls: cls[status] || "badge-archived", label: capitalize(status) };
 }
+export function transactionBadge(status: string) {
+  if (!status) return null;
+  const cls: Record<string, string> = {
+    paid: "badge-paid",
+    pending: "badge-unfulfilled",
+    in_transit: "badge-partial",
+  };
+
+  return { cls: cls[status] || "badge-archived", label: capitalize(status) };
+}
+
 export function getOrderBadges(order: any) {
   const badges: any[] = [];
   if (!order) return badges;

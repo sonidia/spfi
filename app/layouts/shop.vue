@@ -94,6 +94,7 @@ function fetchCurrent(force = false) {
 
   if (route.path === "/order") {
     if (force || !orderStore.hasFetchedAll) orderStore.fetchAll(sid, token);
+    paymentStore.fetchBalanceTransactions(sid, token, force);
   } else if (route.path.startsWith("/order/")) {
     const idMatch = route.path.match(/\/order\/(\d+)/);
     if (idMatch) {

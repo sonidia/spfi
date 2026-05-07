@@ -127,6 +127,15 @@ export function resolveStoreDomain(
   return normalized.includes(".") ? normalized : `${normalized}.myshopify.com`;
 }
 
+export function resolveStoreAdminDomain(
+  storeId: string,
+  _cookieDomain?: string,
+): string {
+  const sid = String(storeId || "").trim();
+  if (sid.includes(".myshopify.com")) return sid;
+  return `${sid}.myshopify.com`;
+}
+
 export function buildProxyVariants(sock: string): string[] {
   const raw = String(sock || "").trim();
   if (!raw) return [];
