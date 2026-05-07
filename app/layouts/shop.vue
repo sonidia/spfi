@@ -37,7 +37,7 @@ const noStores = computed(() => formStore.knownStores.length === 0);
 watch(
   () => route.path,
   (newPath) => {
-    if (["/order", "/payment"].includes(newPath)) {
+    if (newPath.startsWith("/order") || newPath.startsWith("/payment")) {
       fetchCurrent();
     }
   },

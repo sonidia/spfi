@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { useCookie } from "#imports";
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref } from "vue";
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
 import { usePaymentStore } from "~/stores/payment";
@@ -26,7 +26,7 @@ const storeList = computed(() => {
   return formStore.knownStores.map((id) => {
     const cookie = useCookie<any>(id);
     const data = cookie.value;
-    const cached = paymentStore.bulkingPayouts[id] || {};
+    const cached: any = paymentStore.bulkingPayouts[id] || {};
     return {
       id,
       domain: data?.domain || "",
@@ -104,6 +104,29 @@ async function loadPayouts() {
 
 async function updatePayouts() {
   isUpdating.value = true;
+
+  // Load sheets once to avoid rate limits
+  let buff1Rows: any[] = [];
+  let buff2Rows: any[] = [];
+  let quanLyRows: any[] = [];
+
+  try {
+    buff1Rows = await readSheetValues({
+      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
+      range: "'order 1'!A:Z",
+    });
+    buff2Rows = await readSheetValues({
+      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
+      range: "'Sheet1'!A:Z",
+    });
+    quanLyRows = await readSheetValues({
+      spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
+      range: "'quản lý'!A:Z",
+    });
+  } catch (e) {
+    console.error("Failed to load sheets for syncing", e);
+  }
+
   for (const store of storeList.value) {
     if (!store.accessToken) {
       paymentStore.setBulkingPayout(store.id, {
@@ -122,9 +145,21 @@ async function updatePayouts() {
         body: { storeId: store.id, token: store.accessToken },
       });
       if (res.payouts && res.payouts.length > 0) {
-        const payout = res.payouts[0];
+        // Sort by date descending to get the most recent payout
+        const sortedPayouts = [...res.payouts].sort(
+          (a: any, b: any) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
+        const payout = sortedPayouts[0];
         const payoutDate = payout.date;
-        const payoutStatus = payout.status;
+        let payoutStatus = payout.status.toLowerCase();
+
+        if (payoutStatus === "paid") {
+          payoutStatus = "Deposited";
+        } else {
+          payoutStatus =
+            payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
+        }
 
         // Save to store for persistence
         paymentStore.setBulkingPayout(store.id, {
@@ -137,11 +172,6 @@ async function updatePayouts() {
         let targetRangeSheet = "";
         let usedSpreadsheetId = "";
 
-        const buff1Rows = await readSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-          range: "'order 1'!A:Z",
-        });
-
         foundIndex = buff1Rows.findIndex(
           (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
         );
@@ -150,10 +180,6 @@ async function updatePayouts() {
           targetRangeSheet = "'order 1'";
           usedSpreadsheetId = BUFF1_SHEET_URL;
         } else {
-          const buff2Rows = await readSheetValues({
-            spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-            range: "'Sheet1'!A:Z",
-          });
           foundIndex = buff2Rows.findIndex(
             (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
           );
@@ -178,11 +204,6 @@ async function updatePayouts() {
         }
 
         // 2. Sync Status with Quản Lý sheet
-        const quanLyRows = await readSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-          range: "'quản lý'!A:Z",
-        });
-
         const qlIndex = quanLyRows.findIndex(
           (r) => r[2]?.trim().toLowerCase() === store.domain.toLowerCase(),
         );
@@ -213,45 +234,12 @@ async function updatePayouts() {
 
 <template>
   <div class="bulking-page">
-    <div class="page-header">
-      <div class="hero-icon">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M2 17L12 22L22 17"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M2 12L12 17L22 12"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M12 2L2 7L12 12L22 7L12 2Z"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </div>
-      <div class="page-header-text">
-        <h1 class="page-title">Bulking Payouts</h1>
-        <p class="page-sub">
-          Bulk view and update payouts across all active stores
-        </p>
-      </div>
-    </div>
+    <PageHeader
+      title="Bulking Payouts"
+      sub="Bulk view and update payouts across all active stores"
+    >
+      <IconsBulking />
+    </PageHeader>
 
     <!-- Actions and Table -->
     <section class="card">
@@ -305,9 +293,7 @@ async function updatePayouts() {
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
               <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
-            {{
-              isUpdating ? "Syncing Payouts..." : "Sync Payouts"
-            }}
+            {{ isUpdating ? "Syncing Payouts..." : "Sync Payouts" }}
           </button>
         </div>
       </div>
@@ -349,15 +335,22 @@ async function updatePayouts() {
                   class="tag"
                   :class="{
                     'tag-ok':
-                      store.payoutStatus &&
-                      store.payoutStatus !== 'Error' &&
-                      !store.payoutStatus.includes('No'),
+                      store.payoutStatus.toLowerCase() === 'paid' ||
+                      store.payoutStatus.toLowerCase() === 'deposited',
+                    'tag-pending':
+                      store.payoutStatus.toLowerCase() === 'pending' ||
+                      store.payoutStatus.toLowerCase() === 'scheduled',
                     'tag-err':
                       store.payoutStatus === 'Error' ||
                       store.payoutStatus.includes('No'),
                   }"
                 >
-                  {{ store.payoutStatus }}
+                  {{
+                    store.payoutStatus.toLowerCase() === "paid"
+                      ? "Deposited"
+                      : store.payoutStatus.charAt(0).toUpperCase() +
+                        store.payoutStatus.slice(1).toLowerCase()
+                  }}
                 </span>
                 <span v-else>-</span>
               </td>
@@ -377,37 +370,6 @@ async function updatePayouts() {
   max-width: 1028px;
   margin: 0 auto;
   padding: 48px 24px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.hero-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  background: #f0f0ff;
-  border-radius: 12px;
-  color: #5b47e0;
-  flex-shrink: 0;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.page-sub {
-  font-size: 13px;
-  color: var(--text-secondary, #6d6d6d);
 }
 
 .card {
@@ -541,6 +503,11 @@ async function updatePayouts() {
 .tag-ok {
   background: var(--badge-paid, #e4f2e8);
   color: var(--badge-paid-text, #1a7f37);
+}
+
+.tag-pending {
+  background: var(--badge-scheduled, #fbf1e6);
+  color: var(--badge-scheduled-text, #d97706);
 }
 
 .tag-err {

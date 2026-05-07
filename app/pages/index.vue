@@ -1,29 +1,11 @@
 <template>
   <div class="setup-guide">
-    <div class="hero">
-      <div class="hero-icon">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </div>
-      <h1>Shopify Store Manager</h1>
-      <p class="subtitle">
-        Setup guide — làm theo các bước dưới đây để kết nối store Shopify của
-        bạn
-      </p>
-    </div>
+    <PageHeader
+      title="Setup Guide"
+      sub="Follow the steps below to connect your Shopify store"
+    >
+      <IconsHero />
+    </PageHeader>
 
     <div class="steps">
       <!-- STEP 1 -->
@@ -223,39 +205,6 @@ read_all_orders,read_customers,write_customers,read_delivery_customizations,writ
     -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   color: #1a1a1a;
   line-height: 1.6;
-}
-
-/* Hero */
-.hero {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.hero-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  background: #f0f0ff;
-  border-radius: 16px;
-  color: #5b47e0;
-  margin-bottom: 16px;
-}
-
-.hero h1 {
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.4px;
-  margin: 0 0 10px;
-  color: #111;
-}
-
-.subtitle {
-  color: #6b7280;
-  font-size: 15px;
-  max-width: 420px;
-  margin: 0 auto;
 }
 
 /* Step cards */

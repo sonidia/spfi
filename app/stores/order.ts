@@ -37,10 +37,6 @@ export const useOrderStore = defineStore("order", () => {
   async function fetchById(storeId: string, token: string, id: string, force = false) {
     if (!storeId || !token || !id) return;
 
-    // Check if already in list and not forcing
-    const existing = orders.value.find(o => o.id?.toString() === id);
-    if (!force && existing) return;
-
     isLoading.value = true;
     error.value = null;
 

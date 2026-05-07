@@ -16,47 +16,152 @@
         <div class="page-meta">
           {{ orders.length }} order{{ orders.length !== 1 ? "s" : "" }}
         </div>
-        <div class="left-col">
-          <NuxtLink
-            v-for="(order, index) in orders"
-            :key="order.id || index"
-            class="card order-card"
-            style="
-              cursor: pointer;
-              text-decoration: none;
-              color: inherit;
-              display: block;
-            "
-            :to="`/order/${order.id}`"
-          >
-            <div
-              class="card-header"
-              style="justify-content: flex-start; gap: 8px"
-            >
-              <span class="card-title">{{
-                nilVal(order.name, "#" + order.order_number)
-              }}</span>
-              <template v-for="badge in getOrderBadges(order)" :key="badge.cls">
-                <span class="badge" :class="badge.cls">{{ badge.label }}</span>
-              </template>
-            </div>
-            <div class="sidebar-body">
-              <div class="sidebar-value">
-                {{ fmtDateTime(order.created_at) || "—" }}
-              </div>
-              <div class="sidebar-value" style="font-weight: 500">
-                {{
-                  fmtMoney(
-                    nilVal(
-                      order.total_price,
-                      nilVal(order.current_total_price, "0.00"),
-                    ),
-                    nilVal(order.currency, "CAD"),
-                  )
-                }}
-              </div>
-            </div>
-          </NuxtLink>
+        <div class="card table-card">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Total</th>
+                <th>Payment status</th>
+                <th>Fulfillment status</th>
+                <th>Delivery status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(order, index) in orders"
+                :key="order.id || index"
+                @click="$router.push(`/order/${order.id}`)"
+                class="order-row"
+              >
+                <td>
+                  <NuxtLink :to="`/order/${order.id}`" class="order-link">
+                    {{ nilVal(order.name, "#" + order.order_number) }}
+                  </NuxtLink>
+                </td>
+                <td>
+                  {{ fmtDateTime(order.created_at) || "—" }}
+                </td>
+                <td>
+                  {{ getCustomerName(order) || "—" }}
+                </td>
+                <td style="font-weight: 500">
+                  {{
+                    fmtMoney(
+                      nilVal(
+                        order.total_price,
+                        nilVal(order.current_total_price, "0.00"),
+                      ),
+                      nilVal(order.currency, "CAD"),
+                    )
+                  }}
+                </td>
+                <td>
+                  <span
+                    v-if="order.financial_status"
+                    class="badge"
+                    :class="financialBadge(order.financial_status)?.cls"
+                  >
+                    {{ financialBadge(order.financial_status)?.label }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="badge"
+                    :class="fulfillmentBadge(order.fulfillment_status).cls"
+                  >
+                    {{ fulfillmentBadge(order.fulfillment_status).label }}
+                  </span>
+                </td>
+                <td>
+                  <div
+                    v-if="order.fulfillments?.[0]?.shipment_status"
+                    class="delivery-cell"
+                  >
+                    <AppPopover align="right" position="top">
+                      <template #trigger>
+                        <div class="delivery-status-trigger">
+                          <span
+                            class="badge"
+                            :class="
+                              order.fulfillments[0].shipment_status ===
+                              'delivered'
+                                ? 'badge-paid'
+                                : 'badge-pending'
+                            "
+                          >
+                            {{
+                              getShipmentLabel(
+                                order.fulfillments[0].shipment_status,
+                              )
+                            }}
+                          </span>
+                          <span class="hover-arrow">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 20 20"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              style="margin-top: 2px"
+                            >
+                              <path
+                                d="M7 15l5-5-5-5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                              />
+                            </svg>
+                          </span>
+                        </div>
+                      </template>
+                      <template #default>
+                        <div class="fulfillment-popover" @click.stop>
+                          <div class="popover-line">
+                            <span class="popover-lbl">ID:</span>
+                            <span class="popover-val">{{
+                              order.fulfillments[0].id
+                            }}</span>
+                          </div>
+                          <div class="popover-line">
+                            <span class="popover-lbl">Company:</span>
+                            <span class="popover-val">{{
+                              order.fulfillments[0].tracking_company || "—"
+                            }}</span>
+                          </div>
+                          <div class="popover-line">
+                            <span class="popover-lbl">Tracking:</span>
+                            <span class="popover-val">
+                              <a
+                                v-if="order.fulfillments[0].tracking_url"
+                                :href="order.fulfillments[0].tracking_url"
+                                target="_blank"
+                                class="order-link"
+                              >
+                                {{ order.fulfillments[0].tracking_number }}
+                              </a>
+                              <span v-else>{{
+                                order.fulfillments[0].tracking_number || "—"
+                              }}</span>
+                            </span>
+                          </div>
+                          <div class="popover-line border-top">
+                            <span class="popover-lbl">Created:</span>
+                            <span class="popover-val">{{
+                              fmtDateTime(order.fulfillments[0].created_at)
+                            }}</span>
+                          </div>
+                        </div>
+                      </template>
+                    </AppPopover>
+                  </div>
+                  <span v-else>—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -66,7 +171,15 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useOrderStore } from "~/stores/order";
-import { fmtDateTime, fmtMoney, getOrderBadges, nilVal } from "~~/utils/order";
+import {
+  financialBadge,
+  fmtDateTime,
+  fmtMoney,
+  fulfillmentBadge,
+  getCustomerName,
+  getShipmentLabel,
+  nilVal,
+} from "~~/utils/order";
 
 definePageMeta({ layout: false });
 
@@ -153,6 +266,56 @@ onMounted(() => {
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+
+.delivery-cell {
+  display: flex;
+  align-items: center;
+}
+
+.delivery-status-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hover-arrow {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-sub);
+  transition: opacity 0.2s ease;
+  rotate: 90deg;
+}
+
+.fulfillment-popover {
+  padding: 12px;
+  min-width: 220px;
+}
+
+.popover-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.popover-line.border-top {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 8px;
+}
+
+.popover-lbl {
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+.popover-val {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+
 .left-col .card + .card {
   margin-top: 16px;
 }
@@ -165,6 +328,69 @@ onMounted(() => {
   gap: 8px;
   border-bottom: 1px solid var(--border);
 }
+
+.table-card {
+  border-radius: var(--radius);
+  overflow: visible !important;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  background: var(--surface);
+}
+
+.orders-table th:first-child {
+  border-top-left-radius: var(--radius);
+}
+.orders-table th:last-child {
+  border-top-right-radius: var(--radius);
+}
+.orders-table tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius);
+}
+.orders-table tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius);
+}
+
+.orders-table th {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  background: #f9f9fa;
+  border-bottom: 1px solid var(--border);
+}
+
+.orders-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.order-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.order-row:hover {
+  background: #f8f9fa;
+}
+
+.order-link {
+  color: var(--text-link);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.order-link:hover {
+  text-decoration: underline;
+}
+
 .card-title {
   font-weight: 600;
   font-size: 14px;
