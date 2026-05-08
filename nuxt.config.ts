@@ -24,5 +24,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     tracktacoApiKey: "",
     tracktacoBaseUrl: "",
+    sheetQuanLyUrl: "",
+    sheetBuff1Url: "",
+    sheetBuff2Url: "",
   },
 });
