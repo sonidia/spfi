@@ -174,7 +174,12 @@
                       </template>
                     </AppPopover>
                   </div>
-                  <div v-if="getTransactionStatus(order.id) === 'in_transit' && order.fulfillment_status !== 'fulfilled'">
+                  <div
+                    v-if="
+                      getTransactionStatus(order.id) === 'in_transit' &&
+                      order.fulfillment_status !== 'fulfilled'
+                    "
+                  >
                     <button
                       class="btn-add-track"
                       @click.stop="addTracking(order)"
@@ -213,7 +218,6 @@ import {
 
 definePageMeta({ layout: false });
 
-// ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const formStore = useFormStore();
@@ -229,14 +233,11 @@ function getTransactionStatus(orderId: any) {
   return tx?.payout_status || null;
 }
 
-// ── Data loading ──────────────────────────────────────────────────────────────
 onMounted(() => {
-  // If we already have data, just clear any leftover error
   if (orderStore.orders.length) {
     orderStore.error = null;
   }
 
-  // Fetch transactions if we have storeId
   const sid = formStore.storeId;
   if (sid) {
     const cookie = useCookie<any>(sid);
@@ -253,27 +254,24 @@ async function addTracking(order: any) {
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token) {
-    alert("Error: Store ID or Access Token is missing. Please select a store first.");
+    alert(
+      "Error: Store ID or Access Token is missing. Please select a store first.",
+    );
     return;
   }
 
   const provinceCode = order.customer?.default_address?.province_code || "CA";
-  const fulfillmentId = order.fulfillments?.[0]?.id;
 
   try {
-    // 1. Get tracking number from our local proxy API
-    const tracktacoRes = await $fetch<any>(
-      "/api/tracktaco/get-trackingnr",
-      {
-        method: "POST",
-        body: {
-          state: provinceCode,
-          from: 1778150769166,
-          to: 1778237169166,
-          carrier: "fedex",
-        },
+    const tracktacoRes = await $fetch<any>("/api/tracktaco/get-trackingnr", {
+      method: "POST",
+      body: {
+        state: provinceCode,
+        from: 1778150769166,
+        to: 1778237169166,
+        carrier: "fedex",
       },
-    );
+    });
 
     const trackingNr = tracktacoRes.trackingNr;
     if (!trackingNr) {
@@ -281,14 +279,17 @@ async function addTracking(order: any) {
     }
 
     // 2. Get fulfillment order ID
-    const foRes = await $fetch<any>(`/api/order/${order.id}/fulfillment_orders`, {
-      method: "GET",
-      params: { storeId: sid, token: token },
-    });
-    
+    const foRes = await $fetch<any>(
+      `/api/order/${order.id}/fulfillment_orders`,
+      {
+        method: "GET",
+        params: { storeId: sid, token: token },
+      },
+    );
+
     // Find an open or in_progress fulfillment order
     const openFO = foRes.fulfillment_orders?.find(
-      (fo: any) => fo.status === "open" || fo.status === "in_progress"
+      (fo: any) => fo.status === "open" || fo.status === "in_progress",
     );
 
     if (!openFO) {
@@ -319,10 +320,10 @@ async function addTracking(order: any) {
     });
 
     console.log("Tracking updated/created:", response);
-    
+
     // 3. Refresh orders to show new status/tracking
     await orderStore.fetchAll(sid, token);
-    
+
     alert(`Tracking updated successfully! (${trackingNr})`);
   } catch (err: any) {
     console.error("Failed to update tracking:", err);

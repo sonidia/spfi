@@ -40,6 +40,64 @@ const storeList = computed(() => {
 const isUpdating = ref(false);
 const isLoadingPayouts = ref(false);
 
+// Modal and Transaction State
+const isModalOpen = ref(false);
+const selectedStore = ref<any>(null);
+const transactions = ref<any[]>([]);
+const isLoadingTransactions = ref(false);
+
+async function openPayoutDetails(store: any) {
+  if (!store.accessToken) return;
+  selectedStore.value = store;
+  isModalOpen.value = true;
+  isLoadingTransactions.value = true;
+  transactions.value = [];
+
+  try {
+    // Fetch both transactions and orders in parallel
+    const [txRes, orderRes]: any = await Promise.all([
+      $fetch("/api/payment/payout/transactions", {
+        method: "POST",
+        body: { storeId: store.id, token: store.accessToken },
+      }),
+      $fetch("/api/order/all", {
+        method: "POST",
+        body: { storeId: store.id, token: store.accessToken },
+      }),
+    ]);
+
+    // Create a map of order ID to order details
+    const orderMap = new Map();
+    if (orderRes && orderRes.orders) {
+      orderRes.orders.forEach((o: any) => {
+        const customerName = o.customer
+          ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
+          : "Guest";
+        orderMap.set(String(o.id), {
+          name: o.name,
+          customer: customerName,
+        });
+      });
+    }
+
+    // Filter and map transactions
+    transactions.value = (txRes.transactions || [])
+      .filter((tx: any) => tx.type !== "payout")
+      .map((tx: any) => {
+        const orderData = orderMap.get(String(tx.source_order_id));
+        return {
+          ...tx,
+          orderName: orderData?.name || tx.source_order_id || tx.source_id || "N/A",
+          customerName: orderData?.customer || "-",
+        };
+      });
+  } catch (err) {
+    console.error("Error fetching transactions:", err);
+  } finally {
+    isLoadingTransactions.value = false;
+  }
+}
+
 async function loadPayouts() {
   isLoadingPayouts.value = true;
   try {
@@ -308,7 +366,12 @@ async function updatePayouts() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="store in storeList" :key="store.id">
+            <tr
+              v-for="store in storeList"
+              :key="store.id"
+              class="clickable-row"
+              @click="openPayoutDetails(store)"
+            >
               <td>{{ store.id }}</td>
               <td>{{ store.domain || "(No domain)" }}</td>
               <td>
@@ -362,6 +425,51 @@ async function updatePayouts() {
         No stores configured yet. Please add a store in the connection manager.
       </div>
     </section>
+
+    <!-- Payout Details Modal -->
+    <SheetDataModal
+      :open="isModalOpen"
+      :title="`Payout Details: ${selectedStore?.domain || ''}`"
+      @close="isModalOpen = false"
+    >
+      <div class="modal-content-inner">
+        <div v-if="isLoadingTransactions" class="modal-loading">
+          <span class="spinner" />
+          <p>Loading transactions...</p>
+        </div>
+        <div v-else-if="transactions.length" class="modal-table-container">
+          <table class="details-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Payout ID</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="tx in transactions" :key="tx.id">
+                <td>
+                  <span class="order-link">
+                    {{ tx.orderName }}
+                  </span>
+                </td>
+                <td class="customer-cell">{{ tx.customerName }}</td>
+                <td>{{ tx.type }}</td>
+                <td>{{ tx.amount }} {{ tx.currency }}</td>
+                <td>
+                  <span class="payout-id-tag">{{ tx.payout_id || "-" }}</span>
+                </td>
+                <td>{{ new Date(tx.processed_at).toLocaleDateString() }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="modal-empty">No transactions found for this store.</div>
+      </div>
+    </SheetDataModal>
   </div>
 </template>
 
@@ -489,6 +597,90 @@ async function updatePayouts() {
 
 .bulking-table tr:hover td {
   background: #f9f9fc;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover td {
+  background: #f0f4ff !important;
+}
+
+/* Modal Table Styles */
+.modal-content-inner {
+  min-height: 200px;
+  position: relative;
+}
+
+.modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--blue, #005bd3);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 12px;
+}
+
+.modal-table-container {
+  padding: 0;
+}
+
+.details-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.details-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background: #f9f9fc;
+  border-bottom: 1px solid var(--border);
+  color: #6b7280;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.details-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: #374151;
+}
+
+.order-link {
+  color: var(--blue, #005bd3);
+  font-weight: 500;
+}
+
+.customer-cell {
+  font-weight: 500;
+  color: #111;
+}
+
+.payout-id-tag {
+  font-family: monospace;
+  font-size: 11px;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.modal-empty {
+  padding: 40px;
+  text-align: center;
+  color: #6b7280;
 }
 
 .tag {

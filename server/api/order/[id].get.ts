@@ -5,9 +5,10 @@ import {
   createProxyAgent,
   resolveStoreCookieData,
   resolveStoreDomain,
-} from "../../../utils/proxy/store-proxy";
+} from "~~/utils/proxy/store-proxy";
 
 export default defineEventHandler(async (event) => {
+  const appConfig = useAppConfig();
   const id = event.context.params?.id;
   const { storeId, token } = getQuery(event);
 
@@ -28,10 +29,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const domain = resolveStoreDomain(String(storeId), storeCookie?.domain);
-  const baseURL = `https://${domain}/admin/api/2026-04`;
+  const baseURL = `https://${domain}/${appConfig.apiBase}`;
   const headers = {
     "X-Shopify-Access-Token": String(token),
-    "Content-Type": "application/json",
+    "Content-Type": appConfig.contentType,
   };
   const proxyVariants = buildProxyVariants(sock);
 

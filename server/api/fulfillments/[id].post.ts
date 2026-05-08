@@ -5,9 +5,10 @@ import {
   createProxyAgent,
   resolveStoreCookieData,
   resolveStoreDomain,
-} from "../../../utils/proxy/store-proxy";
+} from "~~/utils/proxy/store-proxy";
 
 export default defineEventHandler(async (event) => {
+  const appConfig = useAppConfig();
   const id = event.context.params?.id;
   const body = await readBody(event);
   const { storeId, token, fulfillment: fulfillmentInfo } = body;
@@ -22,20 +23,22 @@ export default defineEventHandler(async (event) => {
   const storeCookie = resolveStoreCookieData(event, String(storeId));
   const sock = String(storeCookie?.sock || "").trim();
   if (!sock) {
-    throw createError({ statusCode: 400, statusMessage: "Missing sock proxy." });
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Missing sock proxy.",
+    });
   }
 
   const domain = resolveStoreDomain(String(storeId), storeCookie?.domain);
-  const baseURL = `https://${domain}/admin/api/2026-04`;
+  const baseURL = `https://${domain}/${appConfig.apiBase}`;
   const headers = {
     "X-Shopify-Access-Token": String(token),
-    "Content-Type": "application/json",
+    "Content-Type": appConfig.contentType,
   };
   const proxyVariants = buildProxyVariants(sock);
 
-  // Construct URL
   const trackingNumber = fulfillmentInfo?.tracking_info?.number;
-  const trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
+  const trackingUrl = `${appConfig.tracking.url}${trackingNumber}`;
 
   try {
     let lastError: any;
@@ -43,20 +46,26 @@ export default defineEventHandler(async (event) => {
     for (const proxyUrl of proxyVariants) {
       const agent = createProxyAgent(proxyUrl);
       try {
-        const response = await axios.put(`${baseURL}/fulfillments/${id}.json`, {
-          fulfillment: {
-            notify_customer: true,
-            tracking_info: {
-              number: trackingNumber,
-              company: fulfillmentInfo?.tracking_info?.company || "FedEx",
-              url: trackingUrl
-            }
-          }
-        }, {
-          headers,
-          httpAgent: agent,
-          httpsAgent: agent,
-        });
+        const response = await axios.put(
+          `${baseURL}/fulfillments/${id}.json`,
+          {
+            fulfillment: {
+              notify_customer: true,
+              tracking_info: {
+                number: trackingNumber,
+                company:
+                  fulfillmentInfo?.tracking_info?.company ||
+                  appConfig.tracking.company,
+                url: trackingUrl,
+              },
+            },
+          },
+          {
+            headers,
+            httpAgent: agent,
+            httpsAgent: agent,
+          },
+        );
 
         return response.data;
       } catch (error: any) {
@@ -69,7 +78,8 @@ export default defineEventHandler(async (event) => {
     const message = err.response?.data || err.message;
     throw createError({
       statusCode: err.response?.status || 500,
-      statusMessage: typeof message === 'string' ? message : JSON.stringify(message),
+      statusMessage:
+        typeof message === "string" ? message : JSON.stringify(message),
     });
   }
 });

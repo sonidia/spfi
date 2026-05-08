@@ -1,12 +1,12 @@
-import { defineEventHandler, readBody } from "h3";
 import { useRuntimeConfig } from "#imports";
+import { defineEventHandler, readBody } from "h3";
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
   const body = await readBody(event);
 
   try {
-    const response = await $fetch<any>(config.public.tracktacoBaseUrl, {
+    const response = await $fetch<any>(config.tracktacoBaseUrl, {
       method: "POST",
       headers: {
         "x-api-key": config.tracktacoApiKey,

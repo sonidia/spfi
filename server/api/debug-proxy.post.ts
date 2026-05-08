@@ -7,7 +7,7 @@ import {
   inspectProxyInput,
   maskProxyUrl,
   normalizeProxyUrl,
-} from "../../utils/proxy/proxy";
+} from "~~/utils/proxy/proxy";
 
 type DebugProxyBody = {
   proxy?: string;

@@ -7,7 +7,7 @@ import {
   inspectProxyInput,
   maskProxyUrl,
   normalizeProxyUrl,
-} from "../../utils/proxy/proxy";
+} from "~~/utils/proxy/proxy";
 
 function toRawProxyVariant(sock: string): string | null {
   const raw = String(sock || "").trim();
@@ -125,9 +125,9 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 500,
       statusMessage:
-        "Socks5 Authentication failed: proxy credential bị từ chối sau khi đã thử encoded/raw variant",
+        "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw variant",
       data: {
-        hint: "Gọi POST /api/debug-proxy với body { proxy } để xem variant nào pass/fail chi tiết.",
+        hint: "Call POST /api/debug-proxy with body { proxy } to view which variant passes/fails with details.",
         variantsTried: variants.map((item) => ({
           name: item.name,
           maskedProxy: maskProxyUrl(item.proxyUrl),

@@ -159,9 +159,13 @@
                     </span>
                   </td>
                   <td class="td-order">
-                    <a v-if="getOrderNumber(tx)" class="link"
-                      >#{{ getOrderNumber(tx) }}</a
+                    <NuxtLink
+                      v-if="getOrderNumber(tx)"
+                      class="link"
+                      :to="`/order/${getOrderNumber(tx)}`"
                     >
+                      #{{ getOrderNumber(tx) }}
+                    </NuxtLink>
                     <span v-else>—</span>
                   </td>
                   <td class="td-type">{{ capitalize(tx.type) }}</td>
@@ -209,14 +213,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useFormStore } from "~/stores/form";
+import { usePaymentStore } from "~/stores/payment";
 import {
   addBusinessDays,
   businessDaysBetween,
   capitalize,
   fmtDate,
-} from "~/helpers";
-import { useFormStore } from "~/stores/form";
-import { usePaymentStore } from "~/stores/payment";
+} from "~~/helpers";
 
 definePageMeta({ layout: false });
 

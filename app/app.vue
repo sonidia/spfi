@@ -1,8 +1,8 @@
 <script lang="ts" setup>
+import LoadingOverlay from "./components/LoadingOverlay.vue";
+import Nav from "./components/Nav.vue";
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
-import Nav from "./components/Nav.vue";
-import LoadingOverlay from "./components/LoadingOverlay.vue";
 
 const { loading } = useLoading();
 useTokenRotation();
@@ -66,11 +66,24 @@ body {
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
-  background: var(--bg);
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("/background.svg");
+  background-attachment: fixed;
+  background-size: cover;
+  z-index: -1;
+  opacity: 0.7;
 }
 
 a {
@@ -83,7 +96,6 @@ select {
 
 .app-root {
   font-family: var(--font);
-  background: var(--bg);
   color: var(--text-primary);
   min-height: 100vh;
 }
