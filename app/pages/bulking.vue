@@ -14,11 +14,19 @@ definePageMeta({ layout: false });
 
 const formStore = useFormStore();
 const paymentStore = usePaymentStore();
-const { readSheetValues, updateSheetValues, normalizeSpreadsheetId } =
-  useSheetService();
+const {
+  readSheetValues,
+  updateSheetValues,
+  batchUpdateSheetValues,
+  normalizeSpreadsheetId,
+} = useSheetService();
 
 onMounted(() => {
   formStore.loadKnownStores();
+  // Automatically load sheet names after 3 seconds
+  setTimeout(() => {
+    loadPayouts();
+  }, 3000);
 });
 
 // Sync internal storeList with knownStores and paymentStore
@@ -31,8 +39,8 @@ const storeList = computed(() => {
       id,
       domain: data?.domain || "",
       accessToken: data?.accessToken || "",
-      payoutDate: cached.date || "",
-      payoutStatus: cached.status || "",
+      proxy: data?.sock || "",
+      sheet: data?.sheet || cached.sheet || "",
     };
   });
 });
@@ -50,6 +58,14 @@ async function openPayoutDetails(store: any) {
   if (!store.accessToken) return;
   selectedStore.value = store;
   isModalOpen.value = true;
+
+  // Check cache first
+  const cached = paymentStore.bulkingTransactions[store.id];
+  if (cached) {
+    transactions.value = cached;
+    return;
+  }
+
   isLoadingTransactions.value = true;
   transactions.value = [];
 
@@ -81,16 +97,21 @@ async function openPayoutDetails(store: any) {
     }
 
     // Filter and map transactions
-    transactions.value = (txRes.transactions || [])
+    const mappedTransactions = (txRes.transactions || [])
       .filter((tx: any) => tx.type !== "payout")
       .map((tx: any) => {
         const orderData = orderMap.get(String(tx.source_order_id));
         return {
           ...tx,
-          orderName: orderData?.name || tx.source_order_id || tx.source_id || "N/A",
+          orderName:
+            orderData?.name || tx.source_order_id || tx.source_id || "N/A",
           customerName: orderData?.customer || "-",
         };
       });
+
+    transactions.value = mappedTransactions;
+    // Save to store for reuse
+    paymentStore.setBulkingTransactions(store.id, mappedTransactions);
   } catch (err) {
     console.error("Error fetching transactions:", err);
   } finally {
@@ -99,59 +120,59 @@ async function openPayoutDetails(store: any) {
 }
 
 async function loadPayouts() {
+  // Only load if there are stores without a sheet name in cookie
+  const missingSheetStores = storeList.value.filter((s) => !s.sheet && s.domain);
+  if (missingSheetStores.length === 0) return;
+
   isLoadingPayouts.value = true;
   try {
-    const buff1Rows = await readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-      range: "'order 1'!A:Z",
-    }).catch(() => []);
+    const [b1Results, b2Results] = await Promise.allSettled([
+      readSheetValues({
+        spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
+        range: "'order 1'!A:Z",
+      }),
+      readSheetValues({
+        spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
+        range: "'Sheet1'!A:Z",
+      }),
+    ]);
 
-    const buff2Rows = await readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-      range: "'Sheet1'!A:Z",
-    }).catch(() => []);
+    const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
+    const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
 
-    const quanLyRows = await readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-      range: "'quản lý'!A:Z",
-    }).catch(() => []);
-
-    for (const store of storeList.value) {
-      if (!store.domain) continue;
-
+    for (const store of missingSheetStores) {
       const domainLower = store.domain.toLowerCase();
 
-      // Read payout date
-      let date = "";
-      let foundDate = buff1Rows.find(
+      // Find which sheet contains the domain
+      let sheetName = "";
+      const inBuff1 = buff1Rows.some(
         (r) => r[3]?.trim().toLowerCase() === domainLower,
       );
-      if (foundDate) {
-        date = foundDate[11] || ""; // L is 11
+      if (inBuff1) {
+        sheetName = "$ buff1";
       } else {
-        foundDate = buff2Rows.find(
+        const inBuff2 = buff2Rows.some(
           (r) => r[3]?.trim().toLowerCase() === domainLower,
         );
-        if (foundDate) {
-          date = foundDate[11] || "";
+        if (inBuff2) {
+          sheetName = "$ buff2";
         }
       }
 
-      // Read payout status
-      let status = "";
-      const foundStatus = quanLyRows.find(
-        (r) => r[2]?.trim().toLowerCase() === domainLower,
-      );
-      if (foundStatus && foundStatus[9]) {
-        // J is 9
-        status = foundStatus[9];
-      }
+      if (sheetName) {
+        // Save to cookie for persistence across sessions
+        const cookie = useCookie<any>(store.id, {
+          maxAge: 60 * 60 * 24 * 365 * 10,
+        });
+        cookie.value = { ...cookie.value, sheet: sheetName };
 
-      // Save to store for persistence
-      paymentStore.setBulkingPayout(store.id, {
-        date: date || store.payoutDate,
-        status: status || store.payoutStatus,
-      });
+        // Also update local store for immediate UI update if needed
+        paymentStore.setBulkingPayout(store.id, {
+          date: "",
+          status: "",
+          sheet: sheetName,
+        });
+      }
     }
   } catch (err) {
     console.error("Error loading payouts from spreadsheet:", err);
@@ -163,39 +184,82 @@ async function loadPayouts() {
 async function updatePayouts() {
   isUpdating.value = true;
 
-  // Load sheets once to avoid rate limits
+  // Load sheets selectively based on what's needed
+  const needsBuff1 = storeList.value.some((s) => s.sheet === "$ buff1");
+  const needsBuff2 = storeList.value.some((s) => s.sheet === "$ buff2");
+
   let buff1Rows: any[] = [];
   let buff2Rows: any[] = [];
   let quanLyRows: any[] = [];
 
   try {
-    buff1Rows = await readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-      range: "'order 1'!A:Z",
-    });
-    buff2Rows = await readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-      range: "'Sheet1'!A:Z",
-    });
-    quanLyRows = await readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-      range: "'quản lý'!A:Z",
-    });
+    const sheetPromises = [
+      readSheetValues({
+        spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
+        range: "'quản lý'!A:Z",
+      }),
+    ];
+
+    if (needsBuff1) {
+      sheetPromises.push(
+        readSheetValues({
+          spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
+          range: "'order 1'!A:Z",
+        }),
+      );
+    }
+
+    if (needsBuff2) {
+      sheetPromises.push(
+        readSheetValues({
+          spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
+          range: "'Sheet1'!A:Z",
+        }),
+      );
+    }
+
+    const results = await Promise.allSettled(sheetPromises);
+
+    let idx = 0;
+    if (results[idx]?.status === "fulfilled") {
+      quanLyRows = (results[idx] as PromiseFulfilledResult<any>).value;
+    }
+    idx++;
+
+    if (needsBuff1) {
+      if (results[idx]?.status === "fulfilled") {
+        buff1Rows = (results[idx] as PromiseFulfilledResult<any>).value;
+      }
+      idx++;
+    }
+
+    if (needsBuff2) {
+      if (results[idx]?.status === "fulfilled") {
+        buff2Rows = (results[idx] as PromiseFulfilledResult<any>).value;
+      }
+      idx++;
+    }
   } catch (e) {
-    console.error("Failed to load sheets for syncing", e);
+    console.error("Failed to load some sheets for syncing", e);
   }
+
+  const buff1Updates: any[] = [];
+  const buff2Updates: any[] = [];
+  const quanLyUpdates: any[] = [];
 
   for (const store of storeList.value) {
     if (!store.accessToken) {
       paymentStore.setBulkingPayout(store.id, {
         date: "No token",
         status: "No token",
+        sheet: store.sheet,
       });
       continue;
     }
     paymentStore.setBulkingPayout(store.id, {
       date: "Fetching...",
       status: "Fetching...",
+      sheet: store.sheet,
     });
     try {
       const res: any = await $fetch("/api/payment/payout/all", {
@@ -203,89 +267,161 @@ async function updatePayouts() {
         body: { storeId: store.id, token: store.accessToken },
       });
       if (res.payouts && res.payouts.length > 0) {
-        // Sort by date descending to get the most recent payout
+        // 1. Process all payouts to sync with sheets
+        for (const payout of res.payouts) {
+          const payoutDate = payout.date;
+          let payoutStatus = payout.status.toLowerCase();
+
+          if (payoutStatus === "paid") {
+            payoutStatus = "Deposited";
+          } else {
+            payoutStatus =
+              payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
+          }
+
+          // A. Sync with Buff Sheets (Still using domain-only matching for now)
+          let foundIndex = -1;
+          let targetRangeSheet = "";
+          let usedSpreadsheetId = "";
+          let isBuff1 = false;
+          let isBuff2 = false;
+
+          foundIndex = buff1Rows.findIndex(
+            (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
+          );
+
+          if (foundIndex !== -1) {
+            targetRangeSheet = "'order 1'";
+            usedSpreadsheetId = BUFF1_SHEET_URL;
+            isBuff1 = true;
+          } else {
+            foundIndex = buff2Rows.findIndex(
+              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
+            );
+            if (foundIndex !== -1) {
+              targetRangeSheet = "'Sheet1'";
+              usedSpreadsheetId = BUFF2_SHEET_URL;
+              isBuff2 = true;
+            }
+          }
+
+          if (foundIndex !== -1 && targetRangeSheet) {
+            const actualRow = foundIndex + 1;
+            const updateItem1 = {
+              range: `${targetRangeSheet}!B${actualRow}:B${actualRow}`,
+              values: [["Ordered"]],
+            };
+            const updateItem2 = {
+              range: `${targetRangeSheet}!L${actualRow}:L${actualRow}`,
+              values: [[payoutDate]],
+            };
+
+            if (isBuff1) {
+              buff1Updates.push(updateItem1, updateItem2);
+            } else if (isBuff2) {
+              buff2Updates.push(updateItem1, updateItem2);
+            }
+          }
+
+          // B. Sync with Management Sheet
+          // Format payout date from YYYY-MM-DD to DD/MM
+          const [p_year, p_month, p_day] = payoutDate.split("-");
+          const formattedDate = `${p_day}/${p_month}`;
+
+          const quanLyIndex = quanLyRows.findIndex(
+            (r) =>
+              r[2]?.trim().toLowerCase() === store.domain.toLowerCase() &&
+              r[0]?.trim() === formattedDate,
+          );
+
+          if (quanLyIndex !== -1) {
+            const actualRow = quanLyIndex + 1;
+            quanLyUpdates.push({
+              range: `'quản lý'!J${actualRow}:J${actualRow}`,
+              values: [[payoutStatus]],
+            });
+
+            if (isBuff1) {
+              quanLyUpdates.push({
+                range: `'quản lý'!E${actualRow}:E${actualRow}`,
+                values: [[payout.amount]],
+              });
+            } else if (isBuff2) {
+              quanLyUpdates.push({
+                range: `'quản lý'!F${actualRow}:F${actualRow}`,
+                values: [[payout.amount]],
+              });
+            }
+          }
+        }
+
+        // 2. Update store with the most recent payout for UI display
         const sortedPayouts = [...res.payouts].sort(
           (a: any, b: any) =>
             new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
-        const payout = sortedPayouts[0];
-        const payoutDate = payout.date;
-        let payoutStatus = payout.status.toLowerCase();
-
-        if (payoutStatus === "paid") {
-          payoutStatus = "Deposited";
+        const latestPayout = sortedPayouts[0];
+        let latestStatus = latestPayout.status.toLowerCase();
+        if (latestStatus === "paid") {
+          latestStatus = "Deposited";
         } else {
-          payoutStatus =
-            payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
+          latestStatus =
+            latestStatus.charAt(0).toUpperCase() + latestStatus.slice(1);
         }
 
-        // Save to store for persistence
         paymentStore.setBulkingPayout(store.id, {
-          date: payoutDate,
-          status: payoutStatus,
+          date: latestPayout.date,
+          status: latestStatus,
+          sheet: store.sheet,
         });
-
-        // 1. Sync Date with Buff Sheets
-        let foundIndex = -1;
-        let targetRangeSheet = "";
-        let usedSpreadsheetId = "";
-
-        foundIndex = buff1Rows.findIndex(
-          (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-        );
-
-        if (foundIndex !== -1) {
-          targetRangeSheet = "'order 1'";
-          usedSpreadsheetId = BUFF1_SHEET_URL;
-        } else {
-          foundIndex = buff2Rows.findIndex(
-            (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-          );
-          if (foundIndex !== -1) {
-            targetRangeSheet = "'Sheet1'";
-            usedSpreadsheetId = BUFF2_SHEET_URL;
-          }
-        }
-
-        if (foundIndex !== -1 && targetRangeSheet) {
-          const actualRow = foundIndex + 1;
-          await updateSheetValues({
-            spreadsheetId: normalizeSpreadsheetId(usedSpreadsheetId),
-            range: `${targetRangeSheet}!B${actualRow}:B${actualRow}`,
-            values: [["Ordered"]],
-          });
-          await updateSheetValues({
-            spreadsheetId: normalizeSpreadsheetId(usedSpreadsheetId),
-            range: `${targetRangeSheet}!L${actualRow}:L${actualRow}`,
-            values: [[payoutDate]],
-          });
-        }
-
-        // 2. Sync Status with Quản Lý sheet
-        const qlIndex = quanLyRows.findIndex(
-          (r) => r[2]?.trim().toLowerCase() === store.domain.toLowerCase(),
-        );
-        if (qlIndex !== -1) {
-          const actualRow = qlIndex + 1;
-          await updateSheetValues({
-            spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-            range: `'quản lý'!J${actualRow}:J${actualRow}`,
-            values: [[payoutStatus]],
-          });
-        }
       } else {
         paymentStore.setBulkingPayout(store.id, {
           date: "No payouts",
           status: "No Payouts",
+          sheet: store.sheet,
         });
       }
     } catch (e: any) {
       paymentStore.setBulkingPayout(store.id, {
         date: "Error",
         status: "Error",
+        sheet: store.sheet,
       });
     }
   }
+
+  // Final batch updates to reduce API requests
+  try {
+    const batchPromises = [];
+    if (buff1Updates.length > 0) {
+      batchPromises.push(
+        batchUpdateSheetValues({
+          spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
+          data: buff1Updates,
+        }),
+      );
+    }
+    if (buff2Updates.length > 0) {
+      batchPromises.push(
+        batchUpdateSheetValues({
+          spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
+          data: buff2Updates,
+        }),
+      );
+    }
+    if (quanLyUpdates.length > 0) {
+      batchPromises.push(
+        batchUpdateSheetValues({
+          spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
+          data: quanLyUpdates,
+        }),
+      );
+    }
+    await Promise.allSettled(batchPromises);
+  } catch (e) {
+    console.error("Failed to execute some batch updates", e);
+  }
+
   isUpdating.value = false;
 }
 </script>
@@ -310,30 +446,9 @@ async function updatePayouts() {
         </div>
         <div class="card-actions-row">
           <button
-            class="btn-outline bulk-action-btn"
-            :disabled="isLoadingPayouts"
-            @click="loadPayouts"
-          >
-            <span v-if="isLoadingPayouts" class="spinner-sm" />
-            <svg
-              v-else
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M23 4v6h-6"></path>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-            </svg>
-            {{ isLoadingPayouts ? "Loading..." : "Load Payouts" }}
-          </button>
-          <button
             class="btn-primary bulk-action-btn"
-            :disabled="isUpdating"
+            :class="{ 'blur-effect': isLoadingPayouts }"
+            :disabled="isUpdating || isLoadingPayouts"
             @click="updatePayouts"
           >
             <span v-if="isUpdating" class="spinner-sm" />
@@ -359,10 +474,9 @@ async function updatePayouts() {
         <table class="bulking-table">
           <thead>
             <tr>
-              <th>Store ID</th>
               <th>Domain</th>
-              <th>Payout Date</th>
-              <th>Payout Status</th>
+              <th>Proxy</th>
+              <th>Sheet</th>
             </tr>
           </thead>
           <tbody>
@@ -372,49 +486,13 @@ async function updatePayouts() {
               class="clickable-row"
               @click="openPayoutDetails(store)"
             >
-              <td>{{ store.id }}</td>
               <td>{{ store.domain || "(No domain)" }}</td>
+              <td>{{ store.proxy || "-" }}</td>
               <td>
-                <span
-                  v-if="store.payoutDate"
-                  class="tag"
-                  :class="{
-                    'tag-ok':
-                      store.payoutDate &&
-                      store.payoutDate !== 'Error' &&
-                      !store.payoutDate.includes('No'),
-                    'tag-err':
-                      store.payoutDate === 'Error' ||
-                      store.payoutDate.includes('No'),
-                  }"
-                >
-                  {{ store.payoutDate }}
-                </span>
-                <span v-else>-</span>
-              </td>
-              <td>
-                <span
-                  v-if="store.payoutStatus"
-                  class="tag"
-                  :class="{
-                    'tag-ok':
-                      store.payoutStatus.toLowerCase() === 'paid' ||
-                      store.payoutStatus.toLowerCase() === 'deposited',
-                    'tag-pending':
-                      store.payoutStatus.toLowerCase() === 'pending' ||
-                      store.payoutStatus.toLowerCase() === 'scheduled',
-                    'tag-err':
-                      store.payoutStatus === 'Error' ||
-                      store.payoutStatus.includes('No'),
-                  }"
-                >
-                  {{
-                    store.payoutStatus.toLowerCase() === "paid"
-                      ? "Deposited"
-                      : store.payoutStatus.charAt(0).toUpperCase() +
-                        store.payoutStatus.slice(1).toLowerCase()
-                  }}
-                </span>
+                <span v-if="isLoadingPayouts" class="tag tag-pending">Loading...</span>
+                <span v-else-if="store.sheet" class="tag tag-ok">{{
+                  store.sheet
+                }}</span>
                 <span v-else>-</span>
               </td>
             </tr>
@@ -444,7 +522,7 @@ async function updatePayouts() {
                 <th>Order</th>
                 <th>Customer</th>
                 <th>Type</th>
-                <th>Amount</th>
+                <th>Net</th>
                 <th>Payout ID</th>
                 <th>Date</th>
               </tr>
@@ -458,7 +536,7 @@ async function updatePayouts() {
                 </td>
                 <td class="customer-cell">{{ tx.customerName }}</td>
                 <td>{{ tx.type }}</td>
-                <td>{{ tx.amount }} {{ tx.currency }}</td>
+                <td>{{ tx.net }} {{ tx.currency }}</td>
                 <td>
                   <span class="payout-id-tag">{{ tx.payout_id || "-" }}</span>
                 </td>
@@ -467,7 +545,9 @@ async function updatePayouts() {
             </tbody>
           </table>
         </div>
-        <div v-else class="modal-empty">No transactions found for this store.</div>
+        <div v-else class="modal-empty">
+          No transactions found for this store.
+        </div>
       </div>
     </SheetDataModal>
   </div>
@@ -731,5 +811,11 @@ async function updatePayouts() {
   padding: 64px 24px;
   text-align: center;
   color: #6b7280;
+}
+
+.blur-effect {
+  filter: blur(1.5px);
+  opacity: 0.6;
+  pointer-events: none;
 }
 </style>

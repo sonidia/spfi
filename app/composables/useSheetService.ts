@@ -271,6 +271,33 @@ export function useSheetService() {
     }
   }
 
+  async function batchUpdateSheetValues(options: {
+    spreadsheetId?: string;
+    data: { range: string; values: any[][] }[];
+  }) {
+    if (!options.data || options.data.length === 0) return;
+    loading.value = true;
+    error.value = null;
+    try {
+      await waitForRateLimit();
+      const response = await $fetch<any>("/api/sheet/batch-update", {
+        method: "POST",
+        body: {
+          spreadsheetId:
+            options.spreadsheetId || runtimeConfig.public.googleSheetSpreadsheetId,
+          data: options.data,
+        },
+      });
+      return response;
+    } catch (e: any) {
+      error.value =
+        e?.data?.statusMessage || e.message || "Failed to batch update sheet";
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     loading,
     error,
@@ -282,6 +309,7 @@ export function useSheetService() {
     buildRangeFromSheetName,
     readSheetValues,
     updateSheetValues,
+    batchUpdateSheetValues,
     readSheetMeta,
     loadByInput,
     loadMetaByInput,

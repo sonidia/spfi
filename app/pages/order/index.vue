@@ -184,6 +184,7 @@
                       class="btn-add-track"
                       @click.stop="addTracking(order)"
                     >
+                      <span v-html="ICONS.plus"></span>
                       Add track
                     </button>
                   </div>
@@ -212,6 +213,7 @@ import {
   fulfillmentBadge,
   getCustomerName,
   getShipmentLabel,
+  ICONS,
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
@@ -551,19 +553,39 @@ async function addTracking(order: any) {
 .btn-add-track {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 11px;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border: none;
+  border-radius: 8px;
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-link);
+  color: white;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.15);
+  white-space: nowrap;
 }
+
 .btn-add-track:hover {
-  background: #f8f9fa;
-  border-color: var(--text-link);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  background: linear-gradient(135deg, #7174ff 0%, #5a51ff 100%);
+}
+
+.btn-add-track:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
+}
+
+.btn-add-track :deep(svg) {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+}
+
+.btn-add-track:hover :deep(svg) {
+  transform: scale(1.1);
 }
 
 .order-card:hover {

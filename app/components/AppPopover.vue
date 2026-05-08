@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from "vue";
 
 const props = defineProps({
   align: {
     type: String,
-    default: 'left', // 'left' or 'right'
-  }
+    default: "left", // 'left' or 'right'
+  },
+  position: {
+    type: String,
+    default: "bottom", // 'top' or 'bottom'
+  },
 });
 
 const isOpen = ref(false);
@@ -27,23 +31,32 @@ const handleClickOutside = (event: MouseEvent) => {
 };
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside);
+  document.addEventListener("mousedown", handleClickOutside);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside);
+  document.removeEventListener("mousedown", handleClickOutside);
 });
 
 defineExpose({ close, toggle });
 </script>
 
 <template>
-  <div class="app-popover" ref="popoverRef">
-    <div class="popover-trigger" @click="toggle">
+  <div
+    class="app-popover"
+    ref="popoverRef"
+    @mouseenter="toggle"
+    @mouseleave="toggle"
+  >
+    <div class="popover-trigger">
       <slot name="trigger" :isOpen="isOpen"></slot>
     </div>
     <Transition name="popover-fade">
-      <div v-if="isOpen" class="popover-panel" :class="[`align-${align}`, `pos-${position}`]">
+      <div
+        v-if="isOpen"
+        class="popover-panel"
+        :class="[`align-${align}`, `pos-${position}`]"
+      >
         <slot :close="close"></slot>
       </div>
     </Transition>
