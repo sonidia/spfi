@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import LoadingOverlay from "./components/LoadingOverlay.vue";
+import BaseToast from "./components/BaseToast.vue";
 import Nav from "./components/Nav.vue";
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
@@ -11,6 +12,7 @@ useTokenRotation();
 <template>
   <main class="app-root">
     <LoadingOverlay :visible="loading" />
+    <BaseToast />
     <Nav />
     <NuxtLayout>
       <NuxtPage />
@@ -35,6 +37,7 @@ useTokenRotation();
   --text-link: #2c6ecb;
   --badge-paid: #e4f2e8;
   --badge-paid-text: #1a7f37;
+  --badge-paid-border: #1a7f3740;
   --badge-fulfilled: #e0f0ff;
   --badge-fulfilled-text: #0077cc;
   --badge-archived: #f1f2f4;
@@ -103,6 +106,7 @@ select {
 .layout,
 .page {
   max-width: 1028px;
+  min-width: 100%;
   margin: 0 auto;
 }
 </style>
