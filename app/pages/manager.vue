@@ -2,7 +2,7 @@
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
 import {
-  QUAN_LY_SHEET_URL,
+  FBS_SHEET_URL,
   getProxySheetPreset,
   machineSheets,
 } from "~~/utils/sheets";
@@ -258,7 +258,7 @@ async function addShop() {
 
   try {
     // 0. Master cache and Machine cache setup
-    const quanLyUrl = QUAN_LY_SHEET_URL;
+    const quanLyUrl = FBS_SHEET_URL;
     let masterRows: any[] | null = null;
     const machineCache: Record<string, any[]> = {};
 

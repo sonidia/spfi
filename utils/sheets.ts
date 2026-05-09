@@ -31,8 +31,33 @@ export type ProxySheetLoadPreset = {
 export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
 export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";
 
+export const MACHINE_1_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0";
+export const MACHINE_2_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0";
+export const MACHINE_3_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1rt7EASJRfWGk5J91D6ziVX6bbu-vqETAwBYsq3tZi2Y/edit?gid=0#gid=0";
+export const MACHINE_4_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1CWAbbC240HR7AdZjeP0G7c2j4B-PQzm_Fz2nlMuqNqQ/edit?gid=0#gid=0";
+export const MACHINE_5_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/13vT1daD2fSsOppnIZk4YGEqFAiPgaIVnR9VgYNu368k/edit?gid=0#gid=0";
+export const MACHINE_6_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1dXhVmEkY_CjXnrAgmXXQtQ1fhW5OaHfGLm3Yy-FZsn8/edit?gid=0#gid=0";
+
+export const machineSheets: Record<string, string> = {
+  "MÁY 1": MACHINE_1_SHEET_URL,
+  "MÁY 2": MACHINE_2_SHEET_URL,
+  "MÁY 3": MACHINE_3_SHEET_URL,
+  "MÁY 4": MACHINE_4_SHEET_URL,
+  "MÁY 5": MACHINE_5_SHEET_URL,
+  "MÁY 6": MACHINE_6_SHEET_URL,
+};
+
 export const QUAN_LY_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/1QbchbP0eeMjcrafXUTPmHwZsUZmIeJOZPUFULqBzy3s/edit?gid=0#gid=0";
+
+export const FBS_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/18IPUGpt_WpmSt3txEZY5Zx94p15Qlr36jhZutsE2evg/edit?gid=660632124#gid=660632124";
 
 export const BUFF1_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/18IPUGpt_WpmSt3txEZY5Zx94p15Qlr36jhZutsE2evg/edit?gid=660632124#gid=660632124";
@@ -66,6 +91,17 @@ export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
     },
   },
   {
+    source: FBS_SHEET_URL,
+    tab: "FBS",
+    startRow: 3,
+    columns: {
+      storeId: 1,
+      shop: 1,
+      domain: 2,
+      proxyUrl: 4,
+    },
+  },
+  {
     source: BUFF2_SHEET_URL,
     tab: "Sheet1",
     startRow: 3,
@@ -77,16 +113,6 @@ export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
     },
   },
 ];
-
-export const MACHINE_1_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0";
-export const MACHINE_2_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0";
-
-export const machineSheets: Record<string, string> = {
-  "MÁY 1": MACHINE_1_SHEET_URL,
-  "MÁY 2": MACHINE_2_SHEET_URL,
-};
 
 export function getProxySheetPreset(
   source: string,

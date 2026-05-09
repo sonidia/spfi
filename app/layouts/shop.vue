@@ -4,6 +4,7 @@ import {
   BUFF1_SHEET_URL,
   BUFF2_SHEET_URL,
   QUAN_LY_SHEET_URL,
+  FBS_SHEET_URL,
 } from "~~/utils/sheets";
 import NotFound from "../components/icons/NotFound.vue";
 import { useLoading } from "../composables/useLoading";
@@ -282,7 +283,7 @@ async function addShop() {
 
   try {
     // 0. Master cache and Machine cache setup
-    const quanLyUrl = QUAN_LY_SHEET_URL;
+    const quanLyUrl = FBS_SHEET_URL;
     let masterRows: any[] | null = null;
     const machineCache: Record<string, any[]> = {};
 
@@ -492,20 +493,22 @@ async function loadPayouts() {
     for (const store of missingSheetStores) {
       const domainLower = store.domain.toLowerCase();
 
-      let sheetName = "";
+      let sheets = [];
       const inBuff1 = buff1Rows.some(
         (r) => r[3]?.trim().toLowerCase() === domainLower,
       );
       if (inBuff1) {
-        sheetName = "$ buff1";
-      } else {
-        const inBuff2 = buff2Rows.some(
-          (r) => r[3]?.trim().toLowerCase() === domainLower,
-        );
-        if (inBuff2) {
-          sheetName = "$ buff2";
-        }
+        sheets.push("$ buff1");
       }
+      
+      const inBuff2 = buff2Rows.some(
+        (r) => r[3]?.trim().toLowerCase() === domainLower,
+      );
+      if (inBuff2) {
+        sheets.push("$ buff2");
+      }
+
+      let sheetName = sheets.join(", ");
 
       if (sheetName) {
         const cookie = useCookie<any>(store.id, {
@@ -530,8 +533,8 @@ async function loadPayouts() {
 async function updatePayouts() {
   isUpdating.value = true;
 
-  const needsBuff1 = storeList.value.some((s) => s.sheet === "$ buff1");
-  const needsBuff2 = storeList.value.some((s) => s.sheet === "$ buff2");
+  const needsBuff1 = storeList.value.some((s) => s.sheet?.includes("$ buff1"));
+  const needsBuff2 = storeList.value.some((s) => s.sheet?.includes("$ buff2"));
 
   let buff1Rows: any[] = [];
   let buff2Rows: any[] = [];
@@ -649,7 +652,8 @@ async function updatePayouts() {
                 range: `'quản lý'!E${actualRow}:E${actualRow}`,
                 values: [[payout.amount]],
               });
-            } else if (inBuff2) {
+            }
+            if (inBuff2) {
               quanLyUpdates.push({
                 range: `'quản lý'!F${actualRow}:F${actualRow}`,
                 values: [[payout.amount]],
@@ -709,8 +713,8 @@ async function updatePayouts() {
 async function syncPayoutDates() {
   isSyncingDate.value = true;
 
-  const needsBuff1 = storeList.value.some((s) => s.sheet === "$ buff1");
-  const needsBuff2 = storeList.value.some((s) => s.sheet === "$ buff2");
+  const needsBuff1 = storeList.value.some((s) => s.sheet?.includes("$ buff1"));
+  const needsBuff2 = storeList.value.some((s) => s.sheet?.includes("$ buff2"));
 
   let buff1Rows: any[] = [];
   let buff2Rows: any[] = [];
@@ -801,57 +805,42 @@ async function syncPayoutDates() {
         })
         .filter((tx: any) => tx.customerName);
 
-      let targetRows = [];
-      let targetRangeSheet = "";
-      let isBuff1 = false;
-      let isBuff2 = false;
+      const targets = [];
+      const inBuff1 = store.sheet?.includes("$ buff1") || buff1Rows.some(r => r[3]?.trim().toLowerCase() === store.domain.toLowerCase());
+      const inBuff2 = store.sheet?.includes("$ buff2") || buff2Rows.some(r => r[3]?.trim().toLowerCase() === store.domain.toLowerCase());
 
-      if (store.sheet === "$ buff1") {
-        targetRows = buff1Rows;
-        targetRangeSheet = "'order 1'";
-        isBuff1 = true;
-      } else if (store.sheet === "$ buff2") {
-        targetRows = buff2Rows;
-        targetRangeSheet = "'Sheet1'";
-        isBuff2 = true;
-      } else {
-        const inBuff1 = buff1Rows.some(
-          (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-        );
-        if (inBuff1) {
-          targetRows = buff1Rows;
-          targetRangeSheet = "'order 1'";
-          isBuff1 = true;
-        } else {
-          targetRows = buff2Rows;
-          targetRangeSheet = "'Sheet1'";
-          isBuff2 = true;
-        }
+      if (inBuff1) {
+        targets.push({ rows: buff1Rows, rangeSheet: "'order 1'", isBuff1: true, isBuff2: false });
+      }
+      if (inBuff2) {
+        targets.push({ rows: buff2Rows, rangeSheet: "'Sheet1'", isBuff1: false, isBuff2: true });
       }
 
-      for (const tx of transactions) {
-        const payoutDate = payoutMap.get(tx.payoutId);
-        if (!payoutDate) continue;
+      for (const target of targets) {
+        for (const tx of transactions) {
+          const payoutDate = payoutMap.get(tx.payoutId);
+          if (!payoutDate) continue;
 
-        targetRows.forEach((row, index) => {
-          const customerInSheet = String(row[7] || "").toLowerCase();
-          if (
-            tx.customerName &&
-            customerInSheet.includes(tx.customerName.toLowerCase())
-          ) {
-            const actualRow = index + 1;
-            const updateItem = {
-              range: `${targetRangeSheet}!L${actualRow}:L${actualRow}`,
-              values: [[payoutDate]],
-            };
+          target.rows.forEach((row, index) => {
+            const customerInSheet = String(row[7] || "").toLowerCase();
+            if (
+              tx.customerName &&
+              customerInSheet.includes(tx.customerName.toLowerCase())
+            ) {
+              const actualRow = index + 1;
+              const updateItem = {
+                range: `${target.rangeSheet}!L${actualRow}:L${actualRow}`,
+                values: [[payoutDate]],
+              };
 
-            if (isBuff1) {
-              buff1Updates.push(updateItem);
-            } else if (isBuff2) {
-              buff2Updates.push(updateItem);
+              if (target.isBuff1) {
+                buff1Updates.push(updateItem);
+              } else if (target.isBuff2) {
+                buff2Updates.push(updateItem);
+              }
             }
-          }
-        });
+          });
+        }
       }
     } catch (e) {
       console.error(`Error syncing dates for store ${store.domain}:`, e);
