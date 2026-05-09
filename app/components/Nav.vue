@@ -15,6 +15,7 @@
       <NuxtLink to="/bulking">Bulking</NuxtLink>
       <NuxtLink to="/order">Order</NuxtLink>
       <NuxtLink to="/payment">Payment</NuxtLink>
+      <NuxtLink to="/product">Product</NuxtLink>
       <NuxtLink to="/sheet">Sheet</NuxtLink>
     </div>
   </nav>
