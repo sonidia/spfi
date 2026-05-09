@@ -32,7 +32,6 @@
                 <th>Product</th>
                 <th>Status</th>
                 <th>Type</th>
-                <th>Vendor</th>
                 <th>Tags</th>
                 <th>Variants</th>
                 <th>Updated</th>
@@ -77,15 +76,21 @@
                   {{ prod.product_type || "—" }}
                 </td>
                 <td>
-                  {{ prod.vendor || "—" }}
-                </td>
-                <td>
                   <div class="tags-cell">
-                    <span v-for="tag in (prod.tags ? prod.tags.split(',').slice(0, 2) : [])" :key="tag" class="tag-item">
+                    <span
+                      v-for="tag in prod.tags
+                        ? prod.tags.split(',').slice(0, 2)
+                        : []"
+                      :key="tag"
+                      class="tag-item"
+                    >
                       {{ tag.trim() }}
                     </span>
-                    <span v-if="prod.tags && prod.tags.split(',').length > 2" class="tag-item more">
-                      +{{ prod.tags.split(',').length - 2 }}
+                    <span
+                      v-if="prod.tags && prod.tags.split(',').length > 2"
+                      class="tag-item more"
+                    >
+                      +{{ prod.tags.split(",").length - 2 }}
                     </span>
                     <span v-if="!prod.tags || prod.tags.trim() === ''">—</span>
                   </div>
@@ -94,22 +99,44 @@
                   {{ prod.variants?.length || 0 }}
                 </td>
                 <td>
-                  {{ prod.updated_at ? new Date(prod.updated_at).toLocaleDateString() : "—" }}
+                  {{
+                    prod.updated_at
+                      ? new Date(prod.updated_at).toLocaleDateString()
+                      : "—"
+                  }}
                 </td>
                 <td style="text-align: right">
-                  <div class="product-actions-cell" style="justify-content: flex-end;">
+                  <div
+                    class="product-actions-cell"
+                    style="justify-content: flex-end"
+                  >
                     <BasePopover align="right">
                       <template #trigger="{ isOpen }">
-                        <button class="btn-ghost-sm btn-icon" :class="{ 'is-active': isOpen }">
+                        <button
+                          class="btn-ghost-sm btn-icon"
+                          :class="{ 'is-active': isOpen }"
+                        >
                           <IconsMore />
                         </button>
                       </template>
                       <template #default="{ close }">
                         <div class="popover-menu popover-actions">
-                          <button class="popover-item" @click.stop="openEditModal(prod); close()">
+                          <button
+                            class="popover-item"
+                            @click.stop="
+                              openEditModal(prod);
+                              close();
+                            "
+                          >
                             Edit
                           </button>
-                          <button class="popover-item text-danger" @click.stop="removeProduct(prod.id); close()">
+                          <button
+                            class="popover-item text-danger"
+                            @click.stop="
+                              removeProduct(prod.id);
+                              close();
+                            "
+                          >
                             Delete
                           </button>
                         </div>

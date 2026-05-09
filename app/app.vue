@@ -94,7 +94,8 @@ a {
   text-decoration: none;
 }
 
-select {
+select,
+input {
   outline: none;
 }
 

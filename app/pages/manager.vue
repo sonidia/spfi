@@ -29,6 +29,18 @@ const proxyResults = ref<
 >({});
 const genError = ref("");
 const genSuccess = ref("");
+const addMode = ref<"single" | "bulking">("single");
+
+function clearInputs() {
+  newDomain.value = "";
+  newSock.value = "";
+  newStoreId.value = "";
+  newClientId.value = "";
+  newClientSecret.value = "";
+  genError.value = "";
+  genSuccess.value = "";
+  resetSteps();
+}
 
 // ── Search and Sort state ──────────────────────────────────────────────────
 const searchQuery = ref("");
@@ -225,147 +237,177 @@ function saveEditedStore() {
 }
 
 async function addShop() {
+  const domains = newDomain.value
+    .split("\n")
+    .map((d) => d.trim())
+    .filter(Boolean);
+  if (!domains.length) return;
+
   genError.value = "";
   genSuccess.value = "";
   resetSteps();
-
-  const domain = newDomain.value.trim();
-  const sock = newSock.value.trim();
-  let sId = newStoreId.value.trim();
-  let cId = newClientId.value.trim();
-  let cSec = newClientSecret.value.trim();
-
   isFindingShop.value = true;
+
+  const manSock = newSock.value.trim();
+  const manSId = newStoreId.value.trim();
+  const manCId = newClientId.value.trim();
+  const manCSec = newClientSecret.value.trim();
+
+  let successCount = 0;
+  let errors: string[] = [];
+
   try {
-    // 1. Discovery Phase (Only if Domain is provided and credentials are empty)
-    if (domain && (!sId || !cId || !cSec)) {
-      const domainSearch = domain.toLowerCase();
-      const quanLyUrl = QUAN_LY_SHEET_URL;
+    // 0. Master cache and Machine cache setup
+    const quanLyUrl = QUAN_LY_SHEET_URL;
+    let masterRows: any[] | null = null;
+    const machineCache: Record<string, any[]> = {};
 
-      setStep("MASTER", "active");
-      const presetQuanLy = getProxySheetPreset(quanLyUrl);
-      const quanLyRows = await readProxySheetRows({
-        spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
-        range: buildRangeFromSheetName(""),
-        dataRowStart: presetQuanLy?.startRow || 3,
-        mapping: presetQuanLy?.columns,
-      });
-
-      const foundShop = quanLyRows.find(
-        (r) => r.domain.trim().toLowerCase() === domainSearch,
-      );
-
-      if (!foundShop) {
-        setStep("MASTER", "error");
-        throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
-      }
-      setStep("MASTER", "done");
-
-      setStep("MACHINE_FETCH", "active");
-      const machineNameRaw = foundShop.proxyUrl;
-      const targetMachineUrl = machineNameRaw
-        ? Object.entries(machineSheets).find(
-            ([key]) =>
-              machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
-          )?.[1]
-        : null;
-
-      if (!targetMachineUrl) {
-        setStep("MACHINE_FETCH", "error");
-        throw new Error(`Không xác định được máy cho shop này.`);
-      }
-
-      const machineRows = await readProxySheetRows({
-        spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
-        range: buildRangeFromSheetName(""),
-        dataRowStart: 2,
-      });
-
-      const machineMatch = machineRows.find(
-        (r) => r.domain.trim().toLowerCase() === domainSearch,
-      );
-
-      if (!machineMatch) {
-        setStep("MACHINE_FETCH", "error");
-        throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
-      }
-
-      if (machineMatch.proxyUrl && !newSock.value.trim())
-        newSock.value = machineMatch.proxyUrl.trim();
-      if (machineMatch.storeId && !newStoreId.value.trim())
-        newStoreId.value = machineMatch.storeId;
-      if (machineMatch.clientId && !newClientId.value.trim())
-        newClientId.value = machineMatch.clientId;
-      if (machineMatch.clientSecret && !newClientSecret.value.trim())
-        newClientSecret.value = machineMatch.clientSecret;
-
-      // Update local variables for token gen
-      sId = newStoreId.value;
-      cId = newClientId.value;
-      cSec = newClientSecret.value;
-      setStep("MACHINE_FETCH", "done");
-    }
-
-    // 1.5 – Check if this store is already configured
-    if (sId && formStore.knownStores.includes(sId)) {
-      const dom = newDomain.value.trim() || sId;
-      genError.value = `"${dom}" is already in the configured stores list (store: ${sId}).`;
-      isFindingShop.value = false;
+    for (const domain of domains) {
       resetSteps();
-      return;
+      setStep("MASTER", "active");
+
+      let sId = domains.length === 1 ? manSId : "";
+      let cId = domains.length === 1 ? manCId : "";
+      let cSec = domains.length === 1 ? manCSec : "";
+      let sock = domains.length === 1 ? manSock : "";
+
+      try {
+        if (!sId || !cId || !cSec) {
+          const domainSearch = domain.toLowerCase();
+
+          // 1. Discovery Phase
+          if (!masterRows) {
+            const presetQuanLy = getProxySheetPreset(quanLyUrl);
+            masterRows = await readProxySheetRows({
+              spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
+              range: buildRangeFromSheetName(""),
+              dataRowStart: presetQuanLy?.startRow || 3,
+              mapping: presetQuanLy?.columns,
+            });
+          }
+
+          const foundShop = masterRows.find(
+            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
+          );
+
+          if (!foundShop) {
+            throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
+          }
+          setStep("MASTER", "done");
+
+          setStep("MACHINE_FETCH", "active");
+          const machineNameRaw = foundShop.proxyUrl;
+          const targetMachineUrl = machineNameRaw
+            ? Object.entries(machineSheets).find(
+                ([key]) =>
+                  machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
+              )?.[1]
+            : null;
+
+          if (!targetMachineUrl) {
+            throw new Error(`Không xác định được máy cho shop này.`);
+          }
+
+          let machineRows = machineCache[targetMachineUrl];
+          if (!machineRows) {
+            machineRows = await readProxySheetRows({
+              spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
+              range: buildRangeFromSheetName(""),
+              dataRowStart: 2,
+            });
+            machineCache[targetMachineUrl] = machineRows;
+          }
+
+          const machineMatch = machineRows.find(
+            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
+          );
+
+          if (!machineMatch) {
+            throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
+          }
+
+          if (machineMatch.proxyUrl && !sock)
+            sock = machineMatch.proxyUrl.trim();
+          if (machineMatch.storeId && !sId) sId = machineMatch.storeId;
+          if (machineMatch.clientId && !cId) cId = machineMatch.clientId;
+          if (machineMatch.clientSecret && !cSec)
+            cSec = machineMatch.clientSecret;
+
+          setStep("MACHINE_FETCH", "done");
+        } else {
+          setStep("MASTER", "done");
+          setStep("MACHINE_FETCH", "done");
+        }
+
+        // 1.5 – Check if this store is already configured
+        if (sId && formStore.knownStores.includes(sId)) {
+          throw new Error(`Đã có sẵn store này (${sId}).`);
+        }
+
+        // 2. Token Generation Phase
+        if (!sId || !cId || !cSec) {
+          throw new Error("Missing Store ID, Client ID, or Secret.");
+        }
+
+        setStep("TOKEN_GEN", "active");
+        const res: any = await $fetch("/api/generate-token", {
+          method: "POST",
+          body: {
+            storeId: sId,
+            clientId: cId,
+            clientSecret: cSec,
+            sock: sock,
+          },
+        });
+
+        if (!res?.access_token) {
+          throw new Error("Failed to retrieve access token");
+        }
+        setStep("TOKEN_GEN", "done");
+
+        // 3. Storage Phase
+        setStep("DONE", "active");
+        const now = Date.now();
+        const expiresTime = now + 24 * 60 * 60 * 1000;
+        const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
+        cookie.value = {
+          clientId: cId,
+          clientSecret: cSec,
+          accessToken: res.access_token,
+          expiresTime,
+          domain: domain,
+          sock: sock,
+        };
+
+        formStore.addKnownStore(sId);
+        if (domains.length === 1) {
+          formStore.storeId = sId;
+        }
+
+        successCount++;
+        setStep("DONE", "done");
+      } catch (err: any) {
+        setStep("TOKEN_GEN", "error");
+        errors.push(`${domain}: ${toUserFriendlyMessage(err)}`);
+      }
     }
 
-    // 2. Token Generation Phase
-    if (!sId || !cId || !cSec) {
-      throw new Error("Missing Store ID, Client ID, or Secret.");
+    if (errors.length) {
+      genError.value = errors.join("\n");
     }
-
-    setStep("TOKEN_GEN", "active");
-    const res: any = await $fetch("/api/generate-token", {
-      method: "POST",
-      body: {
-        storeId: sId,
-        clientId: cId,
-        clientSecret: cSec,
-        sock: newSock.value.trim(), // Use the updated value
-      },
-    });
-
-    if (!res?.access_token) {
-      setStep("TOKEN_GEN", "error");
-      throw new Error("Failed to retrieve access token");
+    if (successCount > 0) {
+      genSuccess.value = `Successfully added ${successCount} store(s).`;
+      newDomain.value = "";
+      newStoreId.value = "";
+      newClientId.value = "";
+      newClientSecret.value = "";
+      newSock.value = "";
     }
-    setStep("TOKEN_GEN", "done");
-
-    // 3. Storage Phase
-    setStep("DONE", "active");
-    const now = Date.now();
-    const expiresTime = now + 24 * 60 * 60 * 1000;
-    const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
-    cookie.value = {
-      clientId: cId,
-      clientSecret: cSec,
-      accessToken: res.access_token,
-      expiresTime,
-      domain: newDomain.value,
-      sock: newSock.value,
-    };
-
-    formStore.addKnownStore(sId);
-    formStore.storeId = sId;
-
-    genSuccess.value = `Shop "${sId}" added successfully!`;
-    newStoreId.value = "";
-    newClientId.value = "";
-    newClientSecret.value = "";
-    newDomain.value = "";
-    newSock.value = "";
-    setStep("DONE", "done");
-  } catch (err: any) {
-    setStep("TOKEN_GEN", "error");
-    genError.value = toUserFriendlyMessage(err);
   } finally {
     isFindingShop.value = false;
+    if (domains.length > 1) {
+      resetSteps();
+    }
   }
 }
 
@@ -451,33 +493,97 @@ async function testProxy(id: string) {
 
 <template>
   <div class="token-page">
-    <div class="page-header">
-      <h1 class="page-title">Shop Management</h1>
-      <p class="page-sub">
-        Manage your Shopify store access tokens and credentials
-      </p>
+    <div
+      class="page-header"
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      "
+    >
+      <div>
+        <h1 class="page-title">Shop Management</h1>
+        <p class="page-sub">
+          Manage your Shopify store access tokens and credentials
+        </p>
+      </div>
+      <div
+        class="mode-toggle"
+        style="
+          display: flex;
+          background: var(--bg);
+          border-radius: 8px;
+          padding: 4px;
+          border: 1px solid var(--border);
+        "
+      >
+        <button
+          class="toggle-btn"
+          :class="{ active: addMode === 'single' }"
+          @click="addMode = 'single'"
+          style="
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+          "
+          :style="
+            addMode === 'single'
+              ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
+              : 'color: var(--text-sub);'
+          "
+        >
+          Single
+        </button>
+        <button
+          class="toggle-btn"
+          :class="{ active: addMode === 'bulking' }"
+          @click="addMode = 'bulking'"
+          style="
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+          "
+          :style="
+            addMode === 'bulking'
+              ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
+              : 'color: var(--text-sub);'
+          "
+        >
+          Bulking
+        </button>
+      </div>
     </div>
 
     <!-- ── Add new store ── -->
     <section class="card">
-      <div class="card-head">
+      <div class="card-head" style="border-bottom: none; padding-bottom: 0">
         <input
+          v-if="addMode === 'single'"
           v-model="newDomain"
           type="text"
           placeholder="Your store domain (e.g., myshop.store)"
           class="inp domain_inp"
+          @keyup.enter="addShop"
         />
-        <div class="card-actions">
-          <button
-            class="btn-primary"
-            :disabled="isFindingShop"
-            @click="addShop"
-          >
-            {{ isFindingShop ? "Processing…" : "Add connect" }}
-          </button>
-        </div>
+        <textarea
+          v-else
+          v-model="newDomain"
+          placeholder="Your store domains (one per line, e.g. myshop.store)"
+          class="inp domain_inp"
+          rows="25"
+        ></textarea>
       </div>
-      <div class="add-form">
+      <div class="add-form" v-if="addMode === 'single'">
         <div class="field field-50">
           <label class="field-label">Sock/Proxy</label>
           <input
@@ -520,33 +626,65 @@ async function testProxy(id: string) {
         </div>
       </div>
 
-      <!-- ── Step Progress Indicator ── -->
-      <div
-        v-if="
-          isFindingShop ||
-          findShopSteps.some(
-            (s) => s.status !== 'pending' && s.status !== 'done',
-          )
-        "
-        class="step-progress"
-      >
+      <div class="form-actions-container" style="padding: 20px">
+        <!-- ── Step Progress Indicator ── -->
         <div
-          v-for="step in findShopSteps"
-          :key="step.id"
-          class="step-item"
-          :class="'status-' + step.status"
+          v-if="
+            isFindingShop ||
+            findShopSteps.some(
+              (s) => s.status !== 'pending' && s.status !== 'done',
+            )
+          "
+          class="step-progress"
+          style="margin-bottom: 16px"
         >
-          <div class="step-icon">
-            <span v-if="step.status === 'active'" class="spinner-sm" />
-            <span v-else-if="step.status === 'done'">✓</span>
-            <span v-else-if="step.status === 'error'">✕</span>
-            <span v-else>○</span>
+          <div
+            v-for="step in findShopSteps"
+            :key="step.id"
+            class="step-item"
+            :class="'status-' + step.status"
+          >
+            <div class="step-icon">
+              <span v-if="step.status === 'active'" class="spinner-sm" />
+              <span v-else-if="step.status === 'done'">✓</span>
+              <span v-else-if="step.status === 'error'">✕</span>
+              <span v-else>○</span>
+            </div>
+            <span class="step-label">{{ step.label }}</span>
           </div>
-          <span class="step-label">{{ step.label }}</span>
+        </div>
+        <div
+          v-if="genError"
+          class="alert alert-err"
+          style="margin-bottom: 16px; white-space: pre-wrap"
+        >
+          {{ genError }}
+        </div>
+        <div
+          v-if="genSuccess"
+          class="alert alert-ok"
+          style="margin-bottom: 16px; white-space: pre-wrap"
+        >
+          {{ genSuccess }}
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn-ghost"
+            @click="clearInputs"
+            :disabled="isFindingShop"
+          >
+            Clear
+          </button>
+          <button
+            class="btn-primary"
+            :disabled="isFindingShop"
+            @click="addShop"
+          >
+            {{ isFindingShop ? "Processing…" : "Add connect" }}
+          </button>
         </div>
       </div>
-      <div v-if="genError" class="alert alert-err">{{ genError }}</div>
-      <div v-if="genSuccess" class="alert alert-ok">{{ genSuccess }}</div>
     </section>
 
     <!-- ── Store list ── -->
@@ -912,7 +1050,7 @@ async function testProxy(id: string) {
   outline-offset: 1px;
 }
 .domain_inp {
-  width: 40%;
+  width: 100%;
 }
 .search-inp {
   border: 1px solid var(--border);

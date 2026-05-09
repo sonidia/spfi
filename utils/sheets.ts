@@ -78,11 +78,14 @@ export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
   },
 ];
 
+export const MACHINE_1_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0";
+export const MACHINE_2_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0";
+
 export const machineSheets: Record<string, string> = {
-  "MÁY 1":
-    "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0",
-  "MÁY 2":
-    "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0",
+  "MÁY 1": MACHINE_1_SHEET_URL,
+  "MÁY 2": MACHINE_2_SHEET_URL,
 };
 
 export function getProxySheetPreset(

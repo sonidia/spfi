@@ -261,148 +261,182 @@ const { readProxySheetRows, buildRangeFromSheetName } = useSheetService();
 const { getProxySheetPreset, machineSheets } = await import("~~/utils/sheets");
 
 async function addShop() {
+  const domains = newDomain.value
+    .split("\n")
+    .map((d) => d.trim())
+    .filter(Boolean);
+  if (!domains.length) return;
+
   genError.value = "";
   genSuccess.value = "";
   resetSteps();
-
-  const domain = newDomain.value.trim();
-  const sock = newSock.value.trim();
-  let sId = newStoreId.value.trim();
-  let cId = newClientId.value.trim();
-  let cSec = newClientSecret.value.trim();
-
   isFindingShop.value = true;
+
+  const manSock = newSock.value.trim();
+  const manSId = newStoreId.value.trim();
+  const manCId = newClientId.value.trim();
+  const manCSec = newClientSecret.value.trim();
+
+  let successCount = 0;
+  let errors: string[] = [];
+
   try {
-    // 1. Discovery Phase
-    if (domain && (!sId || !cId || !cSec)) {
-      const domainSearch = domain.toLowerCase();
-      const quanLyUrl = QUAN_LY_SHEET_URL;
+    // 0. Master cache and Machine cache setup
+    const quanLyUrl = QUAN_LY_SHEET_URL;
+    let masterRows: any[] | null = null;
+    const machineCache: Record<string, any[]> = {};
 
+    for (const domain of domains) {
+      resetSteps();
       setStep("MASTER", "active");
-      const presetQuanLy = getProxySheetPreset(quanLyUrl);
-      const quanLyRows = await readProxySheetRows({
-        spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
-        range: buildRangeFromSheetName(""),
-        dataRowStart: presetQuanLy?.startRow || 3,
-        mapping: presetQuanLy?.columns,
-      });
 
-      const foundShop = quanLyRows.find(
-        (r) => r.domain.trim().toLowerCase() === domainSearch,
-      );
+      let sId = domains.length === 1 ? manSId : "";
+      let cId = domains.length === 1 ? manCId : "";
+      let cSec = domains.length === 1 ? manCSec : "";
+      let sock = domains.length === 1 ? manSock : "";
 
-      if (!foundShop) {
-        setStep("MASTER", "error");
-        throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
+      try {
+        if (!sId || !cId || !cSec) {
+          const domainSearch = domain.toLowerCase();
+
+          // 1. Discovery Phase
+          if (!masterRows) {
+            const presetQuanLy = getProxySheetPreset(quanLyUrl);
+            masterRows = await readProxySheetRows({
+              spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
+              range: buildRangeFromSheetName(""),
+              dataRowStart: presetQuanLy?.startRow || 3,
+              mapping: presetQuanLy?.columns,
+            });
+          }
+
+          const foundShop = masterRows.find(
+            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
+          );
+
+          if (!foundShop) {
+            throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
+          }
+          setStep("MASTER", "done");
+
+          setStep("MACHINE_FETCH", "active");
+          const machineNameRaw = foundShop.proxyUrl;
+          const targetMachineUrl = machineNameRaw
+            ? Object.entries(machineSheets).find(
+                ([key]) =>
+                  machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
+              )?.[1]
+            : null;
+
+          if (!targetMachineUrl) {
+            throw new Error(`Không xác định được máy cho shop này.`);
+          }
+
+          let machineRows = machineCache[targetMachineUrl];
+          if (!machineRows) {
+            machineRows = await readProxySheetRows({
+              spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
+              range: buildRangeFromSheetName(""),
+              dataRowStart: 2,
+            });
+            machineCache[targetMachineUrl] = machineRows;
+          }
+
+          const machineMatch = machineRows.find(
+            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
+          );
+
+          if (!machineMatch) {
+            throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
+          }
+
+          if (machineMatch.proxyUrl && !sock)
+            sock = machineMatch.proxyUrl.trim();
+          if (machineMatch.storeId && !sId) sId = machineMatch.storeId;
+          if (machineMatch.clientId && !cId) cId = machineMatch.clientId;
+          if (machineMatch.clientSecret && !cSec)
+            cSec = machineMatch.clientSecret;
+
+          setStep("MACHINE_FETCH", "done");
+        } else {
+          setStep("MASTER", "done");
+          setStep("MACHINE_FETCH", "done");
+        }
+
+        // 1.5 – Check if this store is already configured
+        if (sId && formStore.knownStores.includes(sId)) {
+          throw new Error(`Đã có sẵn store này (${sId}).`);
+        }
+
+        // 2. Token Generation Phase
+        if (!sId || !cId || !cSec) {
+          throw new Error("Missing Store ID, Client ID, or Secret.");
+        }
+
+        setStep("TOKEN_GEN", "active");
+        const res: any = await $fetch("/api/generate-token", {
+          method: "POST",
+          body: {
+            storeId: sId,
+            clientId: cId,
+            clientSecret: cSec,
+            sock: sock,
+          },
+        });
+
+        if (!res?.access_token) {
+          throw new Error("Failed to retrieve access token");
+        }
+        setStep("TOKEN_GEN", "done");
+
+        // 3. Storage Phase
+        setStep("DONE", "active");
+        const now = Date.now();
+        const expiresTime = now + 24 * 60 * 60 * 1000;
+        const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
+        cookie.value = {
+          clientId: cId,
+          clientSecret: cSec,
+          accessToken: res.access_token,
+          expiresTime,
+          domain: domain,
+          sock: sock,
+        };
+
+        formStore.addKnownStore(sId);
+        if (domains.length === 1) {
+          formStore.storeId = sId;
+        }
+
+        successCount++;
+        setStep("DONE", "done");
+      } catch (err: any) {
+        setStep("TOKEN_GEN", "error");
+        errors.push(`${domain}: ${toUserFriendlyMessage(err)}`);
       }
-      setStep("MASTER", "done");
-
-      setStep("MACHINE_FETCH", "active");
-      const machineNameRaw = foundShop.proxyUrl;
-      const targetMachineUrl = machineNameRaw
-        ? Object.entries(machineSheets).find(
-            ([key]) =>
-              machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
-          )?.[1]
-        : null;
-
-      if (!targetMachineUrl) {
-        setStep("MACHINE_FETCH", "error");
-        throw new Error(`Không xác định được máy cho shop này.`);
-      }
-
-      const machineRows = await readProxySheetRows({
-        spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
-        range: buildRangeFromSheetName(""),
-        dataRowStart: 2,
-      });
-
-      const machineMatch = machineRows.find(
-        (r) => r.domain.trim().toLowerCase() === domainSearch,
-      );
-
-      if (!machineMatch) {
-        setStep("MACHINE_FETCH", "error");
-        throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
-      }
-
-      if (machineMatch.proxyUrl && !newSock.value.trim())
-        newSock.value = machineMatch.proxyUrl.trim();
-      if (machineMatch.storeId && !newStoreId.value.trim())
-        newStoreId.value = machineMatch.storeId;
-      if (machineMatch.clientId && !newClientId.value.trim())
-        newClientId.value = machineMatch.clientId;
-      if (machineMatch.clientSecret && !newClientSecret.value.trim())
-        newClientSecret.value = machineMatch.clientSecret;
-
-      sId = newStoreId.value;
-      cId = newClientId.value;
-      cSec = newClientSecret.value;
-      setStep("MACHINE_FETCH", "done");
     }
 
-    if (sId && formStore.knownStores.includes(sId)) {
-      const dom = newDomain.value.trim() || sId;
-      genError.value = `"${dom}" is already in the list (store: ${sId}).`;
-      isFindingShop.value = false;
-      resetSteps();
-      return;
+    if (errors.length) {
+      genError.value = errors.join("\n");
     }
-
-    if (!sId || !cId || !cSec) {
-      throw new Error("Missing Store ID, Client ID, or Secret.");
+    if (successCount > 0) {
+      genSuccess.value = `Successfully added ${successCount} store(s).`;
+      setTimeout(() => {
+        isAddModalOpen.value = false;
+        newStoreId.value = "";
+        newClientId.value = "";
+        newClientSecret.value = "";
+        newDomain.value = "";
+        newSock.value = "";
+        genSuccess.value = "";
+        resetSteps();
+      }, 1500);
     }
-
-    setStep("TOKEN_GEN", "active");
-    const res: any = await $fetch("/api/generate-token", {
-      method: "POST",
-      body: {
-        storeId: sId,
-        clientId: cId,
-        clientSecret: cSec,
-        sock: newSock.value.trim(),
-      },
-    });
-
-    if (!res?.access_token) {
-      setStep("TOKEN_GEN", "error");
-      throw new Error("Failed to retrieve access token");
-    }
-    setStep("TOKEN_GEN", "done");
-
-    setStep("DONE", "active");
-    const now = Date.now();
-    const expiresTime = now + 24 * 60 * 60 * 1000;
-    const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
-    cookie.value = {
-      clientId: cId,
-      clientSecret: cSec,
-      accessToken: res.access_token,
-      expiresTime,
-      domain: newDomain.value,
-      sock: newSock.value,
-    };
-
-    formStore.addKnownStore(sId);
-    formStore.storeId = sId;
-
-    genSuccess.value = `Shop "${sId}" added!`;
-    setTimeout(() => {
-      isAddModalOpen.value = false;
-      newStoreId.value = "";
-      newClientId.value = "";
-      newClientSecret.value = "";
-      newDomain.value = "";
-      newSock.value = "";
-      genSuccess.value = "";
-      resetSteps();
-    }, 1500);
-    setStep("DONE", "done");
-  } catch (err: any) {
-    setStep("TOKEN_GEN", "error");
-    genError.value = toUserFriendlyMessage(err);
   } finally {
     isFindingShop.value = false;
+    if (domains.length > 1) {
+      resetSteps();
+    }
   }
 }
 
@@ -1035,14 +1069,13 @@ async function syncPayoutDates() {
             <label class="field-label">Domain</label>
             <input
               v-model="newDomain"
-              type="text"
               class="inp"
-              placeholder="myshop.store"
+              placeholder="Your store domains (e.g. myshop.store)"
               @keyup.enter="addShop"
             />
           </div>
           <div class="field field-full">
-            <label class="field-label">Sock (Proxy URL)</label>
+            <label class="field-label">Sock/Proxy URL</label>
             <input
               v-model="newSock"
               type="text"
