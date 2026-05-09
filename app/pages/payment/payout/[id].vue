@@ -377,7 +377,7 @@ function getOrderNumber(tx: Transaction) {
   background: #f6f6f6;
 }
 .page-title {
-  font-size: 20px;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-primary);
 }

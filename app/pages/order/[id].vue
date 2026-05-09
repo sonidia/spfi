@@ -536,7 +536,7 @@ const currentOrder = computed(() => {
   flex-wrap: wrap;
 }
 .page-title {
-  font-size: 20px;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text);
 }

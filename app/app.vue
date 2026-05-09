@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import LoadingOverlay from "./components/LoadingOverlay.vue";
 import BaseToast from "./components/BaseToast.vue";
+import LoadingOverlay from "./components/LoadingOverlay.vue";
 import Nav from "./components/Nav.vue";
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
@@ -40,6 +40,7 @@ useTokenRotation();
   --badge-paid-border: #1a7f3740;
   --badge-fulfilled: #e0f0ff;
   --badge-fulfilled-text: #0077cc;
+  --badge-fulfilled-border: #0077cc40;
   --badge-archived: #f1f2f4;
   --badge-archived-text: #6d7175;
   --badge-cancelled: #fce8e8;

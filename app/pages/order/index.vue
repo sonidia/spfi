@@ -206,6 +206,12 @@ import { computed, onMounted } from "vue";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
+import { useToastStore } from "~/stores/toast";
+import { useSheetService } from "~/composables/useSheetService";
+import {
+  BUFF1_SHEET_URL,
+  BUFF2_SHEET_URL,
+} from "~~/utils/sheets";
 import {
   financialBadge,
   fmtDateTime,
@@ -223,6 +229,12 @@ definePageMeta({ layout: false });
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const formStore = useFormStore();
+const toastStore = useToastStore();
+const {
+  readSheetValues,
+  batchUpdateSheetValues,
+  normalizeSpreadsheetId,
+} = useSheetService();
 
 const orders = computed(() => orderStore.orders);
 const config = useRuntimeConfig();
@@ -326,11 +338,94 @@ async function addTracking(order: any) {
     // 3. Refresh orders to show new status/tracking
     await orderStore.fetchAll(sid, token);
 
-    alert(`Tracking updated successfully! (${trackingNr})`);
+    // 4. Update Google Sheets (Async-like)
+    updateSheetTracking(order, trackingNr).catch(err => {
+      console.error("Failed to update sheet tracking:", err);
+    });
+
+    toastStore.addToast(`Tracking updated successfully! (${trackingNr})`, "success");
   } catch (err: any) {
     console.error("Failed to update tracking:", err);
     const msg = err.data?.message || err.message || "Unknown error";
-    alert(`Failed to update tracking: ${msg}`);
+    toastStore.addToast(`Failed to update tracking: ${msg}`, "error");
+  }
+}
+
+async function updateSheetTracking(order: any, trackingNr: string) {
+  const sid = formStore.storeId;
+  const cookie = useCookie<any>(sid);
+  const domain = cookie.value?.domain;
+  const customerName = getCustomerName(order);
+
+  if (!domain || !customerName) return;
+
+  // 1. Identify sheet
+  const [b1Results, b2Results] = await Promise.allSettled([
+    readSheetValues({
+      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
+      range: "'order 1'!A:Z",
+    }),
+    readSheetValues({
+      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
+      range: "'Sheet1'!A:Z",
+    }),
+  ]);
+
+  const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
+  const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
+
+  const domainLower = domain.toLowerCase();
+  const customerLower = customerName.toLowerCase();
+
+  let targetRows = [];
+  let targetRangeSheet = "";
+  let spreadsheetId = "";
+
+  const inBuff1 = buff1Rows.some(
+    (r) => r[3]?.trim().toLowerCase() === domainLower,
+  );
+
+  if (inBuff1) {
+    targetRows = buff1Rows;
+    targetRangeSheet = "'order 1'";
+    spreadsheetId = BUFF1_SHEET_URL;
+  } else {
+    const inBuff2 = buff2Rows.some(
+      (r) => r[3]?.trim().toLowerCase() === domainLower,
+    );
+    if (inBuff2) {
+      targetRows = buff2Rows;
+      targetRangeSheet = "'Sheet1'";
+      spreadsheetId = BUFF2_SHEET_URL;
+    }
+  }
+
+  if (!spreadsheetId) return;
+
+  // 2. Find row and update
+  const updates: any[] = [];
+  targetRows.forEach((row, index) => {
+    const domainInSheet = String(row[3] || "").toLowerCase();
+    const customerInSheet = String(row[7] || "").toLowerCase();
+
+    if (
+      domainInSheet === domainLower &&
+      customerInSheet.includes(customerLower)
+    ) {
+      const actualRow = index + 1;
+      updates.push({
+        range: `${targetRangeSheet}!K${actualRow}:K${actualRow}`,
+        values: [[trackingNr]],
+      });
+    }
+  });
+
+  if (updates.length > 0) {
+    await batchUpdateSheetValues({
+      spreadsheetId: normalizeSpreadsheetId(spreadsheetId),
+      data: updates,
+    });
+    console.log(`Updated tracking in sheet for ${customerName} (${updates.length} rows)`);
   }
 }
 </script>
@@ -344,7 +439,7 @@ async function addTracking(order: any) {
   flex-wrap: wrap;
 }
 .page-title {
-  font-size: 20px;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text);
 }

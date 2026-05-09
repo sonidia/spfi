@@ -1,16 +1,284 @@
-<script lang="ts" setup>
-import { useFormStore } from "~/stores/form";
+<template>
+  <NuxtLayout name="shop">
+    <template #title>
+      <span class="page-title">Products</span>
+    </template>
 
+    <div class="page" id="app">
+      <!-- Loading state -->
+      <div v-if="productStore.isLoading && !products.length" id="loading">
+        Loading products...
+      </div>
+      <div v-else-if="productStore.error" id="loading" style="color: red">
+        {{ productStore.error }}
+      </div>
+
+      <!-- ════════════════════════════════════════ SCREEN: LIST -->
+      <div v-else>
+        <div class="page-meta-header">
+          <div class="page-meta">
+            {{ products.length }} product{{ products.length !== 1 ? "s" : "" }}
+          </div>
+          <button class="btn-primary-sm" @click="showCreateModal = true">
+            <span v-html="ICONS_PLUS"></span>
+            Add product
+          </button>
+        </div>
+
+        <div class="card table-card">
+          <table class="products-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Type</th>
+                <th>Vendor</th>
+                <th>Tags</th>
+                <th>Variants</th>
+                <th>Updated</th>
+                <th style="text-align: right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(prod, index) in products"
+                :key="prod.id || index"
+                class="product-row"
+              >
+                <td>
+                  <div class="product-info-cell">
+                    <img
+                      v-if="prod.image"
+                      :src="prod.image.src"
+                      class="product-thumb"
+                      alt="Product Image"
+                    />
+                    <div v-else class="product-thumb empty-thumb">No Img</div>
+                    <div class="product-main-details">
+                      <div class="product-title-text">{{ prod.title }}</div>
+                      <div class="product-id-sub">ID: {{ prod.id }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span
+                    v-if="prod.status"
+                    class="badge"
+                    :class="
+                      prod.status === 'active' ? 'badge-paid' : 'badge-pending'
+                    "
+                  >
+                    {{
+                      prod.status.charAt(0).toUpperCase() + prod.status.slice(1)
+                    }}
+                  </span>
+                </td>
+                <td>
+                  {{ prod.product_type || "—" }}
+                </td>
+                <td>
+                  {{ prod.vendor || "—" }}
+                </td>
+                <td>
+                  <div class="tags-cell">
+                    <span v-for="tag in (prod.tags ? prod.tags.split(',').slice(0, 2) : [])" :key="tag" class="tag-item">
+                      {{ tag.trim() }}
+                    </span>
+                    <span v-if="prod.tags && prod.tags.split(',').length > 2" class="tag-item more">
+                      +{{ prod.tags.split(',').length - 2 }}
+                    </span>
+                    <span v-if="!prod.tags || prod.tags.trim() === ''">—</span>
+                  </div>
+                </td>
+                <td>
+                  {{ prod.variants?.length || 0 }}
+                </td>
+                <td>
+                  {{ prod.updated_at ? new Date(prod.updated_at).toLocaleDateString() : "—" }}
+                </td>
+                <td style="text-align: right">
+                  <div class="product-actions-cell" style="justify-content: flex-end;">
+                    <BasePopover align="right">
+                      <template #trigger="{ isOpen }">
+                        <button class="btn-ghost-sm btn-icon" :class="{ 'is-active': isOpen }">
+                          <IconsMore />
+                        </button>
+                      </template>
+                      <template #default="{ close }">
+                        <div class="popover-menu popover-actions">
+                          <button class="popover-item" @click.stop="openEditModal(prod); close()">
+                            Edit
+                          </button>
+                          <button class="popover-item text-danger" @click.stop="removeProduct(prod.id); close()">
+                            Delete
+                          </button>
+                        </div>
+                      </template>
+                    </BasePopover>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="products.length === 0" class="empty-state">
+            No products found. Create one.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Modal -->
+    <div
+      v-if="showCreateModal"
+      class="modal-backdrop"
+      @click.self="showCreateModal = false"
+    >
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 class="modal-title">Create Product</h3>
+          <button class="btn-close" @click="showCreateModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label class="field-label"
+              >Title <span style="color: red">*</span></label
+            >
+            <input
+              v-model="newProduct.title"
+              type="text"
+              class="inp"
+              placeholder="Awesome Product"
+            />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Vendor</label>
+              <input
+                v-model="newProduct.vendor"
+                type="text"
+                class="inp"
+                placeholder="My Vendor"
+              />
+            </div>
+            <div class="field">
+              <label class="field-label">Product Type</label>
+              <input
+                v-model="newProduct.product_type"
+                type="text"
+                class="inp"
+                placeholder="e.g. Shirts"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Tags</label>
+            <input
+              v-model="newProduct.tags"
+              type="text"
+              class="inp"
+              placeholder="Tag 1, Tag 2"
+            />
+          </div>
+          <div class="field">
+            <label class="field-label">Description (HTML)</label>
+            <textarea
+              v-model="newProduct.body_html"
+              class="inp"
+              rows="4"
+              placeholder="<p>Information</p>"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" @click="showCreateModal = false">
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            @click="createProduct"
+            :disabled="productStore.isLoading"
+          >
+            {{ productStore.isLoading ? "Creating..." : "Create Product" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div
+      v-if="showEditModal"
+      class="modal-backdrop"
+      @click.self="showEditModal = false"
+    >
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 class="modal-title">Edit Product</h3>
+          <button class="btn-close" @click="showEditModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label class="field-label"
+              >Title <span style="color: red">*</span></label
+            >
+            <input v-model="editProduct.title" type="text" class="inp" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Vendor</label>
+              <input v-model="editProduct.vendor" type="text" class="inp" />
+            </div>
+            <div class="field">
+              <label class="field-label">Product Type</label>
+              <input
+                v-model="editProduct.product_type"
+                type="text"
+                class="inp"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Tags</label>
+            <input v-model="editProduct.tags" type="text" class="inp" />
+          </div>
+          <div class="field">
+            <label class="field-label">Description (HTML)</label>
+            <textarea
+              v-model="editProduct.body_html"
+              class="inp"
+              rows="4"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" @click="showEditModal = false">
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            @click="saveEditProduct"
+            :disabled="productStore.isLoading"
+          >
+            {{ productStore.isLoading ? "Saving..." : "Save Changes" }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </NuxtLayout>
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import { useFormStore } from "~/stores/form";
+import { useProductStore } from "~/stores/product";
+
+definePageMeta({ layout: false });
+
+const productStore = useProductStore();
 const formStore = useFormStore();
 
-// ── Local state ──
-const selectedStoreId = ref<string>("");
-const products = ref<any[]>([]);
-const isLoading = ref(false);
-const errorMsg = ref("");
-const successMsg = ref("");
+const products = computed(() => productStore.products);
 
-// Modals
+// ── Local state for modals ──
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 
@@ -19,6 +287,7 @@ const newProduct = ref({
   body_html: "",
   vendor: "",
   product_type: "",
+  tags: "",
 });
 
 const editProduct = ref({
@@ -27,98 +296,34 @@ const editProduct = ref({
   body_html: "",
   vendor: "",
   product_type: "",
+  tags: "",
 });
 
-// ── On mount ──
-onMounted(() => {
-  formStore.loadKnownStores();
-  if (formStore.storeId && formStore.knownStores.includes(formStore.storeId)) {
-    selectedStoreId.value = formStore.storeId;
-    fetchProducts();
-  } else if (formStore.knownStores.length > 0) {
-    selectedStoreId.value = formStore.knownStores[0];
-    fetchProducts();
-  }
-});
+const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`;
 
-watch(selectedStoreId, (newStoreId) => {
-  if (newStoreId) {
-    formStore.storeId = newStoreId;
-    fetchProducts();
-  }
-});
-
-// ── Helper to get token ──
-function getTokenForStore(id: string) {
-  const cookie = useCookie<any>(id);
-  const data = cookie.value;
-  return data?.accessToken || "";
-}
-
-// ── API Actions ──
-async function fetchProducts() {
-  if (!selectedStoreId.value) return;
-  const token = getTokenForStore(selectedStoreId.value);
-  if (!token) {
-    errorMsg.value = `No access token found for store: ${selectedStoreId.value}. Connect it in Manager first.`;
-    products.value = [];
-    return;
-  }
-
-  isLoading.value = true;
-  errorMsg.value = "";
-  successMsg.value = "";
-  try {
-    const res: any = await $fetch("/api/product/all", {
-      method: "POST",
-      body: {
-        storeId: selectedStoreId.value,
-        token,
-        limit: 50,
-      },
-    });
-    products.value = res.products || [];
-  } catch (err: any) {
-    errorMsg.value = err.data?.statusMessage || err.message || "Failed to fetch products";
-    products.value = [];
-  } finally {
-    isLoading.value = false;
-  }
-}
-
+// ── Actions ──
 async function createProduct() {
-  if (!selectedStoreId.value) return;
-  if (!newProduct.value.title.trim()) {
-    errorMsg.value = "Title is required";
+  const sid = formStore.storeId;
+  const cookie = sid ? useCookie<any>(sid) : null;
+  const token = cookie?.value?.accessToken;
+
+  if (!sid || !token) {
+    alert("Store ID or Access Token is missing.");
     return;
   }
 
-  const token = getTokenForStore(selectedStoreId.value);
-  isLoading.value = true;
-  errorMsg.value = "";
-  
-  try {
-    await $fetch("/api/product/create", {
-      method: "POST",
-      body: {
-        storeId: selectedStoreId.value,
-        token,
-        product: {
-          title: newProduct.value.title,
-          body_html: newProduct.value.body_html,
-          vendor: newProduct.value.vendor,
-          product_type: newProduct.value.product_type,
-        },
-      },
-    });
-    successMsg.value = "Product created successfully!";
+  const success = await productStore.createProduct(sid, token, {
+    ...newProduct.value,
+  });
+  if (success) {
     showCreateModal.value = false;
-    newProduct.value = { title: "", body_html: "", vendor: "", product_type: "" };
-    fetchProducts();
-  } catch (err: any) {
-    errorMsg.value = err.data?.statusMessage || err.message || "Create failed";
-  } finally {
-    isLoading.value = false;
+    newProduct.value = {
+      title: "",
+      body_html: "",
+      vendor: "",
+      product_type: "",
+      tags: "",
+    };
   }
 }
 
@@ -129,288 +334,112 @@ function openEditModal(prod: any) {
     body_html: prod.body_html || "",
     vendor: prod.vendor || "",
     product_type: prod.product_type || "",
+    tags: prod.tags || "",
   };
   showEditModal.value = true;
 }
 
 async function saveEditProduct() {
-  if (!selectedStoreId.value || !editProduct.value.id) return;
-  const token = getTokenForStore(selectedStoreId.value);
-  isLoading.value = true;
-  errorMsg.value = "";
+  const sid = formStore.storeId;
+  const cookie = sid ? useCookie<any>(sid) : null;
+  const token = cookie?.value?.accessToken;
 
-  try {
-    await $fetch(`/api/product/${editProduct.value.id}`, {
-      method: "PUT",
-      body: {
-        storeId: selectedStoreId.value,
-        token,
-        product: {
-          id: editProduct.value.id,
-          title: editProduct.value.title,
-          body_html: editProduct.value.body_html,
-          vendor: editProduct.value.vendor,
-          product_type: editProduct.value.product_type,
-        },
-      },
-    });
-    successMsg.value = "Product updated successfully!";
+  if (!sid || !token || !editProduct.value.id) return;
+
+  const success = await productStore.updateProduct(
+    sid,
+    token,
+    editProduct.value.id,
+    {
+      title: editProduct.value.title,
+      body_html: editProduct.value.body_html,
+      vendor: editProduct.value.vendor,
+      product_type: editProduct.value.product_type,
+      tags: editProduct.value.tags,
+    },
+  );
+  if (success) {
     showEditModal.value = false;
-    fetchProducts();
-  } catch (err: any) {
-    errorMsg.value = err.data?.statusMessage || err.message || "Update failed";
-  } finally {
-    isLoading.value = false;
   }
 }
 
 async function removeProduct(prodId: number) {
   if (!confirm("Are you sure you want to delete this product?")) return;
-  if (!selectedStoreId.value) return;
+  const sid = formStore.storeId;
+  const cookie = sid ? useCookie<any>(sid) : null;
+  const token = cookie?.value?.accessToken;
 
-  const token = getTokenForStore(selectedStoreId.value);
-  isLoading.value = true;
-  errorMsg.value = "";
+  if (!sid || !token) return;
 
-  try {
-    await $fetch(`/api/product/${prodId}`, {
-      method: "DELETE",
-      body: {
-        storeId: selectedStoreId.value,
-        token,
-      },
-    });
-    successMsg.value = "Product deleted successfully!";
-    fetchProducts();
-  } catch (err: any) {
-    errorMsg.value = err.data?.statusMessage || err.message || "Delete failed";
-  } finally {
-    isLoading.value = false;
-  }
+  await productStore.deleteProduct(sid, token, prodId);
 }
 </script>
 
-<template>
-  <div class="product-page">
-    <div class="page-header">
-      <h1 class="page-title">Products Management</h1>
-      <p class="page-sub">Manage products across your Shopify stores</p>
-    </div>
-
-    <!-- Store Selector & Actions -->
-    <section class="card">
-      <div class="card-head">
-        <div class="store-selector">
-          <label>Select Store:</label>
-          <select v-model="selectedStoreId" class="inp select-inp">
-            <option disabled value="">-- Choose a store --</option>
-            <option v-for="store in formStore.knownStores" :key="store" :value="store">
-              {{ store }}
-            </option>
-          </select>
-        </div>
-        <div class="card-actions">
-          <button class="btn-primary" @click="showCreateModal = true" :disabled="!selectedStoreId">
-            Add Product
-          </button>
-          <button class="btn-outline" @click="fetchProducts" :disabled="!selectedStoreId || isLoading">
-            {{ isLoading ? 'Refreshing...' : 'Refresh' }}
-          </button>
-        </div>
-      </div>
-      
-      <div v-if="errorMsg" class="alert alert-err" style="margin: 10px 20px;">{{ errorMsg }}</div>
-      <div v-if="successMsg" class="alert alert-ok" style="margin: 10px 20px;">{{ successMsg }}</div>
-    </section>
-
-    <!-- Product List -->
-    <section class="card" v-if="selectedStoreId">
-      <div class="card-head">
-        <div class="card-head-title">
-          <span class="card-title">Products for {{ selectedStoreId }}</span>
-          <span class="count-badge">{{ products.length }}</span>
-        </div>
-      </div>
-
-      <div v-if="isLoading && products.length === 0" class="empty-state">
-        Loading products...
-      </div>
-      
-      <div v-else-if="products.length === 0" class="empty-state">
-        No products found. Create one.
-      </div>
-
-      <div class="product-row" v-for="prod in products" :key="prod.id" v-else>
-        <div class="product-info">
-          <img v-if="prod.image" :src="prod.image.src" class="product-thumb" alt="Product Image" />
-          <div v-else class="product-thumb empty-thumb">No Img</div>
-          
-          <div class="product-details">
-            <div class="product-title">{{ prod.title }}</div>
-            <div class="product-meta">
-              <span v-if="prod.vendor" class="tag tag-outline">Vendor: {{ prod.vendor }}</span>
-              <span v-if="prod.status" class="tag" :class="prod.status === 'active' ? 'tag-ok' : 'tag-warn'">Status: {{ prod.status }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="product-actions">
-          <button class="btn-outline" @click="openEditModal(prod)" :disabled="isLoading">Edit</button>
-          <button class="btn-danger" @click="removeProduct(prod.id)" :disabled="isLoading">Delete</button>
-        </div>
-      </div>
-    </section>
-
-    <div v-else class="empty-state">
-      Please select a store to view products.
-    </div>
-
-    <!-- Create Modal -->
-    <div v-if="showCreateModal" class="modal-backdrop" @click.self="showCreateModal = false">
-      <div class="modal-card">
-        <div class="modal-head">
-          <h3 class="modal-title">Create Product</h3>
-          <button class="btn-ghost" @click="showCreateModal = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="field field-full">
-            <label class="field-label">Title <span style="color:red">*</span></label>
-            <input v-model="newProduct.title" type="text" class="inp" placeholder="Awesome Product" />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Vendor</label>
-            <input v-model="newProduct.vendor" type="text" class="inp" placeholder="My Vendor" />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Product Type</label>
-            <input v-model="newProduct.product_type" type="text" class="inp" placeholder="e.g. Shirts" />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Description (HTML)</label>
-            <textarea v-model="newProduct.body_html" class="inp" rows="4" placeholder="<p>Information</p>"></textarea>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-outline" @click="showCreateModal = false">Cancel</button>
-          <button class="btn-primary" @click="createProduct" :disabled="isLoading">Create Product</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Modal -->
-    <div v-if="showEditModal" class="modal-backdrop" @click.self="showEditModal = false">
-      <div class="modal-card">
-        <div class="modal-head">
-          <h3 class="modal-title">Edit Product</h3>
-          <button class="btn-ghost" @click="showEditModal = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="field field-full">
-            <label class="field-label">Title <span style="color:red">*</span></label>
-            <input v-model="editProduct.title" type="text" class="inp" />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Vendor</label>
-            <input v-model="editProduct.vendor" type="text" class="inp" />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Product Type</label>
-            <input v-model="editProduct.product_type" type="text" class="inp" />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Description (HTML)</label>
-            <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-outline" @click="showEditModal = false">Cancel</button>
-          <button class="btn-primary" @click="saveEditProduct" :disabled="isLoading">Save Changes</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <style scoped>
-.product-page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 28px 20px 48px;
-  font-size: 14px;
-}
-.page-header {
-  margin-bottom: 24px;
-}
 .page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
 }
-.page-sub {
-  font-size: 13px;
-  color: var(--text-secondary, #6d6d6d);
-}
-.card {
-  background: var(--surface);
-  border-radius: var(--radius, 8px);
-  box-shadow: var(--shadow);
+.page-meta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
 }
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
+.page-meta {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.table-card {
+  overflow: visible !important;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+.products-table th {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  background: #f9f9fa;
   border-bottom: 1px solid var(--border);
 }
-.card-head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.products-table td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
-.card-actions {
-  display: flex;
-  gap: 8px;
+
+.product-row:hover {
+  background: #f8f9fa;
 }
-.card-title {
-  font-weight: 600;
-  font-size: 14px;
-}
-.count-badge {
-  background: #eee;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-.store-selector {
+
+.product-info-cell {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.select-inp {
-  min-width: 200px;
-}
-.product-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.product-row:last-child {
-  border-bottom: none;
-}
-.product-info {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
 .product-thumb {
-  width: 50px;
-  height: 50px;
-  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
   object-fit: cover;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
 }
 .empty-thumb {
   display: flex;
@@ -418,29 +447,139 @@ async function removeProduct(prodId: number) {
   justify-content: center;
   background: #f4f4f4;
   color: #aaa;
-  font-size: 11px;
+  font-size: 10px;
+  text-align: center;
 }
-.product-details {
+.product-main-details {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
-.product-title {
+.product-title-text {
   font-weight: 600;
-  font-size: 15px;
+  color: var(--text);
 }
-.product-meta {
+.product-id-sub {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.badge::before {
+  content: "•";
+  font-size: 14px;
+}
+.badge-paid {
+  background: var(--badge-paid);
+  color: var(--badge-paid-text);
+}
+.badge-pending {
+  background: var(--badge-pending);
+  color: var(--badge-pending-text);
+}
+
+.btn-primary-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.btn-primary-sm:hover {
+  background: #006e52;
+}
+
+.btn-ghost-sm {
+  background: transparent;
+  border: none;
+  color: var(--text-link);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.btn-ghost-sm:hover {
+  background: #f0f7ff;
+}
+.btn-danger-text {
+  color: var(--badge-cancelled-text);
+}
+.btn-danger-text:hover {
+  background: #fff0f0;
+}
+
+.tags-cell {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
 }
-.product-actions {
+.tag-item {
+  background: #f1f2f4;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+.tag-item.more {
+  background: #e0f0ff;
+  color: #0077cc;
+}
+.btn-icon {
+  padding: 4px;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
 }
+.popover-actions {
+  min-width: 120px;
+  padding: 4px;
+}
+.popover-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+}
+.popover-item:hover {
+  background: #f8f9fa;
+}
+.text-danger {
+  color: var(--badge-cancelled-text) !important;
+}
+.product-actions-cell {
+  display: flex;
+}
+
 .empty-state {
-  padding: 40px;
+  padding: 60px 20px;
   text-align: center;
-  color: #888;
+  color: var(--text-sub);
+}
+#loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-sub);
 }
 
 /* Modals */
@@ -456,27 +595,66 @@ async function removeProduct(prodId: number) {
 .modal-card {
   background: var(--surface);
   width: 100%;
-  max-width: 500px;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  max-width: 540px;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   max-height: 90vh;
 }
 .modal-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
 }
 .modal-title {
   margin: 0;
   font-size: 16px;
+  font-weight: 600;
+}
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-sub);
 }
 .modal-body {
   padding: 20px;
   overflow-y: auto;
+}
+.field {
+  margin-bottom: 16px;
+}
+.field-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.field-row .field {
+  flex: 1;
+  margin-bottom: 0;
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text);
+}
+.inp {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+}
+.inp:focus {
+  border-color: var(--text-link);
+  outline: none;
 }
 .modal-actions {
   padding: 16px 20px;
@@ -485,55 +663,33 @@ async function removeProduct(prodId: number) {
   justify-content: flex-end;
   gap: 12px;
 }
-
-/* Base styles adopted from app theme */
-.btn-primary {
-  background: #10b981;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-outline {
-  background: transparent;
-  color: #333;
-  border: 1px solid #ddd;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 }
-.btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-danger {
-  background: #ef4444;
+.btn-outline:hover {
+  background: #f9f9fa;
+}
+.btn-primary {
+  padding: 10px 16px;
+  background: var(--green);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 }
-.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-ghost {
-  background: transparent;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
+.btn-primary:hover {
+  background: #006e52;
 }
-.inp {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-family: inherit;
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
-.field { margin-bottom: 16px; }
-.field-label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px; }
-.alert { padding: 12px 16px; border-radius: 4px; margin-bottom: 16px; }
-.alert-ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-.alert-err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #eee; }
-.tag-ok { background: #d1fae5; color: #065f46; }
-.tag-warn { background: #fef3c7; color: #92400e; }
-.tag-outline { border: 1px solid #ddd; background: transparent; }
 </style>

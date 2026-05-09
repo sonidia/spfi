@@ -10,10 +10,12 @@ import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
+import { useProductStore } from "../stores/product";
 
 const formStore = useFormStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
+const productStore = useProductStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -49,6 +51,7 @@ const isFetching = computed(() => {
   if (path === "/order" || path.startsWith("/order/"))
     return orderStore.isLoading;
   if (path.startsWith("/payment")) return paymentStore.isLoading;
+  if (path === "/product") return productStore.isLoading;
   return false;
 });
 
@@ -84,6 +87,7 @@ watch(
       useCookie("active_store_id").value = newShop as string;
       orderStore.$reset();
       paymentStore.$reset();
+      productStore.$reset();
       fetchCurrent();
     }
   },
@@ -100,11 +104,13 @@ function onSelectStore(id: string) {
   // Clear existing data so the new store's data loads
   orderStore.$reset();
   paymentStore.$reset();
+  productStore.$reset();
   fetchCurrent();
 }
 
 // ── Resolve valid token for current storeId ──────────────────────────────────
 function resolveToken(sid: string): string | null {
+  if (!sid) return null;
   const storeCookie = useCookie<any>(sid);
   const data = storeCookie.value;
   const now = Date.now();
@@ -150,11 +156,14 @@ function fetchCurrent(force = false) {
     if (idMatch && idMatch[1]) {
       paymentStore.fetchPayoutDetail(sid, token, Number(idMatch[1]), force);
     }
+  } else if (route.path === "/product") {
+    if (force || !productStore.hasFetchedAll) productStore.fetchAll(sid, token);
   }
 }
 
 // ── Get domain label for store select ────────────────────────────────────────
 function getStoreDomain(id: string): string {
+  if (!id) return "";
   const cookie = useCookie<any>(id);
   return cookie.value?.domain || "";
 }
@@ -189,6 +198,225 @@ const {
 const isLoadingPayouts = ref(false);
 const isUpdating = ref(false);
 const isSyncingDate = ref(false);
+
+// ── Add Store Modal State ───────────────────────────────────────────────────
+const isAddModalOpen = ref(false);
+const newStoreId = ref("");
+const newDomain = ref("");
+const newSock = ref("");
+const newClientId = ref("");
+const newClientSecret = ref("");
+const isFindingShop = ref(false);
+const genError = ref("");
+const genSuccess = ref("");
+
+const findShopSteps = ref([
+  { id: "MASTER", label: "Searching master sheet", status: "pending" },
+  { id: "MACHINE_FETCH", label: "Fetching credentials", status: "pending" },
+  { id: "TOKEN_GEN", label: "Generating Shopify Token", status: "pending" },
+  { id: "DONE", label: "Finalizing store", status: "pending" },
+]);
+
+function resetSteps() {
+  findShopSteps.value.forEach((s) => (s.status = "pending"));
+}
+function setStep(id: string, status: "pending" | "active" | "done" | "error") {
+  const step = findShopSteps.value.find((s) => s.id === id);
+  if (step) step.status = status;
+}
+
+function toUserFriendlyMessage(error: any) {
+  const rawMessage = String(
+    error?.data?.statusMessage || error?.data?.message || error?.message || "",
+  );
+  const msg = rawMessage.toLowerCase();
+
+  if (
+    msg.includes("socks5 authentication failed") ||
+    (msg.includes("proxy") && msg.includes("authentication")) ||
+    msg.includes("socket closed")
+  ) {
+    return "The SOCKS proxy is currently not working or the account details are incorrect. Please switch to a different proxy and try again.";
+  }
+
+  if (
+    msg.includes("etimedout") ||
+    msg.includes("timeout") ||
+    msg.includes("econnreset") ||
+    msg.includes("ehostunreach") ||
+    msg.includes("enotfound")
+  ) {
+    return "Không kết nối được tới proxy hoặc Shopify. Vui lòng kiểm tra mạng/proxy rồi thử lại.";
+  }
+
+  if (msg.includes("no proxy") || msg.includes("missing proxy")) {
+    return "Thiếu thông tin sock (proxy). Vui lòng nhập sock trước khi thêm shop.";
+  }
+
+  return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
+}
+
+const { readProxySheetRows, buildRangeFromSheetName } = useSheetService();
+
+const { getProxySheetPreset, machineSheets } = await import("~~/utils/sheets");
+
+async function addShop() {
+  genError.value = "";
+  genSuccess.value = "";
+  resetSteps();
+
+  const domain = newDomain.value.trim();
+  const sock = newSock.value.trim();
+  let sId = newStoreId.value.trim();
+  let cId = newClientId.value.trim();
+  let cSec = newClientSecret.value.trim();
+
+  isFindingShop.value = true;
+  try {
+    // 1. Discovery Phase
+    if (domain && (!sId || !cId || !cSec)) {
+      const domainSearch = domain.toLowerCase();
+      const quanLyUrl = QUAN_LY_SHEET_URL;
+
+      setStep("MASTER", "active");
+      const presetQuanLy = getProxySheetPreset(quanLyUrl);
+      const quanLyRows = await readProxySheetRows({
+        spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
+        range: buildRangeFromSheetName(""),
+        dataRowStart: presetQuanLy?.startRow || 3,
+        mapping: presetQuanLy?.columns,
+      });
+
+      const foundShop = quanLyRows.find(
+        (r) => r.domain.trim().toLowerCase() === domainSearch,
+      );
+
+      if (!foundShop) {
+        setStep("MASTER", "error");
+        throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
+      }
+      setStep("MASTER", "done");
+
+      setStep("MACHINE_FETCH", "active");
+      const machineNameRaw = foundShop.proxyUrl;
+      const targetMachineUrl = machineNameRaw
+        ? Object.entries(machineSheets).find(
+            ([key]) =>
+              machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
+          )?.[1]
+        : null;
+
+      if (!targetMachineUrl) {
+        setStep("MACHINE_FETCH", "error");
+        throw new Error(`Không xác định được máy cho shop này.`);
+      }
+
+      const machineRows = await readProxySheetRows({
+        spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
+        range: buildRangeFromSheetName(""),
+        dataRowStart: 2,
+      });
+
+      const machineMatch = machineRows.find(
+        (r) => r.domain.trim().toLowerCase() === domainSearch,
+      );
+
+      if (!machineMatch) {
+        setStep("MACHINE_FETCH", "error");
+        throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
+      }
+
+      if (machineMatch.proxyUrl && !newSock.value.trim())
+        newSock.value = machineMatch.proxyUrl.trim();
+      if (machineMatch.storeId && !newStoreId.value.trim())
+        newStoreId.value = machineMatch.storeId;
+      if (machineMatch.clientId && !newClientId.value.trim())
+        newClientId.value = machineMatch.clientId;
+      if (machineMatch.clientSecret && !newClientSecret.value.trim())
+        newClientSecret.value = machineMatch.clientSecret;
+
+      sId = newStoreId.value;
+      cId = newClientId.value;
+      cSec = newClientSecret.value;
+      setStep("MACHINE_FETCH", "done");
+    }
+
+    if (sId && formStore.knownStores.includes(sId)) {
+      const dom = newDomain.value.trim() || sId;
+      genError.value = `"${dom}" is already in the list (store: ${sId}).`;
+      isFindingShop.value = false;
+      resetSteps();
+      return;
+    }
+
+    if (!sId || !cId || !cSec) {
+      throw new Error("Missing Store ID, Client ID, or Secret.");
+    }
+
+    setStep("TOKEN_GEN", "active");
+    const res: any = await $fetch("/api/generate-token", {
+      method: "POST",
+      body: {
+        storeId: sId,
+        clientId: cId,
+        clientSecret: cSec,
+        sock: newSock.value.trim(),
+      },
+    });
+
+    if (!res?.access_token) {
+      setStep("TOKEN_GEN", "error");
+      throw new Error("Failed to retrieve access token");
+    }
+    setStep("TOKEN_GEN", "done");
+
+    setStep("DONE", "active");
+    const now = Date.now();
+    const expiresTime = now + 24 * 60 * 60 * 1000;
+    const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
+    cookie.value = {
+      clientId: cId,
+      clientSecret: cSec,
+      accessToken: res.access_token,
+      expiresTime,
+      domain: newDomain.value,
+      sock: newSock.value,
+    };
+
+    formStore.addKnownStore(sId);
+    formStore.storeId = sId;
+
+    genSuccess.value = `Shop "${sId}" added!`;
+    setTimeout(() => {
+      isAddModalOpen.value = false;
+      newStoreId.value = "";
+      newClientId.value = "";
+      newClientSecret.value = "";
+      newDomain.value = "";
+      newSock.value = "";
+      genSuccess.value = "";
+      resetSteps();
+    }, 1500);
+    setStep("DONE", "done");
+  } catch (err: any) {
+    setStep("TOKEN_GEN", "error");
+    genError.value = toUserFriendlyMessage(err);
+  } finally {
+    isFindingShop.value = false;
+  }
+}
+
+function handlePaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text");
+  if (!text) return;
+  const parts = text.split(/[\/|]/).map((s) => s.trim());
+  if (parts.length >= 3) {
+    event.preventDefault();
+    newStoreId.value = parts[0] || "";
+    newClientId.value = parts[1] || "";
+    newClientSecret.value = parts[2] || "";
+  }
+}
 
 const storeList = computed(() => {
   return formStore.knownStores.map((id) => {
@@ -628,6 +856,13 @@ async function syncPayoutDates() {
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-header">
+        <button
+          class="btn-sidebar-add"
+          title="Add new store"
+          @click="isAddModalOpen = true"
+        >
+          <IconsAdd />
+        </button>
         <div class="search-container">
           <svg
             class="search-icon"
@@ -648,29 +883,29 @@ async function syncPayoutDates() {
             placeholder="Search stores..."
             class="sidebar-search"
           />
-          <button
-            class="btn-load-sheet"
-            title="Load sheet names"
-            :disabled="isLoadingPayouts"
-            @click="loadPayouts"
-          >
-            <svg
-              v-if="isLoadingPayouts"
-              class="spin"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-              />
-            </svg>
-            <IconsRefresh v-else />
-          </button>
         </div>
+        <button
+          class="btn-load-sheet"
+          title="Load sheet names"
+          :disabled="isLoadingPayouts"
+          @click="loadPayouts"
+        >
+          <svg
+            v-if="isLoadingPayouts"
+            class="spin"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+            />
+          </svg>
+          <IconsRefresh v-else />
+        </button>
       </div>
 
       <div class="sidebar-content">
@@ -708,6 +943,10 @@ async function syncPayoutDates() {
         <div class="shop-bar-left">
           <div class="title-container">
             <slot name="title" />
+            <IconsArrowRight />
+            <h3>
+              {{ getStoreDomain(formStore.storeId) || formStore.storeId }}
+            </h3>
             <span v-if="getStoreSheet(formStore.storeId)" class="sheet-badge">
               {{ getStoreSheet(formStore.storeId) }}
             </span>
@@ -722,7 +961,7 @@ async function syncPayoutDates() {
           >
             <span v-if="isUpdating" class="spinner-inline" />
             <IconsCheck v-else />
-            {{ isUpdating ? "Syncing..." : "Sync Payout (for manager)" }}
+            {{ isUpdating ? "Syncing..." : "Sync Payout (manager)" }}
           </button>
 
           <button
@@ -732,7 +971,7 @@ async function syncPayoutDates() {
           >
             <span v-if="isSyncingDate" class="spinner-inline" />
             <IconsDate v-else />
-            {{ isSyncingDate ? "Syncing..." : "Sync Date (for staff)" }}
+            {{ isSyncingDate ? "Syncing..." : "Sync Date (staff)" }}
           </button>
 
           <button
@@ -778,6 +1017,120 @@ async function syncPayoutDates() {
         </template>
       </div>
     </main>
+
+    <!-- ── Add Store Modal ── -->
+    <div
+      v-if="isAddModalOpen"
+      class="modal-backdrop"
+      @click.self="isAddModalOpen = false"
+    >
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 class="modal-title">Connect New Store</h3>
+          <button class="btn-ghost" @click="isAddModalOpen = false">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="field field-full">
+            <label class="field-label">Domain</label>
+            <input
+              v-model="newDomain"
+              type="text"
+              class="inp"
+              placeholder="myshop.store"
+              @keyup.enter="addShop"
+            />
+          </div>
+          <div class="field field-full">
+            <label class="field-label">Sock (Proxy URL)</label>
+            <input
+              v-model="newSock"
+              type="text"
+              class="inp"
+              placeholder="IP:Port:User:Pass"
+            />
+          </div>
+          <div class="field-row">
+            <div class="field field-50">
+              <label class="field-label">Store ID</label>
+              <input
+                v-model="newStoreId"
+                type="text"
+                class="inp"
+                placeholder="mystore"
+                @paste="handlePaste"
+              />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field field-50">
+              <label class="field-label">Client ID</label>
+              <input
+                v-model="newClientId"
+                type="text"
+                class="inp"
+                @paste="handlePaste"
+              />
+            </div>
+            <div class="field field-50">
+              <label class="field-label">Client Secret</label>
+              <input
+                v-model="newClientSecret"
+                type="password"
+                class="inp"
+                @paste="handlePaste"
+              />
+            </div>
+          </div>
+
+          <!-- Step Progress -->
+          <div
+            v-if="
+              isFindingShop ||
+              findShopSteps.some(
+                (s) => s.status !== 'pending' && s.status !== 'done',
+              )
+            "
+            class="step-progress"
+          >
+            <div
+              v-for="step in findShopSteps"
+              :key="step.id"
+              class="step-item"
+              :class="'status-' + step.status"
+            >
+              <div class="step-icon">
+                <span v-if="step.status === 'active'" class="spinner-sm" />
+                <span v-else-if="step.status === 'done'">✓</span>
+                <span v-else-if="step.status === 'error'">✕</span>
+                <span v-else>○</span>
+              </div>
+              <span class="step-label">{{ step.label }}</span>
+            </div>
+          </div>
+
+          <div v-if="genError" class="alert alert-err modal-alert">
+            {{ genError }}
+          </div>
+          <div v-if="genSuccess" class="alert alert-ok modal-alert">
+            {{ genSuccess }}
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-outline" @click="isAddModalOpen = false">
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            :disabled="isFindingShop"
+            @click="addShop"
+          >
+            {{ isFindingShop ? "Processing…" : "Add Connect" }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -793,12 +1146,11 @@ async function syncPayoutDates() {
 
 /* Sidebar Styling */
 .sidebar {
-  width: 260px;
+  width: 286px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-right: 1px solid var(--border);
   border-radius: 12px;
   margin: 12px 0px;
   overflow: hidden;
@@ -809,7 +1161,7 @@ async function syncPayoutDates() {
   padding: 6px 4px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -818,6 +1170,7 @@ async function syncPayoutDates() {
   flex: 1;
   display: flex;
   align-items: center;
+  border-radius: 6px;
 }
 
 .search-icon {
@@ -843,7 +1196,6 @@ async function syncPayoutDates() {
 }
 
 .sidebar-search:focus {
-  border-color: var(--blue);
   background: var(--surface);
 }
 
@@ -957,13 +1309,12 @@ async function syncPayoutDates() {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 10px;
-  font-weight: 700;
+  background: var(--badge-fulfilled);
+  border: 1px solid var(--badge-fulfilled-border);
+  border-radius: 1rem;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--blue);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
@@ -1023,8 +1374,7 @@ async function syncPayoutDates() {
   height: 32px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-left: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -1038,10 +1388,6 @@ async function syncPayoutDates() {
 .btn-load-sheet:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.sidebar-search {
-  border-radius: 6px 0 0 6px;
 }
 
 .btn-sync-action {
@@ -1124,5 +1470,177 @@ async function syncPayoutDates() {
     width: 100%;
     max-height: 200px;
   }
+}
+
+/* Sidebar Add Button */
+.btn-sidebar-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-sidebar-add:hover {
+  background: var(--surface);
+  color: var(--blue);
+}
+
+/* Modal Styles adapted from manager.vue */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-card {
+  background: var(--surface);
+  width: 100%;
+  max-width: 500px;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+.modal-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+.modal-actions {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.btn-ghost {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.field {
+  margin-bottom: 16px;
+}
+.field-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.field-row .field {
+  flex: 1;
+  margin-bottom: 0;
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 13px;
+}
+.inp {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.btn-primary {
+  padding: 8px 16px;
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-outline {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.alert {
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+.alert-err {
+  background: #fce8e8;
+  color: #c0392b;
+}
+.alert-ok {
+  background: #e4f2e8;
+  color: #1a7f37;
+}
+
+/* Step Progress */
+.step-progress {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #666;
+}
+.step-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.status-active {
+  color: var(--blue);
+  font-weight: 600;
+}
+.status-done {
+  color: #1a7f37;
+}
+.status-error {
+  color: #c0392b;
+}
+
+.spinner-sm {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 </style>
