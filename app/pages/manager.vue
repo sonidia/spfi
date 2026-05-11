@@ -111,7 +111,7 @@ interface StoreInfo {
 }
 
 function getStoreInfo(id: string): StoreInfo {
-  const cookie = useCookie<any>(id);
+  const cookie = useLocalStorage<any>(id, {}).state;
   const data = cookie.value;
   if (!data || typeof data !== "object") {
     return {
@@ -159,8 +159,8 @@ const filteredStoreList = computed(() => {
     if (sortOrder.value === "domain_desc")
       return b.domain.localeCompare(a.domain);
 
-    const cookieA = useCookie<any>(a.id).value || {};
-    const cookieB = useCookie<any>(b.id).value || {};
+    const cookieA = useLocalStorage<any>(a.id, {}).state.value || {};
+    const cookieB = useLocalStorage<any>(b.id, {}).state.value || {};
     const timeA = cookieA.expiresTime || 0;
     const timeB = cookieB.expiresTime || 0;
 
@@ -188,7 +188,7 @@ const editClientSecret = ref("");
 const editError = ref("");
 
 function openEditModal(id: string) {
-  const cookie = useCookie<any>(id);
+  const cookie = useLocalStorage<any>(id, {}).state;
   const data = cookie.value || {};
 
   editingStoreId.value = id;
@@ -214,7 +214,11 @@ function saveEditedStore() {
   if (!editingStoreId.value) return;
 
   const id = editingStoreId.value;
-  const cookie = useCookie<any>(id, { maxAge: 60 * 60 * 24 * 365 * 10 });
+  const cookie = useLocalStorage<any>(
+    id,
+    {},
+    { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
+  ).state;
   const previous =
     cookie.value && typeof cookie.value === "object" ? cookie.value : {};
 
@@ -277,10 +281,10 @@ async function addShop() {
 
           // 1. Discovery Phase
           if (!masterRows) {
-            const presetQuanLy = getProxySheetPreset(quanLyUrl);
+            const presetQuanLy = getProxySheetPreset(quanLyUrl, "FBS");
             masterRows = await readProxySheetRows({
               spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
-              range: buildRangeFromSheetName(""),
+              range: buildRangeFromSheetName(presetQuanLy?.tab || "FBS"),
               dataRowStart: presetQuanLy?.startRow || 3,
               mapping: presetQuanLy?.columns,
             });
@@ -369,7 +373,11 @@ async function addShop() {
         setStep("DONE", "active");
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
+        const cookie = useLocalStorage<any>(
+          sId,
+          {},
+          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
+        ).state;
         cookie.value = {
           clientId: cId,
           clientSecret: cSec,
@@ -413,7 +421,7 @@ async function addShop() {
 
 async function rotateToken(id: string) {
   const storeInfo = getStoreInfo(id);
-  const cookie = useCookie<any>(id);
+  const cookie = useLocalStorage<any>(id, {}).state;
   const data = cookie.value;
 
   if (!data?.clientId || !data?.clientSecret) {
@@ -464,7 +472,7 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 async function testProxy(id: string) {
-  const cookie = useCookie<any>(id);
+  const cookie = useLocalStorage<any>(id, {}).state;
   const data = cookie.value;
   if (!data?.sock) {
     alert("No sock/proxy information found for this store.");
@@ -1207,7 +1215,6 @@ async function testProxy(id: string) {
 }
 /* Alerts */
 .alert {
-  margin: 0 18px 14px;
   padding: 10px 14px;
   border-radius: 6px;
   font-size: 13px;
@@ -1284,7 +1291,6 @@ async function testProxy(id: string) {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 16px 16px;
 }
 .modal-alert {
   margin: 0 16px;

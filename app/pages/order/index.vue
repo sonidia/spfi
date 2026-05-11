@@ -254,7 +254,7 @@ onMounted(() => {
 
   const sid = formStore.storeId;
   if (sid) {
-    const cookie = useCookie<any>(sid);
+    const cookie = useLocalStorage<any>(sid, {}).state;
     const token = cookie.value?.accessToken;
     if (token) {
       paymentStore.fetchBalanceTransactions(sid, token);
@@ -264,7 +264,7 @@ onMounted(() => {
 
 async function addTracking(order: any) {
   const sid = formStore.storeId;
-  const cookie = sid ? useCookie<any>(sid) : null;
+  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token) {
@@ -353,7 +353,7 @@ async function addTracking(order: any) {
 
 async function updateSheetTracking(order: any, trackingNr: string) {
   const sid = formStore.storeId;
-  const cookie = useCookie<any>(sid);
+  const cookie = useLocalStorage<any>(sid, {}).state;
   const domain = cookie.value?.domain;
   const customerName = getCustomerName(order);
 

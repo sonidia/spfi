@@ -5,7 +5,7 @@ export function useTokenRotation() {
   const rotatingIds = ref<Record<string, boolean>>({});
 
   async function rotateToken(id: string) {
-    const cookie = useCookie<any>(id, { maxAge: 60 * 60 * 24 * 365 * 10 });
+    const cookie = useLocalStorage<any>(id, {}, { ttl: (60 * 60 * 24 * 365 * 10 ) * 1000 }).state;
     const data = cookie.value;
 
     if (!data?.clientId || !data?.clientSecret) {
@@ -61,7 +61,7 @@ export function useTokenRotation() {
     const MARGIN = 5 * 60 * 1000; // 5 minutes margin
 
     formStore.knownStores.forEach((id) => {
-      const cookie = useCookie<any>(id);
+      const cookie = useLocalStorage<any>(id, {}).state;
       const data = cookie.value;
 
       if (data && typeof data === "object" && data.accessToken) {

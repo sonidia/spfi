@@ -42,13 +42,8 @@ defineExpose({ close, toggle });
 </script>
 
 <template>
-  <div
-    class="app-popover"
-    ref="popoverRef"
-    @mouseenter="toggle"
-    @mouseleave="toggle"
-  >
-    <div class="popover-trigger">
+  <div class="app-popover" ref="popoverRef">
+    <div class="popover-trigger" @click="toggle">
       <slot name="trigger" :isOpen="isOpen"></slot>
     </div>
     <Transition name="popover-fade">

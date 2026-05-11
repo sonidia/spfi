@@ -57,10 +57,10 @@ const props = defineProps({
 defineEmits(["view-email"]);
 
 // ── server fetch ─────────────────────────────────────────────────────────────
-import { useCookie, useFetch } from "#app";
+import {  useFetch } from "#app";
 
-const sid = useCookie("active_store_id").value || "";
-const storeCookie = useCookie(sid).value || {};
+const sid = useLocalStorage("active_store_id", "").state.value || "";
+const storeCookie = useLocalStorage(sid, {}).state.value || {};
 const token = storeCookie?.accessToken;
 
 const { data, pending, error } = await useFetch(`/api/order/${props.order.id}/transactions`, {

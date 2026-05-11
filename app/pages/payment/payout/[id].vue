@@ -239,7 +239,7 @@ onMounted(() => {
 });
 
 function resolveToken(sid: string): string | null {
-  const storeCookie = useCookie<any>(sid);
+  const storeCookie = useLocalStorage<any>(sid, {}).state;
   const data = storeCookie.value;
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {

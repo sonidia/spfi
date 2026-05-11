@@ -331,7 +331,7 @@ const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="curren
 // ── Actions ──
 async function createProduct() {
   const sid = formStore.storeId;
-  const cookie = sid ? useCookie<any>(sid) : null;
+  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token) {
@@ -368,7 +368,7 @@ function openEditModal(prod: any) {
 
 async function saveEditProduct() {
   const sid = formStore.storeId;
-  const cookie = sid ? useCookie<any>(sid) : null;
+  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token || !editProduct.value.id) return;
@@ -393,7 +393,7 @@ async function saveEditProduct() {
 async function removeProduct(prodId: number) {
   if (!confirm("Are you sure you want to delete this product?")) return;
   const sid = formStore.storeId;
-  const cookie = sid ? useCookie<any>(sid) : null;
+  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token) return;

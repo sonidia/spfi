@@ -78,6 +78,13 @@ export function resolveStoreCookieData(
   event: H3Event,
   storeId: string,
 ): StoreCookieData | null {
+  // 1. Try reading from x-store-data header first
+  const headerData = event.node?.req?.headers?.['x-store-data'];
+  if (typeof headerData === 'string' && headerData.length > 0) {
+    const parsed = tryParseCookieValue(headerData);
+    if (parsed) return parsed;
+  }
+
   const normalizedStoreId = String(storeId || "").trim();
   if (!normalizedStoreId) return null;
 

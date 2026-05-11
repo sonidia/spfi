@@ -3,8 +3,8 @@ import { useSheetService } from "~/composables/useSheetService";
 import {
   BUFF1_SHEET_URL,
   BUFF2_SHEET_URL,
-  QUAN_LY_SHEET_URL,
   FBS_SHEET_URL,
+  QUAN_LY_SHEET_URL,
 } from "~~/utils/sheets";
 import NotFound from "../components/icons/NotFound.vue";
 import { useLoading } from "../composables/useLoading";
@@ -12,11 +12,13 @@ import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
+import { useToastStore } from "../stores/toast";
 
 const formStore = useFormStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
+const toastStore = useToastStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -27,12 +29,12 @@ onMounted(() => {
 
   // Try to restore from URL first, then cookie
   const queryShop = route.query.shop as string;
-  const cookieShop = useCookie("active_store_id").value;
+  const cookieShop = useLocalStorage("active_store_id", "").state.value;
   const initialShop = queryShop || cookieShop;
 
   if (initialShop) {
     formStore.storeId = initialShop;
-    useCookie("active_store_id").value = initialShop;
+    useLocalStorage("active_store_id", "").state.value = initialShop;
 
     // Ensure URL query param is present
     if (!queryShop) {
@@ -85,7 +87,7 @@ watch(
   (newShop) => {
     if (newShop && newShop !== formStore.storeId) {
       formStore.storeId = newShop as string;
-      useCookie("active_store_id").value = newShop as string;
+      useLocalStorage("active_store_id", "").state.value = newShop as string;
       orderStore.$reset();
       paymentStore.$reset();
       productStore.$reset();
@@ -97,7 +99,7 @@ watch(
 // ── Shop selector ────────────────────────────────────────────────────────────
 function onSelectStore(id: string) {
   formStore.storeId = id;
-  useCookie("active_store_id").value = id;
+  useLocalStorage("active_store_id", "").state.value = id;
 
   // Sync URL query param
   router.replace({ query: { ...route.query, shop: id } });
@@ -112,7 +114,7 @@ function onSelectStore(id: string) {
 // ── Resolve valid token for current storeId ──────────────────────────────────
 function resolveToken(sid: string): string | null {
   if (!sid) return null;
-  const storeCookie = useCookie<any>(sid);
+  const storeCookie = useLocalStorage<any>(sid, {}).state;
   const data = storeCookie.value;
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
@@ -165,14 +167,14 @@ function fetchCurrent(force = false) {
 // ── Get domain label for store select ────────────────────────────────────────
 function getStoreDomain(id: string): string {
   if (!id) return "";
-  const cookie = useCookie<any>(id);
+  const cookie = useLocalStorage<any>(id, {}).state;
   return cookie.value?.domain || "";
 }
 
 // ── Get sheet name for store ─────────────────────────────────────────────────
 function getStoreSheet(id: string): string {
   if (!id) return "";
-  const cookie = useCookie<any>(id);
+  const cookie = useLocalStorage<any>(id, {}).state;
   const cached: any = paymentStore.bulkingPayouts[id] || {};
   return cookie.value?.sheet || cached.sheet || "";
 }
@@ -302,10 +304,10 @@ async function addShop() {
 
           // 1. Discovery Phase
           if (!masterRows) {
-            const presetQuanLy = getProxySheetPreset(quanLyUrl);
+            const presetQuanLy = getProxySheetPreset(quanLyUrl, "FBS");
             masterRows = await readProxySheetRows({
               spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
-              range: buildRangeFromSheetName(""),
+              range: buildRangeFromSheetName(presetQuanLy?.tab || "FBS"),
               dataRowStart: presetQuanLy?.startRow || 3,
               mapping: presetQuanLy?.columns,
             });
@@ -394,7 +396,11 @@ async function addShop() {
         setStep("DONE", "active");
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        const cookie = useCookie<any>(sId, { maxAge: 60 * 60 * 24 * 365 * 10 });
+        const cookie = useLocalStorage<any>(
+          sId,
+          {},
+          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
+        ).state;
         cookie.value = {
           clientId: cId,
           clientSecret: cSec,
@@ -455,7 +461,7 @@ function handlePaste(event: ClipboardEvent) {
 
 const storeList = computed(() => {
   return formStore.knownStores.map((id) => {
-    const cookie = useCookie<any>(id);
+    const cookie = useLocalStorage<any>(id, {}).state;
     const data = cookie.value;
     const cached: any = paymentStore.bulkingPayouts[id] || {};
     return {
@@ -500,7 +506,7 @@ async function loadPayouts() {
       if (inBuff1) {
         sheets.push("$ buff1");
       }
-      
+
       const inBuff2 = buff2Rows.some(
         (r) => r[3]?.trim().toLowerCase() === domainLower,
       );
@@ -511,16 +517,22 @@ async function loadPayouts() {
       let sheetName = sheets.join(", ");
 
       if (sheetName) {
-        const cookie = useCookie<any>(store.id, {
-          maxAge: 60 * 60 * 24 * 365 * 10,
-        });
-        cookie.value = { ...cookie.value, sheet: sheetName };
+        const cookie = useLocalStorage<any>(
+          store.id,
+          {},
+          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
+        ).state;
 
-        paymentStore.setBulkingPayout(store.id, {
-          date: "",
-          status: "",
-          sheet: sheetName,
-        });
+        // Update local storage only if it's different or the store didn't have a sheet name before
+        if (cookie.value.sheet !== sheetName) {
+          cookie.value = { ...cookie.value, sheet: sheetName };
+
+          paymentStore.setBulkingPayout(store.id, {
+            date: "",
+            status: "",
+            sheet: sheetName,
+          });
+        }
       }
     }
   } catch (err) {
@@ -539,12 +551,19 @@ async function updatePayouts() {
   let buff1Rows: any[] = [];
   let buff2Rows: any[] = [];
   let quanLyRows: any[] = [];
+  let fbsRows: any[] = [];
+  let appendedRowCount = 0;
+  let appendedMessages: string[] = [];
 
   try {
     const sheetPromises = [
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
         range: "'quản lý'!A:Z",
+      }),
+      readSheetValues({
+        spreadsheetId: normalizeSpreadsheetId(FBS_SHEET_URL),
+        range: "'FBS'!A:Z",
       }),
     ];
 
@@ -574,6 +593,11 @@ async function updatePayouts() {
     }
     idx++;
 
+    if (results[idx]?.status === "fulfilled") {
+      fbsRows = (results[idx] as PromiseFulfilledResult<any>).value;
+    }
+    idx++;
+
     if (needsBuff1) {
       if (results[idx]?.status === "fulfilled") {
         buff1Rows = (results[idx] as PromiseFulfilledResult<any>).value;
@@ -589,6 +613,15 @@ async function updatePayouts() {
     }
   } catch (e) {
     console.error("Failed to load some sheets for syncing", e);
+  }
+
+  let lastNonEmptyRow = quanLyRows.length;
+  for (let i = quanLyRows.length - 1; i >= 0; i--) {
+    const row = quanLyRows[i];
+    if (row && (row[0]?.trim() || row[1]?.trim() || row[2]?.trim())) {
+      lastNonEmptyRow = i + 1;
+      break;
+    }
   }
 
   const quanLyUpdates: any[] = [];
@@ -613,7 +646,11 @@ async function updatePayouts() {
         body: { storeId: store.id, token: store.accessToken },
       });
       if (res.payouts && res.payouts.length > 0) {
-        for (const payout of res.payouts) {
+        const ascendingPayouts = [...res.payouts].sort(
+          (a: any, b: any) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime(),
+        );
+        for (const payout of ascendingPayouts) {
           const payoutDate = payout.date;
           let payoutStatus = payout.status.toLowerCase();
 
@@ -659,6 +696,48 @@ async function updatePayouts() {
                 values: [[payout.amount]],
               });
             }
+          } else if (store.id === formStore.storeId) {
+            const fbsMatch = fbsRows.find(
+              (r) => r[2]?.trim().toLowerCase() === store.domain.toLowerCase(),
+            );
+
+            const shopName = fbsMatch?.[3] || "";
+            const machineName = fbsMatch?.[4] || "";
+            const bank = fbsMatch?.[19] || "";
+
+            const inBuff1 = buff1Rows.some(
+              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
+            );
+            const inBuff2 = buff2Rows.some(
+              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
+            );
+
+            const buff1Amount = inBuff1 ? payout.amount : "";
+            const buff2Amount = inBuff2 ? payout.amount : "";
+
+            const newRowIndex = lastNonEmptyRow + 1 + appendedRowCount;
+            appendedRowCount++;
+
+            quanLyUpdates.push({
+              range: `'quản lý'!A${newRowIndex}:J${newRowIndex}`,
+              values: [
+                [
+                  formattedDate,
+                  shopName,
+                  store.domain,
+                  machineName,
+                  buff1Amount,
+                  buff2Amount,
+                  "",
+                  bank,
+                  "",
+                  payoutStatus,
+                ],
+              ],
+            });
+            appendedMessages.push(
+              `Appended ${formattedDate} - ${payout.amount} cho ${store.domain}`,
+            );
           }
         }
 
@@ -702,9 +781,18 @@ async function updatePayouts() {
         spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
         data: quanLyUpdates,
       });
+      toastStore.success(
+        `Đã cập nhật sheet quản lý (${quanLyUpdates.length} updates). ${appendedRowCount} rows appended.`,
+      );
+      if (appendedMessages.length > 0) {
+        toastStore.info(appendedMessages.join("\n"), 5000);
+      }
+    } else {
+      toastStore.info("Không có thay đổi nào cần cập nhật lên sheet quản lý.");
     }
   } catch (e) {
     console.error("Failed to execute some batch updates", e);
+    toastStore.error("Cập nhật sheet quản lý thất bại. Kiểm tra console.");
   }
 
   isUpdating.value = false;
@@ -806,14 +894,32 @@ async function syncPayoutDates() {
         .filter((tx: any) => tx.customerName);
 
       const targets = [];
-      const inBuff1 = store.sheet?.includes("$ buff1") || buff1Rows.some(r => r[3]?.trim().toLowerCase() === store.domain.toLowerCase());
-      const inBuff2 = store.sheet?.includes("$ buff2") || buff2Rows.some(r => r[3]?.trim().toLowerCase() === store.domain.toLowerCase());
+      const inBuff1 =
+        store.sheet?.includes("$ buff1") ||
+        buff1Rows.some(
+          (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
+        );
+      const inBuff2 =
+        store.sheet?.includes("$ buff2") ||
+        buff2Rows.some(
+          (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
+        );
 
       if (inBuff1) {
-        targets.push({ rows: buff1Rows, rangeSheet: "'order 1'", isBuff1: true, isBuff2: false });
+        targets.push({
+          rows: buff1Rows,
+          rangeSheet: "'order 1'",
+          isBuff1: true,
+          isBuff2: false,
+        });
       }
       if (inBuff2) {
-        targets.push({ rows: buff2Rows, rangeSheet: "'Sheet1'", isBuff1: false, isBuff2: true });
+        targets.push({
+          rows: buff2Rows,
+          rangeSheet: "'Sheet1'",
+          isBuff1: false,
+          isBuff2: true,
+        });
       }
 
       for (const target of targets) {
@@ -946,7 +1052,6 @@ async function syncPayoutDates() {
             :class="{ active: formStore.storeId === id }"
             @click="onSelectStore(id)"
           >
-            <div class="sidebar-item-dot"></div>
             <div class="sidebar-item-label">{{ getStoreDomain(id) || id }}</div>
             <div
               v-if="getStoreSheet(id)"
@@ -1262,19 +1367,6 @@ async function syncPayoutDates() {
   border-color: (--badge-paid-border);
 }
 
-.sidebar-item-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--badge-paid-text);
-  flex-shrink: 0;
-  display: none;
-}
-
-.sidebar-item.active .sidebar-item-dot {
-  display: inline-flex;
-}
-
 .sidebar-item-label {
   font-size: 13.5px;
   font-weight: 500;
@@ -1287,7 +1379,7 @@ async function syncPayoutDates() {
 .sidebar-item-check {
   display: flex;
   align-items: center;
-  color: var(--blue);
+  color: var(--green);
   opacity: 0.8;
   flex-shrink: 0;
 }

@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import { useCookie } from "#imports";
 import { onMounted, ref } from "vue";
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
@@ -32,7 +31,7 @@ onMounted(() => {
 // Sync internal storeList with knownStores and paymentStore
 const storeList = computed(() => {
   return formStore.knownStores.map((id) => {
-    const cookie = useCookie<any>(id);
+    const cookie = useLocalStorage<any>(id, {}).state;
     const data = cookie.value;
     const cached: any = paymentStore.bulkingPayouts[id] || {};
     return {
@@ -162,9 +161,7 @@ async function loadPayouts() {
 
       if (sheetName) {
         // Save to cookie for persistence across sessions
-        const cookie = useCookie<any>(store.id, {
-          maxAge: 60 * 60 * 24 * 365 * 10,
-        });
+        const cookie = useLocalStorage<any>(store.id, {}, { ttl: 60 * 60 * 24 * 365 * 10 * 1000 }).state;
         cookie.value = { ...cookie.value, sheet: sheetName };
 
         // Also update local store for immediate UI update if needed

@@ -148,7 +148,9 @@
                       :class="
                         tx.payout_status === 'paid'
                           ? 'badge-deposited'
-                          : 'badge-pending'
+                          : tx.payout_status === 'in_transit'
+                            ? 'badge-in-transit'
+                            : 'badge-pending'
                       "
                     >
                       {{
@@ -299,7 +301,7 @@ watch(
 
 function resolveToken(sid: string): string | null {
   // Use raw document.cookie fallback if outside Nuxt context, but we are client side anyway
-  const storeCookie = useCookie<any>(sid);
+  const storeCookie = useLocalStorage<any>(sid, {}).state;
   const data = storeCookie.value;
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
@@ -414,6 +416,11 @@ function getOrderNumber(tx: any) {
 .badge-pending {
   background: #e5e7eb;
   color: #374151;
+}
+
+.badge-in-transit {
+  background: #fff3cd;
+  color: #856404;
 }
 
 /* ─── BUTTONS ─── */
