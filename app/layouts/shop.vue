@@ -202,6 +202,10 @@ const isLoadingPayouts = ref(false);
 const isUpdating = ref(false);
 const isSyncingDate = ref(false);
 
+const syncMode = ref<"all" | "from_today">("from_today");
+const syncCount = ref<number | "unlimit">(1);
+const isSyncPopoverOpen = ref(false);
+
 // ── Add Store Modal State ───────────────────────────────────────────────────
 const isAddModalOpen = ref(false);
 const newStoreId = ref("");
@@ -641,15 +645,72 @@ async function updatePayouts() {
       sheet: store.sheet,
     });
     try {
-      const res: any = await $fetch("/api/payment/payout/all", {
-        method: "POST",
-        body: { storeId: store.id, token: store.accessToken },
-      });
-      if (res.payouts && res.payouts.length > 0) {
-        const ascendingPayouts = [...res.payouts].sort(
+      const [payoutRes, txRes, orderRes]: any = await Promise.all([
+        $fetch("/api/payment/payout/all", {
+          method: "POST",
+          body: { storeId: store.id, token: store.accessToken },
+        }),
+        $fetch("/api/payment/payout/transactions", {
+          method: "POST",
+          body: { storeId: store.id, token: store.accessToken },
+        }),
+        $fetch("/api/order/all", {
+          method: "POST",
+          body: { storeId: store.id, token: store.accessToken },
+        }),
+      ]);
+
+      if (payoutRes.payouts && payoutRes.payouts.length > 0) {
+        let filteredPayouts = [...payoutRes.payouts];
+
+        if (syncMode.value === "from_today") {
+          const todayStr = new Date().toISOString().split("T")[0];
+          filteredPayouts = filteredPayouts
+            .filter((p: any) => p.date >= todayStr)
+            .sort(
+              (a: any, b: any) =>
+                new Date(a.date).getTime() - new Date(b.date).getTime(),
+            );
+
+          if (syncCount.value !== "unlimit") {
+            filteredPayouts = filteredPayouts.slice(0, Number(syncCount.value));
+          }
+        }
+
+        if (filteredPayouts.length === 0) {
+          paymentStore.setBulkingPayout(store.id, {
+            date: "No matching payouts",
+            status: "Filtered",
+            sheet: store.sheet,
+          });
+          continue;
+        }
+
+        // Map order IDs to customer names
+        const orderMap = new Map();
+        if (orderRes && orderRes.orders) {
+          orderRes.orders.forEach((o: any) => {
+            const customerName = o.customer
+              ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
+              : "";
+            orderMap.set(String(o.id), customerName);
+          });
+        }
+
+        // Map transactions to their customer names
+        const transactions = (txRes.transactions || [])
+          .filter((tx: any) => tx.payout_id)
+          .map((tx: any) => ({
+            payoutId: String(tx.payout_id),
+            customerName: orderMap.get(String(tx.source_order_id)) || "",
+          }))
+          .filter((tx: any) => tx.customerName);
+
+        const ascendingPayouts = [...filteredPayouts].sort(
           (a: any, b: any) =>
             new Date(a.date).getTime() - new Date(b.date).getTime(),
         );
+
         for (const payout of ascendingPayouts) {
           const payoutDate = payout.date;
           let payoutStatus = payout.status.toLowerCase();
@@ -670,19 +731,31 @@ async function updatePayouts() {
               r[0]?.trim() === formattedDate,
           );
 
+          // Find which sheet contains the customers for this payout
+          const payoutTxCustomers = transactions
+            .filter((tx: any) => tx.payoutId === String(payout.id))
+            .map((tx: any) => tx.customerName.toLowerCase());
+
+          const inBuff1 = buff1Rows.some((row) => {
+            const customerInSheet = String(row[7] || "").toLowerCase();
+            return payoutTxCustomers.some((cust: string) =>
+              customerInSheet.includes(cust),
+            );
+          });
+
+          const inBuff2 = buff2Rows.some((row) => {
+            const customerInSheet = String(row[7] || "").toLowerCase();
+            return payoutTxCustomers.some((cust: string) =>
+              customerInSheet.includes(cust),
+            );
+          });
+
           if (quanLyIndex !== -1) {
             const actualRow = quanLyIndex + 1;
             quanLyUpdates.push({
               range: `'quản lý'!J${actualRow}:J${actualRow}`,
               values: [[payoutStatus]],
             });
-
-            const inBuff1 = buff1Rows.some(
-              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-            );
-            const inBuff2 = buff2Rows.some(
-              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-            );
 
             if (inBuff1) {
               quanLyUpdates.push({
@@ -704,13 +777,6 @@ async function updatePayouts() {
             const shopName = fbsMatch?.[3] || "";
             const machineName = fbsMatch?.[4] || "";
             const bank = fbsMatch?.[19] || "";
-
-            const inBuff1 = buff1Rows.some(
-              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-            );
-            const inBuff2 = buff2Rows.some(
-              (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-            );
 
             const buff1Amount = inBuff1 ? payout.amount : "";
             const buff2Amount = inBuff2 ? payout.amount : "";
@@ -741,7 +807,7 @@ async function updatePayouts() {
           }
         }
 
-        const sortedPayouts = [...res.payouts].sort(
+        const sortedPayouts = [...payoutRes.payouts].sort(
           (a: any, b: any) =>
             new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
@@ -1082,18 +1148,62 @@ async function syncPayoutDates() {
         </div>
 
         <div class="shop-bar-right">
-          <button
-            class="btn-sync-action"
-            :disabled="isUpdating || isSyncingDate || !formStore.storeId"
-            @click="updatePayouts"
-          >
-            <span v-if="isUpdating" class="spinner-inline" />
-            <IconsCheck v-else />
-            {{ isUpdating ? "Syncing..." : "Sync Payout (manager)" }}
-          </button>
+          <div class="sync-group">
+            <button
+              class="btn-sync-action sync_payout"
+              :disabled="isUpdating || isSyncingDate || !formStore.storeId"
+              @click="updatePayouts"
+            >
+              <span v-if="isUpdating" class="spinner-inline" />
+              <IconsCheck v-else />
+              {{ isUpdating ? "Syncing..." : "Sync Payout (manager)" }}
+            </button>
+            <BasePopover align="right">
+              <template #trigger>
+                <button
+                  class="btn-sync-settings"
+                  type="button"
+                  :disabled="isUpdating || isSyncingDate || !formStore.storeId"
+                >
+                  <IconsMore width="16" height="16" class="rotate-90" />
+                </button>
+              </template>
+              <div class="popover-sync-content">
+                <div class="sync-section">
+                  <label class="section-title">Mode</label>
+                  <div class="radio-group">
+                    <label class="radio-item">
+                      <input v-model="syncMode" type="radio" value="all" />
+                      <span>All</span>
+                    </label>
+                    <label class="radio-item">
+                      <input
+                        v-model="syncMode"
+                        type="radio"
+                        value="from_today"
+                      />
+                      <span>From Today</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div v-if="syncMode === 'from_today'" class="sync-section">
+                  <label class="section-title">Count</label>
+                  <BaseSelect
+                    v-model="syncCount"
+                    :options="[
+                      { label: '1 for next', value: 1 },
+                      { label: '2 for next', value: 2 },
+                      { label: 'unlimit for next', value: 'unlimit' },
+                    ]"
+                  />
+                </div>
+              </div>
+            </BasePopover>
+          </div>
 
           <button
-            class="btn-sync-action"
+            class="btn-sync-action sync_date"
             :disabled="isUpdating || isSyncingDate || !formStore.storeId"
             @click="syncPayoutDates"
           >
@@ -1439,6 +1549,88 @@ async function syncPayoutDates() {
   gap: 10px;
 }
 
+.sync-group {
+  display: flex !important;
+  align-items: stretch !important;
+  border-radius: 8px !important;
+  overflow: visible !important;
+  border: 1px solid #dddddd !important;
+  background: #f9f9f9;
+  height: 32px !important;
+}
+
+.btn-sync-settings {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  background: transparent;
+  border: none;
+  cursor: pointer !important;
+  transition: background 0.2s !important;
+}
+
+.btn-sync-settings:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-sync-settings:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rotate-90 {
+  transform: rotate(90deg);
+}
+
+.popover-sync-content {
+  padding: 12px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sync-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.radio-group {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 6px;
+}
+
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.radio-item input {
+  margin: 0;
+}
+
+.radio-item span {
+  color: var(--text);
+}
+
 .btn-fetch {
   display: inline-flex;
   align-items: center;
@@ -1508,16 +1700,29 @@ async function syncPayoutDates() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  background: white;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  background: white;
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+.sync_payout {
+  height: 30px;
+  border-left: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-right: 1px solid var(--border);
+}
+
+.sync_date {
+  height: 32px;
+  border: 1px solid var(--border);
 }
 
 .btn-sync-action:hover:not(:disabled) {

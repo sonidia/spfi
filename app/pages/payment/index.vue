@@ -26,29 +26,6 @@
 
       <!-- ════════════════ SCREEN 1: CONTENT -->
       <div v-else class="screen">
-        <!-- Balance Card -->
-        <div class="card" v-if="currentBalance && activeTab === 'payouts'">
-          <div class="overview-card">
-            <div
-              class="overview-left"
-              style="border-right: none; padding: 20px 24px"
-            >
-              <div class="overview-label">Current Balance</div>
-              <div>
-                <span class="overview-amount"
-                  >${{
-                    parseFloat(currentBalance.amount || 0).toFixed(2)
-                  }}</span
-                >
-                <span class="overview-currency">{{
-                  currentBalance.currency
-                }}</span>
-              </div>
-              <div class="overview-provider">Shopify Payments</div>
-            </div>
-          </div>
-        </div>
-
         <!-- Main Card -->
         <div class="card">
           <div class="table-header">
@@ -206,6 +183,29 @@
               No balance transactions found.
             </div>
           </template>
+        </div>
+
+        <!-- Balance Card -->
+        <div class="card" v-if="currentBalance && activeTab === 'payouts'">
+          <div class="overview-card">
+            <div
+              class="overview-left"
+              style="border-right: none; padding: 20px 24px"
+            >
+              <div class="overview-label">Current Balance</div>
+              <div>
+                <span class="overview-amount"
+                  >${{
+                    parseFloat(currentBalance.amount || 0).toFixed(2)
+                  }}</span
+                >
+                <span class="overview-currency">{{
+                  currentBalance.currency
+                }}</span>
+              </div>
+              <div class="overview-provider">Shopify Payments</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

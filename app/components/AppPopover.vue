@@ -76,7 +76,6 @@ defineExpose({ close, toggle });
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   min-width: 220px;
-  overflow: hidden;
 }
 
 .pos-bottom {
