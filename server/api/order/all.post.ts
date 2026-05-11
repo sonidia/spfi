@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
           headers,
           httpAgent: agent,
           httpsAgent: agent,
-          params: { status: "any" },
+          params: { status: "any", limit: 250 },
         });
 
         return ordersRes.data;

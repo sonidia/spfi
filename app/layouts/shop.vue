@@ -686,25 +686,28 @@ async function updatePayouts() {
           continue;
         }
 
-        // Map order IDs to customer names
+        // Map cached orders to their customer names and display names (APB1#...)
         const orderMap = new Map();
+        const orderNameMap = new Map();
         if (orderRes && orderRes.orders) {
           orderRes.orders.forEach((o: any) => {
             const customerName = o.customer
               ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
               : "";
             orderMap.set(String(o.id), customerName);
+            orderNameMap.set(String(o.id), o.name || "");
           });
         }
 
-        // Map transactions to their customer names
+        // Map transactions to their IDs, order names, and cached customers
         const transactions = (txRes.transactions || [])
           .filter((tx: any) => tx.payout_id)
           .map((tx: any) => ({
             payoutId: String(tx.payout_id),
-            customerName: orderMap.get(String(tx.source_order_id)) || "",
-          }))
-          .filter((tx: any) => tx.customerName);
+            sourceOrderId: tx.source_order_id ? String(tx.source_order_id) : null,
+            orderName: tx.source_order_id ? orderNameMap.get(String(tx.source_order_id)) : "",
+            customerName: tx.source_order_id ? orderMap.get(String(tx.source_order_id)) : "",
+          }));
 
         const ascendingPayouts = [...filteredPayouts].sort(
           (a: any, b: any) =>
@@ -732,23 +735,87 @@ async function updatePayouts() {
           );
 
           // Find which sheet contains the customers for this payout
-          const payoutTxCustomers = transactions
-            .filter((tx: any) => tx.payoutId === String(payout.id))
-            .map((tx: any) => tx.customerName.toLowerCase());
+          let payoutTx = transactions.filter((tx: any) => tx.payoutId === String(payout.id));
 
-          const inBuff1 = buff1Rows.some((row) => {
-            const customerInSheet = String(row[7] || "").toLowerCase();
-            return payoutTxCustomers.some((cust: string) =>
-              customerInSheet.includes(cust),
+          // If no transactions found in batch, fetch specifically for this payout
+          if (payoutTx.length === 0) {
+            try {
+              const res: any = await $fetch(`/api/payment/payout/${payout.id}`, {
+                params: { storeId: store.id, token: store.accessToken },
+              });
+              if (res.transactions) {
+                payoutTx = res.transactions.map((tx: any) => ({
+                  payoutId: String(tx.payout_id),
+                  sourceOrderId: tx.source_order_id ? String(tx.source_order_id) : null,
+                  orderName: tx.source_order_id ? orderNameMap.get(String(tx.source_order_id)) : "",
+                  customerName: tx.source_order_id ? orderMap.get(String(tx.source_order_id)) : "",
+                }));
+              }
+            } catch (e) {
+              console.error(`Failed to fetch specific transactions for payout ${payout.id}`, e);
+            }
+          }
+
+          // Resolve missing order/customer data if any
+          const payoutTxCustomers: string[] = [];
+          const payoutTxOrderNames: string[] = [];
+          for (const tx of payoutTx) {
+            let custName = tx.customerName || "";
+            let ordName = tx.orderName || "";
+
+            if (!custName && tx.sourceOrderId) {
+              try {
+                const res: any = await $fetch(`/api/order/${tx.sourceOrderId}`, {
+                  params: { storeId: store.id, token: store.accessToken },
+                });
+                if (res.order) {
+                  ordName = res.order.name || "";
+                  if (res.order.customer) {
+                    custName = `${res.order.customer.first_name || ""} ${res.order.customer.last_name || ""}`.trim();
+                  }
+                  // Cache for future use this session
+                  orderMap.set(tx.sourceOrderId, custName);
+                  orderNameMap.set(tx.sourceOrderId, ordName);
+                }
+              } catch (e) {
+                console.error(`Failed to fetch specific order ${tx.sourceOrderId}`, e);
+              }
+            }
+            if (custName) payoutTxCustomers.push(custName.toLowerCase());
+            if (ordName) payoutTxOrderNames.push(ordName.toLowerCase());
+          }
+
+          // Improved matching using both Order Name and Customer Name
+          const currentDomain = store.domain.toLowerCase();
+          const relevantBuff1Rows = buff1Rows.filter((r) => r[3]?.trim().toLowerCase() === currentDomain);
+          const relevantBuff2Rows = buff2Rows.filter((r) => r[3]?.trim().toLowerCase() === currentDomain);
+
+          let inBuff1 = relevantBuff1Rows.some((row) => {
+            const customerInSheet = String(row[7] || "").toLowerCase().trim();
+            if (!customerInSheet) return false;
+            return payoutTxCustomers.some(
+              (cust: string) =>
+                customerInSheet.includes(cust) || cust.includes(customerInSheet),
             );
           });
 
-          const inBuff2 = buff2Rows.some((row) => {
-            const customerInSheet = String(row[7] || "").toLowerCase();
-            return payoutTxCustomers.some((cust: string) =>
-              customerInSheet.includes(cust),
+          let inBuff2 = relevantBuff2Rows.some((row) => {
+            const customerInSheet = String(row[7] || "").toLowerCase().trim();
+            if (!customerInSheet) return false;
+            return payoutTxCustomers.some(
+              (cust: string) =>
+                customerInSheet.includes(cust) || cust.includes(customerInSheet),
             );
           });
+
+          // Fallback if matching failed but store is known to be in a specific sheet
+          if (!inBuff1 && !inBuff2) {
+            const isBuff1Store = store.sheet?.includes("$ buff1");
+            const isBuff2Store = store.sheet?.includes("$ buff2");
+            // Only fallback if uniquely identified in one sheet
+            if (isBuff1Store && !isBuff2Store) inBuff1 = true;
+            else if (isBuff2Store && !isBuff1Store) inBuff2 = true;
+          }
 
           if (quanLyIndex !== -1) {
             const actualRow = quanLyIndex + 1;
@@ -757,18 +824,11 @@ async function updatePayouts() {
               values: [[payoutStatus]],
             });
 
-            if (inBuff1) {
-              quanLyUpdates.push({
-                range: `'quản lý'!E${actualRow}:E${actualRow}`,
-                values: [[payout.amount]],
-              });
-            }
-            if (inBuff2) {
-              quanLyUpdates.push({
-                range: `'quản lý'!F${actualRow}:F${actualRow}`,
-                values: [[payout.amount]],
-              });
-            }
+            // Use a single update for both E and F to enforce exclusivity and reduce API calls
+            quanLyUpdates.push({
+              range: `'quản lý'!E${actualRow}:F${actualRow}`,
+              values: [[inBuff1 ? payout.amount : "", inBuff2 ? payout.amount : ""]],
+            });
           } else if (store.id === formStore.storeId) {
             const fbsMatch = fbsRows.find(
               (r) => r[2]?.trim().toLowerCase() === store.domain.toLowerCase(),
@@ -989,30 +1049,57 @@ async function syncPayoutDates() {
       }
 
       for (const target of targets) {
+        // First, update payout dates for matched rows
         for (const tx of transactions) {
           const payoutDate = payoutMap.get(tx.payoutId);
           if (!payoutDate) continue;
 
           target.rows.forEach((row, index) => {
+            if (row[3]?.trim().toLowerCase() !== store.domain.toLowerCase())
+              return;
+
             const customerInSheet = String(row[7] || "").toLowerCase();
             if (
               tx.customerName &&
               customerInSheet.includes(tx.customerName.toLowerCase())
             ) {
-              const actualRow = index + 1;
-              const updateItem = {
-                range: `${target.rangeSheet}!L${actualRow}:L${actualRow}`,
-                values: [[payoutDate]],
-              };
-
-              if (target.isBuff1) {
-                buff1Updates.push(updateItem);
-              } else if (target.isBuff2) {
-                buff2Updates.push(updateItem);
-              }
+              row[11] = payoutDate; // Update local copy
             }
           });
         }
+
+        // Second, apply status rules to ALL rows of this store in this sheet
+        target.rows.forEach((row, index) => {
+          if (row[3]?.trim().toLowerCase() !== store.domain.toLowerCase())
+            return;
+
+          const actualRow = index + 1;
+          const payoutDateValue = String(row[11] || "").trim();
+          const trackingNumber = String(row[10] || "").trim();
+          let newStatus = "";
+
+          if (target.isBuff1) {
+            if (payoutDateValue) {
+              newStatus = trackingNumber ? "Shipped" : "Process";
+            } else {
+              newStatus = "Ordered";
+            }
+          } else if (target.isBuff2) {
+            newStatus = trackingNumber ? "Shipped" : "Ordered";
+          }
+
+          if (newStatus) {
+            const updates = target.isBuff1 ? buff1Updates : buff2Updates;
+            updates.push({
+              range: `${target.rangeSheet}!L${actualRow}:L${actualRow}`,
+              values: [[payoutDateValue]],
+            });
+            updates.push({
+              range: `${target.rangeSheet}!B${actualRow}:B${actualRow}`,
+              values: [[newStatus]],
+            });
+          }
+        });
       }
     } catch (e) {
       console.error(`Error syncing dates for store ${store.domain}:`, e);
