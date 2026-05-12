@@ -2,10 +2,13 @@
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
 import {
-  FBS_SHEET_URL,
+  getMachineSheets,
   getProxySheetPreset,
-  machineSheets,
+  getSheetUrls,
 } from "~~/utils/sheets";
+
+const machineSheets = getMachineSheets();
+const { FBS_SHEET_URL } = getSheetUrls();
 
 definePageMeta({ layout: false });
 

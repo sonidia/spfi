@@ -196,7 +196,9 @@ import {
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
-import { BUFF1_SHEET_URL, BUFF2_SHEET_URL } from "~~/utils/sheets";
+import { getSheetUrls } from "~~/utils/sheets";
+
+const { BUFF1_SHEET_URL, BUFF2_SHEET_URL } = getSheetUrls();
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();

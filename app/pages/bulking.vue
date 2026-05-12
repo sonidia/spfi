@@ -3,11 +3,9 @@ import { onMounted, ref } from "vue";
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
 import { usePaymentStore } from "~/stores/payment";
-import {
-  BUFF1_SHEET_URL,
-  BUFF2_SHEET_URL,
-  QUAN_LY_SHEET_URL,
-} from "~~/utils/sheets";
+import { getSheetUrls } from "~~/utils/sheets";
+
+const { BUFF1_SHEET_URL, BUFF2_SHEET_URL, QUAN_LY_SHEET_URL } = getSheetUrls();
 
 definePageMeta({ layout: false });
 

@@ -157,8 +157,10 @@ async function readSheetMetaSafe(source: string) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const normalizedRecentSheets = normalizeSheetEntries(sheetList.value || []);
+  const defaults = defaultSheets();
+
   if (
     JSON.stringify(normalizedRecentSheets) !==
     JSON.stringify(sheetList.value || [])
@@ -168,16 +170,21 @@ onMounted(() => {
 
   // Load default sheets if no sheets in localStorage
   if (normalizedRecentSheets.length === 0) {
-    persistRecentSheets(defaultSheets);
-  }
+    const initialSheets: StoredSheet[] = [];
 
-  for (const sheet of normalizedRecentSheets.length > 0
-    ? normalizedRecentSheets
-    : defaultSheets) {
-    const firstRange = sheet.ranges[0];
-    if (firstRange) {
-      setSelectedSheetName(sheet.source, firstRange);
+    for (const source of defaults) {
+      const meta = await readSheetMetaSafe(source);
+      if (meta) {
+        const ranges = meta.sheets || [];
+        initialSheets.push({
+          source: source,
+          label: String(meta.title || "").trim() || buildSheetLabel(source),
+          ranges,
+        });
+      }
     }
+
+    persistRecentSheets(initialSheets);
   }
 });
 
@@ -258,32 +265,32 @@ function removeRecentSheet(source: string) {
       <p class="page-sub">Manage your Google Sheets to view data</p>
     </div>
 
-    <section :class="['card', { 'card--empty': recentSheets.length === 0 }]">
-      <div class="sheet-add-form">
-        <div class="sheet-field-wide">
-          <input
-            v-model="sheetInputValue"
-            :class="[
-              'sheet-inp',
-              { 'sheet-inp--wide': recentSheets.length === 0 },
-            ]"
-            type="text"
-            placeholder="Google Sheet URL hoặc Spreadsheet ID…"
-            @keydown.enter="addAndLoadSheet"
-          />
-        </div>
-        <button
-          class="sheet-btn-primary"
-          :disabled="sheetLoading || !sheetInputValue.trim()"
-          @click="addAndLoadSheet"
-        >
-          {{ sheetLoading ? "Loading…" : "Load & Add" }}
-        </button>
+    <div class="sheet-add-form">
+      <div class="sheet-field-wide">
+        <input
+          v-model="sheetInputValue"
+          :class="[
+            'sheet-inp',
+            { 'sheet-inp--wide': recentSheets.length === 0 },
+          ]"
+          type="text"
+          placeholder="Google Sheet URL hoặc Spreadsheet ID…"
+          @keydown.enter="addAndLoadSheet"
+        />
       </div>
+      <button
+        class="sheet-btn-primary"
+        :disabled="sheetLoading || !sheetInputValue.trim()"
+        @click="addAndLoadSheet"
+      >
+        <span>{{ sheetLoading ? "Loading…" : "Load & Add" }}</span>
+      </button>
+    </div>
 
+    <section :class="['card', { 'card--empty': recentSheets.length === 0 }]">
       <div v-if="sheetError" class="alert alert-err">{{ sheetError }}</div>
 
-      <div v-if="recentSheets.length">
+      <div v-if="recentSheets.length" class="sheet-row-wrapper">
         <div
           class="sheet-store-row"
           v-for="sheet in recentSheets"
@@ -410,6 +417,7 @@ function removeRecentSheet(source: string) {
   gap: 12px;
   align-items: flex-end;
   flex-wrap: wrap;
+  margin-bottom: 1rem;
 }
 
 .sheet-field-wide {
@@ -437,7 +445,7 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-btn-primary {
-  height: 32px;
+  height: 30px;
   padding: 0 16px;
   background: var(--text-primary, #1a1a1a);
   color: #fff;
@@ -450,6 +458,10 @@ function removeRecentSheet(source: string) {
   white-space: nowrap;
   flex-shrink: 0;
   transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .sheet-btn-primary:disabled {
@@ -461,6 +473,11 @@ function removeRecentSheet(source: string) {
   opacity: 0.85;
 }
 
+.sheet-row-wrapper {
+  background: var(--surface);
+  border-radius: 12px;
+}
+
 .sheet-store-row {
   display: flex;
   align-items: center;
@@ -468,6 +485,9 @@ function removeRecentSheet(source: string) {
   padding: 12px 18px;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
+}
+.sheet-store-row:nth-child(1) {
+  border: none;
 }
 
 .sheet-store-id {
@@ -595,38 +615,48 @@ function removeRecentSheet(source: string) {
 
 .sheet-table-wrap table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 
 .sheet-table-wrap thead tr {
-  background: #f9f9f9;
+  background: var(--surface-low, #fcfcfd);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .sheet-table-wrap th {
-  padding: 10px 20px;
+  padding: 12px 20px;
   text-align: left;
-  font-weight: 500;
-  color: #888;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e5e5e5;
+  font-weight: 600;
+  color: #475467;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0px;
+  border-bottom: 2px solid #eaecf0;
   white-space: nowrap;
+  background: #f9fafb;
 }
 
 .sheet-table-wrap td {
-  padding: 10px 20px;
-  color: #111;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 20px;
+  color: #344054;
+  border-bottom: 1px solid #eaecf0;
+  transition: background-color 0.2s;
+}
+
+.sheet-table-wrap tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.sheet-table-wrap tbody tr:hover td {
+  background: #f2f4f7;
 }
 
 .sheet-table-wrap tbody tr:last-child td {
   border-bottom: none;
-}
-
-.sheet-table-wrap tbody tr:hover {
-  background: #fafafa;
 }
 
 .sheet-badge {

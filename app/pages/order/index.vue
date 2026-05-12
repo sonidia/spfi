@@ -203,15 +203,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
+import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import { useToastStore } from "~/stores/toast";
-import { useSheetService } from "~/composables/useSheetService";
-import {
-  BUFF1_SHEET_URL,
-  BUFF2_SHEET_URL,
-} from "~~/utils/sheets";
 import {
   financialBadge,
   fmtDateTime,
@@ -224,17 +220,18 @@ import {
   transactionBadge,
 } from "~~/utils/order";
 
+import { getSheetUrls } from "~~/utils/sheets";
+
+const { BUFF1_SHEET_URL, BUFF2_SHEET_URL } = getSheetUrls();
+
 definePageMeta({ layout: false });
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const formStore = useFormStore();
 const toastStore = useToastStore();
-const {
-  readSheetValues,
-  batchUpdateSheetValues,
-  normalizeSpreadsheetId,
-} = useSheetService();
+const { readSheetValues, batchUpdateSheetValues, normalizeSpreadsheetId } =
+  useSheetService();
 
 const orders = computed(() => orderStore.orders);
 const config = useRuntimeConfig();
@@ -347,11 +344,14 @@ async function addTracking(order: any) {
     await orderStore.fetchAll(sid, token);
 
     // 4. Update Google Sheets (Async-like)
-    updateSheetTracking(order, trackingNr).catch(err => {
+    updateSheetTracking(order, trackingNr).catch((err) => {
       console.error("Failed to update sheet tracking:", err);
     });
 
-    toastStore.addToast(`Tracking updated successfully! (${trackingNr})`, "success");
+    toastStore.addToast(
+      `Tracking updated successfully! (${trackingNr})`,
+      "success",
+    );
   } catch (err: any) {
     console.error("Failed to update tracking:", err);
     const msg = err.data?.message || err.message || "Unknown error";
@@ -390,7 +390,9 @@ async function updateSheetTracking(order: any, trackingNr: string) {
   let spreadsheetId = "";
 
   const checkDomainMatch = (d: string) => {
-    const s = String(d || "").toLowerCase().trim();
+    const s = String(d || "")
+      .toLowerCase()
+      .trim();
     if (!s) return false;
     return s.includes(domainLower) || domainLower.includes(s);
   };
@@ -410,14 +412,20 @@ async function updateSheetTracking(order: any, trackingNr: string) {
   // 2. Find row and update
   const updates: any[] = [];
   targetRows.forEach((row, index) => {
-    const domainInSheet = String(row[3] || "").toLowerCase().trim();
-    const customerInSheet = String(row[7] || "").toLowerCase().trim();
+    const domainInSheet = String(row[3] || "")
+      .toLowerCase()
+      .trim();
+    const customerInSheet = String(row[7] || "")
+      .toLowerCase()
+      .trim();
 
     // Lenient check: If domain matches OR if domain column is empty (fallback within identified sheet)
     const domainOk = !domainInSheet || checkDomainMatch(domainInSheet);
 
     if (customerInSheet && domainOk) {
-      const nameMatch = customerInSheet.includes(customerLower) || customerLower.includes(customerInSheet);
+      const nameMatch =
+        customerInSheet.includes(customerLower) ||
+        customerLower.includes(customerInSheet);
 
       if (nameMatch) {
         const actualRow = index + 1;
@@ -434,9 +442,13 @@ async function updateSheetTracking(order: any, trackingNr: string) {
       spreadsheetId: normalizeSpreadsheetId(spreadsheetId),
       data: updates,
     });
-    console.log(`Successfully updated tracking in sheet for ${customerName} (${updates.length} rows)`);
+    console.log(
+      `Successfully updated tracking in sheet for ${customerName} (${updates.length} rows)`,
+    );
   } else {
-    console.warn(`No match found in ${targetRangeSheet} for [${customerLower}]. Sample Col H: ${targetRows.length > 1 ? targetRows[1][7] : 'N/A'}`);
+    console.warn(
+      `No match found in ${targetRangeSheet} for [${customerLower}]. Sample Col H: ${targetRows.length > 1 ? targetRows[1][7] : "N/A"}`,
+    );
   }
 }
 </script>

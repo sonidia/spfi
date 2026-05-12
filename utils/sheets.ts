@@ -28,102 +28,120 @@ export type ProxySheetLoadPreset = {
   };
 };
 
-export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
-export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";
-
-export const MACHINE_1_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1-aqOELwhn3vh6Zq_WLxc6ZZin8lWBaE_CrEyB59H9F8/edit?gid=0#gid=0";
-export const MACHINE_2_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1l0IQXYwmGhSS8MiJksWFq8B3BCpKV_zxKgloQ8w-y_8/edit?gid=0#gid=0";
-export const MACHINE_3_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1rt7EASJRfWGk5J91D6ziVX6bbu-vqETAwBYsq3tZi2Y/edit?gid=0#gid=0";
-export const MACHINE_4_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1CWAbbC240HR7AdZjeP0G7c2j4B-PQzm_Fz2nlMuqNqQ/edit?gid=0#gid=0";
-export const MACHINE_5_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/13vT1daD2fSsOppnIZk4YGEqFAiPgaIVnR9VgYNu368k/edit?gid=0#gid=0";
-export const MACHINE_6_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1dXhVmEkY_CjXnrAgmXXQtQ1fhW5OaHfGLm3Yy-FZsn8/edit?gid=0#gid=0";
-
-export const machineSheets: Record<string, string> = {
-  "MÁY 1": MACHINE_1_SHEET_URL,
-  "MÁY 2": MACHINE_2_SHEET_URL,
-  "MÁY 3": MACHINE_3_SHEET_URL,
-  "MÁY 4": MACHINE_4_SHEET_URL,
-  "MÁY 5": MACHINE_5_SHEET_URL,
-  "MÁY 6": MACHINE_6_SHEET_URL,
+export const getSheetUrls = () => {
+  // In Nuxt 3, useRuntimeConfig() works within the Nuxt context (Vue components, composables, plugins).
+  // For files in utils/, they are often called within that context.
+  try {
+    const config = useRuntimeConfig();
+    return {
+      QUAN_LY_SHEET_URL: (config.public.quanLySheetUrl as string) || "",
+      FBS_SHEET_URL: (config.public.fbsSheetUrl as string) || "",
+      BUFF1_SHEET_URL: (config.public.buff1SheetUrl as string) || "",
+      BUFF2_SHEET_URL: (config.public.buff2SheetUrl as string) || "",
+      MACHINE_1_SHEET_URL: (config.public.machine1SheetUrl as string) || "",
+      MACHINE_2_SHEET_URL: (config.public.machine2SheetUrl as string) || "",
+      MACHINE_3_SHEET_URL: (config.public.machine3SheetUrl as string) || "",
+      MACHINE_4_SHEET_URL: (config.public.machine4SheetUrl as string) || "",
+      MACHINE_5_SHEET_URL: (config.public.machine5SheetUrl as string) || "",
+      MACHINE_6_SHEET_URL: (config.public.machine6SheetUrl as string) || "",
+    };
+  } catch (e) {
+    console.error("Error accessing runtimeConfig in getSheetUrls:", e);
+    return {
+      QUAN_LY_SHEET_URL: "",
+      FBS_SHEET_URL: "",
+      BUFF1_SHEET_URL: "",
+      BUFF2_SHEET_URL: "",
+      MACHINE_1_SHEET_URL: "",
+      MACHINE_2_SHEET_URL: "",
+      MACHINE_3_SHEET_URL: "",
+      MACHINE_4_SHEET_URL: "",
+      MACHINE_5_SHEET_URL: "",
+      MACHINE_6_SHEET_URL: "",
+    };
+  }
 };
 
-export const QUAN_LY_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1QbchbP0eeMjcrafXUTPmHwZsUZmIeJOZPUFULqBzy3s/edit?gid=0#gid=0";
+export function getMachineSheets() {
+  const urls = getSheetUrls();
+  return {
+    "MÁY 1": urls.MACHINE_1_SHEET_URL,
+    "MÁY 2": urls.MACHINE_2_SHEET_URL,
+    "MÁY 3": urls.MACHINE_3_SHEET_URL,
+    "MÁY 4": urls.MACHINE_4_SHEET_URL,
+    "MÁY 5": urls.MACHINE_5_SHEET_URL,
+    "MÁY 6": urls.MACHINE_6_SHEET_URL,
+  };
+}
 
-export const FBS_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/18IPUGpt_WpmSt3txEZY5Zx94p15Qlr36jhZutsE2evg/edit?gid=660632124#gid=660632124";
-
-export const BUFF1_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/18IPUGpt_WpmSt3txEZY5Zx94p15Qlr36jhZutsE2evg/edit?gid=660632124#gid=660632124";
-
-export const BUFF2_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1ZLAMxVu_nyWWD_R9DWCICI57oXJPnTtMqYuLTit8_4A/edit?gid=0#gid=0";
-
-export const defaultSheets: StoredSheet[] = [];
-
-export const proxySheetLoadPresets: ProxySheetLoadPreset[] = [
-  {
-    source: QUAN_LY_SHEET_URL,
-    tab: "quản lý",
-    startRow: 3,
-    columns: {
-      storeId: 1,
-      shop: 1,
-      domain: 2,
-      proxyUrl: 3,
+export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
+  const urls = getSheetUrls();
+  return [
+    {
+      source: urls.QUAN_LY_SHEET_URL,
+      tab: "quản lý",
+      startRow: 3,
+      columns: {
+        storeId: 1,
+        shop: 1,
+        domain: 2,
+        proxyUrl: 3,
+      },
     },
-  },
-  {
-    source: BUFF1_SHEET_URL,
-    tab: "order 1",
-    startRow: 5,
-    columns: {
-      storeId: 0,
-      shop: 3,
-      domain: 3,
-      proxyUrl: 10,
+    {
+      source: urls.BUFF1_SHEET_URL,
+      tab: "order 1",
+      startRow: 5,
+      columns: {
+        storeId: 0,
+        shop: 3,
+        domain: 3,
+        proxyUrl: 10,
+      },
     },
-  },
-  {
-    source: FBS_SHEET_URL,
-    tab: "FBS",
-    startRow: 3,
-    columns: {
-      storeId: 1,
-      shop: 1,
-      domain: 2,
-      proxyUrl: 4,
+    {
+      source: urls.FBS_SHEET_URL,
+      tab: "FBS",
+      startRow: 3,
+      columns: {
+        storeId: 1,
+        shop: 1,
+        domain: 2,
+        proxyUrl: 4,
+      },
     },
-  },
-  {
-    source: BUFF2_SHEET_URL,
-    tab: "Sheet1",
-    startRow: 3,
-    columns: {
-      storeId: 0,
-      shop: 3,
-      domain: 3,
-      proxyUrl: 10,
+    {
+      source: urls.BUFF2_SHEET_URL,
+      tab: "Sheet1",
+      startRow: 3,
+      columns: {
+        storeId: 0,
+        shop: 3,
+        domain: 3,
+        proxyUrl: 10,
+      },
     },
-  },
-];
+  ];
+}
 
 export function getProxySheetPreset(
   source: string,
   tab?: string,
 ): ProxySheetLoadPreset | undefined {
-  return proxySheetLoadPresets.find((preset) => {
+  return getDefaultProxySheetPresets().find((preset) => {
     if (preset.source !== source) return false;
     if (!tab) return true; // Match first one if tab not provided
     return preset.tab === tab;
   });
 }
+
+export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
+export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";
+
+export const defaultSheets = (): string[] => {
+  const configs = getSheetUrls();
+  return Object.values(configs).filter(Boolean);
+};
 
 export function normalizeSheetNameFromRange(value: string): string {
   const beforeBang = value.split("!")[0]?.trim() || "";

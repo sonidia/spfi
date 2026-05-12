@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import BaseToast from "./components/BaseToast.vue";
+import EnvWarning from "./components/EnvWarning.vue";
 import LoadingOverlay from "./components/LoadingOverlay.vue";
 import Nav from "./components/Nav.vue";
 import { useLoading } from "./composables/useLoading";
@@ -11,6 +12,7 @@ useTokenRotation();
 
 <template>
   <main class="app-root">
+    <EnvWarning />
     <LoadingOverlay :visible="loading" />
     <BaseToast />
     <Nav />
@@ -95,7 +97,8 @@ a {
 }
 
 select,
-input {
+input,
+textarea {
   outline: none;
 }
 

@@ -1,11 +1,9 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
-import {
-  BUFF1_SHEET_URL,
-  BUFF2_SHEET_URL,
-  FBS_SHEET_URL,
-  QUAN_LY_SHEET_URL,
-} from "~~/utils/sheets";
+import { getSheetUrls } from "~~/utils/sheets";
+
+const { BUFF1_SHEET_URL, BUFF2_SHEET_URL, FBS_SHEET_URL, QUAN_LY_SHEET_URL } =
+  getSheetUrls();
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
@@ -279,7 +277,9 @@ function toUserFriendlyMessage(error: any) {
 
 const { readProxySheetRows, buildRangeFromSheetName } = useSheetService();
 
-const { getProxySheetPreset, machineSheets } = await import("~~/utils/sheets");
+const { getProxySheetPreset, getMachineSheets } =
+  await import("~~/utils/sheets");
+const machineSheets = getMachineSheets();
 
 async function addShop() {
   const domains = newDomain.value
