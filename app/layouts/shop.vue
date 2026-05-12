@@ -210,11 +210,23 @@ const isSyncPopoverOpen = ref(false);
 
 // ── Add Store Modal State ───────────────────────────────────────────────────
 const isAddModalOpen = ref(false);
+const addMode = ref<"single" | "bulking">("single");
 const newStoreId = ref("");
 const newDomain = ref("");
 const newSock = ref("");
 const newClientId = ref("");
 const newClientSecret = ref("");
+
+function clearInputs() {
+  newDomain.value = "";
+  newSock.value = "";
+  newStoreId.value = "";
+  newClientId.value = "";
+  newClientSecret.value = "";
+  genError.value = "";
+  genSuccess.value = "";
+  resetSteps();
+}
 const isFindingShop = ref(false);
 const genError = ref("");
 const genSuccess = ref("");
@@ -679,7 +691,9 @@ async function updatePayouts(targetId?: string | Event) {
 
           let payoutStatus = p.status.toLowerCase();
           if (payoutStatus === "paid") payoutStatus = "Deposited";
-          else payoutStatus = payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
+          else
+            payoutStatus =
+              payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
 
           const quanLyIndex = quanLyRows.findIndex(
             (r) =>
@@ -704,7 +718,10 @@ async function updatePayouts(targetId?: string | Event) {
             );
 
           if (syncCount.value !== "unlimit") {
-            processedNewPayouts = processedNewPayouts.slice(0, Number(syncCount.value));
+            processedNewPayouts = processedNewPayouts.slice(
+              0,
+              Number(syncCount.value),
+            );
           }
         }
 
@@ -1006,6 +1023,20 @@ async function syncPayoutDates(targetId?: string | Event) {
   try {
     // Now consolidated into syncTrackingNumbers for efficiency
     await syncTrackingNumbers(target);
+  } finally {
+    isSyncingDate.value = false;
+  }
+}
+
+async function syncPayoutDatesAll() {
+  if (isSyncingDate.value) return;
+  isSyncingDate.value = true;
+  try {
+    for (const store of storeList.value) {
+      if (store.domain) {
+        await syncTrackingNumbers(store.id);
+      }
+    }
   } finally {
     isSyncingDate.value = false;
   }
@@ -1436,6 +1467,31 @@ async function syncTrackingNumbers(targetId?: string) {
           @click="isAddModalOpen = true"
         >
           <IconsAdd />
+          <span class="btn-text">Add</span>
+        </button>
+        <button
+          class="btn-sidebar-add"
+          title="Sync Payout All"
+          @click="() => updatePayouts()"
+          :disabled="
+            isUpdating || isSyncingDate || isFetching || storeList.length === 0
+          "
+        >
+          <span v-if="isUpdating" class="spinner-inline" />
+          <IconsCheck v-else />
+          <span class="btn-text">Sync Payout All</span>
+        </button>
+        <button
+          class="btn-sidebar-add"
+          title="Sync Date All"
+          @click="syncPayoutDatesAll"
+          :disabled="
+            isUpdating || isSyncingDate || isFetching || storeList.length === 0
+          "
+        >
+          <span v-if="isSyncingDate" class="spinner-inline" />
+          <IconsDate v-else />
+          <span class="btn-text">Sync Date All</span>
         </button>
       </div>
     </aside>
@@ -1463,7 +1519,7 @@ async function syncTrackingNumbers(targetId?: string) {
               :disabled="
                 isUpdating || isSyncingDate || isFetching || !formStore.storeId
               "
-              @click="updatePayouts"
+              @click="() => updatePayouts(formStore.storeId)"
             >
               <span v-if="isUpdating" class="spinner-inline" />
               <IconsCheck v-else />
@@ -1518,7 +1574,7 @@ async function syncTrackingNumbers(targetId?: string) {
             :disabled="
               isUpdating || isSyncingDate || isFetching || !formStore.storeId
             "
-            @click="syncPayoutDates"
+            @click="() => syncPayoutDates(formStore.storeId)"
           >
             <span v-if="isSyncingDate" class="spinner-inline" />
             <IconsDate v-else />
@@ -1564,62 +1620,138 @@ async function syncTrackingNumbers(targetId?: string) {
       @click.self="isAddModalOpen = false"
     >
       <div class="modal-card">
-        <div class="modal-head">
-          <h3 class="modal-title">Connect New Store</h3>
-          <button class="btn-ghost" @click="isAddModalOpen = false">✕</button>
+        <div
+          class="modal-head"
+          style="
+            align-items: flex-start;
+            justify-content: space-between;
+            display: flex;
+          "
+        >
+          <div>
+            <h3 class="modal-title">Connect New Store</h3>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center">
+            <div
+              class="mode-toggle"
+              style="
+                display: flex;
+                background: var(--bg);
+                border-radius: 8px;
+                padding: 4px;
+                border: 1px solid var(--border);
+              "
+            >
+              <button
+                class="toggle-btn"
+                :class="{ active: addMode === 'single' }"
+                @click="addMode = 'single'"
+                style="
+                  padding: 6px 12px;
+                  background: transparent;
+                  border: none;
+                  font-size: 13px;
+                  font-weight: 500;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  transition: all 0.2s;
+                "
+                :style="
+                  addMode === 'single'
+                    ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
+                    : 'color: var(--text-sub);'
+                "
+              >
+                Single
+              </button>
+              <button
+                class="toggle-btn"
+                :class="{ active: addMode === 'bulking' }"
+                @click="addMode = 'bulking'"
+                style="
+                  padding: 6px 12px;
+                  background: transparent;
+                  border: none;
+                  font-size: 13px;
+                  font-weight: 500;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  transition: all 0.2s;
+                "
+                :style="
+                  addMode === 'bulking'
+                    ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
+                    : 'color: var(--text-sub);'
+                "
+              >
+                Bulking
+              </button>
+            </div>
+            <button class="btn-ghost" @click="isAddModalOpen = false">✕</button>
+          </div>
         </div>
 
         <div class="modal-body">
           <div class="field field-full">
             <label class="field-label">Domain</label>
             <input
+              v-if="addMode === 'single'"
               v-model="newDomain"
               class="inp"
               placeholder="Your store domains (e.g. myshop.store)"
               @keyup.enter="addShop"
             />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Sock/Proxy URL</label>
-            <input
-              v-model="newSock"
-              type="text"
+            <textarea
+              v-else
+              v-model="newDomain"
+              placeholder="Your store domains (one per line, e.g. myshop.store)"
               class="inp"
-              placeholder="IP:Port:User:Pass"
-            />
+              rows="6"
+            ></textarea>
           </div>
-          <div class="field-row">
-            <div class="field field-50">
-              <label class="field-label">Store ID</label>
+          <template v-if="addMode === 'single'">
+            <div class="field field-full">
+              <label class="field-label">Sock/Proxy URL</label>
               <input
-                v-model="newStoreId"
+                v-model="newSock"
                 type="text"
                 class="inp"
-                placeholder="mystore"
-                @paste="handlePaste"
+                placeholder="IP:Port:User:Pass"
               />
             </div>
-          </div>
-          <div class="field-row">
-            <div class="field field-50">
-              <label class="field-label">Client ID</label>
-              <input
-                v-model="newClientId"
-                type="text"
-                class="inp"
-                @paste="handlePaste"
-              />
+            <div class="field-row">
+              <div class="field field-50">
+                <label class="field-label">Store ID</label>
+                <input
+                  v-model="newStoreId"
+                  type="text"
+                  class="inp"
+                  placeholder="mystore"
+                  @paste="handlePaste"
+                />
+              </div>
             </div>
-            <div class="field field-50">
-              <label class="field-label">Client Secret</label>
-              <input
-                v-model="newClientSecret"
-                type="password"
-                class="inp"
-                @paste="handlePaste"
-              />
+            <div class="field-row">
+              <div class="field field-50">
+                <label class="field-label">Client ID</label>
+                <input
+                  v-model="newClientId"
+                  type="text"
+                  class="inp"
+                  @paste="handlePaste"
+                />
+              </div>
+              <div class="field field-50">
+                <label class="field-label">Client Secret</label>
+                <input
+                  v-model="newClientSecret"
+                  type="password"
+                  class="inp"
+                  @paste="handlePaste"
+                />
+              </div>
             </div>
-          </div>
+          </template>
 
           <!-- Step Progress -->
           <div
@@ -1656,6 +1788,13 @@ async function syncTrackingNumbers(targetId?: string) {
         </div>
 
         <div class="modal-actions">
+          <button
+            class="btn-ghost"
+            @click="clearInputs"
+            :disabled="isFindingShop"
+          >
+            Clear
+          </button>
           <button class="btn-outline" @click="isAddModalOpen = false">
             Cancel
           </button>
@@ -1695,13 +1834,19 @@ async function syncTrackingNumbers(targetId?: string) {
   box-shadow: var(--shadow);
 }
 
-.sidebar-header,
-.sidebar-footer {
+.sidebar-header {
   padding: 6px 4px;
   display: flex;
   align-items: center;
   gap: 2px;
   border-bottom: 1px solid var(--border);
+}
+
+.sidebar-footer {
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
 }
 
 .search-container {
@@ -2150,7 +2295,6 @@ async function syncTrackingNumbers(targetId?: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
   height: 32px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -2159,6 +2303,12 @@ async function syncTrackingNumbers(targetId?: string) {
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
+  font-size: 0.8em;
+  padding: 0 8px;
+}
+
+.btn-sidebar-add span {
+  margin-left: 2px;
 }
 
 .btn-sidebar-add:hover {
