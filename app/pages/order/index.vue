@@ -274,15 +274,23 @@ async function addTracking(order: any) {
     return;
   }
 
-  const provinceCode = order.customer?.default_address?.province_code || "CA";
+  // Priority: 1. Shipping Address, 2. Billing Address, 3. Customer Default Address, 4. Fallback 'CA'
+  const provinceCode =
+    order.shipping_address?.province_code ||
+    order.billing_address?.province_code ||
+    order.customer?.default_address?.province_code ||
+    "CA";
 
   try {
+    const toTs = Date.now();
+    const fromTs = toTs - 7 * 24 * 60 * 60 * 1000;
+
     const tracktacoRes = await $fetch<any>("/api/tracktaco/get-trackingnr", {
       method: "POST",
       body: {
         state: provinceCode,
-        from: 1778150769166,
-        to: 1778237169166,
+        from: fromTs,
+        to: toTs,
         carrier: "fedex",
       },
     });
@@ -359,6 +367,9 @@ async function updateSheetTracking(order: any, trackingNr: string) {
 
   if (!domain || !customerName) return;
 
+  const domainLower = domain.toLowerCase().trim();
+  const customerLower = customerName.toLowerCase().trim();
+
   // 1. Identify sheet
   const [b1Results, b2Results] = await Promise.allSettled([
     readSheetValues({
@@ -374,30 +385,24 @@ async function updateSheetTracking(order: any, trackingNr: string) {
   const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
   const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
 
-  const domainLower = domain.toLowerCase();
-  const customerLower = customerName.toLowerCase();
-
-  let targetRows = [];
+  let targetRows: any[][] = [];
   let targetRangeSheet = "";
   let spreadsheetId = "";
 
-  const inBuff1 = buff1Rows.some(
-    (r) => r[3]?.trim().toLowerCase() === domainLower,
-  );
+  const checkDomainMatch = (d: string) => {
+    const s = String(d || "").toLowerCase().trim();
+    if (!s) return false;
+    return s.includes(domainLower) || domainLower.includes(s);
+  };
 
-  if (inBuff1) {
+  if (buff1Rows.some((r) => checkDomainMatch(r[3]))) {
     targetRows = buff1Rows;
     targetRangeSheet = "'order 1'";
     spreadsheetId = BUFF1_SHEET_URL;
-  } else {
-    const inBuff2 = buff2Rows.some(
-      (r) => r[3]?.trim().toLowerCase() === domainLower,
-    );
-    if (inBuff2) {
-      targetRows = buff2Rows;
-      targetRangeSheet = "'Sheet1'";
-      spreadsheetId = BUFF2_SHEET_URL;
-    }
+  } else if (buff2Rows.some((r) => checkDomainMatch(r[3]))) {
+    targetRows = buff2Rows;
+    targetRangeSheet = "'Sheet1'";
+    spreadsheetId = BUFF2_SHEET_URL;
   }
 
   if (!spreadsheetId) return;
@@ -405,18 +410,22 @@ async function updateSheetTracking(order: any, trackingNr: string) {
   // 2. Find row and update
   const updates: any[] = [];
   targetRows.forEach((row, index) => {
-    const domainInSheet = String(row[3] || "").toLowerCase();
-    const customerInSheet = String(row[7] || "").toLowerCase();
+    const domainInSheet = String(row[3] || "").toLowerCase().trim();
+    const customerInSheet = String(row[7] || "").toLowerCase().trim();
 
-    if (
-      domainInSheet === domainLower &&
-      customerInSheet.includes(customerLower)
-    ) {
-      const actualRow = index + 1;
-      updates.push({
-        range: `${targetRangeSheet}!K${actualRow}:K${actualRow}`,
-        values: [[trackingNr]],
-      });
+    // Lenient check: If domain matches OR if domain column is empty (fallback within identified sheet)
+    const domainOk = !domainInSheet || checkDomainMatch(domainInSheet);
+
+    if (customerInSheet && domainOk) {
+      const nameMatch = customerInSheet.includes(customerLower) || customerLower.includes(customerInSheet);
+
+      if (nameMatch) {
+        const actualRow = index + 1;
+        updates.push({
+          range: `${targetRangeSheet}!K${actualRow}:K${actualRow}`,
+          values: [[trackingNr]],
+        });
+      }
     }
   });
 
@@ -425,7 +434,9 @@ async function updateSheetTracking(order: any, trackingNr: string) {
       spreadsheetId: normalizeSpreadsheetId(spreadsheetId),
       data: updates,
     });
-    console.log(`Updated tracking in sheet for ${customerName} (${updates.length} rows)`);
+    console.log(`Successfully updated tracking in sheet for ${customerName} (${updates.length} rows)`);
+  } else {
+    console.warn(`No match found in ${targetRangeSheet} for [${customerLower}]. Sample Col H: ${targetRows.length > 1 ? targetRows[1][7] : 'N/A'}`);
   }
 }
 </script>

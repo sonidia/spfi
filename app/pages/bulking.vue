@@ -121,7 +121,9 @@ async function openPayoutDetails(store: any) {
 
 async function loadPayouts() {
   // Only load if there are stores without a sheet name in cookie
-  const missingSheetStores = storeList.value.filter((s) => !s.sheet && s.domain);
+  const missingSheetStores = storeList.value.filter(
+    (s) => !s.sheet && s.domain,
+  );
   if (missingSheetStores.length === 0) return;
 
   isLoadingPayouts.value = true;
@@ -161,7 +163,11 @@ async function loadPayouts() {
 
       if (sheetName) {
         // Save to cookie for persistence across sessions
-        const cookie = useLocalStorage<any>(store.id, {}, { ttl: 60 * 60 * 24 * 365 * 10 * 1000 }).state;
+        const cookie = useLocalStorage<any>(
+          store.id,
+          {},
+          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
+        ).state;
         cookie.value = { ...cookie.value, sheet: sheetName };
 
         // Also update local store for immediate UI update if needed
@@ -442,33 +448,47 @@ async function syncPayoutDates() {
 
       if (!payoutRes.payouts || payoutRes.payouts.length === 0) continue;
 
-      // Map orders for customer names
+      // Map orders for customer details
       const orderMap = new Map();
       if (orderRes && orderRes.orders) {
         orderRes.orders.forEach((o: any) => {
           const customerName = o.customer
             ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
             : "";
-          orderMap.set(String(o.id), customerName);
+          const customerEmail = o.customer?.email || "";
+          orderMap.set(String(o.id), {
+            name: customerName,
+            email: customerEmail.toLowerCase(),
+          });
         });
       }
 
       // Group payouts by ID for easy access to their date
       const payoutMap = new Map();
       payoutRes.payouts.forEach((p: any) => {
-        payoutMap.set(String(p.id), p.date);
+        let formattedDate = p.date || "";
+        if (formattedDate.includes("-")) {
+          const parts = formattedDate.split("-");
+          if (parts.length >= 3) {
+            // YYYY-MM-DD -> DD/MM
+            formattedDate = `${parts[2]}/${parts[1]}`;
+          }
+        }
+        payoutMap.set(String(p.id), formattedDate);
       });
 
       // Filter transactions that have a payout_id and map to customer
       const transactions = (txRes.transactions || [])
         .filter((tx: any) => tx.payout_id)
         .map((tx: any) => {
+          const orderInfo = orderMap.get(String(tx.source_order_id));
           return {
             payoutId: String(tx.payout_id),
-            customerName: orderMap.get(String(tx.source_order_id)) || "",
+            customerName: orderInfo?.name || "",
+            customerEmail: orderInfo?.email || "",
           };
         })
-        .filter((tx: any) => tx.customerName);
+        .filter((tx: any) => tx.customerName || tx.customerEmail);
 
       // Determine which buff rows to search
       let targetRows = [];
@@ -505,13 +525,16 @@ async function syncPayoutDates() {
         if (!payoutDate) continue;
 
         // Search in targetRows (index 7 is Column H: INFO/Customer details)
-        // Find ALL rows that contain the customer name
+        // Find ALL rows that contain the customer name or email
         targetRows.forEach((row, index) => {
-          const customerInSheet = String(row[7] || "").toLowerCase();
-          if (
-            tx.customerName &&
-            customerInSheet.includes(tx.customerName.toLowerCase())
-          ) {
+          const cellH = String(row[7] || "").toLowerCase();
+
+          const nameMatch =
+            tx.customerName && cellH.includes(tx.customerName.toLowerCase());
+          const emailMatch =
+            tx.customerEmail && cellH.includes(tx.customerEmail);
+
+          if (nameMatch || emailMatch) {
             const actualRow = index + 1;
             const updateItem = {
               range: `${targetRangeSheet}!L${actualRow}:L${actualRow}`,
@@ -647,7 +670,9 @@ async function syncPayoutDates() {
               <td>{{ store.domain || "(No domain)" }}</td>
               <td>{{ store.proxy || "-" }}</td>
               <td>
-                <span v-if="isLoadingPayouts" class="tag tag-pending">Loading...</span>
+                <span v-if="isLoadingPayouts" class="tag tag-pending"
+                  >Loading...</span
+                >
                 <span v-else-if="store.sheet" class="tag tag-ok">{{
                   store.sheet
                 }}</span>

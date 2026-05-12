@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
 
   try {
-    const response = await $fetch<any>(config.tracktacoBaseUrl, {
+    const response = await $fetch<any>(config.public.tracktacoBaseUrl, {
       method: "POST",
       headers: {
         "x-api-key": config.tracktacoApiKey,

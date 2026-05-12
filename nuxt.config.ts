@@ -23,6 +23,8 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     tracktacoApiKey: "",
-    tracktacoBaseUrl: "",
+    public: {
+      tracktacoBaseUrl: "",
+    },
   },
 });

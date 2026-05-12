@@ -32,157 +32,47 @@
             <button
               class="tab-btn"
               :class="{ active: activeTab === 'transactions' }"
-              @click="activeTab = 'transactions'"
+              @click="setActiveTab('transactions')"
             >
               Transactions
             </button>
             <button
               class="tab-btn"
               :class="{ active: activeTab === 'payouts' }"
-              @click="activeTab = 'payouts'"
+              @click="setActiveTab('payouts')"
             >
               Payouts
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: activeTab === 'orders' }"
+              @click="setActiveTab('orders')"
+            >
+              Orders
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: activeTab === 'products' }"
+              @click="setActiveTab('products')"
+            >
+              Products
             </button>
           </div>
 
           <!-- PAYOUTS VIEW -->
-          <template v-if="activeTab === 'payouts'">
-            <table>
-              <thead>
-                <tr>
-                  <th>Payout Date</th>
-                  <th>Status</th>
-                  <th>Transaction date</th>
-                  <th class="right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="payout in filteredPayouts"
-                  :key="payout.id"
-                  @click="openPayoutDetail(payout.id)"
-                >
-                  <td class="td-date">{{ fmtDate(payout.date) }}</td>
-                  <td>
-                    <span
-                      class="badge"
-                      :class="payout.status === 'paid' ? 'badge-paid' : ''"
-                    >
-                      {{
-                        payout.status === "paid"
-                          ? "Deposited"
-                          : capitalize(payout.status)
-                      }}
-                    </span>
-                  </td>
-                  <td class="td-date">
-                    {{ getPayoutProcessedDate(payout.id) }}
-                  </td>
-                  <td class="right td-net">
-                    ${{ parseFloat(payout.amount).toFixed(2) }}
-                    {{ payout.currency }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div v-if="filteredPayouts.length === 0" class="empty">
-              No payouts found.
-            </div>
-          </template>
+          <PaymentPayoutsTab
+            v-if="activeTab === 'payouts'"
+            :filter="payoutsFilter"
+          />
 
           <!-- TRANSACTIONS VIEW -->
-          <template v-else-if="activeTab === 'transactions'">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Payout date</th>
-                  <th>Payout status</th>
-                  <th>Order</th>
-                  <th>Type</th>
-                  <th>Payment</th>
-                  <th class="right">Amount</th>
-                  <th class="right">Fee</th>
-                  <th class="right">Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="tx in paymentStore.balanceTransactions" :key="tx.id">
-                  <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
-                  <td class="td-date">
-                    <NuxtLink
-                      v-if="tx.payout_id"
-                      :to="`/payment/payout/${tx.payout_id}`"
-                      class="link"
-                    >
-                      {{ getPayoutDate(tx) }}
-                    </NuxtLink>
-                    <span v-else>{{ getPayoutDate(tx) }}</span>
-                  </td>
-                  <td>
-                    <span
-                      class="badge"
-                      :class="
-                        tx.payout_status === 'paid'
-                          ? 'badge-deposited'
-                          : tx.payout_status === 'in_transit'
-                            ? 'badge-in-transit'
-                            : 'badge-pending'
-                      "
-                    >
-                      {{
-                        tx.payout_status === "paid"
-                          ? "Deposited"
-                          : capitalize(tx.payout_status)
-                      }}
-                    </span>
-                  </td>
-                  <td class="td-order">
-                    <NuxtLink
-                      v-if="getOrderNumber(tx)"
-                      class="link"
-                      :to="`/order/${getOrderNumber(tx)}`"
-                    >
-                      #{{ getOrderNumber(tx) }}
-                    </NuxtLink>
-                    <span v-else>—</span>
-                  </td>
-                  <td class="td-type">{{ capitalize(tx.type) }}</td>
-                  <td>
-                    <span class="payment-method">
-                      <span class="card-brand" v-if="tx.type === 'charge'"
-                        >Visa</span
-                      >
-                      <span v-else>—</span>
-                    </span>
-                  </td>
-                  <td class="right td-amount">
-                    ${{ Math.abs(parseFloat(tx.amount)).toFixed(2) }}
-                    <span class="chevron-sm">▾</span>
-                  </td>
-                  <td class="right td-fee">
-                    <template v-if="parseFloat(tx.fee)">
-                      -${{ parseFloat(tx.fee).toFixed(2) }}
-                      <span class="chevron-sm">▾</span>
-                    </template>
-                    <template v-else>—</template>
-                  </td>
-                  <td class="right td-net" style="font-weight: 700">
-                    ${{ Math.abs(parseFloat(tx.net)).toFixed(2) }}
-                    <span style="font-weight: normal; font-size: 11px"
-                      >USD</span
-                    >
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div
-              v-if="paymentStore.balanceTransactions.length === 0"
-              class="empty"
-            >
-              No balance transactions found.
-            </div>
-          </template>
+          <PaymentTransactionsTab v-else-if="activeTab === 'transactions'" />
+
+          <!-- ORDERS VIEW -->
+          <PaymentOrdersTab v-else-if="activeTab === 'orders'" />
+
+          <!-- PRODUCTS VIEW -->
+          <PaymentProductsTab v-else-if="activeTab === 'products'" />
         </div>
 
         <!-- Balance Card -->
@@ -213,31 +103,37 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { useFormStore } from "~/stores/form";
 import { usePaymentStore } from "~/stores/payment";
-import {
-  addBusinessDays,
-  businessDaysBetween,
-  capitalize,
-  fmtDate,
-} from "~~/helpers";
+import { useOrderStore } from "~/stores/order";
+import { useProductStore } from "~/stores/product";
+import { useToastStore } from "~/stores/toast";
+import { capitalize, fmtDate } from "~~/helpers";
 
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
 const paymentStore = usePaymentStore();
+const orderStore = useOrderStore();
+const productStore = useProductStore();
+const toastStore = useToastStore();
 const router = useRouter();
+const route = useRoute();
 
 const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
-const activeTab = ref<"payouts" | "transactions">("transactions");
+const activeTab = ref<"payouts" | "transactions" | "orders" | "products">("transactions");
 
-const filteredPayouts = computed(() =>
-  paymentStore.payouts.filter(
-    (p) => payoutsFilter.value === "all" || p.status === payoutsFilter.value,
-  ),
-);
+function setActiveTab(tab: "payouts" | "transactions" | "orders" | "products") {
+  activeTab.value = tab;
+  if (!route.query.shop) {
+    const cookieShop = useLocalStorage("active_store_id", "").state.value;
+    if (cookieShop) {
+      router.replace({ query: { ...route.query, shop: cookieShop } });
+    }
+  }
+}
 
 const currentBalance = computed(() => {
   const b = paymentStore.balance;
@@ -245,41 +141,6 @@ const currentBalance = computed(() => {
   if (Array.isArray(b)) return b[0] ?? null;
   return b;
 });
-
-const businessDaysOffset = computed(() => {
-  const transactionsWithPayout = paymentStore.balanceTransactions
-    .filter((tx) => tx.payout_id)
-    .sort(
-      (a, b) =>
-        new Date(a.processed_at).getTime() - new Date(b.processed_at).getTime(),
-    );
-
-  if (transactionsWithPayout.length === 0) return 0;
-
-  const oldestTx = transactionsWithPayout[0];
-  const payout = paymentStore.payouts.find((p) => p.id === oldestTx.payout_id);
-  if (!payout) return 0;
-
-  return businessDaysBetween(
-    new Date(oldestTx.processed_at),
-    new Date(payout.date),
-  );
-});
-
-function getPayoutProcessedDate(payoutId: number) {
-  const txs = paymentStore.transactionsByPayout[String(payoutId)] || [];
-  const payoutTx = txs.find((t: any) => t.type === "charge");
-  return payoutTx ? fmtDate(payoutTx.processed_at) : "—";
-}
-
-// ── Navigation ───────────────────────────────────────────
-function filterPayouts(filter: "all" | "paid" | "in_transit") {
-  payoutsFilter.value = filter;
-}
-
-function openPayoutDetail(payoutId: number) {
-  router.push(`/payment/payout/${payoutId}`);
-}
 
 onMounted(() => {
   if (formStore.storeId) {
@@ -293,11 +154,34 @@ watch(
   () => {
     if (formStore.storeId) {
       const token = resolveToken(formStore.storeId);
-      if (token)
+      if (token) {
         paymentStore.fetchBalanceTransactions(formStore.storeId, token);
+        if (activeTab.value === "orders") {
+          orderStore.fetchAll(formStore.storeId, token);
+        }
+      }
     }
   },
 );
+
+watch(activeTab, (newTab) => {
+  if (newTab === "orders" && formStore.storeId) {
+    const token = resolveToken(formStore.storeId);
+    if (token) {
+      if (!orderStore.orders.length || orderStore.error) {
+        orderStore.fetchAll(formStore.storeId, token);
+      }
+    }
+  }
+  if (newTab === "products" && formStore.storeId) {
+    const token = resolveToken(formStore.storeId);
+    if (token) {
+      if (!productStore.products.length || productStore.error) {
+        productStore.fetchAll(formStore.storeId, token);
+      }
+    }
+  }
+});
 
 function resolveToken(sid: string): string | null {
   // Use raw document.cookie fallback if outside Nuxt context, but we are client side anyway
@@ -308,37 +192,6 @@ function resolveToken(sid: string): string | null {
     return data.accessToken;
   }
   return null;
-}
-
-function getPayoutDate(tx: any) {
-  // 1. Direct lookup from API data
-  if (tx.payout_id) {
-    const payout = paymentStore.payouts.find((p: any) => p.id === tx.payout_id);
-    if (payout) {
-      return fmtDate(payout.date);
-    }
-  }
-
-  // 2. Prediction using business day offset
-  if (businessDaysOffset.value > 0) {
-    const predictedDate = addBusinessDays(
-      new Date(tx.processed_at),
-      businessDaysOffset.value,
-    );
-    return fmtDate(predictedDate.toISOString().split("T")[0] || "");
-  }
-
-  // 3. Fallback for paid transactions if no offset
-  if (tx.payout_status === "paid") {
-    return fmtDate(tx.processed_at);
-  }
-  return "Pending...";
-}
-
-function getOrderNumber(tx: any) {
-  if (!tx.source_order_id) return null;
-  const orderMap: Record<number, string> = {};
-  return orderMap[tx.source_order_id] || tx.source_order_id;
 }
 </script>
 
@@ -395,64 +248,6 @@ function getOrderNumber(tx: any) {
   font-size: 13px;
   color: var(--text-secondary);
   margin-top: 2px;
-}
-
-/* ─── BADGE ─── */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.6;
-}
-.badge-deposited,
-.badge-paid {
-  background: var(--green-bg);
-  color: var(--green);
-}
-
-.badge-pending {
-  background: #e5e7eb;
-  color: #374151;
-}
-
-.badge-in-transit {
-  background: #fff3cd;
-  color: #856404;
-}
-
-/* ─── BUTTONS ─── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: all 0.15s;
-  font-family: var(--font);
-  line-height: 1.4;
-}
-.btn-secondary {
-  background: var(--surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-.btn-secondary:hover {
-  background: #f6f6f6;
-}
-.btn-primary {
-  background: #1a1a1a;
-  color: white;
-}
-.btn-primary:hover {
-  background: #333;
 }
 
 /* ─── CARD ─── */
@@ -521,50 +316,6 @@ function getOrderNumber(tx: any) {
   color: var(--text-muted) !important;
 }
 
-/* ─── SUMMARY ─── */
-.summary-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
-}
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  font-size: 14px;
-}
-.summary-row:not(:last-child) {
-  border-bottom: 1px solid #f5f5f5;
-}
-.summary-label {
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.summary-value {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.summary-value.neg {
-  color: var(--red);
-}
-.chevron-icon {
-  color: var(--text-muted);
-  font-size: 11px;
-  cursor: pointer;
-}
-.chevron-sm {
-  color: var(--text-muted);
-  font-weight: 400;
-  font-size: 12px;
-  margin-left: 2px;
-}
-
 /* ─── TABLE HEADER ─── */
 .table-header {
   display: flex;
@@ -593,34 +344,57 @@ function getOrderNumber(tx: any) {
 .tab-btn:hover:not(.active) {
   background: #f0f0f0;
 }
-.table-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
-}
-.icon-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
+
+/* ─── BADGE ─── */
+:deep(.badge) {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  transition: background 0.15s;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
 }
-.icon-btn:hover {
-  background: #f0f0f0;
+:deep(.badge-deposited),
+:deep(.badge-paid) {
+  background: var(--green-bg);
+  color: var(--green);
+}
+:deep(.badge-pending) {
+  background: #e5e7eb;
+  color: #374151;
+}
+:deep(.badge-in-transit) {
+  background: #fff3cd;
+  color: #856404;
+}
+:deep(.badge-fulfilled) {
+  background: var(--badge-fulfilled);
+  color: var(--badge-fulfilled-text);
+}
+:deep(.badge-archived) {
+  background: var(--badge-archived);
+  color: var(--badge-archived-text);
+}
+:deep(.badge-cancelled) {
+  background: var(--badge-cancelled);
+  color: var(--badge-cancelled-text);
+}
+:deep(.badge-partial) {
+  background: #fff3cd;
+  color: #856404;
+}
+:deep(.badge-unfulfilled) {
+  background: #f1f2f4;
+  color: #6d7175;
 }
 
 /* ─── TABLE ─── */
-table {
+:deep(table) {
   width: 100%;
   border-collapse: collapse;
 }
-thead th {
+:deep(thead th) {
   padding: 10px 16px;
   text-align: left;
   font-size: 12px;
@@ -629,53 +403,50 @@ thead th {
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
-thead th.right {
+:deep(thead th.right) {
   text-align: right;
 }
-tbody tr {
+:deep(tbody tr) {
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.12s;
 }
-tbody tr:last-child {
+:deep(tbody tr:last-child) {
   border-bottom: none;
 }
-tbody tr:hover {
+:deep(tbody tr:hover) {
   background: #fafafa;
 }
-td {
+:deep(td) {
   padding: 12px 16px;
   font-size: 13px;
   vertical-align: middle;
   color: var(--text-primary);
 }
-td.right {
+:deep(td.right) {
   text-align: right;
 }
-.td-date {
+:deep(.td-date) {
   color: var(--text-secondary);
   white-space: nowrap;
 }
-.td-bank {
-  color: var(--text-secondary);
-}
-.td-order a {
+:deep(.td-order a), :deep(.link) {
   color: var(--blue);
   font-weight: 500;
   text-decoration: none;
 }
-.td-order a:hover {
+:deep(.td-order a:hover), :deep(.link:hover) {
   text-decoration: underline;
 }
-.td-type {
+:deep(.td-type) {
   color: var(--text-primary);
 }
-.payment-method {
+:deep(.payment-method) {
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
-.card-brand {
+:deep(.card-brand) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -688,106 +459,122 @@ td.right {
   border-radius: 3px;
   text-transform: uppercase;
 }
-.td-amount {
+:deep(.td-amount) {
   color: var(--text-primary);
   font-weight: 500;
 }
-.td-fee {
+:deep(.td-fee) {
   color: var(--red);
   font-weight: 500;
 }
-.td-net {
+:deep(.td-net) {
   color: var(--text-primary);
   font-weight: 600;
+}
+:deep(.chevron-sm) {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 12px;
+  margin-left: 2px;
 }
 
-/* ─── TX DETAIL ─── */
-.tx-header-block {
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
+/* ─── ORDERS TABLE ─── */
+:deep(.orders-table) {
+  width: 100%;
+  border-collapse: collapse;
 }
-.tx-header-label {
+:deep(.orders-table th) {
+  padding: 10px 16px;
+  text-align: left;
   font-size: 12px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-.tx-amount-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin: 8px 0 4px;
-}
-.tx-amount {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -1px;
-  color: var(--text-primary);
-}
-.tx-currency {
-  font-size: 18px;
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-.tx-header-sub {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-.tx-meta-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-.tx-meta-col {
-  padding: 20px 24px;
-}
-.tx-meta-col:first-child {
-  border-right: 1px solid var(--border);
-}
-.tx-meta-section-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
-}
-.tx-meta-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 7px 0;
-  font-size: 13px;
-  border-bottom: 1px solid #f5f5f5;
-}
-.tx-meta-row:last-child {
-  border-bottom: none;
-}
-.tx-meta-row label {
-  color: var(--text-secondary);
-  font-weight: 400;
-}
-.tx-meta-row span {
   font-weight: 500;
-  text-align: right;
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: #f9f9fa;
 }
-.mono {
-  font-family: monospace !important;
-  font-size: 12px !important;
+:deep(.orders-table td) {
+  padding: 12px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
-.link {
-  color: var(--blue);
+:deep(.order-row) {
   cursor: pointer;
+  transition: background 0.12s;
+}
+:deep(.order-row:hover) {
+  background: #fafafa;
+}
+:deep(.order-link) {
+  color: var(--blue);
+  font-weight: 600;
   text-decoration: none;
 }
-.link:hover {
+:deep(.order-link:hover) {
   text-decoration: underline;
+}
+:deep(.delivery-cell) {
+  display: flex;
+  align-items: center;
+}
+:deep(.delivery-status-trigger) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+:deep(.hover-arrow) {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  rotate: 90deg;
+}
+:deep(.fulfillment-popover) {
+  padding: 12px;
+  min-width: 220px;
+}
+:deep(.popover-line) {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  padding: 4px 0;
+}
+:deep(.popover-line.border-top) {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 8px;
+}
+:deep(.popover-lbl) {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+:deep(.popover-val) {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+:deep(.btn-add-track) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+:deep(.btn-add-track:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 }
 
 /* ─── EMPTY ─── */
-.empty {
+:deep(.empty) {
   text-align: center;
   padding: 32px;
   color: var(--text-muted);
@@ -803,10 +590,10 @@ td.right {
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
-  .tx-meta-grid {
+  :deep(.tx-meta-grid) {
     grid-template-columns: 1fr;
   }
-  .tx-meta-col:first-child {
+  :deep(.tx-meta-col:first-child) {
     border-right: none;
     border-bottom: 1px solid var(--border);
   }

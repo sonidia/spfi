@@ -6,7 +6,6 @@ import {
   FBS_SHEET_URL,
   QUAN_LY_SHEET_URL,
 } from "~~/utils/sheets";
-import NotFound from "../components/icons/NotFound.vue";
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
@@ -32,15 +31,13 @@ onMounted(() => {
   const cookieShop = useLocalStorage("active_store_id", "").state.value;
   const initialShop = queryShop || cookieShop;
 
-  if (initialShop) {
-    formStore.storeId = initialShop;
-    useLocalStorage("active_store_id", "").state.value = initialShop;
-
-    // Ensure URL query param is present
-    if (!queryShop) {
-      router.replace({ query: { ...route.query, shop: initialShop } });
-    }
+  if (queryShop) {
+    formStore.storeId = queryShop;
+    useLocalStorage("active_store_id", "").state.value = queryShop;
     fetchCurrent();
+  } else {
+    // If no query shop, we don't auto-select from cookie anymore
+    formStore.storeId = "";
   }
 
   // Automatically load sheet names after 3 seconds, same as bulking page
@@ -85,13 +82,17 @@ watch(
 watch(
   () => route.query.shop,
   (newShop) => {
-    if (newShop && newShop !== formStore.storeId) {
-      formStore.storeId = newShop as string;
-      useLocalStorage("active_store_id", "").state.value = newShop as string;
-      orderStore.$reset();
-      paymentStore.$reset();
-      productStore.$reset();
-      fetchCurrent();
+    if (newShop) {
+      if (newShop !== formStore.storeId) {
+        formStore.storeId = newShop as string;
+        useLocalStorage("active_store_id", "").state.value = newShop as string;
+        orderStore.$reset();
+        paymentStore.$reset();
+        productStore.$reset();
+        fetchCurrent();
+      }
+    } else {
+      formStore.storeId = "";
     }
   },
 );
@@ -201,6 +202,7 @@ const {
 const isLoadingPayouts = ref(false);
 const isUpdating = ref(false);
 const isSyncingDate = ref(false);
+const isSyncingTracking = ref(false);
 
 const syncMode = ref<"all" | "from_today">("from_today");
 const syncCount = ref<number | "unlimit">(1);
@@ -704,9 +706,15 @@ async function updatePayouts() {
           .filter((tx: any) => tx.payout_id)
           .map((tx: any) => ({
             payoutId: String(tx.payout_id),
-            sourceOrderId: tx.source_order_id ? String(tx.source_order_id) : null,
-            orderName: tx.source_order_id ? orderNameMap.get(String(tx.source_order_id)) : "",
-            customerName: tx.source_order_id ? orderMap.get(String(tx.source_order_id)) : "",
+            sourceOrderId: tx.source_order_id
+              ? String(tx.source_order_id)
+              : null,
+            orderName: tx.source_order_id
+              ? orderNameMap.get(String(tx.source_order_id))
+              : "",
+            customerName: tx.source_order_id
+              ? orderMap.get(String(tx.source_order_id))
+              : "",
           }));
 
         const ascendingPayouts = [...filteredPayouts].sort(
@@ -735,24 +743,38 @@ async function updatePayouts() {
           );
 
           // Find which sheet contains the customers for this payout
-          let payoutTx = transactions.filter((tx: any) => tx.payoutId === String(payout.id));
+          let payoutTx = transactions.filter(
+            (tx: any) => tx.payoutId === String(payout.id),
+          );
 
           // If no transactions found in batch, fetch specifically for this payout
           if (payoutTx.length === 0) {
             try {
-              const res: any = await $fetch(`/api/payment/payout/${payout.id}`, {
-                params: { storeId: store.id, token: store.accessToken },
-              });
+              const res: any = await $fetch(
+                `/api/payment/payout/${payout.id}`,
+                {
+                  params: { storeId: store.id, token: store.accessToken },
+                },
+              );
               if (res.transactions) {
                 payoutTx = res.transactions.map((tx: any) => ({
                   payoutId: String(tx.payout_id),
-                  sourceOrderId: tx.source_order_id ? String(tx.source_order_id) : null,
-                  orderName: tx.source_order_id ? orderNameMap.get(String(tx.source_order_id)) : "",
-                  customerName: tx.source_order_id ? orderMap.get(String(tx.source_order_id)) : "",
+                  sourceOrderId: tx.source_order_id
+                    ? String(tx.source_order_id)
+                    : null,
+                  orderName: tx.source_order_id
+                    ? orderNameMap.get(String(tx.source_order_id))
+                    : "",
+                  customerName: tx.source_order_id
+                    ? orderMap.get(String(tx.source_order_id))
+                    : "",
                 }));
               }
             } catch (e) {
-              console.error(`Failed to fetch specific transactions for payout ${payout.id}`, e);
+              console.error(
+                `Failed to fetch specific transactions for payout ${payout.id}`,
+                e,
+              );
             }
           }
 
@@ -765,20 +787,27 @@ async function updatePayouts() {
 
             if (!custName && tx.sourceOrderId) {
               try {
-                const res: any = await $fetch(`/api/order/${tx.sourceOrderId}`, {
-                  params: { storeId: store.id, token: store.accessToken },
-                });
+                const res: any = await $fetch(
+                  `/api/order/${tx.sourceOrderId}`,
+                  {
+                    params: { storeId: store.id, token: store.accessToken },
+                  },
+                );
                 if (res.order) {
                   ordName = res.order.name || "";
                   if (res.order.customer) {
-                    custName = `${res.order.customer.first_name || ""} ${res.order.customer.last_name || ""}`.trim();
+                    custName =
+                      `${res.order.customer.first_name || ""} ${res.order.customer.last_name || ""}`.trim();
                   }
                   // Cache for future use this session
                   orderMap.set(tx.sourceOrderId, custName);
                   orderNameMap.set(tx.sourceOrderId, ordName);
                 }
               } catch (e) {
-                console.error(`Failed to fetch specific order ${tx.sourceOrderId}`, e);
+                console.error(
+                  `Failed to fetch specific order ${tx.sourceOrderId}`,
+                  e,
+                );
               }
             }
             if (custName) payoutTxCustomers.push(custName.toLowerCase());
@@ -787,24 +816,34 @@ async function updatePayouts() {
 
           // Improved matching using both Order Name and Customer Name
           const currentDomain = store.domain.toLowerCase();
-          const relevantBuff1Rows = buff1Rows.filter((r) => r[3]?.trim().toLowerCase() === currentDomain);
-          const relevantBuff2Rows = buff2Rows.filter((r) => r[3]?.trim().toLowerCase() === currentDomain);
+          const relevantBuff1Rows = buff1Rows.filter(
+            (r) => r[3]?.trim().toLowerCase() === currentDomain,
+          );
+          const relevantBuff2Rows = buff2Rows.filter(
+            (r) => r[3]?.trim().toLowerCase() === currentDomain,
+          );
 
           let inBuff1 = relevantBuff1Rows.some((row) => {
-            const customerInSheet = String(row[7] || "").toLowerCase().trim();
+            const customerInSheet = String(row[7] || "")
+              .toLowerCase()
+              .trim();
             if (!customerInSheet) return false;
             return payoutTxCustomers.some(
               (cust: string) =>
-                customerInSheet.includes(cust) || cust.includes(customerInSheet),
+                customerInSheet.includes(cust) ||
+                cust.includes(customerInSheet),
             );
           });
 
           let inBuff2 = relevantBuff2Rows.some((row) => {
-            const customerInSheet = String(row[7] || "").toLowerCase().trim();
+            const customerInSheet = String(row[7] || "")
+              .toLowerCase()
+              .trim();
             if (!customerInSheet) return false;
             return payoutTxCustomers.some(
               (cust: string) =>
-                customerInSheet.includes(cust) || cust.includes(customerInSheet),
+                customerInSheet.includes(cust) ||
+                cust.includes(customerInSheet),
             );
           });
 
@@ -827,7 +866,9 @@ async function updatePayouts() {
             // Use a single update for both E and F to enforce exclusivity and reduce API calls
             quanLyUpdates.push({
               range: `'quản lý'!E${actualRow}:F${actualRow}`,
-              values: [[inBuff1 ? payout.amount : "", inBuff2 ? payout.amount : ""]],
+              values: [
+                [inBuff1 ? payout.amount : "", inBuff2 ? payout.amount : ""],
+              ],
             });
           } else if (store.id === formStore.storeId) {
             const fbsMatch = fbsRows.find(
@@ -926,187 +967,255 @@ async function updatePayouts() {
 
 async function syncPayoutDates() {
   isSyncingDate.value = true;
-
-  const needsBuff1 = storeList.value.some((s) => s.sheet?.includes("$ buff1"));
-  const needsBuff2 = storeList.value.some((s) => s.sheet?.includes("$ buff2"));
-
-  let buff1Rows: any[] = [];
-  let buff2Rows: any[] = [];
-
   try {
-    const sheetPromises = [];
-    if (needsBuff1) {
-      sheetPromises.push(
-        readSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-          range: "'order 1'!A:Z",
-        }),
-      );
-    }
-    if (needsBuff2) {
-      sheetPromises.push(
-        readSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-          range: "'Sheet1'!A:Z",
-        }),
-      );
-    }
+    // Now consolidated into syncTrackingNumbers for efficiency
+    await syncTrackingNumbers();
+  } finally {
+    isSyncingDate.value = false;
+  }
+}
 
-    const results = await Promise.allSettled(sheetPromises);
-    let idx = 0;
-    if (needsBuff1) {
-      if (results[idx]?.status === "fulfilled") {
-        buff1Rows = (results[idx] as PromiseFulfilledResult<any>).value;
-      }
-      idx++;
-    }
-    if (needsBuff2) {
-      if (results[idx]?.status === "fulfilled") {
-        buff2Rows = (results[idx] as PromiseFulfilledResult<any>).value;
-      }
-      idx++;
-    }
-  } catch (e) {
-    console.error("Failed to load Buff sheets for date syncing", e);
+async function syncTrackingNumbers() {
+  const sid = formStore.storeId;
+  if (!sid) return;
+
+  const token = resolveToken(sid);
+  if (!token) {
+    toastStore.error("Token expired or missing.");
+    return;
   }
 
-  const buff1Updates: any[] = [];
-  const buff2Updates: any[] = [];
+  const cookie = useLocalStorage<any>(sid, {}).state;
+  const domain = cookie.value?.domain;
+  if (!domain) {
+    toastStore.error("Không tìm thấy domain cho shop này.");
+    return;
+  }
 
-  for (const store of storeList.value) {
-    if (!store.accessToken) continue;
+  isSyncingTracking.value = true;
 
-    try {
-      const [payoutRes, txRes, orderRes]: any = await Promise.all([
-        $fetch("/api/payment/payout/all", {
-          method: "POST",
-          body: { storeId: store.id, token: store.accessToken },
-        }),
-        $fetch("/api/payment/payout/transactions", {
-          method: "POST",
-          body: { storeId: store.id, token: store.accessToken },
-        }),
-        $fetch("/api/order/all", {
-          method: "POST",
-          body: { storeId: store.id, token: store.accessToken },
-        }),
-      ]);
+  try {
+    // 1. Fetch all orders
+    const orderRes: any = await $fetch("/api/order/all", {
+      method: "POST",
+      body: { storeId: sid, token },
+    });
 
-      if (!payoutRes.payouts || payoutRes.payouts.length === 0) continue;
+    const orders: any[] = orderRes?.orders || [];
+    if (!orders.length) {
+      toastStore.info("Không có order nào trong shop này.");
+      return;
+    }
 
-      const orderMap = new Map();
-      if (orderRes && orderRes.orders) {
-        orderRes.orders.forEach((o: any) => {
-          const customerName = o.customer
-            ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
-            : "";
-          orderMap.set(String(o.id), customerName);
-        });
-      }
+    // Build map: normalizedCustomerName -> trackingNumber
+    const normalize = (s: string) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
 
-      const payoutMap = new Map();
-      payoutRes.payouts.forEach((p: any) => {
-        payoutMap.set(String(p.id), p.date);
+    // Map from normalized customer name to tracking numbers (from fulfillments)
+    type TrackInfo = {
+      customerNorm: string;
+      email: string;
+      trackingNr: string;
+    };
+    const trackInfoList: TrackInfo[] = [];
+
+    for (const order of orders) {
+      const trackingNr =
+        order.fulfillments?.[0]?.tracking_number ||
+        order.fulfillments?.[0]?.tracking_numbers?.[0] ||
+        "";
+      if (!trackingNr) continue;
+
+      const firstName = order.customer?.first_name || "";
+      const lastName = order.customer?.last_name || "";
+      const fullName = `${firstName} ${lastName}`.trim();
+      const email = normalize(order.customer?.email || "");
+
+      if (!fullName && !email) continue;
+
+      trackInfoList.push({
+        customerNorm: normalize(fullName),
+        email,
+        trackingNr,
       });
+    }
 
-      const transactions = (txRes.transactions || [])
-        .filter((tx: any) => tx.payout_id)
-        .map((tx: any) => {
-          return {
-            payoutId: String(tx.payout_id),
-            customerName: orderMap.get(String(tx.source_order_id)) || "",
-          };
-        })
-        .filter((tx: any) => tx.customerName);
+    if (!trackInfoList.length) {
+      toastStore.info("Không có order nào có tracking number.");
+      return;
+    }
 
-      const targets = [];
-      const inBuff1 =
-        store.sheet?.includes("$ buff1") ||
-        buff1Rows.some(
-          (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-        );
-      const inBuff2 =
-        store.sheet?.includes("$ buff2") ||
-        buff2Rows.some(
-          (r) => r[3]?.trim().toLowerCase() === store.domain.toLowerCase(),
-        );
+    // 2. Read both buff sheets
+    const domainNorm = normalize(domain);
+    const storeSheet = getStoreSheet(sid);
+    const needsBuff1 =
+      storeSheet?.includes("$ buff1") ||
+      storeList.value.some((s) => s.id === sid && s.sheet?.includes("$ buff1"));
+    const needsBuff2 =
+      storeSheet?.includes("$ buff2") ||
+      storeList.value.some((s) => s.id === sid && s.sheet?.includes("$ buff2"));
 
-      if (inBuff1) {
-        targets.push({
-          rows: buff1Rows,
-          rangeSheet: "'order 1'",
-          isBuff1: true,
-          isBuff2: false,
+    // Read both unconditionally (we'll skip updates if no domain match)
+    const [b1Res, b2Res] = await Promise.allSettled([
+      readSheetValues({
+        spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
+        range: "'order 1'!A:Z",
+      }),
+      readSheetValues({
+        spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
+        range: "'Sheet1'!A:Z",
+      }),
+    ]);
+
+    const buff1Rows: any[][] = b1Res.status === "fulfilled" ? b1Res.value : [];
+    const buff2Rows: any[][] = b2Res.status === "fulfilled" ? b2Res.value : [];
+
+    const buff1Updates: any[] = [];
+    const buff2Updates: any[] = [];
+
+    function buildUpdates(rows: any[][], rangeSheet: string, updates: any[]) {
+      rows.forEach((row, index) => {
+        // col D = index 3: domain match
+        const rowDomain = normalize(String(row[3] || ""));
+        if (rowDomain !== domainNorm) return;
+
+        // col H = index 7: customer name/info
+        const cellH = normalize(String(row[7] || ""));
+        if (!cellH) return;
+
+        // Find matching tracking number using simple include for name
+        const match = trackInfoList.find((info) => {
+          return info.customerNorm && cellH.includes(info.customerNorm);
         });
-      }
-      if (inBuff2) {
-        targets.push({
-          rows: buff2Rows,
-          rangeSheet: "'Sheet1'",
-          isBuff1: false,
-          isBuff2: true,
-        });
-      }
 
-      for (const target of targets) {
-        // First, update payout dates for matched rows
-        for (const tx of transactions) {
-          const payoutDate = payoutMap.get(tx.payoutId);
-          if (!payoutDate) continue;
-
-          target.rows.forEach((row, index) => {
-            if (row[3]?.trim().toLowerCase() !== store.domain.toLowerCase())
-              return;
-
-            const customerInSheet = String(row[7] || "").toLowerCase();
-            if (
-              tx.customerName &&
-              customerInSheet.includes(tx.customerName.toLowerCase())
-            ) {
-              row[11] = payoutDate; // Update local copy
-            }
+        if (match) {
+          const rowNum = index + 1;
+          // Update Tracking in K
+          updates.push({
+            range: `${rangeSheet}!K${rowNum}:K${rowNum}`,
+            values: [[match.trackingNr]],
           });
         }
 
-        // Second, apply status rules to ALL rows of this store in this sheet
-        target.rows.forEach((row, index) => {
-          if (row[3]?.trim().toLowerCase() !== store.domain.toLowerCase())
-            return;
+        const rowNum = index + 1;
+        // Search in customerToPayoutMap using the sheet customer name (cellH)
+        // OR the matched customer name from shopify (match.customerNorm)
+        let payoutDate = "";
 
-          const actualRow = index + 1;
-          const payoutDateValue = String(row[11] || "").trim();
-          const trackingNumber = String(row[10] || "").trim();
+        // 1. Check by Shopify Name if matched
+        if (match && match.customerNorm) {
+          payoutDate = customerToPayoutMap.get(match.customerNorm) || "";
+        }
+
+        // 2. Fallback: Search the entire cellH content against keys in customerToPayoutMap
+        if (!payoutDate) {
+          // If cellH contains any name that we have a payout for
+          for (const [key, date] of customerToPayoutMap.entries()) {
+            if (cellH.includes(key)) {
+              payoutDate = date;
+              break;
+            }
+          }
+        }
+
+        if (payoutDate) {
+          updates.push({
+            range: `${rangeSheet}!L${rowNum}:L${rowNum}`,
+            values: [[payoutDate]],
+          });
+        }
+
+        // Update status in B based on consolidated info
+        if (match || payoutDate) {
           let newStatus = "";
+          const hasTracking =
+            (match && match.trackingNr) || String(row[10] || "").trim();
+          const hasPayout = payoutDate || String(row[11] || "").trim();
 
-          if (target.isBuff1) {
-            if (payoutDateValue) {
-              newStatus = trackingNumber ? "Shipped" : "Process";
+          if (rangeSheet.includes("order 1")) {
+            if (hasPayout) {
+              newStatus = hasTracking ? "Shipped" : "Process";
             } else {
               newStatus = "Ordered";
             }
-          } else if (target.isBuff2) {
-            newStatus = trackingNumber ? "Shipped" : "Ordered";
+          } else {
+            newStatus = hasTracking ? "Shipped" : "Ordered";
           }
 
           if (newStatus) {
-            const updates = target.isBuff1 ? buff1Updates : buff2Updates;
             updates.push({
-              range: `${target.rangeSheet}!L${actualRow}:L${actualRow}`,
-              values: [[payoutDateValue]],
-            });
-            updates.push({
-              range: `${target.rangeSheet}!B${actualRow}:B${actualRow}`,
+              range: `${rangeSheet}!B${rowNum}:B${rowNum}`,
               values: [[newStatus]],
             });
           }
-        });
-      }
-    } catch (e) {
-      console.error(`Error syncing dates for store ${store.domain}:`, e);
+        }
+      });
     }
-  }
 
-  try {
+    // Build a map of customer name to payout date for ALL payouts of this store
+    const customerToPayoutMap = new Map<string, string>();
+    try {
+      const [payoutRes, txRes]: any = await Promise.all([
+        $fetch("/api/payment/payout/all", {
+          method: "POST",
+          body: { storeId: sid, token },
+        }),
+        $fetch("/api/payment/payout/transactions", {
+          method: "POST",
+          body: { storeId: sid, token },
+        }),
+      ]);
+
+      const pMap = new Map();
+      (payoutRes.payouts || []).forEach((p: any) => {
+        // Format date to DD/MM (remove year)
+        let formattedDate = p.date || "";
+        if (formattedDate.includes("-")) {
+          const parts = formattedDate.split("-");
+          if (parts.length >= 3) {
+            // YYYY-MM-DD -> DD/MM
+            formattedDate = `${parts[2]}/${parts[1]}`;
+          }
+        }
+        pMap.set(String(p.id), formattedDate);
+      });
+
+      const orderToInfoMap = new Map();
+      orders.forEach((o: any) => {
+        const cName = o.customer
+          ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
+          : "";
+        const cEmail = (o.customer?.email || "").toLowerCase();
+        orderToInfoMap.set(String(o.id), {
+          name: normalize(cName),
+          email: cEmail,
+        });
+      });
+
+      (txRes.transactions || []).forEach((tx: any) => {
+        if (!tx.payout_id || !tx.source_order_id) return;
+        const pDate = pMap.get(String(tx.payout_id));
+        const info = orderToInfoMap.get(String(tx.source_order_id));
+        if (pDate && info) {
+          if (info.name) customerToPayoutMap.set(info.name, pDate);
+        }
+      });
+    } catch (e) {
+      console.error("Failed to fetch payout info for consolidated sync", e);
+    }
+
+    buildUpdates(buff1Rows, "'order 1'", buff1Updates);
+    buildUpdates(buff2Rows, "'Sheet1'", buff2Updates);
+
+    const totalUpdates = buff1Updates.length + buff2Updates.length;
+    if (totalUpdates === 0) {
+      toastStore.info("Không tìm thấy row nào khớp trong sheet.");
+      return;
+    }
+
     const batchPromises = [];
     if (buff1Updates.length > 0) {
       batchPromises.push(
@@ -1125,11 +1234,16 @@ async function syncPayoutDates() {
       );
     }
     await Promise.allSettled(batchPromises);
-  } catch (e) {
-    console.error("Failed to execute date batch updates", e);
-  }
 
-  isSyncingDate.value = false;
+    toastStore.success(
+      `Đã cập nhật tracking số cho ${totalUpdates} row(s) trong sheet.`,
+    );
+  } catch (e: any) {
+    console.error("syncTrackingNumbers error:", e);
+    toastStore.error("Sync tracking thất bại. Kiểm tra console.");
+  } finally {
+    isSyncingTracking.value = false;
+  }
 }
 </script>
 
@@ -1238,7 +1352,9 @@ async function syncPayoutDates() {
           <div class="sync-group">
             <button
               class="btn-sync-action sync_payout"
-              :disabled="isUpdating || isSyncingDate || !formStore.storeId"
+              :disabled="
+                isUpdating || isSyncingDate || isFetching || !formStore.storeId
+              "
               @click="updatePayouts"
             >
               <span v-if="isUpdating" class="spinner-inline" />
@@ -1291,7 +1407,9 @@ async function syncPayoutDates() {
 
           <button
             class="btn-sync-action sync_date"
-            :disabled="isUpdating || isSyncingDate || !formStore.storeId"
+            :disabled="
+              isUpdating || isSyncingDate || isFetching || !formStore.storeId
+            "
             @click="syncPayoutDates"
           >
             <span v-if="isSyncingDate" class="spinner-inline" />
@@ -1301,7 +1419,9 @@ async function syncPayoutDates() {
 
           <button
             class="btn-fetch"
-            :disabled="isFetching || !formStore.storeId"
+            :disabled="
+              isFetching || isSyncingDate || isUpdating || !formStore.storeId
+            "
             @click="fetchCurrent(true)"
           >
             <svg
@@ -1325,21 +1445,7 @@ async function syncPayoutDates() {
       </div>
 
       <div class="page-content">
-        <template v-if="formStore.storeId">
-          <slot />
-        </template>
-        <template v-else>
-          <div class="not-selected-container">
-            <NotFound class="not-selected-icon" />
-            <div class="not-selected-text">
-              <h3>No Shop Selected</h3>
-              <p>
-                Please pick a store from the sidebar to view its orders and
-                payments.
-              </p>
-            </div>
-          </div>
-        </template>
+        <slot />
       </div>
     </main>
 
