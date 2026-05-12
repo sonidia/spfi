@@ -158,27 +158,20 @@
                   </template>
                 </AppPopover>
               </div>
-              <button class="btn-add-track" @click.stop="addTracking(order)">
-                <span v-html="ICONS.plus"></span>
-                Add track
-              </button>
-              <!-- <div
+              <div
                 v-if="
                   getTransactionStatus(order.id) === 'in_transit' &&
                   order.fulfillment_status !== 'fulfilled'
                 "
               >
-                <button
-                  class="btn-add-track"
-                  @click.stop="addTracking(order)"
-                >
+                <button class="btn-add-track" @click.stop="addTracking(order)">
                   <span v-html="ICONS.plus"></span>
                   Add track
                 </button>
               </div>
               <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
                 >—</span
-              > -->
+              >
             </td>
           </tr>
         </tbody>

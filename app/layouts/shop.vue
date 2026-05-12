@@ -548,11 +548,15 @@ async function loadPayouts() {
   }
 }
 
-async function updatePayouts() {
+async function updatePayouts(targetId?: string | Event) {
+  const target = typeof targetId === "string" ? targetId : undefined;
   isUpdating.value = true;
 
-  const needsBuff1 = storeList.value.some((s) => s.sheet?.includes("$ buff1"));
-  const needsBuff2 = storeList.value.some((s) => s.sheet?.includes("$ buff2"));
+  const storesToSync = target
+    ? storeList.value.filter((s) => s.id === target)
+    : storeList.value;
+  const needsBuff1 = storesToSync.some((s) => s.sheet?.includes("$ buff1"));
+  const needsBuff2 = storesToSync.some((s) => s.sheet?.includes("$ buff2"));
 
   let buff1Rows: any[] = [];
   let buff2Rows: any[] = [];
@@ -632,7 +636,7 @@ async function updatePayouts() {
 
   const quanLyUpdates: any[] = [];
 
-  for (const store of storeList.value) {
+  for (const store of storesToSync) {
     if (!store.accessToken) {
       paymentStore.setBulkingPayout(store.id, {
         date: "No token",
@@ -663,11 +667,36 @@ async function updatePayouts() {
       ]);
 
       if (payoutRes.payouts && payoutRes.payouts.length > 0) {
-        let filteredPayouts = [...payoutRes.payouts];
+        let filteredPayouts: any[] = [];
+        const todayStr = new Date().toISOString().split("T")[0];
 
+        const existingPayouts: any[] = [];
+        const newPayouts: any[] = [];
+
+        payoutRes.payouts.forEach((p: any) => {
+          const [p_year, p_month, p_day] = p.date.split("-");
+          const formattedDate = `${p_day}/${p_month}`;
+
+          let payoutStatus = p.status.toLowerCase();
+          if (payoutStatus === "paid") payoutStatus = "Deposited";
+          else payoutStatus = payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
+
+          const quanLyIndex = quanLyRows.findIndex(
+            (r) =>
+              r[2]?.trim().toLowerCase() === store.domain.toLowerCase() &&
+              r[0]?.trim() === formattedDate,
+          );
+
+          if (quanLyIndex !== -1) {
+            existingPayouts.push(p);
+          } else {
+            newPayouts.push(p);
+          }
+        });
+
+        let processedNewPayouts = [...newPayouts];
         if (syncMode.value === "from_today") {
-          const todayStr = new Date().toISOString().split("T")[0];
-          filteredPayouts = filteredPayouts
+          processedNewPayouts = processedNewPayouts
             .filter((p: any) => p.date >= todayStr)
             .sort(
               (a: any, b: any) =>
@@ -675,9 +704,11 @@ async function updatePayouts() {
             );
 
           if (syncCount.value !== "unlimit") {
-            filteredPayouts = filteredPayouts.slice(0, Number(syncCount.value));
+            processedNewPayouts = processedNewPayouts.slice(0, Number(syncCount.value));
           }
         }
+
+        filteredPayouts = [...existingPayouts, ...processedNewPayouts];
 
         if (filteredPayouts.length === 0) {
           paymentStore.setBulkingPayout(store.id, {
@@ -824,27 +855,21 @@ async function updatePayouts() {
           );
 
           let inBuff1 = relevantBuff1Rows.some((row) => {
-            const customerInSheet = String(row[7] || "")
-              .toLowerCase()
-              .trim();
-            if (!customerInSheet) return false;
-            return payoutTxCustomers.some(
-              (cust: string) =>
-                customerInSheet.includes(cust) ||
-                cust.includes(customerInSheet),
-            );
+            const customerInSheet = String(row[7] || "").toLowerCase();
+            if (!customerInSheet.trim()) return false;
+            return payoutTxCustomers.some((cust: string) => {
+              const custNorm = cust.toLowerCase();
+              return customerInSheet.includes(custNorm);
+            });
           });
 
           let inBuff2 = relevantBuff2Rows.some((row) => {
-            const customerInSheet = String(row[7] || "")
-              .toLowerCase()
-              .trim();
-            if (!customerInSheet) return false;
-            return payoutTxCustomers.some(
-              (cust: string) =>
-                customerInSheet.includes(cust) ||
-                cust.includes(customerInSheet),
-            );
+            const customerInSheet = String(row[7] || "").toLowerCase();
+            if (!customerInSheet.trim()) return false;
+            return payoutTxCustomers.some((cust: string) => {
+              const custNorm = cust.toLowerCase();
+              return customerInSheet.includes(custNorm);
+            });
           });
 
           // Fallback if matching failed but store is known to be in a specific sheet
@@ -858,17 +883,18 @@ async function updatePayouts() {
 
           if (quanLyIndex !== -1) {
             const actualRow = quanLyIndex + 1;
+
+            let valE = inBuff1 ? payout.amount : "";
+            let valF = inBuff2 ? payout.amount : "";
+
             quanLyUpdates.push({
               range: `'quản lý'!J${actualRow}:J${actualRow}`,
               values: [[payoutStatus]],
             });
 
-            // Use a single update for both E and F to enforce exclusivity and reduce API calls
             quanLyUpdates.push({
               range: `'quản lý'!E${actualRow}:F${actualRow}`,
-              values: [
-                [inBuff1 ? payout.amount : "", inBuff2 ? payout.amount : ""],
-              ],
+              values: [[valE, valF]],
             });
           } else if (store.id === formStore.storeId) {
             const fbsMatch = fbsRows.find(
@@ -965,18 +991,28 @@ async function updatePayouts() {
   isUpdating.value = false;
 }
 
-async function syncPayoutDates() {
+function deleteStoreOption(id: string) {
+  if (confirm(`Are you sure you want to delete store ${id}?`)) {
+    formStore.removeKnownStore(id);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(id);
+    }
+  }
+}
+
+async function syncPayoutDates(targetId?: string | Event) {
+  const target = typeof targetId === "string" ? targetId : undefined;
   isSyncingDate.value = true;
   try {
     // Now consolidated into syncTrackingNumbers for efficiency
-    await syncTrackingNumbers();
+    await syncTrackingNumbers(target);
   } finally {
     isSyncingDate.value = false;
   }
 }
 
-async function syncTrackingNumbers() {
-  const sid = formStore.storeId;
+async function syncTrackingNumbers(targetId?: string) {
+  const sid = targetId || formStore.storeId;
   if (!sid) return;
 
   const token = resolveToken(sid);
@@ -1252,13 +1288,6 @@ async function syncTrackingNumbers() {
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <button
-          class="btn-sidebar-add"
-          title="Add new store"
-          @click="isAddModalOpen = true"
-        >
-          <IconsAdd />
-        </button>
         <div class="search-container">
           <svg
             class="search-icon"
@@ -1300,7 +1329,7 @@ async function syncTrackingNumbers() {
               d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
             />
           </svg>
-          <IconsRefresh v-else />
+          <IconsSync v-else />
         </button>
       </div>
 
@@ -1317,18 +1346,97 @@ async function syncTrackingNumbers() {
             :key="id"
             class="sidebar-item"
             :class="{ active: formStore.storeId === id }"
-            @click="onSelectStore(id)"
           >
-            <div class="sidebar-item-label">{{ getStoreDomain(id) || id }}</div>
-            <div
-              v-if="getStoreSheet(id)"
-              class="sidebar-item-check"
-              title="Sheet loaded"
-            >
-              <IconsCheck width="12" height="12" />
+            <div class="sidebar-item-label" @click="onSelectStore(id)">
+              {{ getStoreDomain(id) || id }}
+            </div>
+            <div class="sidebar-item-action-wrapper">
+              <div
+                v-if="getStoreSheet(id)"
+                class="sidebar-item-check"
+                title="Sheet loaded"
+              >
+                <IconsCheck width="12" height="12" />
+              </div>
+              <div @click.stop class="sidebar-item-actions">
+                <BasePopover align="right">
+                  <template #trigger="{ isOpen }">
+                    <button
+                      class="btn-sidebar-more"
+                      :class="{ 'is-active': isOpen }"
+                    >
+                      <IconsMore
+                        width="16"
+                        height="16"
+                        style="transform: rotate(90deg)"
+                      />
+                    </button>
+                  </template>
+                  <template #default="{ close }">
+                    <div class="popover-menu">
+                      <div
+                        class="popover-item"
+                        :disabled="
+                          isUpdating ||
+                          isSyncingDate ||
+                          isFetching ||
+                          !formStore.storeId
+                        "
+                        @click="
+                          updatePayouts(id);
+                          close();
+                        "
+                      >
+                        <span v-if="isUpdating" class="spinner-inline" />
+                        <IconsCheck v-else />
+                        {{
+                          isUpdating ? "Syncing..." : "Sync Payout (manager)"
+                        }}
+                      </div>
+                      <div
+                        class="popover-item"
+                        :disabled="
+                          isUpdating ||
+                          isSyncingDate ||
+                          isFetching ||
+                          !formStore.storeId
+                        "
+                        @click="
+                          syncPayoutDates(id);
+                          close();
+                        "
+                      >
+                        <span v-if="isSyncingDate" class="spinner-inline" />
+                        <IconsDate v-else />
+                        {{ isSyncingDate ? "Syncing..." : "Sync Date (staff)" }}
+                      </div>
+                      <div
+                        class="popover-item"
+                        @click="
+                          deleteStoreOption(id);
+                          close();
+                        "
+                        style="color: var(--badge-cancelled-text, #d72c0d)"
+                      >
+                        <IconsDelete />
+                        Remove shop
+                      </div>
+                    </div>
+                  </template>
+                </BasePopover>
+              </div>
             </div>
           </div>
         </template>
+      </div>
+      <div class="sidebar-footer">
+        <button
+          class="btn-sidebar-add"
+          title="Add new store"
+          @click="isAddModalOpen = true"
+        >
+          <IconsAdd />
+        </button>
       </div>
     </aside>
 
@@ -1587,7 +1695,8 @@ async function syncTrackingNumbers() {
   box-shadow: var(--shadow);
 }
 
-.sidebar-header {
+.sidebar-header,
+.sidebar-footer {
   padding: 6px 4px;
   display: flex;
   align-items: center;
@@ -1634,23 +1743,75 @@ async function syncTrackingNumbers() {
   display: flex;
   padding: 4px;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all 0.2s linear;
 }
 
 .btn-manage:hover {
   background: var(--bg);
+  color: var(--text-secondary);
+}
+
+.sidebar-item-action-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-item-actions {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  display: none;
+}
+.sidebar-item:hover .sidebar-item-actions,
+.sidebar-item-actions:focus-within {
+  display: inline-flex;
+}
+.btn-sidebar-more {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.btn-sidebar-more:hover,
+.btn-sidebar-more.is-active {
   color: var(--text-primary);
+}
+
+.popover-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+.popover-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+.popover-item:hover {
+  background: #f6f6f6;
 }
 
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 4px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 5px 10px;
   gap: 12px;
   cursor: pointer;
@@ -1676,15 +1837,15 @@ async function syncTrackingNumbers() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
 }
 
 .sidebar-item-check {
-  display: flex;
-  align-items: center;
   color: var(--green);
   opacity: 0.8;
   flex-shrink: 0;
+}
+.sidebar-item:hover .sidebar-item-check {
+  display: none;
 }
 
 .sidebar-empty {

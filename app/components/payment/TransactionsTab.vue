@@ -7,6 +7,7 @@
           <th>Payout date</th>
           <th>Payout status</th>
           <th>Order</th>
+          <th>Customer</th>
           <th>Type</th>
           <th>Payment</th>
           <th class="right">Amount</th>
@@ -55,6 +56,7 @@
             </NuxtLink>
             <span v-else>—</span>
           </td>
+          <td class="td-customer">{{ getCustomerName(tx) }}</td>
           <td class="td-type">{{ capitalize(tx.type) }}</td>
           <td>
             <span class="payment-method">
@@ -64,18 +66,18 @@
           </td>
           <td class="right td-amount">
             ${{ Math.abs(parseFloat(tx.amount)).toFixed(2) }}
-            <span class="chevron-sm">▾</span>
+            <!-- <span class="chevron-sm">▾</span> -->
           </td>
           <td class="right td-fee">
             <template v-if="parseFloat(tx.fee)">
               -${{ parseFloat(tx.fee).toFixed(2) }}
-              <span class="chevron-sm">▾</span>
+              <!-- <span class="chevron-sm">▾</span> -->
             </template>
             <template v-else>—</template>
           </td>
           <td class="right td-net" style="font-weight: 700">
             ${{ Math.abs(parseFloat(tx.net)).toFixed(2) }}
-            <span style="font-weight: normal; font-size: 11px">USD</span>
+            <!-- <span style="font-weight: normal; font-size: 11px">USD</span> -->
           </td>
         </tr>
       </tbody>
@@ -87,8 +89,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import { usePaymentStore } from "~/stores/payment";
+import { computed, onMounted } from "vue";
+import { useFormStore } from "~/stores/form";
+import { useOrderStore } from "~/stores/order";
 import {
   addBusinessDays,
   businessDaysBetween,
@@ -97,6 +100,18 @@ import {
 } from "~~/helpers";
 
 const paymentStore = usePaymentStore();
+const orderStore = useOrderStore();
+const formStore = useFormStore();
+
+onMounted(() => {
+  if (!orderStore.hasFetchedAll && formStore.storeId) {
+    const cookie = useLocalStorage<any>(formStore.storeId, {}).state;
+    const token = cookie.value?.accessToken;
+    if (token) {
+      orderStore.fetchAll(formStore.storeId, token);
+    }
+  }
+});
 
 const businessDaysOffset = computed(() => {
   const transactionsWithPayout = paymentStore.balanceTransactions
@@ -149,6 +164,18 @@ function getOrderNumber(tx: any) {
   const orderMap: Record<number, string> = {};
   return orderMap[tx.source_order_id] || tx.source_order_id;
 }
+
+function getCustomerName(tx: any) {
+  if (!tx.source_order_id) return "—";
+  const order = orderStore.orders.find((o) => o.id == tx.source_order_id);
+  if (order && order.customer) {
+    return (
+      `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim() ||
+      "—"
+    );
+  }
+  return "—";
+}
 </script>
 
 <style scoped>
@@ -156,12 +183,18 @@ function getOrderNumber(tx: any) {
   color: var(--text-secondary);
   white-space: nowrap;
 }
-.td-order a, .link {
+.td-order a,
+.link {
   color: var(--blue);
   font-weight: 500;
   text-decoration: none;
 }
-.td-order a:hover, .link:hover {
+.td-customer {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.td-order a:hover,
+.link:hover {
   text-decoration: underline;
 }
 .td-type {
