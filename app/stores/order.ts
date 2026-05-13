@@ -6,6 +6,9 @@ export const useOrderStore = defineStore("order", () => {
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const storeCache = ref<
+    Record<string, { orders: any[]; hasFetchedAll: boolean }>
+  >({});
 
   async function fetchAll(storeId: string, token: string) {
     if (!storeId || !token) {
@@ -22,8 +25,13 @@ export const useOrderStore = defineStore("order", () => {
         body: { storeId, token },
       });
 
-      orders.value = response.orders || (response.order ? [response.order] : []);
+      orders.value =
+        response.orders || (response.order ? [response.order] : []);
       hasFetchedAll.value = true;
+      storeCache.value[storeId] = {
+        orders: [...orders.value],
+        hasFetchedAll: hasFetchedAll.value,
+      };
     } catch (err: any) {
       error.value =
         err?.data?.statusMessage ??
@@ -34,7 +42,12 @@ export const useOrderStore = defineStore("order", () => {
     }
   }
 
-  async function fetchById(storeId: string, token: string, id: string, force = false) {
+  async function fetchById(
+    storeId: string,
+    token: string,
+    id: string,
+    force = false,
+  ) {
     if (!storeId || !token || !id) return;
 
     isLoading.value = true;
@@ -46,18 +59,31 @@ export const useOrderStore = defineStore("order", () => {
       });
 
       if (response.order) {
-        const index = orders.value.findIndex(o => o.id?.toString() === id);
+        const index = orders.value.findIndex((o) => o.id?.toString() === id);
         if (index > -1) {
           orders.value[index] = response.order;
         } else {
           orders.value.push(response.order);
         }
+        storeCache.value[storeId] = {
+          orders: [...orders.value],
+          hasFetchedAll: hasFetchedAll.value,
+        };
       }
     } catch (err: any) {
       error.value = err.message || "Failed to fetch order detail.";
     } finally {
       isLoading.value = false;
     }
+  }
+
+  function hydrate(storeId: string): boolean {
+    const cached = storeCache.value[storeId];
+    if (!cached) return false;
+    orders.value = [...cached.orders];
+    hasFetchedAll.value = cached.hasFetchedAll;
+    error.value = null;
+    return true;
   }
 
   function $reset() {
@@ -74,6 +100,7 @@ export const useOrderStore = defineStore("order", () => {
     error,
     fetchAll,
     fetchById,
+    hydrate,
     $reset,
   };
 });

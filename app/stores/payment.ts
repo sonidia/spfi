@@ -54,15 +54,33 @@ export const usePaymentStore = defineStore("payment", () => {
   const payoutDetails = ref<Record<string, Payout>>({});
   // Map: payoutId → Transaction[]
   const transactionsByPayout = ref<Record<string, Transaction[]>>({});
-  
-  const bulkingPayouts = ref<Record<string, { date: string; status: string; sheet: string }>>({});
+
+  const bulkingPayouts = ref<
+    Record<string, { date: string; status: string; sheet: string }>
+  >({});
   const bulkingTransactions = ref<Record<string, any[]>>({});
   const balanceTransactions = ref<any[]>([]);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
-  function setBulkingPayout(storeId: string, data: { date: string; status: string; sheet: string }) {
+  const storeCache = ref<
+    Record<
+      string,
+      {
+        balance: Balance | null;
+        payouts: Payout[];
+        payoutDetails: Record<string, Payout>;
+        transactionsByPayout: Record<string, Transaction[]>;
+        balanceTransactions: any[];
+      }
+    >
+  >({});
+
+  function setBulkingPayout(
+    storeId: string,
+    data: { date: string; status: string; sheet: string },
+  ) {
     bulkingPayouts.value[storeId] = data;
   }
 
@@ -88,6 +106,13 @@ export const usePaymentStore = defineStore("payment", () => {
       balance.value = response.balance || null;
       payouts.value = response.payouts || [];
       transactionsByPayout.value = response.transactionsByPayout || {};
+      storeCache.value[storeId] = {
+        balance: balance.value,
+        payouts: [...payouts.value],
+        payoutDetails: { ...payoutDetails.value },
+        transactionsByPayout: { ...transactionsByPayout.value },
+        balanceTransactions: [...balanceTransactions.value],
+      };
     } catch (err: any) {
       error.value =
         err?.data?.statusMessage ??
@@ -121,6 +146,13 @@ export const usePaymentStore = defineStore("payment", () => {
       balanceTransactions.value = (res.transactions || []).filter(
         (t: any) => t.type !== "payout",
       );
+      storeCache.value[storeId] = {
+        balance: balance.value,
+        payouts: [...payouts.value],
+        payoutDetails: { ...payoutDetails.value },
+        transactionsByPayout: { ...transactionsByPayout.value },
+        balanceTransactions: [...balanceTransactions.value],
+      };
     } catch (err: any) {
       error.value = err.message || "Failed to load transactions";
     } finally {
@@ -141,25 +173,27 @@ export const usePaymentStore = defineStore("payment", () => {
     force = false,
   ) {
     // Already have full payout cached? Skip fetch unless forced
-    if (!force && payoutDetails.value[String(payoutId)] && transactionsByPayout.value[String(payoutId)]?.length) return;
+    if (
+      !force &&
+      payoutDetails.value[String(payoutId)] &&
+      transactionsByPayout.value[String(payoutId)]?.length
+    )
+      return;
 
     isLoading.value = true;
     error.value = null;
 
     try {
-      const response = await $fetch<any>(
-        `/api/payment/payout/${payoutId}`,
-        {
-          params: { storeId, token },
-        },
-      );
+      const response = await $fetch<any>(`/api/payment/payout/${payoutId}`, {
+        params: { storeId, token },
+      });
 
       if (response.payout) {
         // Cache detailed version
         payoutDetails.value[String(payoutId)] = response.payout;
-        
+
         // Also update lightweight list if present
-        const listIndex = payouts.value.findIndex(p => p.id === payoutId);
+        const listIndex = payouts.value.findIndex((p) => p.id === payoutId);
         if (listIndex > -1) {
           payouts.value[listIndex] = response.payout;
         } else {
@@ -170,6 +204,14 @@ export const usePaymentStore = defineStore("payment", () => {
       // Cache transactions
       transactionsByPayout.value[String(payoutId)] =
         response.transactions ?? [];
+
+      storeCache.value[storeId] = {
+        balance: balance.value,
+        payouts: [...payouts.value],
+        payoutDetails: { ...payoutDetails.value },
+        transactionsByPayout: { ...transactionsByPayout.value },
+        balanceTransactions: [...balanceTransactions.value],
+      };
     } catch (err: any) {
       error.value =
         err?.data?.statusMessage ??
@@ -178,6 +220,18 @@ export const usePaymentStore = defineStore("payment", () => {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  function hydrate(storeId: string): boolean {
+    const cached = storeCache.value[storeId];
+    if (!cached) return false;
+    balance.value = cached.balance;
+    payouts.value = [...cached.payouts];
+    payoutDetails.value = { ...cached.payoutDetails };
+    transactionsByPayout.value = { ...cached.transactionsByPayout };
+    balanceTransactions.value = [...cached.balanceTransactions];
+    error.value = null;
+    return true;
   }
 
   function $reset() {
@@ -207,6 +261,7 @@ export const usePaymentStore = defineStore("payment", () => {
     getTransactionsForPayout,
     setBulkingPayout,
     setBulkingTransactions,
+    hydrate,
     $reset,
   };
 });

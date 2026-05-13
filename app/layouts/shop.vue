@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
+import { SHEET_COLUMNS, SHEET_RANGES, SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
@@ -37,16 +38,12 @@ onMounted(() => {
   if (queryShop) {
     formStore.storeId = queryShop;
     useLocalStorage("active_store_id", "").state.value = queryShop;
+    hydrateStoreData(queryShop);
     fetchCurrent();
   } else {
     // If no query shop, we don't auto-select from cookie anymore
     formStore.storeId = "";
   }
-
-  // Automatically load sheet names after 3 seconds, same as bulking page
-  setTimeout(() => {
-    loadPayouts();
-  }, 3000);
 });
 
 const isFetching = computed(() => {
@@ -89,9 +86,7 @@ watch(
       if (newShop !== formStore.storeId) {
         formStore.storeId = newShop as string;
         useLocalStorage("active_store_id", "").state.value = newShop as string;
-        orderStore.$reset();
-        paymentStore.$reset();
-        productStore.$reset();
+        hydrateStoreData(newShop as string);
         fetchCurrent();
       }
     } else {
@@ -101,17 +96,27 @@ watch(
 );
 
 // ── Shop selector ────────────────────────────────────────────────────────────
+function hydrateStoreData(storeId: string) {
+  const hasOrders = orderStore.hydrate(storeId);
+  if (!hasOrders) orderStore.$reset();
+
+  const hasPayments = paymentStore.hydrate(storeId);
+  if (!hasPayments) paymentStore.$reset();
+
+  const hasProducts = productStore.hydrate(storeId);
+  if (!hasProducts) productStore.$reset();
+}
+
 function onSelectStore(id: string) {
+  if (isBulkSyncing.value) return;
   formStore.storeId = id;
   useLocalStorage("active_store_id", "").state.value = id;
 
   // Sync URL query param
   router.replace({ query: { ...route.query, shop: id } });
 
-  // Clear existing data so the new store's data loads
-  orderStore.$reset();
-  paymentStore.$reset();
-  productStore.$reset();
+  // Hydrate cached data for quick switch, fallback to reset
+  hydrateStoreData(id);
   fetchCurrent();
 }
 
@@ -206,10 +211,13 @@ const isLoadingPayouts = ref(false);
 const isUpdating = ref(false);
 const isSyncingDate = ref(false);
 const isSyncingTracking = ref(false);
+const isBulkSyncing = ref(false);
+const activeSyncStoreId = ref<string | null>(null);
 
 const syncMode = ref<"all" | "from_today">("from_today");
 const syncCount = ref<number | "unlimit">(1);
 const isSyncPopoverOpen = ref(false);
+const isInteractionLocked = computed(() => isBulkSyncing.value);
 
 // ── Add Store Modal State ───────────────────────────────────────────────────
 const isAddModalOpen = ref(false);
@@ -484,11 +492,11 @@ async function loadPayouts() {
     const [b1Results, b2Results] = await Promise.allSettled([
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-        range: "'order 1'!A:Z",
+        range: SHEET_RANGES.BUFF1_ALL,
       }),
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-        range: "'Sheet1'!A:Z",
+        range: SHEET_RANGES.BUFF2_ALL,
       }),
     ]);
 
@@ -500,14 +508,16 @@ async function loadPayouts() {
 
       let sheets = [];
       const inBuff1 = buff1Rows.some(
-        (r) => r[3]?.trim().toLowerCase() === domainLower,
+        (r) =>
+          r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() === domainLower,
       );
       if (inBuff1) {
         sheets.push("$ buff1");
       }
 
       const inBuff2 = buff2Rows.some(
-        (r) => r[3]?.trim().toLowerCase() === domainLower,
+        (r) =>
+          r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() === domainLower,
       );
       if (inBuff2) {
         sheets.push("$ buff2");
@@ -543,7 +553,21 @@ async function loadPayouts() {
 
 async function updatePayouts(targetId?: string | Event) {
   const target = typeof targetId === "string" ? targetId : undefined;
+  const isSyncAll = !target;
   isUpdating.value = true;
+  if (isSyncAll) {
+    isBulkSyncing.value = true;
+  }
+
+  const shouldLoadSheets = isSyncAll
+    ? storeList.value.some((s) => !s.sheet && s.domain)
+    : target
+      ? !getStoreSheet(target)
+      : false;
+
+  if (shouldLoadSheets) {
+    await loadPayouts();
+  }
 
   const normalizeDate = (value: string) => {
     const raw = String(value || "").trim();
@@ -587,11 +611,11 @@ async function updatePayouts(targetId?: string | Event) {
     const sheetPromises = [
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-        range: "'quản lý'!A:Z",
+        range: SHEET_RANGES.QUAN_LY_ALL,
       }),
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(FBS_SHEET_URL),
-        range: "'FBS'!A:Z",
+        range: SHEET_RANGES.FBS_ALL,
       }),
     ];
 
@@ -599,7 +623,7 @@ async function updatePayouts(targetId?: string | Event) {
       sheetPromises.push(
         readSheetValues({
           spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-          range: "'order 1'!A:Z",
+          range: SHEET_RANGES.BUFF1_ALL,
         }),
       );
     }
@@ -608,7 +632,7 @@ async function updatePayouts(targetId?: string | Event) {
       sheetPromises.push(
         readSheetValues({
           spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-          range: "'Sheet1'!A:Z",
+          range: SHEET_RANGES.BUFF2_ALL,
         }),
       );
     }
@@ -646,7 +670,12 @@ async function updatePayouts(targetId?: string | Event) {
   let lastNonEmptyRow = quanLyRows.length;
   for (let i = quanLyRows.length - 1; i >= 0; i--) {
     const row = quanLyRows[i];
-    if (row && (row[0]?.trim() || row[1]?.trim() || row[2]?.trim())) {
+    if (
+      row &&
+      (row[SHEET_COLUMNS.QUAN_LY.date]?.trim() ||
+        row[SHEET_COLUMNS.QUAN_LY.shopName]?.trim() ||
+        row[SHEET_COLUMNS.QUAN_LY.domain]?.trim())
+    ) {
       lastNonEmptyRow = i + 1;
       break;
     }
@@ -655,12 +684,18 @@ async function updatePayouts(targetId?: string | Event) {
   const quanLyUpdates: any[] = [];
 
   for (const store of storesToSync) {
+    activeSyncStoreId.value = store.id;
     if (!store.accessToken) {
       paymentStore.setBulkingPayout(store.id, {
         date: "No token",
         status: "No token",
         sheet: store.sheet,
       });
+      if (isSyncAll) {
+        toastStore.error(
+          `Không có token cho ${store.domain || store.id}. Bỏ qua.`,
+        );
+      }
       continue;
     }
     paymentStore.setBulkingPayout(store.id, {
@@ -697,8 +732,9 @@ async function updatePayouts(targetId?: string | Event) {
 
           const quanLyIndex = quanLyRows.findIndex(
             (r) =>
-              r[2]?.trim().toLowerCase() === store.domain.toLowerCase() &&
-              normalizeDate(r[0]) === formattedDate,
+              r[SHEET_COLUMNS.QUAN_LY.domain]?.trim().toLowerCase() ===
+                store.domain.toLowerCase() &&
+              normalizeDate(r[SHEET_COLUMNS.QUAN_LY.date]) === formattedDate,
           );
 
           if (quanLyIndex !== -1) {
@@ -733,6 +769,11 @@ async function updatePayouts(targetId?: string | Event) {
             status: "Filtered",
             sheet: store.sheet,
           });
+          if (isSyncAll) {
+            toastStore.info(
+              `Không có payout phù hợp cho ${store.domain || store.id}.`,
+            );
+          }
           continue;
         }
 
@@ -779,8 +820,9 @@ async function updatePayouts(targetId?: string | Event) {
 
           const quanLyIndex = quanLyRows.findIndex(
             (r) =>
-              r[2]?.trim().toLowerCase() === store.domain.toLowerCase() &&
-              normalizeDate(r[0]) === formattedDate,
+              r[SHEET_COLUMNS.QUAN_LY.domain]?.trim().toLowerCase() ===
+                store.domain.toLowerCase() &&
+              normalizeDate(r[SHEET_COLUMNS.QUAN_LY.date]) === formattedDate,
           );
 
           // Find which sheet contains the customers for this payout
@@ -858,14 +900,20 @@ async function updatePayouts(targetId?: string | Event) {
           // Improved matching using both Order Name and Customer Name
           const currentDomain = store.domain.toLowerCase();
           const relevantBuff1Rows = buff1Rows.filter(
-            (r) => r[3]?.trim().toLowerCase() === currentDomain,
+            (r) =>
+              r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() ===
+              currentDomain,
           );
           const relevantBuff2Rows = buff2Rows.filter(
-            (r) => r[3]?.trim().toLowerCase() === currentDomain,
+            (r) =>
+              r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() ===
+              currentDomain,
           );
 
           let inBuff1 = relevantBuff1Rows.some((row) => {
-            const customerInSheet = String(row[7] || "").toLowerCase();
+            const customerInSheet = String(
+              row[SHEET_COLUMNS.BUFF.customer] || "",
+            ).toLowerCase();
             if (!customerInSheet.trim()) return false;
             return payoutTxCustomers.some((cust: string) => {
               const custNorm = cust.toLowerCase();
@@ -874,7 +922,9 @@ async function updatePayouts(targetId?: string | Event) {
           });
 
           let inBuff2 = relevantBuff2Rows.some((row) => {
-            const customerInSheet = String(row[7] || "").toLowerCase();
+            const customerInSheet = String(
+              row[SHEET_COLUMNS.BUFF.customer] || "",
+            ).toLowerCase();
             if (!customerInSheet.trim()) return false;
             return payoutTxCustomers.some((cust: string) => {
               const custNorm = cust.toLowerCase();
@@ -895,30 +945,36 @@ async function updatePayouts(targetId?: string | Event) {
             const actualRow = quanLyIndex + 1;
             const existingRow = quanLyRows[quanLyIndex] || [];
 
-            let valE = inBuff1 ? payout.amount : existingRow[4] || "";
-            let valF = inBuff2 ? payout.amount : existingRow[5] || "";
+            let valE = inBuff1
+              ? payout.amount
+              : existingRow[SHEET_COLUMNS.QUAN_LY.buff1Amount] || "";
+            let valF = inBuff2
+              ? payout.amount
+              : existingRow[SHEET_COLUMNS.QUAN_LY.buff2Amount] || "";
 
             quanLyUpdates.push({
-              range: `'quản lý'!J${actualRow}:J${actualRow}`,
+              range: `'${SHEET_TABS.QUAN_LY}'!J${actualRow}:J${actualRow}`,
               values: [[payoutStatus]],
             });
 
             quanLyUpdates.push({
-              range: `'quản lý'!E${actualRow}:F${actualRow}`,
+              range: `'${SHEET_TABS.QUAN_LY}'!E${actualRow}:F${actualRow}`,
               values: [[valE, valF]],
             });
 
             quanLyUpdates.push({
-              range: `'quản lý'!G${actualRow}:G${actualRow}`,
+              range: `'${SHEET_TABS.QUAN_LY}'!G${actualRow}:G${actualRow}`,
               values: [[payout.amount]],
             });
-          } else if (store.id === formStore.storeId) {
+          } else if (isSyncAll || store.id === formStore.storeId) {
             const fbsMatch = fbsRows.find(
-              (r) => r[2]?.trim().toLowerCase() === store.domain.toLowerCase(),
+              (r) =>
+                r[SHEET_COLUMNS.FBS.domain]?.trim().toLowerCase() ===
+                store.domain.toLowerCase(),
             );
 
-            const shopName = fbsMatch?.[3] || "";
-            const bank = fbsMatch?.[19] || "";
+            const shopName = fbsMatch?.[SHEET_COLUMNS.FBS.shopName] || "";
+            const bank = fbsMatch?.[SHEET_COLUMNS.FBS.bank] || "";
 
             const buff1Amount = inBuff1 ? payout.amount : "";
             const buff2Amount = inBuff2 ? payout.amount : "";
@@ -927,7 +983,7 @@ async function updatePayouts(targetId?: string | Event) {
             appendedRowCount++;
 
             quanLyUpdates.push({
-              range: `'quản lý'!A${newRowIndex}:J${newRowIndex}`,
+              range: `'${SHEET_TABS.QUAN_LY}'!A${newRowIndex}:J${newRowIndex}`,
               values: [
                 [
                   formattedDate,
@@ -961,12 +1017,20 @@ async function updatePayouts(targetId?: string | Event) {
           status: latestStatus,
           sheet: store.sheet,
         });
+        if (isSyncAll) {
+          toastStore.success(
+            `Đã xử lý payouts cho ${store.domain || store.id}.`,
+          );
+        }
       } else {
         paymentStore.setBulkingPayout(store.id, {
           date: "No payouts",
           status: "No Payouts",
           sheet: store.sheet,
         });
+        if (isSyncAll) {
+          toastStore.info(`Không có payout cho ${store.domain || store.id}.`);
+        }
       }
     } catch (e: any) {
       paymentStore.setBulkingPayout(store.id, {
@@ -974,6 +1038,11 @@ async function updatePayouts(targetId?: string | Event) {
         status: "Error",
         sheet: store.sheet,
       });
+      if (isSyncAll) {
+        toastStore.error(
+          `Lỗi khi sync payouts cho ${store.domain || store.id}.`,
+        );
+      }
     }
   }
 
@@ -997,7 +1066,11 @@ async function updatePayouts(targetId?: string | Event) {
     toastStore.error("Cập nhật sheet quản lý thất bại. Kiểm tra console.");
   }
 
+  activeSyncStoreId.value = null;
   isUpdating.value = false;
+  if (isSyncAll) {
+    isBulkSyncing.value = false;
+  }
 }
 
 function deleteStoreOption(id: string) {
@@ -1023,33 +1096,60 @@ async function syncPayoutDates(targetId?: string | Event) {
 async function syncPayoutDatesAll() {
   if (isSyncingDate.value) return;
   isSyncingDate.value = true;
+  isBulkSyncing.value = true;
   try {
     for (const store of storeList.value) {
       if (store.domain) {
-        await syncTrackingNumbers(store.id);
+        activeSyncStoreId.value = store.id;
+        const result = await syncTrackingNumbers(store.id, {
+          showToast: false,
+          storeLabel: store.domain || store.id,
+        });
+        if (result) {
+          if (result.status === "success") {
+            toastStore.success(result.message);
+          } else if (result.status === "info") {
+            toastStore.info(result.message);
+          } else {
+            toastStore.error(result.message);
+          }
+        }
       }
     }
   } finally {
+    activeSyncStoreId.value = null;
+    isBulkSyncing.value = false;
     isSyncingDate.value = false;
   }
 }
 
-async function syncTrackingNumbers(targetId?: string) {
+async function syncTrackingNumbers(
+  targetId?: string,
+  options?: { showToast?: boolean; storeLabel?: string },
+): Promise<
+  { status: "success" | "info" | "error"; message: string } | undefined
+> {
   const sid = targetId || formStore.storeId;
   if (!sid) return;
 
+  const showToast = options?.showToast !== false;
+
   const token = resolveToken(sid);
   if (!token) {
-    toastStore.error("Token expired or missing.");
-    return;
+    const message = `${options?.storeLabel || sid}: Token expired or missing.`;
+    if (showToast) toastStore.error(message);
+    return { status: "error", message };
   }
 
   const cookie = useLocalStorage<any>(sid, {}).state;
   const domain = cookie.value?.domain;
   if (!domain) {
-    toastStore.error("Không tìm thấy domain cho shop này.");
-    return;
+    const message = `${options?.storeLabel || sid}: Không tìm thấy domain.`;
+    if (showToast) toastStore.error(message);
+    return { status: "error", message };
   }
+
+  const label = options?.storeLabel || domain || sid;
 
   isSyncingTracking.value = true;
 
@@ -1062,8 +1162,9 @@ async function syncTrackingNumbers(targetId?: string) {
 
     const orders: any[] = orderRes?.orders || [];
     if (!orders.length) {
-      toastStore.info("Không có order nào trong shop này.");
-      return;
+      const message = `${label}: Không có order nào.`;
+      if (showToast) toastStore.info(message);
+      return { status: "info", message };
     }
 
     // Build map: normalizedCustomerName -> trackingNumber
@@ -1103,8 +1204,9 @@ async function syncTrackingNumbers(targetId?: string) {
     }
 
     if (!trackInfoList.length) {
-      toastStore.info("Không có order nào có tracking number.");
-      return;
+      const message = `${label}: Không có order nào có tracking number.`;
+      if (showToast) toastStore.info(message);
+      return { status: "info", message };
     }
 
     // 2. Read both buff sheets
@@ -1121,11 +1223,11 @@ async function syncTrackingNumbers(targetId?: string) {
     const [b1Res, b2Res] = await Promise.allSettled([
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-        range: "'order 1'!A:Z",
+        range: SHEET_RANGES.BUFF1_ALL,
       }),
       readSheetValues({
         spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-        range: "'Sheet1'!A:Z",
+        range: SHEET_RANGES.BUFF2_ALL,
       }),
     ]);
 
@@ -1138,11 +1240,13 @@ async function syncTrackingNumbers(targetId?: string) {
     function buildUpdates(rows: any[][], rangeSheet: string, updates: any[]) {
       rows.forEach((row, index) => {
         // col D = index 3: domain match
-        const rowDomain = normalize(String(row[3] || ""));
+        const rowDomain = normalize(
+          String(row[SHEET_COLUMNS.BUFF.domain] || ""),
+        );
         if (rowDomain !== domainNorm) return;
 
         // col H = index 7: customer name/info
-        const cellH = normalize(String(row[7] || ""));
+        const cellH = normalize(String(row[SHEET_COLUMNS.BUFF.customer] || ""));
         if (!cellH) return;
 
         // Find matching tracking number using simple include for name
@@ -1191,10 +1295,13 @@ async function syncTrackingNumbers(targetId?: string) {
         if (match || payoutDate) {
           let newStatus = "";
           const hasTracking =
-            (match && match.trackingNr) || String(row[10] || "").trim();
-          const hasPayout = payoutDate || String(row[11] || "").trim();
+            (match && match.trackingNr) ||
+            String(row[SHEET_COLUMNS.BUFF.tracking] || "").trim();
+          const hasPayout =
+            payoutDate ||
+            String(row[SHEET_COLUMNS.BUFF.payoutDate] || "").trim();
 
-          if (rangeSheet.includes("order 1")) {
+          if (rangeSheet.includes(SHEET_TABS.BUFF1)) {
             if (hasPayout) {
               newStatus = hasTracking ? "Shipped" : "Process";
             } else {
@@ -1266,13 +1373,14 @@ async function syncTrackingNumbers(targetId?: string) {
       console.error("Failed to fetch payout info for consolidated sync", e);
     }
 
-    buildUpdates(buff1Rows, "'order 1'", buff1Updates);
-    buildUpdates(buff2Rows, "'Sheet1'", buff2Updates);
+    buildUpdates(buff1Rows, `'${SHEET_TABS.BUFF1}'`, buff1Updates);
+    buildUpdates(buff2Rows, `'${SHEET_TABS.BUFF2}'`, buff2Updates);
 
     const totalUpdates = buff1Updates.length + buff2Updates.length;
     if (totalUpdates === 0) {
-      toastStore.info("Không tìm thấy row nào khớp trong sheet.");
-      return;
+      const message = `${label}: Không tìm thấy row nào khớp trong sheet.`;
+      if (showToast) toastStore.info(message);
+      return { status: "info", message };
     }
 
     const batchPromises = [];
@@ -1294,12 +1402,14 @@ async function syncTrackingNumbers(targetId?: string) {
     }
     await Promise.allSettled(batchPromises);
 
-    toastStore.success(
-      `Đã cập nhật tracking số cho ${totalUpdates} row(s) trong sheet.`,
-    );
+    const message = `${label}: Đã cập nhật tracking số cho ${totalUpdates} row(s).`;
+    if (showToast) toastStore.success(message);
+    return { status: "success", message };
   } catch (e: any) {
     console.error("syncTrackingNumbers error:", e);
-    toastStore.error("Sync tracking thất bại. Kiểm tra console.");
+    const message = `${label}: Sync tracking thất bại. Kiểm tra console.`;
+    if (showToast) toastStore.error(message);
+    return { status: "error", message };
   } finally {
     isSyncingTracking.value = false;
   }
@@ -1307,10 +1417,21 @@ async function syncTrackingNumbers(targetId?: string) {
 </script>
 
 <template>
-  <div class="shop-layout-container">
+  <div
+    class="shop-layout-container"
+    :class="{ 'ui-locked': isInteractionLocked }"
+  >
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-header">
+        <button
+          class="btn-sidebar-add"
+          title="Add new store"
+          :disabled="isInteractionLocked"
+          @click="isAddModalOpen = true"
+        >
+          <IconsAdd />
+        </button>
         <div class="search-container">
           <svg
             class="search-icon"
@@ -1335,7 +1456,7 @@ async function syncTrackingNumbers(targetId?: string) {
         <button
           class="btn-load-sheet"
           title="Load sheet names"
-          :disabled="isLoadingPayouts"
+          :disabled="isLoadingPayouts || isInteractionLocked"
           @click="loadPayouts"
         >
           <svg
@@ -1368,12 +1489,20 @@ async function syncTrackingNumbers(targetId?: string) {
             v-for="id in filteredStores"
             :key="id"
             class="sidebar-item"
-            :class="{ active: formStore.storeId === id }"
+            :class="{
+              active: formStore.storeId === id,
+              'is-syncing': activeSyncStoreId === id,
+            }"
           >
             <div class="sidebar-item-label" @click="onSelectStore(id)">
               {{ getStoreDomain(id) || id }}
             </div>
             <div class="sidebar-item-action-wrapper">
+              <div
+                v-if="activeSyncStoreId === id"
+                class="sync-indicator"
+                title="Syncing"
+              />
               <div
                 v-if="getStoreSheet(id)"
                 class="sidebar-item-check"
@@ -1455,18 +1584,14 @@ async function syncTrackingNumbers(targetId?: string) {
       <div class="sidebar-footer">
         <button
           class="btn-sidebar-add"
-          title="Add new store"
-          @click="isAddModalOpen = true"
-        >
-          <IconsAdd />
-          <span class="btn-text">Add</span>
-        </button>
-        <button
-          class="btn-sidebar-add"
           title="Sync Payout All"
           @click="() => updatePayouts()"
           :disabled="
-            isUpdating || isSyncingDate || isFetching || storeList.length === 0
+            isUpdating ||
+            isSyncingDate ||
+            isFetching ||
+            storeList.length === 0 ||
+            isInteractionLocked
           "
         >
           <span v-if="isUpdating" class="spinner-inline" />
@@ -1478,7 +1603,11 @@ async function syncTrackingNumbers(targetId?: string) {
           title="Sync Date All"
           @click="syncPayoutDatesAll"
           :disabled="
-            isUpdating || isSyncingDate || isFetching || storeList.length === 0
+            isUpdating ||
+            isSyncingDate ||
+            isFetching ||
+            storeList.length === 0 ||
+            isInteractionLocked
           "
         >
           <span v-if="isSyncingDate" class="spinner-inline" />
@@ -1509,7 +1638,11 @@ async function syncTrackingNumbers(targetId?: string) {
             <button
               class="btn-sync-action sync_payout"
               :disabled="
-                isUpdating || isSyncingDate || isFetching || !formStore.storeId
+                isUpdating ||
+                isSyncingDate ||
+                isFetching ||
+                !formStore.storeId ||
+                isInteractionLocked
               "
               @click="() => updatePayouts(formStore.storeId)"
             >
@@ -1522,7 +1655,12 @@ async function syncTrackingNumbers(targetId?: string) {
                 <button
                   class="btn-sync-settings"
                   type="button"
-                  :disabled="isUpdating || isSyncingDate || !formStore.storeId"
+                  :disabled="
+                    isUpdating ||
+                    isSyncingDate ||
+                    !formStore.storeId ||
+                    isInteractionLocked
+                  "
                 >
                   <IconsMore width="16" height="16" class="rotate-90" />
                 </button>
@@ -1564,7 +1702,11 @@ async function syncTrackingNumbers(targetId?: string) {
           <button
             class="btn-sync-action sync_date"
             :disabled="
-              isUpdating || isSyncingDate || isFetching || !formStore.storeId
+              isUpdating ||
+              isSyncingDate ||
+              isFetching ||
+              !formStore.storeId ||
+              isInteractionLocked
             "
             @click="() => syncPayoutDates(formStore.storeId)"
           >
@@ -1576,7 +1718,11 @@ async function syncTrackingNumbers(targetId?: string) {
           <button
             class="btn-fetch"
             :disabled="
-              isFetching || isSyncingDate || isUpdating || !formStore.storeId
+              isFetching ||
+              isSyncingDate ||
+              isUpdating ||
+              !formStore.storeId ||
+              isInteractionLocked
             "
             @click="fetchCurrent(true)"
           >
@@ -1901,6 +2047,16 @@ async function syncTrackingNumbers(targetId?: string) {
   align-items: center;
 }
 
+.sync-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--blue);
+  margin-right: 6px;
+  box-shadow: 0 0 0 0 rgba(0, 132, 255, 0.6);
+  animation: pulse 1.2s infinite;
+}
+
 .sidebar-item-actions {
   display: flex;
   align-items: center;
@@ -1964,6 +2120,11 @@ async function syncTrackingNumbers(targetId?: string) {
   position: relative;
   border-radius: 6px;
   border: 1px solid transparent;
+}
+
+.sidebar-item.is-syncing {
+  border-color: rgba(0, 132, 255, 0.35);
+  background: rgba(0, 132, 255, 0.08);
 }
 
 .sidebar-item:hover {
@@ -2171,6 +2332,21 @@ async function syncTrackingNumbers(targetId?: string) {
   }
 }
 
+@keyframes pulse {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(0, 132, 255, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(0, 132, 255, 0);
+  }
+  100% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(0, 132, 255, 0);
+  }
+}
+
 .btn-load-sheet {
   display: flex;
   align-items: center;
@@ -2314,6 +2490,19 @@ async function syncTrackingNumbers(targetId?: string) {
 .btn-sidebar-add:hover {
   background: var(--surface);
   color: var(--blue);
+}
+
+.btn-sidebar-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-locked .sidebar,
+.ui-locked .sidebar-footer,
+.ui-locked .shop-bar-right {
+  pointer-events: none;
+  filter: blur(0.6px);
+  opacity: 0.7;
 }
 
 /* Modal Styles adapted from manager.vue */

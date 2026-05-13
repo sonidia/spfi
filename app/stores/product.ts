@@ -6,6 +6,9 @@ export const useProductStore = defineStore("product", () => {
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const storeCache = ref<
+    Record<string, { products: any[]; hasFetchedAll: boolean }>
+  >({});
 
   async function fetchAll(storeId: string, token: string, limit = 50) {
     if (!storeId || !token) {
@@ -24,6 +27,10 @@ export const useProductStore = defineStore("product", () => {
 
       products.value = response.products || [];
       hasFetchedAll.value = true;
+      storeCache.value[storeId] = {
+        products: [...products.value],
+        hasFetchedAll: hasFetchedAll.value,
+      };
     } catch (err: any) {
       error.value =
         err?.data?.statusMessage ??
@@ -53,7 +60,12 @@ export const useProductStore = defineStore("product", () => {
     }
   }
 
-  async function updateProduct(storeId: string, token: string, id: number, product: any) {
+  async function updateProduct(
+    storeId: string,
+    token: string,
+    id: number,
+    product: any,
+  ) {
     if (!storeId || !token || !id) return;
     isLoading.value = true;
     error.value = null;
@@ -91,6 +103,15 @@ export const useProductStore = defineStore("product", () => {
     }
   }
 
+  function hydrate(storeId: string): boolean {
+    const cached = storeCache.value[storeId];
+    if (!cached) return false;
+    products.value = [...cached.products];
+    hasFetchedAll.value = cached.hasFetchedAll;
+    error.value = null;
+    return true;
+  }
+
   function $reset() {
     products.value = [];
     hasFetchedAll.value = false;
@@ -107,6 +128,7 @@ export const useProductStore = defineStore("product", () => {
     createProduct,
     updateProduct,
     deleteProduct,
+    hydrate,
     $reset,
   };
 });
