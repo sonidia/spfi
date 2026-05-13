@@ -1,14 +1,9 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
-import {
-  getMachineSheets,
-  getProxySheetPreset,
-  getSheetUrls,
-} from "~~/utils/sheets";
+import { getSheetUrls } from "~~/utils/sheets";
 
-const machineSheets = getMachineSheets();
-const { FBS_SHEET_URL } = getSheetUrls();
+const { SPF_SHEET_URL } = getSheetUrls();
 
 definePageMeta({ layout: false });
 
@@ -52,7 +47,6 @@ const sortOrder = ref("expiry_desc"); // domain_asc, domain_desc, expiry_asc, ex
 // ── Progress steps for findShop ─────────────────────────────────────────────
 const findShopSteps = ref([
   { id: "MASTER", label: "Searching master sheet", status: "pending" },
-  { id: "MACHINE_FETCH", label: "Fetching credentials", status: "pending" },
   { id: "TOKEN_GEN", label: "Generating Shopify Token", status: "pending" },
   { id: "DONE", label: "Finalizing store", status: "pending" },
 ]);
@@ -96,8 +90,12 @@ function toUserFriendlyMessage(error: any) {
   return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
 }
 
-const { readProxySheetRows, normalizeSpreadsheetId, buildRangeFromSheetName } =
-  useSheetService();
+const {
+  readProxySheetRows,
+  normalizeSpreadsheetId,
+  buildRangeFromSheetName,
+  readSheetMeta,
+} = useSheetService();
 
 // ── Load stores on mount ──────────────────────────────────────────────────────
 onMounted(() => {
@@ -264,10 +262,10 @@ async function addShop() {
   let errors: string[] = [];
 
   try {
-    // 0. Master cache and Machine cache setup
-    const quanLyUrl = FBS_SHEET_URL;
-    let masterRows: any[] | null = null;
-    const machineCache: Record<string, any[]> = {};
+    // 0. SPF cache setup
+    const spfUrl = SPF_SHEET_URL;
+    let spfSheetNames: string[] = [];
+    const spfRowsCache: Record<string, any[]> = {};
 
     for (const domain of domains) {
       resetSteps();
@@ -283,67 +281,47 @@ async function addShop() {
           const domainSearch = domain.toLowerCase();
 
           // 1. Discovery Phase
-          if (!masterRows) {
-            const presetQuanLy = getProxySheetPreset(quanLyUrl, "FBS");
-            masterRows = await readProxySheetRows({
-              spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
-              range: buildRangeFromSheetName(presetQuanLy?.tab || "FBS"),
-              dataRowStart: presetQuanLy?.startRow || 3,
-              mapping: presetQuanLy?.columns,
+          if (!spfSheetNames.length) {
+            const meta = await readSheetMeta({
+              spreadsheetId: normalizeSpreadsheetId(spfUrl),
             });
+            spfSheetNames = meta.sheets || [];
           }
 
-          const foundShop = masterRows.find(
-            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
-          );
+          let foundShop = null;
+
+          for (const sheetName of spfSheetNames) {
+            if (!spfRowsCache[sheetName]) {
+              spfRowsCache[sheetName] = await readProxySheetRows({
+                spreadsheetId: normalizeSpreadsheetId(spfUrl),
+                range: buildRangeFromSheetName(sheetName),
+                dataRowStart: 2,
+                mapping: {
+                  domain: 6,
+                  proxyUrl: 5,
+                  credentials: 21,
+                },
+              });
+            }
+
+            foundShop = spfRowsCache[sheetName].find(
+              (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
+            );
+
+            if (foundShop) break;
+          }
 
           if (!foundShop) {
             throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
           }
           setStep("MASTER", "done");
 
-          setStep("MACHINE_FETCH", "active");
-          const machineNameRaw = foundShop.proxyUrl;
-          const targetMachineUrl = machineNameRaw
-            ? Object.entries(machineSheets).find(
-                ([key]) =>
-                  machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
-              )?.[1]
-            : null;
-
-          if (!targetMachineUrl) {
-            throw new Error(`Không xác định được máy cho shop này.`);
-          }
-
-          let machineRows = machineCache[targetMachineUrl];
-          if (!machineRows) {
-            machineRows = await readProxySheetRows({
-              spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
-              range: buildRangeFromSheetName(""),
-              dataRowStart: 2,
-            });
-            machineCache[targetMachineUrl] = machineRows;
-          }
-
-          const machineMatch = machineRows.find(
-            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
-          );
-
-          if (!machineMatch) {
-            throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
-          }
-
-          if (machineMatch.proxyUrl && !sock)
-            sock = machineMatch.proxyUrl.trim();
-          if (machineMatch.storeId && !sId) sId = machineMatch.storeId;
-          if (machineMatch.clientId && !cId) cId = machineMatch.clientId;
-          if (machineMatch.clientSecret && !cSec)
-            cSec = machineMatch.clientSecret;
-
-          setStep("MACHINE_FETCH", "done");
+          if (foundShop.proxyUrl && !sock) sock = foundShop.proxyUrl.trim();
+          if (foundShop.storeId && !sId) sId = foundShop.storeId;
+          if (foundShop.clientId && !cId) cId = foundShop.clientId;
+          if (foundShop.clientSecret && !cSec) cSec = foundShop.clientSecret;
         } else {
           setStep("MASTER", "done");
-          setStep("MACHINE_FETCH", "done");
         }
 
         // 1.5 – Check if this store is already configured

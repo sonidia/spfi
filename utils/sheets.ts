@@ -38,12 +38,7 @@ export const getSheetUrls = () => {
       FBS_SHEET_URL: (config.public.fbsSheetUrl as string) || "",
       BUFF1_SHEET_URL: (config.public.buff1SheetUrl as string) || "",
       BUFF2_SHEET_URL: (config.public.buff2SheetUrl as string) || "",
-      MACHINE_1_SHEET_URL: (config.public.machine1SheetUrl as string) || "",
-      MACHINE_2_SHEET_URL: (config.public.machine2SheetUrl as string) || "",
-      MACHINE_3_SHEET_URL: (config.public.machine3SheetUrl as string) || "",
-      MACHINE_4_SHEET_URL: (config.public.machine4SheetUrl as string) || "",
-      MACHINE_5_SHEET_URL: (config.public.machine5SheetUrl as string) || "",
-      MACHINE_6_SHEET_URL: (config.public.machine6SheetUrl as string) || "",
+      SPF_SHEET_URL: (config.public.spfSheetUrl as string) || "",
     };
   } catch (e) {
     console.error("Error accessing runtimeConfig in getSheetUrls:", e);
@@ -52,27 +47,10 @@ export const getSheetUrls = () => {
       FBS_SHEET_URL: "",
       BUFF1_SHEET_URL: "",
       BUFF2_SHEET_URL: "",
-      MACHINE_1_SHEET_URL: "",
-      MACHINE_2_SHEET_URL: "",
-      MACHINE_3_SHEET_URL: "",
-      MACHINE_4_SHEET_URL: "",
-      MACHINE_5_SHEET_URL: "",
-      MACHINE_6_SHEET_URL: "",
+      SPF_SHEET_URL: "",
     };
   }
 };
-
-export function getMachineSheets() {
-  const urls = getSheetUrls();
-  return {
-    "MÁY 1": urls.MACHINE_1_SHEET_URL,
-    "MÁY 2": urls.MACHINE_2_SHEET_URL,
-    "MÁY 3": urls.MACHINE_3_SHEET_URL,
-    "MÁY 4": urls.MACHINE_4_SHEET_URL,
-    "MÁY 5": urls.MACHINE_5_SHEET_URL,
-    "MÁY 6": urls.MACHINE_6_SHEET_URL,
-  };
-}
 
 export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
   const urls = getSheetUrls();

@@ -61,7 +61,7 @@
         </div>
         <div class="step-body">
           <div class="config-grid">
-            <div class="config-row">
+            <!-- <div class="config-row">
               <span class="config-key">Redirect URL</span>
               <code class="code-inline">https://admin.shopify.com</code>
             </div>
@@ -72,7 +72,7 @@
             <div class="config-row">
               <span class="config-key">Embed in admin</span>
               <span class="badge-off">Bỏ tick</span>
-            </div>
+            </div> -->
             <div class="config-row">
               <span class="config-key">API version (mặc định có sẵn)</span>
               <code class="code-inline highlight">2026-04</code>

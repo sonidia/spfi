@@ -1,15 +1,20 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
 import { getSheetUrls } from "~~/utils/sheets";
-
-const { BUFF1_SHEET_URL, BUFF2_SHEET_URL, FBS_SHEET_URL, QUAN_LY_SHEET_URL } =
-  getSheetUrls();
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
 import { useToastStore } from "../stores/toast";
+
+const {
+  BUFF1_SHEET_URL,
+  BUFF2_SHEET_URL,
+  FBS_SHEET_URL,
+  QUAN_LY_SHEET_URL,
+  SPF_SHEET_URL,
+} = getSheetUrls();
 
 const formStore = useFormStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
@@ -231,7 +236,6 @@ const genSuccess = ref("");
 
 const findShopSteps = ref([
   { id: "MASTER", label: "Searching master sheet", status: "pending" },
-  { id: "MACHINE_FETCH", label: "Fetching credentials", status: "pending" },
   { id: "TOKEN_GEN", label: "Generating Shopify Token", status: "pending" },
   { id: "DONE", label: "Finalizing store", status: "pending" },
 ]);
@@ -275,11 +279,8 @@ function toUserFriendlyMessage(error: any) {
   return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
 }
 
-const { readProxySheetRows, buildRangeFromSheetName } = useSheetService();
-
-const { getProxySheetPreset, getMachineSheets } =
-  await import("~~/utils/sheets");
-const machineSheets = getMachineSheets();
+const { readProxySheetRows, buildRangeFromSheetName, readSheetMeta } =
+  useSheetService();
 
 async function addShop() {
   const domains = newDomain.value
@@ -302,10 +303,10 @@ async function addShop() {
   let errors: string[] = [];
 
   try {
-    // 0. Master cache and Machine cache setup
-    const quanLyUrl = FBS_SHEET_URL;
-    let masterRows: any[] | null = null;
-    const machineCache: Record<string, any[]> = {};
+    // 0. SPF cache setup
+    const spfUrl = SPF_SHEET_URL;
+    let spfSheetNames: string[] = [];
+    const spfRowsCache: Record<string, any[]> = {};
 
     for (const domain of domains) {
       resetSteps();
@@ -321,67 +322,47 @@ async function addShop() {
           const domainSearch = domain.toLowerCase();
 
           // 1. Discovery Phase
-          if (!masterRows) {
-            const presetQuanLy = getProxySheetPreset(quanLyUrl, "FBS");
-            masterRows = await readProxySheetRows({
-              spreadsheetId: normalizeSpreadsheetId(quanLyUrl),
-              range: buildRangeFromSheetName(presetQuanLy?.tab || "FBS"),
-              dataRowStart: presetQuanLy?.startRow || 3,
-              mapping: presetQuanLy?.columns,
+          if (!spfSheetNames.length) {
+            const meta = await readSheetMeta({
+              spreadsheetId: normalizeSpreadsheetId(spfUrl),
             });
+            spfSheetNames = meta.sheets || [];
           }
 
-          const foundShop = masterRows.find(
-            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
-          );
+          let foundShop = null;
+
+          for (const sheetName of spfSheetNames) {
+            if (!spfRowsCache[sheetName]) {
+              spfRowsCache[sheetName] = await readProxySheetRows({
+                spreadsheetId: normalizeSpreadsheetId(spfUrl),
+                range: buildRangeFromSheetName(sheetName),
+                dataRowStart: 2,
+                mapping: {
+                  domain: 6,
+                  proxyUrl: 5,
+                  credentials: 21,
+                },
+              });
+            }
+
+            foundShop = spfRowsCache[sheetName].find(
+              (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
+            );
+
+            if (foundShop) break;
+          }
 
           if (!foundShop) {
             throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
           }
           setStep("MASTER", "done");
 
-          setStep("MACHINE_FETCH", "active");
-          const machineNameRaw = foundShop.proxyUrl;
-          const targetMachineUrl = machineNameRaw
-            ? Object.entries(machineSheets).find(
-                ([key]) =>
-                  machineNameRaw.trim().toUpperCase() === key.toUpperCase(),
-              )?.[1]
-            : null;
-
-          if (!targetMachineUrl) {
-            throw new Error(`Không xác định được máy cho shop này.`);
-          }
-
-          let machineRows = machineCache[targetMachineUrl];
-          if (!machineRows) {
-            machineRows = await readProxySheetRows({
-              spreadsheetId: normalizeSpreadsheetId(targetMachineUrl),
-              range: buildRangeFromSheetName(""),
-              dataRowStart: 2,
-            });
-            machineCache[targetMachineUrl] = machineRows;
-          }
-
-          const machineMatch = machineRows.find(
-            (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
-          );
-
-          if (!machineMatch) {
-            throw new Error(`Không tìm thấy thông tin trên sheet máy.`);
-          }
-
-          if (machineMatch.proxyUrl && !sock)
-            sock = machineMatch.proxyUrl.trim();
-          if (machineMatch.storeId && !sId) sId = machineMatch.storeId;
-          if (machineMatch.clientId && !cId) cId = machineMatch.clientId;
-          if (machineMatch.clientSecret && !cSec)
-            cSec = machineMatch.clientSecret;
-
-          setStep("MACHINE_FETCH", "done");
+          if (foundShop.proxyUrl && !sock) sock = foundShop.proxyUrl.trim();
+          if (foundShop.storeId && !sId) sId = foundShop.storeId;
+          if (foundShop.clientId && !cId) cId = foundShop.clientId;
+          if (foundShop.clientSecret && !cSec) cSec = foundShop.clientSecret;
         } else {
           setStep("MASTER", "done");
-          setStep("MACHINE_FETCH", "done");
         }
 
         // 1.5 – Check if this store is already configured
@@ -564,6 +545,31 @@ async function updatePayouts(targetId?: string | Event) {
   const target = typeof targetId === "string" ? targetId : undefined;
   isUpdating.value = true;
 
+  const normalizeDate = (value: string) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const parts = raw.split(/[\/\-]/).map((p) => p.trim());
+    if (parts.length < 2) return raw;
+    if (parts.length >= 3 && parts[0]?.length === 4) {
+      const [, month, day] = parts;
+      if (!day || !month) return raw;
+      return `${day.padStart(2, "0")}/${month.padStart(2, "0")}`;
+    }
+    const [day, month] = parts;
+    if (!day || !month) return raw;
+    return `${day.padStart(2, "0")}/${month.padStart(2, "0")}`;
+  };
+
+  const formatPayoutStatus = (status: string) => {
+    const normalized = String(status || "")
+      .trim()
+      .toLowerCase();
+    if (!normalized) return "";
+    if (normalized === "paid") return "Deposited";
+    const withSpaces = normalized.replace(/_/g, " ");
+    return withSpaces.replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
   const storesToSync = target
     ? storeList.value.filter((s) => s.id === target)
     : storeList.value;
@@ -680,25 +686,19 @@ async function updatePayouts(targetId?: string | Event) {
 
       if (payoutRes.payouts && payoutRes.payouts.length > 0) {
         let filteredPayouts: any[] = [];
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = new Date().toISOString().split("T")[0] || "";
 
         const existingPayouts: any[] = [];
         const newPayouts: any[] = [];
 
         payoutRes.payouts.forEach((p: any) => {
           const [p_year, p_month, p_day] = p.date.split("-");
-          const formattedDate = `${p_day}/${p_month}`;
-
-          let payoutStatus = p.status.toLowerCase();
-          if (payoutStatus === "paid") payoutStatus = "Deposited";
-          else
-            payoutStatus =
-              payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
+          const formattedDate = `${p_day.padStart(2, "0")}/${p_month.padStart(2, "0")}`;
 
           const quanLyIndex = quanLyRows.findIndex(
             (r) =>
               r[2]?.trim().toLowerCase() === store.domain.toLowerCase() &&
-              r[0]?.trim() === formattedDate,
+              normalizeDate(r[0]) === formattedDate,
           );
 
           if (quanLyIndex !== -1) {
@@ -772,22 +772,15 @@ async function updatePayouts(targetId?: string | Event) {
 
         for (const payout of ascendingPayouts) {
           const payoutDate = payout.date;
-          let payoutStatus = payout.status.toLowerCase();
-
-          if (payoutStatus === "paid") {
-            payoutStatus = "Deposited";
-          } else {
-            payoutStatus =
-              payoutStatus.charAt(0).toUpperCase() + payoutStatus.slice(1);
-          }
+          const payoutStatus = formatPayoutStatus(payout.status);
 
           const [p_year, p_month, p_day] = payoutDate.split("-");
-          const formattedDate = `${p_day}/${p_month}`;
+          const formattedDate = `${p_day.padStart(2, "0")}/${p_month.padStart(2, "0")}`;
 
           const quanLyIndex = quanLyRows.findIndex(
             (r) =>
               r[2]?.trim().toLowerCase() === store.domain.toLowerCase() &&
-              r[0]?.trim() === formattedDate,
+              normalizeDate(r[0]) === formattedDate,
           );
 
           // Find which sheet contains the customers for this payout
@@ -900,9 +893,10 @@ async function updatePayouts(targetId?: string | Event) {
 
           if (quanLyIndex !== -1) {
             const actualRow = quanLyIndex + 1;
+            const existingRow = quanLyRows[quanLyIndex] || [];
 
-            let valE = inBuff1 ? payout.amount : "";
-            let valF = inBuff2 ? payout.amount : "";
+            let valE = inBuff1 ? payout.amount : existingRow[4] || "";
+            let valF = inBuff2 ? payout.amount : existingRow[5] || "";
 
             quanLyUpdates.push({
               range: `'quản lý'!J${actualRow}:J${actualRow}`,
@@ -913,13 +907,17 @@ async function updatePayouts(targetId?: string | Event) {
               range: `'quản lý'!E${actualRow}:F${actualRow}`,
               values: [[valE, valF]],
             });
+
+            quanLyUpdates.push({
+              range: `'quản lý'!G${actualRow}:G${actualRow}`,
+              values: [[payout.amount]],
+            });
           } else if (store.id === formStore.storeId) {
             const fbsMatch = fbsRows.find(
               (r) => r[2]?.trim().toLowerCase() === store.domain.toLowerCase(),
             );
 
             const shopName = fbsMatch?.[3] || "";
-            const machineName = fbsMatch?.[4] || "";
             const bank = fbsMatch?.[19] || "";
 
             const buff1Amount = inBuff1 ? payout.amount : "";
@@ -935,10 +933,10 @@ async function updatePayouts(targetId?: string | Event) {
                   formattedDate,
                   shopName,
                   store.domain,
-                  machineName,
+                  "",
                   buff1Amount,
                   buff2Amount,
-                  "",
+                  payout.amount,
                   bank,
                   "",
                   payoutStatus,
@@ -956,13 +954,7 @@ async function updatePayouts(targetId?: string | Event) {
             new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
         const latestPayout = sortedPayouts[0];
-        let latestStatus = latestPayout.status.toLowerCase();
-        if (latestStatus === "paid") {
-          latestStatus = "Deposited";
-        } else {
-          latestStatus =
-            latestStatus.charAt(0).toUpperCase() + latestStatus.slice(1);
-        }
+        const latestStatus = formatPayoutStatus(latestPayout.status);
 
         paymentStore.setBulkingPayout(store.id, {
           date: latestPayout.date,
@@ -1814,11 +1806,18 @@ async function syncTrackingNumbers(targetId?: string) {
 <style scoped>
 .shop-layout-container {
   display: flex;
-  min-height: calc(100vh - 64px); /* Subtract nav height if any */
+  min-height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px); /* Subtract nav height if any */
   max-width: 1400px;
   margin: 0 auto;
   gap: 24px;
   padding: 0 20px;
+  overflow: hidden !important;
+}
+
+.page-content {
+  max-height: calc(100vh - 64px) !important;
+  overflow-y: auto !important;
 }
 
 /* Sidebar Styling */
@@ -1832,6 +1831,7 @@ async function syncTrackingNumbers(targetId?: string) {
   margin: 12px 0px;
   overflow: hidden;
   box-shadow: var(--shadow);
+  max-height: calc(100vh - 64px);
 }
 
 .sidebar-header {
