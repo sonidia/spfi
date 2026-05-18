@@ -35,6 +35,7 @@
               @click="setActiveTab('transactions')"
             >
               Transactions
+              <span class="tab-count">{{ transactionsCount }}</span>
             </button>
             <button
               class="tab-btn"
@@ -42,6 +43,7 @@
               @click="setActiveTab('payouts')"
             >
               Payouts
+              <span class="tab-count">{{ payoutsCount }}</span>
             </button>
             <button
               class="tab-btn"
@@ -49,6 +51,7 @@
               @click="setActiveTab('orders')"
             >
               Orders
+              <span class="tab-count">{{ ordersCount }}</span>
             </button>
             <button
               class="tab-btn"
@@ -56,6 +59,7 @@
               @click="setActiveTab('products')"
             >
               Products
+              <span class="tab-count">{{ productsCount }}</span>
             </button>
           </div>
 
@@ -104,13 +108,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useRouter, useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useFormStore } from "~/stores/form";
-import { usePaymentStore } from "~/stores/payment";
 import { useOrderStore } from "~/stores/order";
+import { usePaymentStore } from "~/stores/payment";
 import { useProductStore } from "~/stores/product";
 import { useToastStore } from "~/stores/toast";
-import { capitalize, fmtDate } from "~~/helpers";
 
 definePageMeta({ layout: false });
 
@@ -123,7 +126,9 @@ const router = useRouter();
 const route = useRoute();
 
 const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
-const activeTab = ref<"payouts" | "transactions" | "orders" | "products">("transactions");
+const activeTab = ref<"payouts" | "transactions" | "orders" | "products">(
+  "transactions",
+);
 
 function setActiveTab(tab: "payouts" | "transactions" | "orders" | "products") {
   activeTab.value = tab;
@@ -141,6 +146,11 @@ const currentBalance = computed(() => {
   if (Array.isArray(b)) return b[0] ?? null;
   return b;
 });
+
+const transactionsCount = computed(() => paymentStore.payouts.length);
+const payoutsCount = computed(() => paymentStore.payouts.length);
+const ordersCount = computed(() => orderStore.orders.length);
+const productsCount = computed(() => productStore.products.length);
 
 onMounted(() => {
   if (formStore.storeId) {
@@ -336,6 +346,9 @@ function resolveToken(sid: string): string | null {
   font-family: var(--font);
   transition: all 0.15s;
   line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .tab-btn.active {
   background: #e8e8e8;
@@ -343,6 +356,23 @@ function resolveToken(sid: string): string | null {
 }
 .tab-btn:hover:not(.active) {
   background: #f0f0f0;
+}
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 999px;
+  background: #eef0f3;
+  color: var(--text-secondary);
+}
+.tab-btn.active .tab-count {
+  background: #dfe3e8;
+  color: var(--text-primary);
 }
 
 /* ─── BADGE ─── */
@@ -430,12 +460,14 @@ function resolveToken(sid: string): string | null {
   color: var(--text-secondary);
   white-space: nowrap;
 }
-:deep(.td-order a), :deep(.link) {
+:deep(.td-order a),
+:deep(.link) {
   color: var(--blue);
   font-weight: 500;
   text-decoration: none;
 }
-:deep(.td-order a:hover), :deep(.link:hover) {
+:deep(.td-order a:hover),
+:deep(.link:hover) {
   text-decoration: underline;
 }
 :deep(.td-type) {
@@ -571,6 +603,17 @@ function resolveToken(sid: string): string | null {
 :deep(.btn-add-track:hover) {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+:deep(.btn-add-track:disabled) {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+:deep(.btn-add-track.is-loading) {
+  filter: blur(1px);
+  opacity: 0.7;
 }
 
 /* ─── EMPTY ─── */

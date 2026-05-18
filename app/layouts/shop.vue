@@ -1,6 +1,12 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
-import { SHEET_COLUMNS, SHEET_RANGES, SHEET_TABS } from "~~/utils/sheetConfig";
+import {
+  BUFF_SHEET_NAMES,
+  SHEET_COLUMNS,
+  SHEET_RANGES,
+  SHEET_TABS,
+  SPF_SHEET_TABS,
+} from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
@@ -287,8 +293,7 @@ function toUserFriendlyMessage(error: any) {
   return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
 }
 
-const { readProxySheetRows, buildRangeFromSheetName, readSheetMeta } =
-  useSheetService();
+const { readProxySheetRows, buildRangeFromSheetName } = useSheetService();
 
 async function addShop() {
   const domains = newDomain.value
@@ -313,7 +318,7 @@ async function addShop() {
   try {
     // 0. SPF cache setup
     const spfUrl = SPF_SHEET_URL;
-    let spfSheetNames: string[] = [];
+    let spfSheetNames: string[] = [...SPF_SHEET_TABS];
     const spfRowsCache: Record<string, any[]> = {};
 
     for (const domain of domains) {
@@ -330,12 +335,6 @@ async function addShop() {
           const domainSearch = domain.toLowerCase();
 
           // 1. Discovery Phase
-          if (!spfSheetNames.length) {
-            const meta = await readSheetMeta({
-              spreadsheetId: normalizeSpreadsheetId(spfUrl),
-            });
-            spfSheetNames = meta.sheets || [];
-          }
 
           let foundShop = null;
 
@@ -512,7 +511,7 @@ async function loadPayouts() {
           r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() === domainLower,
       );
       if (inBuff1) {
-        sheets.push("$ buff1");
+        sheets.push(BUFF_SHEET_NAMES.BUFF1);
       }
 
       const inBuff2 = buff2Rows.some(
@@ -520,7 +519,7 @@ async function loadPayouts() {
           r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() === domainLower,
       );
       if (inBuff2) {
-        sheets.push("$ buff2");
+        sheets.push(BUFF_SHEET_NAMES.BUFF2);
       }
 
       let sheetName = sheets.join(", ");
@@ -569,6 +568,9 @@ async function updatePayouts(targetId?: string | Event) {
     await loadPayouts();
   }
 
+  const effectiveSyncMode = syncMode.value;
+  const effectiveSyncCount = syncCount.value;
+
   const normalizeDate = (value: string) => {
     const raw = String(value || "").trim();
     if (!raw) return "";
@@ -597,8 +599,12 @@ async function updatePayouts(targetId?: string | Event) {
   const storesToSync = target
     ? storeList.value.filter((s) => s.id === target)
     : storeList.value;
-  const needsBuff1 = storesToSync.some((s) => s.sheet?.includes("$ buff1"));
-  const needsBuff2 = storesToSync.some((s) => s.sheet?.includes("$ buff2"));
+  const needsBuff1 = storesToSync.some((s) =>
+    s.sheet?.includes(BUFF_SHEET_NAMES.BUFF1),
+  );
+  const needsBuff2 = storesToSync.some((s) =>
+    s.sheet?.includes(BUFF_SHEET_NAMES.BUFF2),
+  );
 
   let buff1Rows: any[] = [];
   let buff2Rows: any[] = [];
@@ -745,20 +751,28 @@ async function updatePayouts(targetId?: string | Event) {
         });
 
         let processedNewPayouts = [...newPayouts];
-        if (syncMode.value === "from_today") {
+        if (effectiveSyncMode === "from_today") {
+          const startDate = new Date(todayStr);
+          const endDate = new Date(startDate);
+          if (effectiveSyncCount !== "unlimit") {
+            const days = Number(effectiveSyncCount);
+            endDate.setDate(
+              endDate.getDate() + (Number.isNaN(days) ? 0 : days),
+            );
+          }
+
+          const startStr = startDate.toISOString().split("T")[0] || todayStr;
+          const endStr =
+            effectiveSyncCount === "unlimit"
+              ? "9999-12-31"
+              : endDate.toISOString().split("T")[0] || todayStr;
+
           processedNewPayouts = processedNewPayouts
-            .filter((p: any) => p.date >= todayStr)
+            .filter((p: any) => p.date >= startStr && p.date <= endStr)
             .sort(
               (a: any, b: any) =>
                 new Date(a.date).getTime() - new Date(b.date).getTime(),
             );
-
-          if (syncCount.value !== "unlimit") {
-            processedNewPayouts = processedNewPayouts.slice(
-              0,
-              Number(syncCount.value),
-            );
-          }
         }
 
         filteredPayouts = [...existingPayouts, ...processedNewPayouts];
@@ -810,6 +824,15 @@ async function updatePayouts(targetId?: string | Event) {
           (a: any, b: any) =>
             new Date(a.date).getTime() - new Date(b.date).getTime(),
         );
+
+        const fbsMatch = fbsRows.find(
+          (r) =>
+            r[SHEET_COLUMNS.FBS.domain]?.trim().toLowerCase() ===
+            store.domain.toLowerCase(),
+        );
+        const shopName = fbsMatch?.[SHEET_COLUMNS.FBS.shopName] || "";
+        const fbsColE = fbsMatch?.[SHEET_COLUMNS.FBS.colE] || "";
+        const bank = fbsMatch?.[SHEET_COLUMNS.FBS.bank] || "";
 
         for (const payout of ascendingPayouts) {
           const payoutDate = payout.date;
@@ -934,8 +957,8 @@ async function updatePayouts(targetId?: string | Event) {
 
           // Fallback if matching failed but store is known to be in a specific sheet
           if (!inBuff1 && !inBuff2) {
-            const isBuff1Store = store.sheet?.includes("$ buff1");
-            const isBuff2Store = store.sheet?.includes("$ buff2");
+            const isBuff1Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF1);
+            const isBuff2Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF2);
             // Only fallback if uniquely identified in one sheet
             if (isBuff1Store && !isBuff2Store) inBuff1 = true;
             else if (isBuff2Store && !isBuff1Store) inBuff2 = true;
@@ -945,10 +968,17 @@ async function updatePayouts(targetId?: string | Event) {
             const actualRow = quanLyIndex + 1;
             const existingRow = quanLyRows[quanLyIndex] || [];
 
-            let valE = inBuff1
+            const isBuff1Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF1);
+            const isBuff2Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF2);
+            const shouldUpdateBuff1 =
+              (isBuff1Store && !isBuff2Store) || (inBuff1 && !inBuff2);
+            const shouldUpdateBuff2 =
+              (isBuff2Store && !isBuff1Store) || (inBuff2 && !inBuff1);
+
+            let valE = shouldUpdateBuff1
               ? payout.amount
               : existingRow[SHEET_COLUMNS.QUAN_LY.buff1Amount] || "";
-            let valF = inBuff2
+            let valF = shouldUpdateBuff2
               ? payout.amount
               : existingRow[SHEET_COLUMNS.QUAN_LY.buff2Amount] || "";
 
@@ -958,24 +988,10 @@ async function updatePayouts(targetId?: string | Event) {
             });
 
             quanLyUpdates.push({
-              range: `'${SHEET_TABS.QUAN_LY}'!E${actualRow}:F${actualRow}`,
-              values: [[valE, valF]],
-            });
-
-            quanLyUpdates.push({
-              range: `'${SHEET_TABS.QUAN_LY}'!G${actualRow}:G${actualRow}`,
-              values: [[payout.amount]],
+              range: `'${SHEET_TABS.QUAN_LY}'!D${actualRow}:H${actualRow}`,
+              values: [[fbsColE, valE, valF, payout.amount, bank]],
             });
           } else if (isSyncAll || store.id === formStore.storeId) {
-            const fbsMatch = fbsRows.find(
-              (r) =>
-                r[SHEET_COLUMNS.FBS.domain]?.trim().toLowerCase() ===
-                store.domain.toLowerCase(),
-            );
-
-            const shopName = fbsMatch?.[SHEET_COLUMNS.FBS.shopName] || "";
-            const bank = fbsMatch?.[SHEET_COLUMNS.FBS.bank] || "";
-
             const buff1Amount = inBuff1 ? payout.amount : "";
             const buff2Amount = inBuff2 ? payout.amount : "";
 
@@ -989,7 +1005,7 @@ async function updatePayouts(targetId?: string | Event) {
                   formattedDate,
                   shopName,
                   store.domain,
-                  "",
+                  fbsColE,
                   buff1Amount,
                   buff2Amount,
                   payout.amount,
@@ -1213,11 +1229,15 @@ async function syncTrackingNumbers(
     const domainNorm = normalize(domain);
     const storeSheet = getStoreSheet(sid);
     const needsBuff1 =
-      storeSheet?.includes("$ buff1") ||
-      storeList.value.some((s) => s.id === sid && s.sheet?.includes("$ buff1"));
+      storeSheet?.includes(BUFF_SHEET_NAMES.BUFF1) ||
+      storeList.value.some(
+        (s) => s.id === sid && s.sheet?.includes(BUFF_SHEET_NAMES.BUFF1),
+      );
     const needsBuff2 =
-      storeSheet?.includes("$ buff2") ||
-      storeList.value.some((s) => s.id === sid && s.sheet?.includes("$ buff2"));
+      storeSheet?.includes(BUFF_SHEET_NAMES.BUFF2) ||
+      storeList.value.some(
+        (s) => s.id === sid && s.sheet?.includes(BUFF_SHEET_NAMES.BUFF2),
+      );
 
     // Read both unconditionally (we'll skip updates if no domain match)
     const [b1Res, b2Res] = await Promise.allSettled([
@@ -2138,6 +2158,7 @@ async function syncTrackingNumbers(
 }
 
 .sidebar-item-label {
+  width: 100%;
   font-size: 13.5px;
   font-weight: 500;
   white-space: nowrap;

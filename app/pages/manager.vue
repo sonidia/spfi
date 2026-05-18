@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
+import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 
 const { SPF_SHEET_URL } = getSheetUrls();
@@ -90,12 +91,8 @@ function toUserFriendlyMessage(error: any) {
   return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
 }
 
-const {
-  readProxySheetRows,
-  normalizeSpreadsheetId,
-  buildRangeFromSheetName,
-  readSheetMeta,
-} = useSheetService();
+const { readProxySheetRows, normalizeSpreadsheetId, buildRangeFromSheetName } =
+  useSheetService();
 
 // ── Load stores on mount ──────────────────────────────────────────────────────
 onMounted(() => {
@@ -264,7 +261,7 @@ async function addShop() {
   try {
     // 0. SPF cache setup
     const spfUrl = SPF_SHEET_URL;
-    let spfSheetNames: string[] = [];
+    let spfSheetNames: string[] = [...SPF_SHEET_TABS];
     const spfRowsCache: Record<string, any[]> = {};
 
     for (const domain of domains) {
@@ -281,12 +278,6 @@ async function addShop() {
           const domainSearch = domain.toLowerCase();
 
           // 1. Discovery Phase
-          if (!spfSheetNames.length) {
-            const meta = await readSheetMeta({
-              spreadsheetId: normalizeSpreadsheetId(spfUrl),
-            });
-            spfSheetNames = meta.sheets || [];
-          }
 
           let foundShop = null;
 

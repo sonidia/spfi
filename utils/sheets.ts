@@ -1,3 +1,5 @@
+import { SHEET_TABS } from "./sheetConfig";
+
 export type StoredSheet = {
   source: string;
   label: string;
@@ -57,7 +59,7 @@ export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
   return [
     {
       source: urls.QUAN_LY_SHEET_URL,
-      tab: "quản lý",
+      tab: SHEET_TABS.QUAN_LY,
       startRow: 3,
       columns: {
         storeId: 1,
@@ -68,7 +70,7 @@ export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
     },
     {
       source: urls.BUFF1_SHEET_URL,
-      tab: "order 1",
+      tab: SHEET_TABS.BUFF1,
       startRow: 5,
       columns: {
         storeId: 0,
@@ -79,7 +81,7 @@ export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
     },
     {
       source: urls.FBS_SHEET_URL,
-      tab: "FBS",
+      tab: SHEET_TABS.FBS,
       startRow: 3,
       columns: {
         storeId: 1,
@@ -90,7 +92,7 @@ export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
     },
     {
       source: urls.BUFF2_SHEET_URL,
-      tab: "Sheet1",
+      tab: SHEET_TABS.BUFF2,
       startRow: 3,
       columns: {
         storeId: 0,

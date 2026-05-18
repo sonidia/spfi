@@ -5,6 +5,13 @@ export const SHEET_TABS = {
   BUFF2: "Sheet1",
 } as const;
 
+export const SPF_SHEET_TABS = ["Shopify T3/2026", "Shopify T4/2026"] as const;
+
+export const BUFF_SHEET_NAMES = {
+  BUFF1: "$ buff1",
+  BUFF2: "$ buff2",
+};
+
 export const SHEET_RANGES = {
   QUAN_LY_ALL: `'${SHEET_TABS.QUAN_LY}'!A:Z`,
   FBS_ALL: `'${SHEET_TABS.FBS}'!A:Z`,
@@ -26,6 +33,7 @@ export const SHEET_COLUMNS = {
   FBS: {
     domain: 2,
     shopName: 3,
+    colE: 4,
     bank: 19,
   },
   BUFF: {

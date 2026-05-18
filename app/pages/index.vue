@@ -61,11 +61,11 @@
         </div>
         <div class="step-body">
           <div class="config-grid">
-            <!-- <div class="config-row">
+            <div class="config-row">
               <span class="config-key">Redirect URL</span>
               <code class="code-inline">https://admin.shopify.com</code>
             </div>
-            <div class="config-row">
+            <!-- <div class="config-row">
               <span class="config-key">App URL</span>
               <code class="code-inline">http://localhost/new-install</code>
             </div>

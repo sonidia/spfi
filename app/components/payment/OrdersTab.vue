@@ -164,7 +164,12 @@
                   order.fulfillment_status !== 'fulfilled'
                 "
               >
-                <button class="btn-add-track" @click.stop="addTracking(order)">
+                <button 
+                  class="btn-add-track" 
+                  @click.stop="addTracking(order)"
+                  :disabled="processingOrderId === order.id"
+                  :class="{ 'is-loading': processingOrderId === order.id }"
+                >
                   <span v-html="ICONS.plus"></span>
                   Add track
                 </button>
@@ -205,6 +210,7 @@ const paymentStore = usePaymentStore();
 const formStore = useFormStore();
 const toastStore = useToastStore();
 const router = useRouter();
+const processingOrderId = ref<string | null>(null);
 const { readSheetValues, batchUpdateSheetValues, normalizeSpreadsheetId } =
   useSheetService();
 
@@ -236,6 +242,9 @@ async function addTracking(order: any) {
     );
     return;
   }
+
+  processingOrderId.value = order.id;
+  toastStore.addToast(`Adding tracking for order ${order.name || "#" + order.order_number}...`, "info");
 
   // Priority: 1. Shipping Address, 2. Billing Address, 3. Customer Default Address, 4. Fallback 'CA'
   const provinceCode =
@@ -322,6 +331,8 @@ async function addTracking(order: any) {
       console.error("Detailed error data:", err.data);
     }
     toastStore.addToast(`Failed to update tracking: ${msg}`, "error");
+  } finally {
+    processingOrderId.value = null;
   }
 }
 
