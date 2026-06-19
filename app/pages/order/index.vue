@@ -203,7 +203,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
-import { useSheetService } from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
@@ -220,21 +219,14 @@ import {
   transactionBadge,
 } from "~~/utils/order";
 
-import { getSheetUrls } from "~~/utils/sheets";
-
-const { BUFF1_SHEET_URL, BUFF2_SHEET_URL } = getSheetUrls();
-
 definePageMeta({ layout: false });
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const formStore = useFormStore();
 const toastStore = useToastStore();
-const { readSheetValues, batchUpdateSheetValues, normalizeSpreadsheetId } =
-  useSheetService();
 
 const orders = computed(() => orderStore.orders);
-const config = useRuntimeConfig();
 
 function getTransactionStatus(orderId: any) {
   if (!orderId) return null;
@@ -343,11 +335,6 @@ async function addTracking(order: any) {
     // 3. Refresh orders to show new status/tracking
     await orderStore.fetchAll(sid, token);
 
-    // 4. Update Google Sheets (Async-like)
-    updateSheetTracking(order, trackingNr).catch((err) => {
-      console.error("Failed to update sheet tracking:", err);
-    });
-
     toastStore.addToast(
       `Tracking updated successfully! (${trackingNr})`,
       "success",
@@ -359,98 +346,6 @@ async function addTracking(order: any) {
   }
 }
 
-async function updateSheetTracking(order: any, trackingNr: string) {
-  const sid = formStore.storeId;
-  const cookie = useLocalStorage<any>(sid, {}).state;
-  const domain = cookie.value?.domain;
-  const customerName = getCustomerName(order);
-
-  if (!domain || !customerName) return;
-
-  const domainLower = domain.toLowerCase().trim();
-  const customerLower = customerName.toLowerCase().trim();
-
-  // 1. Identify sheet
-  const [b1Results, b2Results] = await Promise.allSettled([
-    readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-      range: "'order 1'!A:Z",
-    }),
-    readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-      range: "'Sheet1'!A:Z",
-    }),
-  ]);
-
-  const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
-  const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
-
-  let targetRows: any[][] = [];
-  let targetRangeSheet = "";
-  let spreadsheetId = "";
-
-  const checkDomainMatch = (d: string) => {
-    const s = String(d || "")
-      .toLowerCase()
-      .trim();
-    if (!s) return false;
-    return s.includes(domainLower) || domainLower.includes(s);
-  };
-
-  if (buff1Rows.some((r) => checkDomainMatch(r[3]))) {
-    targetRows = buff1Rows;
-    targetRangeSheet = "'order 1'";
-    spreadsheetId = BUFF1_SHEET_URL;
-  } else if (buff2Rows.some((r) => checkDomainMatch(r[3]))) {
-    targetRows = buff2Rows;
-    targetRangeSheet = "'Sheet1'";
-    spreadsheetId = BUFF2_SHEET_URL;
-  }
-
-  if (!spreadsheetId) return;
-
-  // 2. Find row and update
-  const updates: any[] = [];
-  targetRows.forEach((row, index) => {
-    const domainInSheet = String(row[3] || "")
-      .toLowerCase()
-      .trim();
-    const customerInSheet = String(row[7] || "")
-      .toLowerCase()
-      .trim();
-
-    // Lenient check: If domain matches OR if domain column is empty (fallback within identified sheet)
-    const domainOk = !domainInSheet || checkDomainMatch(domainInSheet);
-
-    if (customerInSheet && domainOk) {
-      const nameMatch =
-        customerInSheet.includes(customerLower) ||
-        customerLower.includes(customerInSheet);
-
-      if (nameMatch) {
-        const actualRow = index + 1;
-        updates.push({
-          range: `${targetRangeSheet}!K${actualRow}:K${actualRow}`,
-          values: [[trackingNr]],
-        });
-      }
-    }
-  });
-
-  if (updates.length > 0) {
-    await batchUpdateSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(spreadsheetId),
-      data: updates,
-    });
-    console.log(
-      `Successfully updated tracking in sheet for ${customerName} (${updates.length} rows)`,
-    );
-  } else {
-    console.warn(
-      `No match found in ${targetRangeSheet} for [${customerLower}]. Sample Col H: ${targetRows.length > 1 ? targetRows[1][7] : "N/A"}`,
-    );
-  }
-}
 </script>
 
 <style scoped>

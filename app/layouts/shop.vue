@@ -1,33 +1,19 @@
 <script lang="ts" setup>
 import { useSheetService } from "~/composables/useSheetService";
-import {
-  BUFF_SHEET_NAMES,
-  SHEET_COLUMNS,
-  SHEET_RANGES,
-  SHEET_TABS,
-  SPF_SHEET_TABS,
-} from "~~/utils/sheetConfig";
+import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
-import { useToastStore } from "../stores/toast";
 
-const {
-  BUFF1_SHEET_URL,
-  BUFF2_SHEET_URL,
-  FBS_SHEET_URL,
-  QUAN_LY_SHEET_URL,
-  SPF_SHEET_URL,
-} = getSheetUrls();
+const { SPF_SHEET_URL } = getSheetUrls();
 
 const formStore = useFormStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
-const toastStore = useToastStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -114,7 +100,6 @@ function hydrateStoreData(storeId: string) {
 }
 
 function onSelectStore(id: string) {
-  if (isBulkSyncing.value) return;
   formStore.storeId = id;
   useLocalStorage("active_store_id", "").state.value = id;
 
@@ -186,14 +171,6 @@ function getStoreDomain(id: string): string {
   return cookie.value?.domain || "";
 }
 
-// ── Get sheet name for store ─────────────────────────────────────────────────
-function getStoreSheet(id: string): string {
-  if (!id) return "";
-  const cookie = useLocalStorage<any>(id, {}).state;
-  const cached: any = paymentStore.bulkingPayouts[id] || {};
-  return cookie.value?.sheet || cached.sheet || "";
-}
-
 // ── Search functionality ─────────────────────────────────────────────────────
 const searchQuery = ref("");
 const filteredStores = computed(() => {
@@ -205,25 +182,11 @@ const filteredStores = computed(() => {
   });
 });
 
-// ── Bulk Sheet & Payout Actions ──────────────────────────────────────────────
 const {
-  readSheetValues,
-  updateSheetValues: _updateSheetValues,
-  batchUpdateSheetValues,
+  readProxySheetRows,
+  buildRangeFromSheetName,
   normalizeSpreadsheetId,
 } = useSheetService();
-
-const isLoadingPayouts = ref(false);
-const isUpdating = ref(false);
-const isSyncingDate = ref(false);
-const isSyncingTracking = ref(false);
-const isBulkSyncing = ref(false);
-const activeSyncStoreId = ref<string | null>(null);
-
-const syncMode = ref<"all" | "from_today">("from_today");
-const syncCount = ref<number | "unlimit">(1);
-const isSyncPopoverOpen = ref(false);
-const isInteractionLocked = computed(() => isBulkSyncing.value);
 
 // ── Add Store Modal State ───────────────────────────────────────────────────
 const isAddModalOpen = ref(false);
@@ -292,8 +255,6 @@ function toUserFriendlyMessage(error: any) {
 
   return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
 }
-
-const { readProxySheetRows, buildRangeFromSheetName } = useSheetService();
 
 async function addShop() {
   const domains = newDomain.value
@@ -465,630 +426,6 @@ function handlePaste(event: ClipboardEvent) {
   }
 }
 
-const storeList = computed(() => {
-  return formStore.knownStores.map((id) => {
-    const cookie = useLocalStorage<any>(id, {}).state;
-    const data = cookie.value;
-    const cached: any = paymentStore.bulkingPayouts[id] || {};
-    return {
-      id,
-      domain: data?.domain || "",
-      accessToken: data?.accessToken || "",
-      proxy: data?.sock || "",
-      sheet: data?.sheet || cached.sheet || "",
-    };
-  });
-});
-
-async function loadPayouts() {
-  const missingSheetStores = storeList.value.filter(
-    (s) => !s.sheet && s.domain,
-  );
-  if (missingSheetStores.length === 0) return;
-
-  isLoadingPayouts.value = true;
-  try {
-    const [b1Results, b2Results] = await Promise.allSettled([
-      readSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-        range: SHEET_RANGES.BUFF1_ALL,
-      }),
-      readSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-        range: SHEET_RANGES.BUFF2_ALL,
-      }),
-    ]);
-
-    const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
-    const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
-
-    for (const store of missingSheetStores) {
-      const domainLower = store.domain.toLowerCase();
-
-      let sheets = [];
-      const inBuff1 = buff1Rows.some(
-        (r) =>
-          r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() === domainLower,
-      );
-      if (inBuff1) {
-        sheets.push(BUFF_SHEET_NAMES.BUFF1);
-      }
-
-      const inBuff2 = buff2Rows.some(
-        (r) =>
-          r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() === domainLower,
-      );
-      if (inBuff2) {
-        sheets.push(BUFF_SHEET_NAMES.BUFF2);
-      }
-
-      let sheetName = sheets.join(", ");
-
-      if (sheetName) {
-        const cookie = useLocalStorage<any>(
-          store.id,
-          {},
-          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
-        ).state;
-
-        // Update local storage only if it's different or the store didn't have a sheet name before
-        if (cookie.value.sheet !== sheetName) {
-          cookie.value = { ...cookie.value, sheet: sheetName };
-
-          paymentStore.setBulkingPayout(store.id, {
-            date: "",
-            status: "",
-            sheet: sheetName,
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Error loading payouts from spreadsheet:", err);
-  } finally {
-    isLoadingPayouts.value = false;
-  }
-}
-
-async function updatePayouts(targetId?: string | Event) {
-  const target = typeof targetId === "string" ? targetId : undefined;
-  const isSyncAll = !target;
-  isUpdating.value = true;
-  if (isSyncAll) {
-    isBulkSyncing.value = true;
-  }
-
-  const shouldLoadSheets = isSyncAll
-    ? storeList.value.some((s) => !s.sheet && s.domain)
-    : target
-      ? !getStoreSheet(target)
-      : false;
-
-  if (shouldLoadSheets) {
-    await loadPayouts();
-  }
-
-  const effectiveSyncMode = syncMode.value;
-  const effectiveSyncCount = syncCount.value;
-
-  const normalizeDate = (value: string) => {
-    const raw = String(value || "").trim();
-    if (!raw) return "";
-    const parts = raw.split(/[\/\-]/).map((p) => p.trim());
-    if (parts.length < 2) return raw;
-    if (parts.length >= 3 && parts[0]?.length === 4) {
-      const [, month, day] = parts;
-      if (!day || !month) return raw;
-      return `${day.padStart(2, "0")}/${month.padStart(2, "0")}`;
-    }
-    const [day, month] = parts;
-    if (!day || !month) return raw;
-    return `${day.padStart(2, "0")}/${month.padStart(2, "0")}`;
-  };
-
-  const formatPayoutStatus = (status: string) => {
-    const normalized = String(status || "")
-      .trim()
-      .toLowerCase();
-    if (!normalized) return "";
-    if (normalized === "paid") return "Deposited";
-    const withSpaces = normalized.replace(/_/g, " ");
-    return withSpaces.replace(/\b\w/g, (char) => char.toUpperCase());
-  };
-
-  const storesToSync = target
-    ? storeList.value.filter((s) => s.id === target)
-    : storeList.value;
-  const needsBuff1 = storesToSync.some((s) =>
-    s.sheet?.includes(BUFF_SHEET_NAMES.BUFF1),
-  );
-  const needsBuff2 = storesToSync.some((s) =>
-    s.sheet?.includes(BUFF_SHEET_NAMES.BUFF2),
-  );
-
-  let buff1Rows: any[] = [];
-  let buff2Rows: any[] = [];
-  let quanLyRows: any[] = [];
-  let fbsRows: any[] = [];
-  let appendedRowCount = 0;
-  let appendedMessages: string[] = [];
-
-  try {
-    const sheetPromises = [
-      readSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-        range: SHEET_RANGES.QUAN_LY_ALL,
-      }),
-      readSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(FBS_SHEET_URL),
-        range: SHEET_RANGES.FBS_ALL,
-      }),
-    ];
-
-    if (needsBuff1) {
-      sheetPromises.push(
-        readSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-          range: SHEET_RANGES.BUFF1_ALL,
-        }),
-      );
-    }
-
-    if (needsBuff2) {
-      sheetPromises.push(
-        readSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-          range: SHEET_RANGES.BUFF2_ALL,
-        }),
-      );
-    }
-
-    const results = await Promise.allSettled(sheetPromises);
-
-    let idx = 0;
-    if (results[idx]?.status === "fulfilled") {
-      quanLyRows = (results[idx] as PromiseFulfilledResult<any>).value;
-    }
-    idx++;
-
-    if (results[idx]?.status === "fulfilled") {
-      fbsRows = (results[idx] as PromiseFulfilledResult<any>).value;
-    }
-    idx++;
-
-    if (needsBuff1) {
-      if (results[idx]?.status === "fulfilled") {
-        buff1Rows = (results[idx] as PromiseFulfilledResult<any>).value;
-      }
-      idx++;
-    }
-
-    if (needsBuff2) {
-      if (results[idx]?.status === "fulfilled") {
-        buff2Rows = (results[idx] as PromiseFulfilledResult<any>).value;
-      }
-      idx++;
-    }
-  } catch (e) {
-    console.error("Failed to load some sheets for syncing", e);
-  }
-
-  let lastNonEmptyRow = quanLyRows.length;
-  for (let i = quanLyRows.length - 1; i >= 0; i--) {
-    const row = quanLyRows[i];
-    if (
-      row &&
-      (row[SHEET_COLUMNS.QUAN_LY.date]?.trim() ||
-        row[SHEET_COLUMNS.QUAN_LY.shopName]?.trim() ||
-        row[SHEET_COLUMNS.QUAN_LY.domain]?.trim())
-    ) {
-      lastNonEmptyRow = i + 1;
-      break;
-    }
-  }
-
-  const quanLyUpdates: any[] = [];
-
-  for (const store of storesToSync) {
-    activeSyncStoreId.value = store.id;
-    if (!store.accessToken) {
-      paymentStore.setBulkingPayout(store.id, {
-        date: "No token",
-        status: "No token",
-        sheet: store.sheet,
-      });
-      if (isSyncAll) {
-        toastStore.error(
-          `Không có token cho ${store.domain || store.id}. Bỏ qua.`,
-        );
-      }
-      continue;
-    }
-    paymentStore.setBulkingPayout(store.id, {
-      date: "Fetching...",
-      status: "Fetching...",
-      sheet: store.sheet,
-    });
-    try {
-      const [payoutRes, txRes, orderRes]: any = await Promise.all([
-        $fetch("/api/payment/payout/all", {
-          method: "POST",
-          body: { storeId: store.id, token: store.accessToken },
-        }),
-        $fetch("/api/payment/payout/transactions", {
-          method: "POST",
-          body: { storeId: store.id, token: store.accessToken },
-        }),
-        $fetch("/api/order/all", {
-          method: "POST",
-          body: { storeId: store.id, token: store.accessToken },
-        }),
-      ]);
-
-      if (payoutRes.payouts && payoutRes.payouts.length > 0) {
-        let filteredPayouts: any[] = [];
-        const todayStr = new Date().toISOString().split("T")[0] || "";
-
-        const existingPayouts: any[] = [];
-        const newPayouts: any[] = [];
-
-        payoutRes.payouts.forEach((p: any) => {
-          const [p_year, p_month, p_day] = p.date.split("-");
-          const formattedDate = `${p_day.padStart(2, "0")}/${p_month.padStart(2, "0")}`;
-
-          const quanLyIndex = quanLyRows.findIndex(
-            (r) =>
-              r[SHEET_COLUMNS.QUAN_LY.domain]?.trim().toLowerCase() ===
-                store.domain.toLowerCase() &&
-              normalizeDate(r[SHEET_COLUMNS.QUAN_LY.date]) === formattedDate,
-          );
-
-          if (quanLyIndex !== -1) {
-            existingPayouts.push(p);
-          } else {
-            newPayouts.push(p);
-          }
-        });
-
-        let processedNewPayouts = [...newPayouts];
-        if (effectiveSyncMode === "from_today") {
-          const startDate = new Date(todayStr);
-          const endDate = new Date(startDate);
-          if (effectiveSyncCount !== "unlimit") {
-            const days = Number(effectiveSyncCount);
-            endDate.setDate(
-              endDate.getDate() + (Number.isNaN(days) ? 0 : days),
-            );
-          }
-
-          const startStr = startDate.toISOString().split("T")[0] || todayStr;
-          const endStr =
-            effectiveSyncCount === "unlimit"
-              ? "9999-12-31"
-              : endDate.toISOString().split("T")[0] || todayStr;
-
-          processedNewPayouts = processedNewPayouts
-            .filter((p: any) => p.date >= startStr && p.date <= endStr)
-            .sort(
-              (a: any, b: any) =>
-                new Date(a.date).getTime() - new Date(b.date).getTime(),
-            );
-        }
-
-        filteredPayouts = [...existingPayouts, ...processedNewPayouts];
-
-        if (filteredPayouts.length === 0) {
-          paymentStore.setBulkingPayout(store.id, {
-            date: "No matching payouts",
-            status: "Filtered",
-            sheet: store.sheet,
-          });
-          if (isSyncAll) {
-            toastStore.info(
-              `Không có payout phù hợp cho ${store.domain || store.id}.`,
-            );
-          }
-          continue;
-        }
-
-        // Map cached orders to their customer names and display names (APB1#...)
-        const orderMap = new Map();
-        const orderNameMap = new Map();
-        if (orderRes && orderRes.orders) {
-          orderRes.orders.forEach((o: any) => {
-            const customerName = o.customer
-              ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
-              : "";
-            orderMap.set(String(o.id), customerName);
-            orderNameMap.set(String(o.id), o.name || "");
-          });
-        }
-
-        // Map transactions to their IDs, order names, and cached customers
-        const transactions = (txRes.transactions || [])
-          .filter((tx: any) => tx.payout_id)
-          .map((tx: any) => ({
-            payoutId: String(tx.payout_id),
-            sourceOrderId: tx.source_order_id
-              ? String(tx.source_order_id)
-              : null,
-            orderName: tx.source_order_id
-              ? orderNameMap.get(String(tx.source_order_id))
-              : "",
-            customerName: tx.source_order_id
-              ? orderMap.get(String(tx.source_order_id))
-              : "",
-          }));
-
-        const ascendingPayouts = [...filteredPayouts].sort(
-          (a: any, b: any) =>
-            new Date(a.date).getTime() - new Date(b.date).getTime(),
-        );
-
-        const fbsMatch = fbsRows.find(
-          (r) =>
-            r[SHEET_COLUMNS.FBS.domain]?.trim().toLowerCase() ===
-            store.domain.toLowerCase(),
-        );
-        const shopName = fbsMatch?.[SHEET_COLUMNS.FBS.shopName] || "";
-        const fbsColE = fbsMatch?.[SHEET_COLUMNS.FBS.colE] || "";
-        const bank = fbsMatch?.[SHEET_COLUMNS.FBS.bank] || "";
-
-        for (const payout of ascendingPayouts) {
-          const payoutDate = payout.date;
-          const payoutStatus = formatPayoutStatus(payout.status);
-
-          const [p_year, p_month, p_day] = payoutDate.split("-");
-          const formattedDate = `${p_day.padStart(2, "0")}/${p_month.padStart(2, "0")}`;
-
-          const quanLyIndex = quanLyRows.findIndex(
-            (r) =>
-              r[SHEET_COLUMNS.QUAN_LY.domain]?.trim().toLowerCase() ===
-                store.domain.toLowerCase() &&
-              normalizeDate(r[SHEET_COLUMNS.QUAN_LY.date]) === formattedDate,
-          );
-
-          // Find which sheet contains the customers for this payout
-          let payoutTx = transactions.filter(
-            (tx: any) => tx.payoutId === String(payout.id),
-          );
-
-          // If no transactions found in batch, fetch specifically for this payout
-          if (payoutTx.length === 0) {
-            try {
-              const res: any = await $fetch(
-                `/api/payment/payout/${payout.id}`,
-                {
-                  params: { storeId: store.id, token: store.accessToken },
-                },
-              );
-              if (res.transactions) {
-                payoutTx = res.transactions.map((tx: any) => ({
-                  payoutId: String(tx.payout_id),
-                  sourceOrderId: tx.source_order_id
-                    ? String(tx.source_order_id)
-                    : null,
-                  orderName: tx.source_order_id
-                    ? orderNameMap.get(String(tx.source_order_id))
-                    : "",
-                  customerName: tx.source_order_id
-                    ? orderMap.get(String(tx.source_order_id))
-                    : "",
-                }));
-              }
-            } catch (e) {
-              console.error(
-                `Failed to fetch specific transactions for payout ${payout.id}`,
-                e,
-              );
-            }
-          }
-
-          // Resolve missing order/customer data if any
-          const payoutTxCustomers: string[] = [];
-          const payoutTxOrderNames: string[] = [];
-          for (const tx of payoutTx) {
-            let custName = tx.customerName || "";
-            let ordName = tx.orderName || "";
-
-            if (!custName && tx.sourceOrderId) {
-              try {
-                const res: any = await $fetch(
-                  `/api/order/${tx.sourceOrderId}`,
-                  {
-                    params: { storeId: store.id, token: store.accessToken },
-                  },
-                );
-                if (res.order) {
-                  ordName = res.order.name || "";
-                  if (res.order.customer) {
-                    custName =
-                      `${res.order.customer.first_name || ""} ${res.order.customer.last_name || ""}`.trim();
-                  }
-                  // Cache for future use this session
-                  orderMap.set(tx.sourceOrderId, custName);
-                  orderNameMap.set(tx.sourceOrderId, ordName);
-                }
-              } catch (e) {
-                console.error(
-                  `Failed to fetch specific order ${tx.sourceOrderId}`,
-                  e,
-                );
-              }
-            }
-            if (custName) payoutTxCustomers.push(custName.toLowerCase());
-            if (ordName) payoutTxOrderNames.push(ordName.toLowerCase());
-          }
-
-          // Improved matching using both Order Name and Customer Name
-          const currentDomain = store.domain.toLowerCase();
-          const relevantBuff1Rows = buff1Rows.filter(
-            (r) =>
-              r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() ===
-              currentDomain,
-          );
-          const relevantBuff2Rows = buff2Rows.filter(
-            (r) =>
-              r[SHEET_COLUMNS.BUFF.domain]?.trim().toLowerCase() ===
-              currentDomain,
-          );
-
-          let inBuff1 = relevantBuff1Rows.some((row) => {
-            const customerInSheet = String(
-              row[SHEET_COLUMNS.BUFF.customer] || "",
-            ).toLowerCase();
-            if (!customerInSheet.trim()) return false;
-            return payoutTxCustomers.some((cust: string) => {
-              const custNorm = cust.toLowerCase();
-              return customerInSheet.includes(custNorm);
-            });
-          });
-
-          let inBuff2 = relevantBuff2Rows.some((row) => {
-            const customerInSheet = String(
-              row[SHEET_COLUMNS.BUFF.customer] || "",
-            ).toLowerCase();
-            if (!customerInSheet.trim()) return false;
-            return payoutTxCustomers.some((cust: string) => {
-              const custNorm = cust.toLowerCase();
-              return customerInSheet.includes(custNorm);
-            });
-          });
-
-          // Fallback if matching failed but store is known to be in a specific sheet
-          if (!inBuff1 && !inBuff2) {
-            const isBuff1Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF1);
-            const isBuff2Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF2);
-            // Only fallback if uniquely identified in one sheet
-            if (isBuff1Store && !isBuff2Store) inBuff1 = true;
-            else if (isBuff2Store && !isBuff1Store) inBuff2 = true;
-          }
-
-          if (quanLyIndex !== -1) {
-            const actualRow = quanLyIndex + 1;
-            const existingRow = quanLyRows[quanLyIndex] || [];
-
-            const isBuff1Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF1);
-            const isBuff2Store = store.sheet?.includes(BUFF_SHEET_NAMES.BUFF2);
-            const shouldUpdateBuff1 =
-              (isBuff1Store && !isBuff2Store) || (inBuff1 && !inBuff2);
-            const shouldUpdateBuff2 =
-              (isBuff2Store && !isBuff1Store) || (inBuff2 && !inBuff1);
-
-            let valE = shouldUpdateBuff1
-              ? payout.amount
-              : existingRow[SHEET_COLUMNS.QUAN_LY.buff1Amount] || "";
-            let valF = shouldUpdateBuff2
-              ? payout.amount
-              : existingRow[SHEET_COLUMNS.QUAN_LY.buff2Amount] || "";
-
-            quanLyUpdates.push({
-              range: `'${SHEET_TABS.QUAN_LY}'!J${actualRow}:J${actualRow}`,
-              values: [[payoutStatus]],
-            });
-
-            quanLyUpdates.push({
-              range: `'${SHEET_TABS.QUAN_LY}'!D${actualRow}:H${actualRow}`,
-              values: [[fbsColE, valE, valF, payout.amount, bank]],
-            });
-          } else if (isSyncAll || store.id === formStore.storeId) {
-            const buff1Amount = inBuff1 ? payout.amount : "";
-            const buff2Amount = inBuff2 ? payout.amount : "";
-
-            const newRowIndex = lastNonEmptyRow + 1 + appendedRowCount;
-            appendedRowCount++;
-
-            quanLyUpdates.push({
-              range: `'${SHEET_TABS.QUAN_LY}'!A${newRowIndex}:J${newRowIndex}`,
-              values: [
-                [
-                  formattedDate,
-                  shopName,
-                  store.domain,
-                  fbsColE,
-                  buff1Amount,
-                  buff2Amount,
-                  payout.amount,
-                  bank,
-                  "",
-                  payoutStatus,
-                ],
-              ],
-            });
-            appendedMessages.push(
-              `Appended ${formattedDate} - ${payout.amount} cho ${store.domain}`,
-            );
-          }
-        }
-
-        const sortedPayouts = [...payoutRes.payouts].sort(
-          (a: any, b: any) =>
-            new Date(b.date).getTime() - new Date(a.date).getTime(),
-        );
-        const latestPayout = sortedPayouts[0];
-        const latestStatus = formatPayoutStatus(latestPayout.status);
-
-        paymentStore.setBulkingPayout(store.id, {
-          date: latestPayout.date,
-          status: latestStatus,
-          sheet: store.sheet,
-        });
-        if (isSyncAll) {
-          toastStore.success(
-            `Đã xử lý payouts cho ${store.domain || store.id}.`,
-          );
-        }
-      } else {
-        paymentStore.setBulkingPayout(store.id, {
-          date: "No payouts",
-          status: "No Payouts",
-          sheet: store.sheet,
-        });
-        if (isSyncAll) {
-          toastStore.info(`Không có payout cho ${store.domain || store.id}.`);
-        }
-      }
-    } catch (e: any) {
-      paymentStore.setBulkingPayout(store.id, {
-        date: "Error",
-        status: "Error",
-        sheet: store.sheet,
-      });
-      if (isSyncAll) {
-        toastStore.error(
-          `Lỗi khi sync payouts cho ${store.domain || store.id}.`,
-        );
-      }
-    }
-  }
-
-  try {
-    if (quanLyUpdates.length > 0) {
-      await batchUpdateSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(QUAN_LY_SHEET_URL),
-        data: quanLyUpdates,
-      });
-      toastStore.success(
-        `Đã cập nhật sheet quản lý (${quanLyUpdates.length} updates). ${appendedRowCount} rows appended.`,
-      );
-      if (appendedMessages.length > 0) {
-        toastStore.info(appendedMessages.join("\n"), 5000);
-      }
-    } else {
-      toastStore.info("Không có thay đổi nào cần cập nhật lên sheet quản lý.");
-    }
-  } catch (e) {
-    console.error("Failed to execute some batch updates", e);
-    toastStore.error("Cập nhật sheet quản lý thất bại. Kiểm tra console.");
-  }
-
-  activeSyncStoreId.value = null;
-  isUpdating.value = false;
-  if (isSyncAll) {
-    isBulkSyncing.value = false;
-  }
-}
-
 function deleteStoreOption(id: string) {
   if (confirm(`Are you sure you want to delete store ${id}?`)) {
     formStore.removeKnownStore(id);
@@ -1098,356 +435,16 @@ function deleteStoreOption(id: string) {
   }
 }
 
-async function syncPayoutDates(targetId?: string | Event) {
-  const target = typeof targetId === "string" ? targetId : undefined;
-  isSyncingDate.value = true;
-  try {
-    // Now consolidated into syncTrackingNumbers for efficiency
-    await syncTrackingNumbers(target);
-  } finally {
-    isSyncingDate.value = false;
-  }
-}
-
-async function syncPayoutDatesAll() {
-  if (isSyncingDate.value) return;
-  isSyncingDate.value = true;
-  isBulkSyncing.value = true;
-  try {
-    for (const store of storeList.value) {
-      if (store.domain) {
-        activeSyncStoreId.value = store.id;
-        const result = await syncTrackingNumbers(store.id, {
-          showToast: false,
-          storeLabel: store.domain || store.id,
-        });
-        if (result) {
-          if (result.status === "success") {
-            toastStore.success(result.message);
-          } else if (result.status === "info") {
-            toastStore.info(result.message);
-          } else {
-            toastStore.error(result.message);
-          }
-        }
-      }
-    }
-  } finally {
-    activeSyncStoreId.value = null;
-    isBulkSyncing.value = false;
-    isSyncingDate.value = false;
-  }
-}
-
-async function syncTrackingNumbers(
-  targetId?: string,
-  options?: { showToast?: boolean; storeLabel?: string },
-): Promise<
-  { status: "success" | "info" | "error"; message: string } | undefined
-> {
-  const sid = targetId || formStore.storeId;
-  if (!sid) return;
-
-  const showToast = options?.showToast !== false;
-
-  const token = resolveToken(sid);
-  if (!token) {
-    const message = `${options?.storeLabel || sid}: Token expired or missing.`;
-    if (showToast) toastStore.error(message);
-    return { status: "error", message };
-  }
-
-  const cookie = useLocalStorage<any>(sid, {}).state;
-  const domain = cookie.value?.domain;
-  if (!domain) {
-    const message = `${options?.storeLabel || sid}: Không tìm thấy domain.`;
-    if (showToast) toastStore.error(message);
-    return { status: "error", message };
-  }
-
-  const label = options?.storeLabel || domain || sid;
-
-  isSyncingTracking.value = true;
-
-  try {
-    // 1. Fetch all orders
-    const orderRes: any = await $fetch("/api/order/all", {
-      method: "POST",
-      body: { storeId: sid, token },
-    });
-
-    const orders: any[] = orderRes?.orders || [];
-    if (!orders.length) {
-      const message = `${label}: Không có order nào.`;
-      if (showToast) toastStore.info(message);
-      return { status: "info", message };
-    }
-
-    // Build map: normalizedCustomerName -> trackingNumber
-    const normalize = (s: string) =>
-      String(s || "")
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .trim();
-
-    // Map from normalized customer name to tracking numbers (from fulfillments)
-    type TrackInfo = {
-      customerNorm: string;
-      email: string;
-      trackingNr: string;
-    };
-    const trackInfoList: TrackInfo[] = [];
-
-    for (const order of orders) {
-      const trackingNr =
-        order.fulfillments?.[0]?.tracking_number ||
-        order.fulfillments?.[0]?.tracking_numbers?.[0] ||
-        "";
-      if (!trackingNr) continue;
-
-      const firstName = order.customer?.first_name || "";
-      const lastName = order.customer?.last_name || "";
-      const fullName = `${firstName} ${lastName}`.trim();
-      const email = normalize(order.customer?.email || "");
-
-      if (!fullName && !email) continue;
-
-      trackInfoList.push({
-        customerNorm: normalize(fullName),
-        email,
-        trackingNr,
-      });
-    }
-
-    if (!trackInfoList.length) {
-      const message = `${label}: Không có order nào có tracking number.`;
-      if (showToast) toastStore.info(message);
-      return { status: "info", message };
-    }
-
-    // 2. Read both buff sheets
-    const domainNorm = normalize(domain);
-    const storeSheet = getStoreSheet(sid);
-    const needsBuff1 =
-      storeSheet?.includes(BUFF_SHEET_NAMES.BUFF1) ||
-      storeList.value.some(
-        (s) => s.id === sid && s.sheet?.includes(BUFF_SHEET_NAMES.BUFF1),
-      );
-    const needsBuff2 =
-      storeSheet?.includes(BUFF_SHEET_NAMES.BUFF2) ||
-      storeList.value.some(
-        (s) => s.id === sid && s.sheet?.includes(BUFF_SHEET_NAMES.BUFF2),
-      );
-
-    // Read both unconditionally (we'll skip updates if no domain match)
-    const [b1Res, b2Res] = await Promise.allSettled([
-      readSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-        range: SHEET_RANGES.BUFF1_ALL,
-      }),
-      readSheetValues({
-        spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-        range: SHEET_RANGES.BUFF2_ALL,
-      }),
-    ]);
-
-    const buff1Rows: any[][] = b1Res.status === "fulfilled" ? b1Res.value : [];
-    const buff2Rows: any[][] = b2Res.status === "fulfilled" ? b2Res.value : [];
-
-    const buff1Updates: any[] = [];
-    const buff2Updates: any[] = [];
-
-    function buildUpdates(rows: any[][], rangeSheet: string, updates: any[]) {
-      rows.forEach((row, index) => {
-        // col D = index 3: domain match
-        const rowDomain = normalize(
-          String(row[SHEET_COLUMNS.BUFF.domain] || ""),
-        );
-        if (rowDomain !== domainNorm) return;
-
-        // col H = index 7: customer name/info
-        const cellH = normalize(String(row[SHEET_COLUMNS.BUFF.customer] || ""));
-        if (!cellH) return;
-
-        // Find matching tracking number using simple include for name
-        const match = trackInfoList.find((info) => {
-          return info.customerNorm && cellH.includes(info.customerNorm);
-        });
-
-        if (match) {
-          const rowNum = index + 1;
-          // Update Tracking in K
-          updates.push({
-            range: `${rangeSheet}!K${rowNum}:K${rowNum}`,
-            values: [[match.trackingNr]],
-          });
-        }
-
-        const rowNum = index + 1;
-        // Search in customerToPayoutMap using the sheet customer name (cellH)
-        // OR the matched customer name from shopify (match.customerNorm)
-        let payoutDate = "";
-
-        // 1. Check by Shopify Name if matched
-        if (match && match.customerNorm) {
-          payoutDate = customerToPayoutMap.get(match.customerNorm) || "";
-        }
-
-        // 2. Fallback: Search the entire cellH content against keys in customerToPayoutMap
-        if (!payoutDate) {
-          // If cellH contains any name that we have a payout for
-          for (const [key, date] of customerToPayoutMap.entries()) {
-            if (cellH.includes(key)) {
-              payoutDate = date;
-              break;
-            }
-          }
-        }
-
-        if (payoutDate) {
-          updates.push({
-            range: `${rangeSheet}!L${rowNum}:L${rowNum}`,
-            values: [[payoutDate]],
-          });
-        }
-
-        // Update status in B based on consolidated info
-        if (match || payoutDate) {
-          let newStatus = "";
-          const hasTracking =
-            (match && match.trackingNr) ||
-            String(row[SHEET_COLUMNS.BUFF.tracking] || "").trim();
-          const hasPayout =
-            payoutDate ||
-            String(row[SHEET_COLUMNS.BUFF.payoutDate] || "").trim();
-
-          if (rangeSheet.includes(SHEET_TABS.BUFF1)) {
-            if (hasPayout) {
-              newStatus = hasTracking ? "Shipped" : "Process";
-            } else {
-              newStatus = "Ordered";
-            }
-          } else {
-            newStatus = hasTracking ? "Shipped" : "Ordered";
-          }
-
-          if (newStatus) {
-            updates.push({
-              range: `${rangeSheet}!B${rowNum}:B${rowNum}`,
-              values: [[newStatus]],
-            });
-          }
-        }
-      });
-    }
-
-    // Build a map of customer name to payout date for ALL payouts of this store
-    const customerToPayoutMap = new Map<string, string>();
-    try {
-      const [payoutRes, txRes]: any = await Promise.all([
-        $fetch("/api/payment/payout/all", {
-          method: "POST",
-          body: { storeId: sid, token },
-        }),
-        $fetch("/api/payment/payout/transactions", {
-          method: "POST",
-          body: { storeId: sid, token },
-        }),
-      ]);
-
-      const pMap = new Map();
-      (payoutRes.payouts || []).forEach((p: any) => {
-        // Format date to DD/MM (remove year)
-        let formattedDate = p.date || "";
-        if (formattedDate.includes("-")) {
-          const parts = formattedDate.split("-");
-          if (parts.length >= 3) {
-            // YYYY-MM-DD -> DD/MM
-            formattedDate = `${parts[2]}/${parts[1]}`;
-          }
-        }
-        pMap.set(String(p.id), formattedDate);
-      });
-
-      const orderToInfoMap = new Map();
-      orders.forEach((o: any) => {
-        const cName = o.customer
-          ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim()
-          : "";
-        const cEmail = (o.customer?.email || "").toLowerCase();
-        orderToInfoMap.set(String(o.id), {
-          name: normalize(cName),
-          email: cEmail,
-        });
-      });
-
-      (txRes.transactions || []).forEach((tx: any) => {
-        if (!tx.payout_id || !tx.source_order_id) return;
-        const pDate = pMap.get(String(tx.payout_id));
-        const info = orderToInfoMap.get(String(tx.source_order_id));
-        if (pDate && info) {
-          if (info.name) customerToPayoutMap.set(info.name, pDate);
-        }
-      });
-    } catch (e) {
-      console.error("Failed to fetch payout info for consolidated sync", e);
-    }
-
-    buildUpdates(buff1Rows, `'${SHEET_TABS.BUFF1}'`, buff1Updates);
-    buildUpdates(buff2Rows, `'${SHEET_TABS.BUFF2}'`, buff2Updates);
-
-    const totalUpdates = buff1Updates.length + buff2Updates.length;
-    if (totalUpdates === 0) {
-      const message = `${label}: Không tìm thấy row nào khớp trong sheet.`;
-      if (showToast) toastStore.info(message);
-      return { status: "info", message };
-    }
-
-    const batchPromises = [];
-    if (buff1Updates.length > 0) {
-      batchPromises.push(
-        batchUpdateSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-          data: buff1Updates,
-        }),
-      );
-    }
-    if (buff2Updates.length > 0) {
-      batchPromises.push(
-        batchUpdateSheetValues({
-          spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-          data: buff2Updates,
-        }),
-      );
-    }
-    await Promise.allSettled(batchPromises);
-
-    const message = `${label}: Đã cập nhật tracking số cho ${totalUpdates} row(s).`;
-    if (showToast) toastStore.success(message);
-    return { status: "success", message };
-  } catch (e: any) {
-    console.error("syncTrackingNumbers error:", e);
-    const message = `${label}: Sync tracking thất bại. Kiểm tra console.`;
-    if (showToast) toastStore.error(message);
-    return { status: "error", message };
-  } finally {
-    isSyncingTracking.value = false;
-  }
-}
 </script>
 
 <template>
-  <div
-    class="shop-layout-container"
-    :class="{ 'ui-locked': isInteractionLocked }"
-  >
+  <div class="shop-layout-container">
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <button
           class="btn-sidebar-add"
           title="Add new store"
-          :disabled="isInteractionLocked"
           @click="isAddModalOpen = true"
         >
           <IconsAdd />
@@ -1473,28 +470,6 @@ async function syncTrackingNumbers(
             class="sidebar-search"
           />
         </div>
-        <button
-          class="btn-load-sheet"
-          title="Load sheet names"
-          :disabled="isLoadingPayouts || isInteractionLocked"
-          @click="loadPayouts"
-        >
-          <svg
-            v-if="isLoadingPayouts"
-            class="spin"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path
-              d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-            />
-          </svg>
-          <IconsSync v-else />
-        </button>
       </div>
 
       <div class="sidebar-content">
@@ -1511,25 +486,12 @@ async function syncTrackingNumbers(
             class="sidebar-item"
             :class="{
               active: formStore.storeId === id,
-              'is-syncing': activeSyncStoreId === id,
             }"
           >
             <div class="sidebar-item-label" @click="onSelectStore(id)">
               {{ getStoreDomain(id) || id }}
             </div>
             <div class="sidebar-item-action-wrapper">
-              <div
-                v-if="activeSyncStoreId === id"
-                class="sync-indicator"
-                title="Syncing"
-              />
-              <div
-                v-if="getStoreSheet(id)"
-                class="sidebar-item-check"
-                title="Sheet loaded"
-              >
-                <IconsCheck width="12" height="12" />
-              </div>
               <div @click.stop class="sidebar-item-actions">
                 <BasePopover align="right">
                   <template #trigger="{ isOpen }">
@@ -1546,42 +508,6 @@ async function syncTrackingNumbers(
                   </template>
                   <template #default="{ close }">
                     <div class="popover-menu">
-                      <div
-                        class="popover-item"
-                        :disabled="
-                          isUpdating ||
-                          isSyncingDate ||
-                          isFetching ||
-                          !formStore.storeId
-                        "
-                        @click="
-                          updatePayouts(id);
-                          close();
-                        "
-                      >
-                        <span v-if="isUpdating" class="spinner-inline" />
-                        <IconsCheck v-else />
-                        {{
-                          isUpdating ? "Syncing..." : "Sync Payout (manager)"
-                        }}
-                      </div>
-                      <div
-                        class="popover-item"
-                        :disabled="
-                          isUpdating ||
-                          isSyncingDate ||
-                          isFetching ||
-                          !formStore.storeId
-                        "
-                        @click="
-                          syncPayoutDates(id);
-                          close();
-                        "
-                      >
-                        <span v-if="isSyncingDate" class="spinner-inline" />
-                        <IconsDate v-else />
-                        {{ isSyncingDate ? "Syncing..." : "Sync Date (staff)" }}
-                      </div>
                       <div
                         class="popover-item"
                         @click="
@@ -1601,40 +527,6 @@ async function syncTrackingNumbers(
           </div>
         </template>
       </div>
-      <div class="sidebar-footer">
-        <button
-          class="btn-sidebar-add"
-          title="Sync Payout All"
-          @click="() => updatePayouts()"
-          :disabled="
-            isUpdating ||
-            isSyncingDate ||
-            isFetching ||
-            storeList.length === 0 ||
-            isInteractionLocked
-          "
-        >
-          <span v-if="isUpdating" class="spinner-inline" />
-          <IconsCheck v-else />
-          <span class="btn-text">Sync Payout All</span>
-        </button>
-        <button
-          class="btn-sidebar-add"
-          title="Sync Date All"
-          @click="syncPayoutDatesAll"
-          :disabled="
-            isUpdating ||
-            isSyncingDate ||
-            isFetching ||
-            storeList.length === 0 ||
-            isInteractionLocked
-          "
-        >
-          <span v-if="isSyncingDate" class="spinner-inline" />
-          <IconsDate v-else />
-          <span class="btn-text">Sync Date All</span>
-        </button>
-      </div>
     </aside>
 
     <!-- Main Content Area -->
@@ -1647,103 +539,13 @@ async function syncTrackingNumbers(
             <h3>
               {{ getStoreDomain(formStore.storeId) || formStore.storeId }}
             </h3>
-            <span v-if="getStoreSheet(formStore.storeId)" class="sheet-badge">
-              {{ getStoreSheet(formStore.storeId) }}
-            </span>
           </div>
         </div>
 
         <div class="shop-bar-right">
-          <div class="sync-group">
-            <button
-              class="btn-sync-action sync_payout"
-              :disabled="
-                isUpdating ||
-                isSyncingDate ||
-                isFetching ||
-                !formStore.storeId ||
-                isInteractionLocked
-              "
-              @click="() => updatePayouts(formStore.storeId)"
-            >
-              <span v-if="isUpdating" class="spinner-inline" />
-              <IconsCheck v-else />
-              {{ isUpdating ? "Syncing..." : "Sync Payout (manager)" }}
-            </button>
-            <BasePopover align="right">
-              <template #trigger>
-                <button
-                  class="btn-sync-settings"
-                  type="button"
-                  :disabled="
-                    isUpdating ||
-                    isSyncingDate ||
-                    !formStore.storeId ||
-                    isInteractionLocked
-                  "
-                >
-                  <IconsMore width="16" height="16" class="rotate-90" />
-                </button>
-              </template>
-              <div class="popover-sync-content">
-                <div class="sync-section">
-                  <label class="section-title">Mode</label>
-                  <div class="radio-group">
-                    <label class="radio-item">
-                      <input v-model="syncMode" type="radio" value="all" />
-                      <span>All</span>
-                    </label>
-                    <label class="radio-item">
-                      <input
-                        v-model="syncMode"
-                        type="radio"
-                        value="from_today"
-                      />
-                      <span>From Today</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div v-if="syncMode === 'from_today'" class="sync-section">
-                  <label class="section-title">Count</label>
-                  <BaseSelect
-                    v-model="syncCount"
-                    :options="[
-                      { label: '1 for next', value: 1 },
-                      { label: '2 for next', value: 2 },
-                      { label: 'unlimit for next', value: 'unlimit' },
-                    ]"
-                  />
-                </div>
-              </div>
-            </BasePopover>
-          </div>
-
-          <button
-            class="btn-sync-action sync_date"
-            :disabled="
-              isUpdating ||
-              isSyncingDate ||
-              isFetching ||
-              !formStore.storeId ||
-              isInteractionLocked
-            "
-            @click="() => syncPayoutDates(formStore.storeId)"
-          >
-            <span v-if="isSyncingDate" class="spinner-inline" />
-            <IconsDate v-else />
-            {{ isSyncingDate ? "Syncing..." : "Sync Date (staff)" }}
-          </button>
-
           <button
             class="btn-fetch"
-            :disabled="
-              isFetching ||
-              isSyncingDate ||
-              isUpdating ||
-              !formStore.storeId ||
-              isInteractionLocked
-            "
+            :disabled="isFetching || !formStore.storeId"
             @click="fetchCurrent(true)"
           >
             <svg
@@ -2008,13 +810,6 @@ async function syncTrackingNumbers(
   border-bottom: 1px solid var(--border);
 }
 
-.sidebar-footer {
-  padding: 8px 6px;
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
-}
-
 .search-container {
   position: relative;
   flex: 1;
@@ -2065,16 +860,6 @@ async function syncTrackingNumbers(
 .sidebar-item-action-wrapper {
   display: flex;
   align-items: center;
-}
-
-.sync-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--blue);
-  margin-right: 6px;
-  box-shadow: 0 0 0 0 rgba(0, 132, 255, 0.6);
-  animation: pulse 1.2s infinite;
 }
 
 .sidebar-item-actions {
@@ -2142,11 +927,6 @@ async function syncTrackingNumbers(
   border: 1px solid transparent;
 }
 
-.sidebar-item.is-syncing {
-  border-color: rgba(0, 132, 255, 0.35);
-  background: rgba(0, 132, 255, 0.08);
-}
-
 .sidebar-item:hover {
   background: var(--bg);
 }
@@ -2164,15 +944,6 @@ async function syncTrackingNumbers(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.sidebar-item-check {
-  color: var(--green);
-  opacity: 0.8;
-  flex-shrink: 0;
-}
-.sidebar-item:hover .sidebar-item-check {
-  display: none;
 }
 
 .sidebar-empty {
@@ -2210,106 +981,10 @@ async function syncTrackingNumbers(
   gap: 12px;
 }
 
-.sheet-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  background: var(--badge-fulfilled);
-  border: 1px solid var(--badge-fulfilled-border);
-  border-radius: 1rem;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--blue);
-  letter-spacing: 0.5px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
 .shop-bar-right {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.sync-group {
-  display: flex !important;
-  align-items: stretch !important;
-  border-radius: 8px !important;
-  overflow: visible !important;
-  border: 1px solid #dddddd !important;
-  background: #f9f9f9;
-  height: 32px !important;
-}
-
-.btn-sync-settings {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 32px !important;
-  height: 32px !important;
-  padding: 0 !important;
-  background: transparent;
-  border: none;
-  cursor: pointer !important;
-  transition: background 0.2s !important;
-}
-
-.btn-sync-settings:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.btn-sync-settings:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.rotate-90 {
-  transform: rotate(90deg);
-}
-
-.popover-sync-content {
-  padding: 12px;
-  min-width: 180px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.sync-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.section-title {
-  font-size: 0.75em;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.radio-group {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  gap: 6px;
-}
-
-.radio-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 4px 0;
-}
-
-.radio-item input {
-  margin: 0;
-}
-
-.radio-item span {
-  color: var(--text);
 }
 
 .btn-fetch {
@@ -2351,93 +1026,6 @@ async function syncTrackingNumbers(
   to {
     transform: rotate(360deg);
   }
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.9);
-    box-shadow: 0 0 0 0 rgba(0, 132, 255, 0.6);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(0, 132, 255, 0);
-  }
-  100% {
-    transform: scale(0.9);
-    box-shadow: 0 0 0 0 rgba(0, 132, 255, 0);
-  }
-}
-
-.btn-load-sheet {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-load-sheet:hover:not(:disabled) {
-  background: var(--surface);
-  color: var(--blue);
-}
-
-.btn-load-sheet:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-sync-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: white;
-  color: var(--text-primary);
-  border-radius: 8px;
-  padding: 0 12px;
-}
-
-.sync_payout {
-  height: 30px;
-  border-left: none !important;
-  border-top: none !important;
-  border-bottom: none !important;
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-right: 1px solid var(--border);
-}
-
-.sync_date {
-  height: 32px;
-  border: 1px solid var(--border);
-}
-
-.btn-sync-action:hover:not(:disabled) {
-  background: #f9f9f9;
-  border-color: #d1d1d1;
-}
-
-.btn-sync-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.spinner-inline {
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--text-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 .page-content {
@@ -2516,14 +1104,6 @@ async function syncTrackingNumbers(
 .btn-sidebar-add:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.ui-locked .sidebar,
-.ui-locked .sidebar-footer,
-.ui-locked .shop-bar-right {
-  pointer-events: none;
-  filter: blur(0.6px);
-  opacity: 0.7;
 }
 
 /* Modal Styles adapted from manager.vue */

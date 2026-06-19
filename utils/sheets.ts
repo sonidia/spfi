@@ -1,5 +1,3 @@
-import { SHEET_TABS } from "./sheetConfig";
-
 export type StoredSheet = {
   source: string;
   label: string;
@@ -18,102 +16,21 @@ export type CurrentSheetSelection = {
   sheetName: string;
 };
 
-export type ProxySheetLoadPreset = {
-  source: string;
-  tab: string;
-  startRow: number;
-  columns: {
-    storeId: number;
-    shop: number;
-    domain: number;
-    proxyUrl: number;
-  };
-};
-
 export const getSheetUrls = () => {
   // In Nuxt 3, useRuntimeConfig() works within the Nuxt context (Vue components, composables, plugins).
   // For files in utils/, they are often called within that context.
   try {
     const config = useRuntimeConfig();
     return {
-      QUAN_LY_SHEET_URL: (config.public.quanLySheetUrl as string) || "",
-      FBS_SHEET_URL: (config.public.fbsSheetUrl as string) || "",
-      BUFF1_SHEET_URL: (config.public.buff1SheetUrl as string) || "",
-      BUFF2_SHEET_URL: (config.public.buff2SheetUrl as string) || "",
       SPF_SHEET_URL: (config.public.spfSheetUrl as string) || "",
     };
   } catch (e) {
     console.error("Error accessing runtimeConfig in getSheetUrls:", e);
     return {
-      QUAN_LY_SHEET_URL: "",
-      FBS_SHEET_URL: "",
-      BUFF1_SHEET_URL: "",
-      BUFF2_SHEET_URL: "",
       SPF_SHEET_URL: "",
     };
   }
 };
-
-export function getDefaultProxySheetPresets(): ProxySheetLoadPreset[] {
-  const urls = getSheetUrls();
-  return [
-    {
-      source: urls.QUAN_LY_SHEET_URL,
-      tab: SHEET_TABS.QUAN_LY,
-      startRow: 3,
-      columns: {
-        storeId: 1,
-        shop: 1,
-        domain: 2,
-        proxyUrl: 3,
-      },
-    },
-    {
-      source: urls.BUFF1_SHEET_URL,
-      tab: SHEET_TABS.BUFF1,
-      startRow: 5,
-      columns: {
-        storeId: 0,
-        shop: 3,
-        domain: 3,
-        proxyUrl: 10,
-      },
-    },
-    {
-      source: urls.FBS_SHEET_URL,
-      tab: SHEET_TABS.FBS,
-      startRow: 3,
-      columns: {
-        storeId: 1,
-        shop: 1,
-        domain: 2,
-        proxyUrl: 4,
-      },
-    },
-    {
-      source: urls.BUFF2_SHEET_URL,
-      tab: SHEET_TABS.BUFF2,
-      startRow: 3,
-      columns: {
-        storeId: 0,
-        shop: 3,
-        domain: 3,
-        proxyUrl: 10,
-      },
-    },
-  ];
-}
-
-export function getProxySheetPreset(
-  source: string,
-  tab?: string,
-): ProxySheetLoadPreset | undefined {
-  return getDefaultProxySheetPresets().find((preset) => {
-    if (preset.source !== source) return false;
-    if (!tab) return true; // Match first one if tab not provided
-    return preset.tab === tab;
-  });
-}
 
 export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
 export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";

@@ -189,7 +189,6 @@
 </template>
 
 <script setup lang="ts">
-import { useSheetService } from "~/composables/useSheetService";
 import {
   financialBadge,
   fmtDateTime,
@@ -201,9 +200,6 @@ import {
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
-import { getSheetUrls } from "~~/utils/sheets";
-
-const { BUFF1_SHEET_URL, BUFF2_SHEET_URL } = getSheetUrls();
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
@@ -211,8 +207,6 @@ const formStore = useFormStore();
 const toastStore = useToastStore();
 const router = useRouter();
 const processingOrderId = ref<string | null>(null);
-const { readSheetValues, batchUpdateSheetValues, normalizeSpreadsheetId } =
-  useSheetService();
 
 function getTransactionStatus(orderId: any) {
   if (!orderId) return null;
@@ -336,124 +330,4 @@ async function addTracking(order: any) {
   }
 }
 
-async function updateSheetTracking(order: any, trackingNr: string) {
-  const sid = formStore.storeId;
-  const cookie = useLocalStorage<any>(sid, {}).state;
-  const domain = cookie.value?.domain;
-  const customerName = getCustomerName(order);
-  const customerEmail = order.customer?.email || "";
-
-  const normalize = (s: string) =>
-    String(s || "")
-      .toLowerCase()
-      .replace(/\s+/g, "")
-      .trim();
-
-  if (!domain || (!customerName && !customerEmail)) {
-    toastStore.addToast(`Error: Missing domain or customer info`, "error");
-    return;
-  }
-
-  const domainTarget = normalize(domain);
-  const customerTarget = normalize(customerName || "");
-  const emailTarget = normalize(customerEmail);
-
-  toastStore.addToast(
-    `🛡️ Bulletproof Search for: [${customerName || customerEmail}]`,
-    "info",
-  );
-
-  // 1. Identify sheet
-  const [b1Results, b2Results] = await Promise.allSettled([
-    readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-      range: "'order 1'!A:ZZ",
-    }),
-    readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-      range: "'Sheet1'!A:ZZ",
-    }),
-  ]);
-
-  const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
-  const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
-
-  let targetRows: any[][] = [];
-  let targetRangeSheet = "";
-  let spreadsheetId = "";
-
-  // Identify sheet using any column matching the domain
-  const hasDomainAnywhere = (rows: any[][]) =>
-    rows.some((row) =>
-      row.some(
-        (cell) =>
-          normalize(String(cell)).includes(domainTarget) ||
-          domainTarget.includes(normalize(String(cell))),
-      ),
-    );
-
-  if (hasDomainAnywhere(buff1Rows)) {
-    targetRows = buff1Rows;
-    targetRangeSheet = "'order 1'";
-    spreadsheetId = BUFF1_SHEET_URL;
-    toastStore.addToast("📂 Target found in BUFF 1", "info");
-  } else if (hasDomainAnywhere(buff2Rows)) {
-    targetRows = buff2Rows;
-    targetRangeSheet = "'Sheet1'";
-    spreadsheetId = BUFF2_SHEET_URL;
-    toastStore.addToast("📂 Target found in BUFF 2", "info");
-  }
-
-  if (!spreadsheetId) {
-    toastStore.addToast(
-      `❌ Domain [${domainTarget}] NOT FOUND in either sheet`,
-      "error",
-    );
-    return;
-  }
-
-  // 2. Find row - Column Agnostic Search
-  const updates: any[] = [];
-  targetRows.forEach((row, index) => {
-    const rowValues = row.map((c) => normalize(String(c)));
-
-    // Does any cell in this row contain the customer name or email?
-    const hasCustomer =
-      (customerTarget &&
-        rowValues.some((val) => val.includes(customerTarget))) ||
-      (emailTarget && rowValues.some((val) => val.includes(emailTarget)));
-
-    // Does any cell in this row contain the domain? (Optional if sheet already identified, but safer to check)
-    const hasDomain = rowValues.some(
-      (val) => val.includes(domainTarget) || domainTarget.includes(val),
-    );
-
-    // If both found (or domain is missing from row but sheet is already identified as target)
-    if (hasCustomer && (hasDomain || !rowValues.some((v) => v !== ""))) {
-      const rowNum = index + 1;
-      toastStore.addToast(
-        `✅ Row ${rowNum} is a BULLETPROOF match!`,
-        "success",
-      );
-      updates.push({
-        range: `${targetRangeSheet}!K${rowNum}:K${rowNum}`,
-        values: [[trackingNr]],
-      });
-    }
-  });
-
-  if (updates.length > 0) {
-    toastStore.addToast(`🚀 Updating ${updates.length} instances...`, "info");
-    await batchUpdateSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(spreadsheetId),
-      data: updates,
-    });
-    toastStore.addToast(
-      `🎉 COMPLETED: Sheet updated for ${customerName}`,
-      "success",
-    );
-  } else {
-    toastStore.addToast(`❌ Still no row contains [${customerName}]`, "error");
-  }
-}
 </script>
