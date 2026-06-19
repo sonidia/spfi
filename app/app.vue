@@ -34,62 +34,66 @@ useTokenRotation();
 }
 
 :root {
-  --text: #202223;
-  --text-sub: #6d7175;
-  --text-link: #2c6ecb;
-  --badge-paid: #e4f2e8;
-  --badge-paid-text: #1a7f37;
-  --badge-paid-border: #1a7f3740;
+  color-scheme: light;
+  --bg: #f5f7f4;
+  --surface: #ffffff;
+  --surface-soft: #eef4f0;
+  --text: #14221b;
+  --text-sub: #65756c;
+  --text-link: #275c91;
+  --muted: #65756c;
+  --line: #d9e4dd;
+  --border: #d9e4dd;
+  --green: #1f7a4d;
+  --green-soft: #dff4e8;
+  --green-bg: #dff4e8;
+  --blue: #275c91;
+  --blue-soft: #e2eef9;
+  --amber: #9b6416;
+  --amber-soft: #fff0d5;
+  --red: #b4312b;
+  --red-soft: #ffe2df;
+  --shadow: 0 20px 60px rgba(20, 34, 27, 0.1);
+  --badge-paid: #dff4e8;
+  --badge-paid-text: #1f7a4d;
+  --badge-paid-border: #1f7a4d40;
   --badge-fulfilled: #e0f0ff;
-  --badge-fulfilled-text: #0077cc;
-  --badge-fulfilled-border: #0077cc40;
+  --badge-fulfilled-text: #275c91;
+  --badge-fulfilled-border: #275c9140;
   --badge-archived: #f1f2f4;
   --badge-archived-text: #6d7175;
-  --badge-cancelled: #fce8e8;
-  --badge-cancelled-text: #c0392b;
-  --badge-pending: #fff3cd;
-  --badge-pending-text: #856404;
+  --badge-cancelled: #ffe2df;
+  --badge-cancelled-text: #b4312b;
+  --badge-pending: #fff0d5;
+  --badge-pending-text: #9b6416;
   --radius: 8px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.03);
-  --text-primary: #1a1a1a;
-  --text-secondary: #6d6d6d;
-  --text-muted: #9e9e9e;
-  --green-bg: #e3f1ed;
-  --blue: #005bd3;
-  --red: #d72c0d;
   --radius-sm: 8px;
-  --font: ;
-  --bg: #f1f1f1;
-  --surface: #ffffff;
-  --border: #e3e3e3;
-  --green: #008060;
+  --font: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --text-muted: #8b9991;
 }
 
 html,
 body {
   font-family:
-    "Inter",
+    "DM Sans",
+    Inter,
     -apple-system,
     BlinkMacSystemFont,
+    "Segoe UI",
     sans-serif;
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url("/background.svg");
-  background-attachment: fixed;
-  background-size: cover;
-  z-index: -1;
-  opacity: 0.7;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(231, 239, 234, 0.9),
+      rgba(245, 247, 244, 0) 320px
+    ),
+    var(--bg);
 }
 
 a {

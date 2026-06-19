@@ -14,18 +14,24 @@
       <NuxtLink to="/manager">Manager</NuxtLink>
       <NuxtLink to="/payment">Payment</NuxtLink>
       <NuxtLink to="/sheet">Sheet</NuxtLink>
+      <NuxtLink to="/status">Status</NuxtLink>
     </div>
   </nav>
 </template>
 
 <style scoped>
 .topbar {
-  background: #1a1a1a;
-  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  min-height: 58px;
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 24px;
   gap: 8px;
 }
 .brand {
@@ -35,11 +41,12 @@
 .topbar-logo {
   width: 28px;
   height: 28px;
-  background: #95bf47;
+  background: linear-gradient(145deg, var(--green), var(--blue));
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 8px 18px rgba(31, 122, 77, 0.18);
 }
 .topbar-logo svg {
   width: 18px;
@@ -47,19 +54,22 @@
   fill: white;
 }
 .topbar-title {
-  color: #fff;
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 800;
   font-size: 14px;
-  margin-left: 4px;
+  margin-left: 8px;
 }
 .nav-list {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .nav-list a {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--muted);
   font-size: 13px;
-  padding: 5px 12px;
+  font-weight: 700;
+  padding: 6px 12px;
   border-radius: 6px;
   transition:
     background 0.15s,
@@ -67,11 +77,24 @@
   text-decoration: none;
 }
 .nav-list a:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--surface-soft);
+  color: var(--green);
 }
 .nav-list a.router-link-active {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--green-soft);
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 12px 16px;
+  }
+
+  .nav-list {
+    justify-content: flex-start;
+  }
 }
 </style>
