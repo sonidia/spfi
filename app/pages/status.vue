@@ -10,6 +10,7 @@ import type {
   CheckSeverity,
   ProxyMode,
   StoreCheckResult,
+  StoreLifecycleStatus,
 } from "~~/types/store-status";
 
 definePageMeta({ layout: false });
@@ -30,7 +31,6 @@ interface BatchCheckRow extends BatchCheckInput {
 }
 
 const route = useRoute();
-const runtimeConfig = useRuntimeConfig();
 
 const routeTarget = computed<string>(() => {
   const targetQuery = route.query.target;
@@ -42,12 +42,8 @@ const routeTarget = computed<string>(() => {
   return typeof targetQuery === "string" ? targetQuery : "";
 });
 
-const publicConfig = runtimeConfig.public as Record<string, unknown>;
-const defaultTarget =
-  typeof publicConfig.defaultTarget === "string" ? publicConfig.defaultTarget : "";
-
 const result = ref<StoreCheckResult | null>(null);
-const batchInput = ref<string>(routeTarget.value || defaultTarget);
+const batchInput = ref<string>(routeTarget.value);
 const selectedPlatform = ref<CheckPlatform>("shopify");
 const proxyMode = ref<ProxyMode>("no-proxy");
 const commonProxy = ref("");
@@ -95,17 +91,11 @@ const batchStats = computed(() => {
   const checking = batchRows.value.filter(
     (row) => row.status === "checking",
   ).length;
-  const ok = batchRows.value.filter(
-    (row) => row.result?.verdict.severity === "ok",
+  const alive = batchRows.value.filter(
+    (row) => row.result?.storeStatus === "alive",
   ).length;
-  const warning = batchRows.value.filter(
-    (row) => row.result?.verdict.severity === "warning",
-  ).length;
-  const danger = batchRows.value.filter(
-    (row) => row.result?.verdict.severity === "danger",
-  ).length;
-  const neutral = batchRows.value.filter(
-    (row) => row.result?.verdict.severity === "neutral",
+  const dead = batchRows.value.filter(
+    (row) => row.result?.storeStatus === "dead",
   ).length;
 
   return {
@@ -113,10 +103,8 @@ const batchStats = computed(() => {
     done,
     errors,
     checking,
-    ok,
-    warning,
-    danger,
-    neutral,
+    alive,
+    dead,
   };
 });
 
@@ -578,6 +566,10 @@ function selectBatchRow(row: BatchCheckRow) {
   result.value = row.result ?? null;
 }
 
+function getStoreStatusLabel(status: StoreLifecycleStatus) {
+  return status;
+}
+
 function getBatchRowStatus(row: BatchCheckRow) {
   if (row.status === "queued") {
     return "Queued";
@@ -591,7 +583,11 @@ function getBatchRowStatus(row: BatchCheckRow) {
     return "Error";
   }
 
-  return row.result ? severityLabel[row.result.verdict.severity] : "Done";
+  if (row.result?.storeStatus) {
+    return getStoreStatusLabel(row.result.storeStatus);
+  }
+
+  return row.result?.verdict.status === "alive" ? "alive" : "dead";
 }
 
 function getBatchRowSeverity(row: BatchCheckRow) {
@@ -599,8 +595,16 @@ function getBatchRowSeverity(row: BatchCheckRow) {
     return "danger";
   }
 
-  if (row.status === "checking") {
+  if (row.status === "queued" || row.status === "checking") {
     return "neutral";
+  }
+
+  if (row.result?.storeStatus === "alive") {
+    return "ok";
+  }
+
+  if (row.result?.storeStatus === "dead") {
+    return "danger";
   }
 
   return row.result?.verdict.severity || "neutral";
@@ -731,9 +735,8 @@ function formatDate(value: string) {
           <div class="batch-results-heading">
             <h2>{{ batchStats.total }} rows</h2>
             <div class="batch-result-stats">
-              <span class="is-ok">OK {{ batchStats.ok }}</span>
-              <span class="is-warning">Warning {{ batchStats.warning }}</span>
-              <span class="is-danger">Risk {{ batchStats.danger }}</span>
+              <span class="is-ok">Alive {{ batchStats.alive }}</span>
+              <span class="is-danger">Dead {{ batchStats.dead }}</span>
               <span>Error {{ batchStats.errors }}</span>
             </div>
           </div>
@@ -794,7 +797,7 @@ function formatDate(value: string) {
                   </td>
                   <td class="batch-message">
                     {{
-                      row.result?.verdict.status ||
+                      row.result?.verdict.summary ||
                       row.errorMessage ||
                       "Waiting"
                     }}
@@ -808,7 +811,7 @@ function formatDate(value: string) {
 
       <section v-if="result" class="result-layout" aria-live="polite">
         <aside class="summary-panel" :class="`is-${result.verdict.severity}`">
-          <p class="eyebrow">Temporary verdict</p>
+          <p class="eyebrow">Store status</p>
           <h2>{{ result.verdict.status }}</h2>
           <p>{{ result.verdict.summary }}</p>
           <dl>

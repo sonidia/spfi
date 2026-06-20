@@ -5,6 +5,12 @@ const INVISIBLE_OR_CONTROL_CHARS =
   /[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g;
 const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
 const SOCKS5_PROTOCOL_PATTERN = /^socks5h?:\/\//i;
+const SOCKS5H_PROTOCOL = "socks5h:";
+
+interface SocksProxyAgentInternals {
+  proxyUrl?: string;
+  shouldLookup?: boolean;
+}
 
 export function createSocksProxyAgents(proxy?: string) {
   const proxyVariants = buildProxyVariants(proxy);
@@ -17,7 +23,10 @@ export function createSocksProxyAgents(proxy?: string) {
 
   for (const proxyUrl of proxyVariants) {
     try {
-      agents.push(new SocksProxyAgent(proxyUrl));
+      const agent = new SocksProxyAgent(proxyUrl);
+
+      assertRemoteDnsSocks5hAgent(agent, proxyUrl);
+      agents.push(agent);
     } catch (error) {
       const isLastVariant =
         proxyVariants.indexOf(proxyUrl) === proxyVariants.length - 1;
@@ -126,7 +135,7 @@ export function normalizeProxyUrl(input: string): string {
       parsed.port = sanitizePart(parsed.port);
     }
 
-    parsed.protocol = "socks5h:";
+    parsed.protocol = SOCKS5H_PROTOCOL;
 
     return parsed.toString();
   }
@@ -159,6 +168,45 @@ export function normalizeProxyUrl(input: string): string {
   return `socks5h://${normalizeCredential(username)}:${normalizeCredential(
     password,
   )}@${host}:${port}`;
+}
+
+export function describeSocksProxyRoute(agent: SocksProxyAgent) {
+  const internals = agent as SocksProxyAgentInternals;
+  const proxyUrl = internals.proxyUrl || "";
+  const protocol = getProxyProtocol(proxyUrl);
+  const dnsMode = internals.shouldLookup === false ? "remote DNS" : "local DNS";
+
+  return `${protocol.toUpperCase()} (${dnsMode}) via ${maskProxyUrl(proxyUrl)}`;
+}
+
+export function getSocksProxyUrl(agent: SocksProxyAgent) {
+  return (agent as SocksProxyAgentInternals).proxyUrl || "";
+}
+
+function assertRemoteDnsSocks5hAgent(
+  agent: SocksProxyAgent,
+  proxyUrl: string,
+) {
+  const internals = agent as SocksProxyAgentInternals;
+  const protocol = getProxyProtocol(internals.proxyUrl || proxyUrl);
+
+  if (protocol !== "socks5h" || internals.shouldLookup !== false) {
+    throw new StoreStatusInputError(
+      "Proxy must use SOCKS5H remote DNS for every request.",
+    );
+  }
+}
+
+function getProxyProtocol(proxyUrl: string) {
+  try {
+    return new URL(proxyUrl).protocol.replace(/:$/, "").toLowerCase();
+  } catch {
+    return "unknown";
+  }
+}
+
+function maskProxyUrl(proxyUrl: string) {
+  return proxyUrl.replace(/\/\/([^:/@]+):([^@]+)@/, "//****:****@");
 }
 
 function sanitizePart(value: string) {

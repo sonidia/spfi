@@ -21,13 +21,6 @@ export default defineNuxtConfig({
       },
     ],
   },
-  runtimeConfig: {
-    tracktacoApiKey: "",
-    public: {
-      tracktacoBaseUrl: "",
-      spfSheetUrl: process.env.NUXT_PUBLIC_SPF_SHEET_URL || "",
-    },
-  },
   // Auto-import utils
   imports: {
     dirs: ["utils/**"],

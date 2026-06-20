@@ -16,28 +16,17 @@ export type CurrentSheetSelection = {
   sheetName: string;
 };
 
-export const getSheetUrls = () => {
-  // In Nuxt 3, useRuntimeConfig() works within the Nuxt context (Vue components, composables, plugins).
-  // For files in utils/, they are often called within that context.
-  try {
-    const config = useRuntimeConfig();
-    return {
-      SPF_SHEET_URL: (config.public.spfSheetUrl as string) || "",
-    };
-  } catch (e) {
-    console.error("Error accessing runtimeConfig in getSheetUrls:", e);
-    return {
-      SPF_SHEET_URL: "",
-    };
-  }
-};
+const SHEET_URLS = {
+  SPF_SHEET_URL: "",
+} as const;
+
+export const getSheetUrls = () => SHEET_URLS;
 
 export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
 export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";
 
 export const defaultSheets = (): string[] => {
-  const configs = getSheetUrls();
-  return Object.values(configs).filter(Boolean);
+  return Object.values(SHEET_URLS).filter(Boolean);
 };
 
 export function normalizeSheetNameFromRange(value: string): string {

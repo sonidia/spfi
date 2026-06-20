@@ -4,6 +4,7 @@ export type CheckPlatform = "shopify";
 export type ProxyMode = "common-proxy" | "separate-proxy" | "no-proxy";
 export type BatchStatus = "queued" | "checking" | "done" | "error";
 export type StatusRowState = BatchStatus;
+export type StoreLifecycleStatus = "alive" | "dead";
 
 export interface CheckItem {
   key: string;
@@ -16,6 +17,7 @@ export interface CheckItem {
 export interface StoreCheckResult {
   input: string;
   platform: CheckPlatform;
+  storeStatus: StoreLifecycleStatus;
   normalizedUrl: string;
   host: string;
   proxyIp?: string;

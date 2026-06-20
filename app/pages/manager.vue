@@ -260,7 +260,7 @@ async function addShop() {
 
   try {
     // 0. SPF cache setup
-    const spfUrl = SPF_SHEET_URL;
+    const spfUrl = SPF_SHEET_URL.trim();
     let spfSheetNames: string[] = [...SPF_SHEET_TABS];
     const spfRowsCache: Record<string, any[]> = {};
 
@@ -275,6 +275,12 @@ async function addShop() {
 
       try {
         if (!sId || !cId || !cSec) {
+          if (!spfUrl) {
+            throw new Error(
+              "Master sheet is not configured. Enter Store ID, Client ID, and Client Secret manually.",
+            );
+          }
+
           const domainSearch = domain.toLowerCase();
 
           // 1. Discovery Phase

@@ -22,6 +22,7 @@ export interface ProxySheetRow {
 }
 
 const REQUEST_DELAY_MS = 1000;
+const DEFAULT_SHEET_RANGE = "A:Z";
 let lastRequestAt = 0;
 
 const HEADER_ALIASES = {
@@ -89,8 +90,6 @@ export function useSheetService() {
   const rows = ref<string[][]>([]);
   const filteredRows = ref<string[][]>([]);
 
-  const runtimeConfig = useRuntimeConfig();
-
   async function readSheetValues(options?: {
     spreadsheetId?: string;
     range?: string;
@@ -104,10 +103,8 @@ export function useSheetService() {
       const response = await $fetch<SheetValuesResponse>("/api/sheet/values", {
         method: "POST",
         body: {
-          spreadsheetId:
-            options?.spreadsheetId ||
-            runtimeConfig.public.googleSheetSpreadsheetId,
-          range: options?.range || runtimeConfig.public.googleSheetRange,
+          spreadsheetId: options?.spreadsheetId,
+          range: options?.range || DEFAULT_SHEET_RANGE,
         },
       });
 
@@ -140,9 +137,7 @@ export function useSheetService() {
       const response = await $fetch<SheetMetaResponse>("/api/sheet/meta", {
         method: "POST",
         body: {
-          spreadsheetId:
-            options?.spreadsheetId ||
-            runtimeConfig.public.googleSheetSpreadsheetId,
+          spreadsheetId: options?.spreadsheetId,
         },
       });
 
@@ -255,8 +250,7 @@ export function useSheetService() {
       const response = await $fetch<any>("/api/sheet/update", {
         method: "POST",
         body: {
-          spreadsheetId:
-            options.spreadsheetId || runtimeConfig.public.googleSheetSpreadsheetId,
+          spreadsheetId: options.spreadsheetId,
           range: options.range,
           values: options.values,
         },
@@ -283,8 +277,7 @@ export function useSheetService() {
       const response = await $fetch<any>("/api/sheet/batch-update", {
         method: "POST",
         body: {
-          spreadsheetId:
-            options.spreadsheetId || runtimeConfig.public.googleSheetSpreadsheetId,
+          spreadsheetId: options.spreadsheetId,
           data: options.data,
         },
       });

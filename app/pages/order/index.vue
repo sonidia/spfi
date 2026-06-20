@@ -174,20 +174,6 @@
                       </template>
                     </AppPopover>
                   </div>
-                  <div
-                    v-if="
-                      getTransactionStatus(order.id) === 'in_transit' &&
-                      order.fulfillment_status !== 'fulfilled'
-                    "
-                  >
-                    <button
-                      class="btn-add-track"
-                      @click.stop="addTracking(order)"
-                    >
-                      <span v-html="ICONS.plus"></span>
-                      Add track
-                    </button>
-                  </div>
                   <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
                     >—</span
                   >
@@ -206,7 +192,6 @@ import { computed, onMounted } from "vue";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
-import { useToastStore } from "~/stores/toast";
 import {
   financialBadge,
   fmtDateTime,
@@ -214,7 +199,6 @@ import {
   fulfillmentBadge,
   getCustomerName,
   getShipmentLabel,
-  ICONS,
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
@@ -224,7 +208,6 @@ definePageMeta({ layout: false });
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const formStore = useFormStore();
-const toastStore = useToastStore();
 
 const orders = computed(() => orderStore.orders);
 
@@ -250,101 +233,6 @@ onMounted(() => {
     }
   }
 });
-
-async function addTracking(order: any) {
-  const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
-  const token = cookie?.value?.accessToken;
-
-  if (!sid || !token) {
-    alert(
-      "Error: Store ID or Access Token is missing. Please select a store first.",
-    );
-    return;
-  }
-
-  // Priority: 1. Shipping Address, 2. Billing Address, 3. Customer Default Address, 4. Fallback 'CA'
-  const provinceCode =
-    order.shipping_address?.province_code ||
-    order.billing_address?.province_code ||
-    order.customer?.default_address?.province_code ||
-    "CA";
-
-  try {
-    const toTs = Date.now();
-    const fromTs = toTs - 7 * 24 * 60 * 60 * 1000;
-
-    const tracktacoRes = await $fetch<any>("/api/tracktaco/get-trackingnr", {
-      method: "POST",
-      body: {
-        state: provinceCode,
-        from: fromTs,
-        to: toTs,
-        carrier: "fedex",
-      },
-    });
-
-    const trackingNr = tracktacoRes.trackingNr;
-    if (!trackingNr) {
-      throw new Error("No tracking number returned from Tracktaco");
-    }
-
-    // 2. Get fulfillment order ID
-    const foRes = await $fetch<any>(
-      `/api/order/${order.id}/fulfillment_orders`,
-      {
-        method: "GET",
-        params: { storeId: sid, token: token },
-      },
-    );
-
-    // Find an open or in_progress fulfillment order
-    const openFO = foRes.fulfillment_orders?.find(
-      (fo: any) => fo.status === "open" || fo.status === "in_progress",
-    );
-
-    if (!openFO) {
-      throw new Error("No open fulfillment order found for this order.");
-    }
-
-    // 3. Prepare payload for fulfillment creation
-    const payload = {
-      storeId: sid,
-      token: token,
-      fulfillment: {
-        line_items_by_fulfillment_order: [
-          {
-            fulfillment_order_id: openFO.id,
-          },
-        ],
-        tracking_info: {
-          number: trackingNr,
-          url: `https://www.fedex.com/fedextrack/?trknbr=${trackingNr}`,
-        },
-      },
-    };
-
-    // 4. Call API to CREATE fulfillment
-    const response = await $fetch<any>(`/api/order/${order.id}/fulfill`, {
-      method: "POST",
-      body: payload,
-    });
-
-    console.log("Tracking updated/created:", response);
-
-    // 3. Refresh orders to show new status/tracking
-    await orderStore.fetchAll(sid, token);
-
-    toastStore.addToast(
-      `Tracking updated successfully! (${trackingNr})`,
-      "success",
-    );
-  } catch (err: any) {
-    console.error("Failed to update tracking:", err);
-    const msg = err.data?.message || err.message || "Unknown error";
-    toastStore.addToast(`Failed to update tracking: ${msg}`, "error");
-  }
-}
 
 </script>
 
@@ -561,44 +449,6 @@ async function addTracking(order: any) {
   padding: 60px 20px;
   color: var(--text-sub);
   font-size: 15px;
-}
-
-.btn-add-track {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  border: none;
-  border-radius: 8px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.15);
-  white-space: nowrap;
-}
-
-.btn-add-track:hover {
-  transform: translateY(-1.5px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-  background: linear-gradient(135deg, #7174ff 0%, #5a51ff 100%);
-}
-
-.btn-add-track:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
-}
-
-.btn-add-track :deep(svg) {
-  width: 12px;
-  height: 12px;
-  transition: transform 0.2s ease;
-}
-
-.btn-add-track:hover :deep(svg) {
-  transform: scale(1.1);
 }
 
 .order-card:hover {

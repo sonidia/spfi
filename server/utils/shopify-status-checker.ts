@@ -13,6 +13,10 @@ import type {
 import { StoreStatusInputError } from "./status-checker-errors";
 import { createSocksProxyAgents } from "./status-proxy-agent";
 import { resolveProxyIp } from "./status-proxy-ip";
+import {
+  buildShopifyStatusVerdict,
+  classifyShopifyStoreStatus,
+} from "./shopify-status-classifier";
 
 interface StoreCheckOptions {
   proxy?: string;
@@ -86,7 +90,7 @@ export async function checkShopifyStoreStatus(
     throw new StoreStatusInputError(blockedDnsReason);
   }
 
-  const [website, httpHead, endpoint, ssl, proxyIp] = await Promise.all([
+  const [website, http, endpoint, ssl, proxyIp] = await Promise.all([
     fetchSnapshot(normalizedUrl, "GET", "follow", proxyAgents),
     fetchSnapshot(normalizedUrl, "HEAD", "manual", proxyAgents),
     fetchSnapshot(
@@ -101,11 +105,11 @@ export async function checkShopifyStoreStatus(
 
   if (
     hasProxy &&
-    [website, httpHead, endpoint].every((snapshot) => snapshot.error)
+    [website, http, endpoint].every((snapshot) => snapshot.error)
   ) {
     const errors = Array.from(
       new Set(
-        [website.error, httpHead.error, endpoint.error].filter(
+        [website.error, http.error, endpoint.error].filter(
           (error): error is string => Boolean(error),
         ),
       ),
@@ -119,11 +123,11 @@ export async function checkShopifyStoreStatus(
   const checks = [
     buildWebsiteCheck(website),
     buildDnsCheck(dns, host, hasProxy),
-    buildHttpCheck(httpHead),
+    buildHttpCheck(http),
     buildProductsCheck(endpoint),
     buildSslCheck(
       ssl ||
-        httpHead.ssl ||
+        http.ssl ||
         website.ssl ||
         endpoint.ssl || {
           ok: false,
@@ -135,15 +139,21 @@ export async function checkShopifyStoreStatus(
       hasProxy,
     ),
   ];
+  const statusClassification = classifyShopifyStoreStatus({
+    website,
+    http,
+    endpoint,
+  });
 
   return {
     input,
     platform: "shopify",
+    storeStatus: statusClassification.status,
     normalizedUrl,
     host,
     ...(proxyIp ? { proxyIp } : {}),
     checkedAt: new Date().toISOString(),
-    verdict: buildVerdict(checks),
+    verdict: buildShopifyStatusVerdict(statusClassification),
     checks,
     limitations: [
       "Public signals cannot confirm the exact Shopify Admin account state.",
@@ -161,10 +171,12 @@ function normalizeTarget(input: string) {
     );
   }
 
-  const hasProtocol = /^https?:\/\//i.test(trimmed);
-  const withProtocol = hasProtocol
+  const withHost = trimmed.includes(".")
     ? trimmed
-    : `https://${trimmed.includes(".") ? trimmed : `${trimmed}.myshopify.com`}`;
+    : `${trimmed}.myshopify.com`;
+  const withProtocol = /^https?:\/\//i.test(withHost)
+    ? withHost
+    : `https://${withHost}`;
 
   try {
     const url = new URL(withProtocol);
@@ -199,7 +211,7 @@ async function fetchSnapshot(
       redirect,
       signal: controller.signal,
       headers: {
-        "user-agent": "Mozilla/5.0 ShopStatusChecker/1.0",
+        "user-agent": "Mozilla/5.0 ShopifyStatusChecker/1.0",
       },
     });
 
@@ -320,7 +332,7 @@ function requestSnapshot(
     const isHttps = targetUrl.protocol === "https:";
     const requestModule = isHttps ? https : http;
     const headers: Record<string, string> = {
-      "user-agent": "Mozilla/5.0 ShopStatusChecker/1.0",
+      "user-agent": "Mozilla/5.0 ShopifyStatusChecker/1.0",
       accept: "*/*",
     };
 
@@ -729,6 +741,7 @@ function checkSsl(host: string): Promise<SslSnapshot> {
         port: 443,
         servername: host,
         rejectUnauthorized: false,
+        timeout: REQUEST_TIMEOUT_MS,
       },
       () => {
         const certificate = socket.getPeerCertificate();
@@ -737,7 +750,7 @@ function checkSsl(host: string): Promise<SslSnapshot> {
       },
     );
 
-    socket.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    socket.once("timeout", () => {
       socket.destroy();
       resolve({
         ok: false,
@@ -938,48 +951,4 @@ function isPrivateIp(value: string) {
   }
 
   return false;
-}
-
-function buildVerdict(checks: CheckItem[]): StoreCheckResult["verdict"] {
-  const dangerCount = checks.filter(
-    (check) => check.severity === "danger",
-  ).length;
-  const warningCount = checks.filter(
-    (check) => check.severity === "warning",
-  ).length;
-  const okCount = checks.filter((check) => check.severity === "ok").length;
-
-  if (dangerCount >= 2) {
-    return {
-      status: "Shop may be down",
-      severity: "danger",
-      summary:
-        "Multiple public signals suggest the store may be disabled, deleted, or not serving.",
-    };
-  }
-
-  if (dangerCount === 1 || warningCount >= 2) {
-    return {
-      status: "Needs review",
-      severity: "warning",
-      summary:
-        "Some public signals are not stable. Recheck later or verify in Shopify Admin when available.",
-    };
-  }
-
-  if (okCount >= 3) {
-    return {
-      status: "Store appears active",
-      severity: "ok",
-      summary:
-        "The main public signals respond well. This does not guarantee internal Admin status.",
-    };
-  }
-
-  return {
-    status: "Not enough signal",
-    severity: "neutral",
-    summary:
-      "External checks are not strong enough to make a clear conclusion.",
-  };
 }

@@ -24,3 +24,4 @@ logs
 !.env.example
 server/service_account.json
 *.zip
+*.txt

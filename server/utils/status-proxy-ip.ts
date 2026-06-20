@@ -39,7 +39,7 @@ function requestProxyIp(url: string, agent: SocksProxyAgent): Promise<string> {
         method: "GET",
         headers: {
           accept: "application/json,text/plain,*/*",
-          "user-agent": "ShopStatusChecker/1.0",
+          "user-agent": "StoreStatusChecker/1.0",
         },
         agent: agent as any,
         timeout: PROXY_IP_TIMEOUT_MS,
