@@ -15,7 +15,7 @@ useTokenRotation();
     <BaseToast />
     <Nav />
     <NuxtLayout>
-      <NuxtPage />
+      <NuxtPage :keepalive="{ max: 12 }" />
     </NuxtLayout>
   </main>
 </template>
@@ -102,6 +102,45 @@ select,
 input,
 textarea {
   outline: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 122, 77, 0.45) rgba(217, 228, 221, 0.45);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(217, 228, 221, 0.38);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(245, 247, 244, 0.9);
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(31, 122, 77, 0.72),
+      rgba(39, 92, 145, 0.66)
+    );
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(31, 122, 77, 0.88),
+      rgba(39, 92, 145, 0.82)
+    );
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .app-root {
