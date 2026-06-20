@@ -21,17 +21,6 @@ export default defineNuxtConfig({
       },
     ],
   },
-  runtimeConfig: {
-    tracktacoApiKey: "",
-    public: {
-      tracktacoBaseUrl: "",
-      quanLySheetUrl: process.env.NUXT_PUBLIC_QUAN_LY_SHEET_URL || "",
-      fbsSheetUrl: process.env.NUXT_PUBLIC_FBS_SHEET_URL || "",
-      buff1SheetUrl: process.env.NUXT_PUBLIC_BUFF1_SHEET_URL || "",
-      buff2SheetUrl: process.env.NUXT_PUBLIC_BUFF2_SHEET_URL || "",
-      spfSheetUrl: process.env.NUXT_PUBLIC_SPF_SHEET_URL || "",
-    },
-  },
   // Auto-import utils
   imports: {
     dirs: ["utils/**"],

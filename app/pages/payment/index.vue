@@ -8,8 +8,12 @@
 
     <section class="page">
       <!-- ════════════════ LOADING STATE -->
-      <div v-if="paymentStore.isLoading" class="empty">
-        Loading payment data…
+      <div v-if="paymentStore.isLoading" class="payment-empty is-loading">
+        <div class="empty-icon">
+          <IconsSync />
+        </div>
+        <h2>Loading payment data</h2>
+        <p>Fetching transactions, payouts, and store finance details.</p>
       </div>
 
       <!-- ════════════════ EMPTY / NOT FETCHED -->
@@ -19,9 +23,37 @@
           paymentStore.payouts.length === 0 &&
           !paymentStore.error
         "
-        class="empty"
+        class="payment-empty"
       >
-        Select a store from the selector above to view payment data.
+        <div class="empty-icon">
+          <IconsHero v-if="paymentEmptyState.kind === 'no-stores'" />
+          <IconsCheck v-else-if="paymentEmptyState.kind === 'no-selection'" />
+          <IconsDate v-else />
+        </div>
+        <h2>{{ paymentEmptyState.title }}</h2>
+        <p>{{ paymentEmptyState.description }}</p>
+        <div class="empty-actions">
+          <NuxtLink
+            v-if="paymentEmptyState.kind === 'no-stores'"
+            to="/manager"
+            class="empty-action primary"
+          >
+            <IconsAdd />
+            Add store
+          </NuxtLink>
+          <button
+            v-else-if="formStore.storeId"
+            class="empty-action primary"
+            type="button"
+            @click="refreshCurrentStore"
+          >
+            <IconsRefresh />
+            Refresh payment
+          </button>
+          <span v-else class="empty-hint">
+            Pick a store from the left sidebar.
+          </span>
+        </div>
       </div>
 
       <!-- ════════════════ SCREEN 1: CONTENT -->
@@ -34,6 +66,7 @@
               :class="{ active: activeTab === 'transactions' }"
               @click="setActiveTab('transactions')"
             >
+              <IconsDate />
               Transactions
               <span class="tab-count">{{ transactionsCount }}</span>
             </button>
@@ -42,6 +75,7 @@
               :class="{ active: activeTab === 'payouts' }"
               @click="setActiveTab('payouts')"
             >
+              <IconsRefresh />
               Payouts
               <span class="tab-count">{{ payoutsCount }}</span>
             </button>
@@ -50,6 +84,7 @@
               :class="{ active: activeTab === 'orders' }"
               @click="setActiveTab('orders')"
             >
+              <IconsCopy />
               Orders
               <span class="tab-count">{{ ordersCount }}</span>
             </button>
@@ -58,6 +93,7 @@
               :class="{ active: activeTab === 'products' }"
               @click="setActiveTab('products')"
             >
+              <IconsBulking />
               Products
               <span class="tab-count">{{ productsCount }}</span>
             </button>
@@ -113,7 +149,6 @@ import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import { useProductStore } from "~/stores/product";
-import { useToastStore } from "~/stores/toast";
 
 definePageMeta({ layout: false });
 
@@ -121,7 +156,6 @@ const formStore = useFormStore();
 const paymentStore = usePaymentStore();
 const orderStore = useOrderStore();
 const productStore = useProductStore();
-const toastStore = useToastStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -140,6 +174,18 @@ function setActiveTab(tab: "payouts" | "transactions" | "orders" | "products") {
   }
 }
 
+function refreshCurrentStore() {
+  if (!formStore.storeId) {
+    return;
+  }
+
+  const token = resolveToken(formStore.storeId);
+
+  if (token) {
+    paymentStore.fetchAll(formStore.storeId, token, true);
+  }
+}
+
 const currentBalance = computed(() => {
   const b = paymentStore.balance;
   if (!b) return null;
@@ -151,6 +197,32 @@ const transactionsCount = computed(() => paymentStore.payouts.length);
 const payoutsCount = computed(() => paymentStore.payouts.length);
 const ordersCount = computed(() => orderStore.orders.length);
 const productsCount = computed(() => productStore.products.length);
+const paymentEmptyState = computed(() => {
+  if (!formStore.knownStores.length) {
+    return {
+      kind: "no-stores",
+      title: "No stores connected yet",
+      description:
+        "Connect a Shopify store first, then payment activity will appear here automatically.",
+    };
+  }
+
+  if (!formStore.storeId) {
+    return {
+      kind: "no-selection",
+      title: "Choose a store to view payments",
+      description:
+        "Select a store from the sidebar to load balance transactions, payouts, orders, and products.",
+    };
+  }
+
+  return {
+    kind: "empty-data",
+    title: "No payment activity found",
+    description:
+      "This store has no fetched payment rows yet. Refresh to pull the latest Shopify data.",
+  };
+});
 
 onMounted(() => {
   if (formStore.storeId) {
@@ -269,6 +341,101 @@ function resolveToken(sid: string): string | null {
   margin-bottom: 16px;
 }
 
+.payment-empty {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 48px 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.96)),
+    var(--surface);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.empty-icon {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(31, 122, 77, 0.16);
+  border-radius: 12px;
+  background: var(--green-soft);
+  color: var(--green);
+  box-shadow: 0 10px 24px rgba(31, 122, 77, 0.1);
+}
+
+.empty-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.payment-empty.is-loading .empty-icon svg {
+  animation: spin 0.9s linear infinite;
+}
+
+.payment-empty h2 {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 750;
+}
+
+.payment-empty p {
+  max-width: 460px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.empty-action {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.empty-action.primary {
+  background: var(--text-primary);
+  color: white;
+}
+
+.empty-action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.empty-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 /* ─── OVERVIEW ─── */
 .overview-card {
   display: grid;
@@ -330,12 +497,14 @@ function resolveToken(sid: string): string | null {
 .table-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 .tab-btn {
-  padding: 5px 12px;
+  min-height: 34px;
+  padding: 0 12px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
@@ -349,6 +518,11 @@ function resolveToken(sid: string): string | null {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.tab-btn svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 .tab-btn.active {
   background: #e8e8e8;

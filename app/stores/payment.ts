@@ -55,10 +55,6 @@ export const usePaymentStore = defineStore("payment", () => {
   // Map: payoutId → Transaction[]
   const transactionsByPayout = ref<Record<string, Transaction[]>>({});
 
-  const bulkingPayouts = ref<
-    Record<string, { date: string; status: string; sheet: string }>
-  >({});
-  const bulkingTransactions = ref<Record<string, any[]>>({});
   const balanceTransactions = ref<any[]>([]);
 
   const isLoading = ref(false);
@@ -76,17 +72,6 @@ export const usePaymentStore = defineStore("payment", () => {
       }
     >
   >({});
-
-  function setBulkingPayout(
-    storeId: string,
-    data: { date: string; status: string; sheet: string },
-  ) {
-    bulkingPayouts.value[storeId] = data;
-  }
-
-  function setBulkingTransactions(storeId: string, transactions: any[]) {
-    bulkingTransactions.value[storeId] = transactions;
-  }
 
   async function fetchAll(storeId: string, token: string) {
     if (!storeId || !token) {
@@ -239,7 +224,6 @@ export const usePaymentStore = defineStore("payment", () => {
     payouts.value = [];
     payoutDetails.value = {};
     transactionsByPayout.value = {};
-    bulkingTransactions.value = {};
     balanceTransactions.value = [];
     error.value = null;
     isLoading.value = false;
@@ -250,8 +234,6 @@ export const usePaymentStore = defineStore("payment", () => {
     payouts,
     payoutDetails,
     transactionsByPayout,
-    bulkingPayouts,
-    bulkingTransactions,
     balanceTransactions,
     isLoading,
     error,
@@ -259,8 +241,6 @@ export const usePaymentStore = defineStore("payment", () => {
     fetchBalanceTransactions,
     fetchPayoutDetail,
     getTransactionsForPayout,
-    setBulkingPayout,
-    setBulkingTransactions,
     hydrate,
     $reset,
   };

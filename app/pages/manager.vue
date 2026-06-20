@@ -260,7 +260,7 @@ async function addShop() {
 
   try {
     // 0. SPF cache setup
-    const spfUrl = SPF_SHEET_URL;
+    const spfUrl = SPF_SHEET_URL.trim();
     let spfSheetNames: string[] = [...SPF_SHEET_TABS];
     const spfRowsCache: Record<string, any[]> = {};
 
@@ -275,6 +275,12 @@ async function addShop() {
 
       try {
         if (!sId || !cId || !cSec) {
+          if (!spfUrl) {
+            throw new Error(
+              "Master sheet is not configured. Enter Store ID, Client ID, and Client Secret manually.",
+            );
+          }
+
           const domainSearch = domain.toLowerCase();
 
           // 1. Discovery Phase
@@ -473,76 +479,32 @@ async function testProxy(id: string) {
 
 <template>
   <div class="token-page">
-    <div
-      class="page-header"
-      style="
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-      "
+    <PageHeader
+      title="Shop Management"
+      sub="Manage your Shopify store access tokens and credentials"
     >
-      <div>
-        <h1 class="page-title">Shop Management</h1>
-        <p class="page-sub">
-          Manage your Shopify store access tokens and credentials
-        </p>
-      </div>
-      <div
-        class="mode-toggle"
-        style="
-          display: flex;
-          background: var(--bg);
-          border-radius: 8px;
-          padding: 4px;
-          border: 1px solid var(--border);
-        "
-      >
-        <button
-          class="toggle-btn"
-          :class="{ active: addMode === 'single' }"
-          @click="addMode = 'single'"
-          style="
-            padding: 6px 12px;
-            background: transparent;
-            border: none;
-            font-size: 13px;
-            font-weight: 500;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-          "
-          :style="
-            addMode === 'single'
-              ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
-              : 'color: var(--text-sub);'
-          "
-        >
-          Single
-        </button>
-        <button
-          class="toggle-btn"
-          :class="{ active: addMode === 'bulking' }"
-          @click="addMode = 'bulking'"
-          style="
-            padding: 6px 12px;
-            background: transparent;
-            border: none;
-            font-size: 13px;
-            font-weight: 500;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-          "
-          :style="
-            addMode === 'bulking'
-              ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
-              : 'color: var(--text-sub);'
-          "
-        >
-          Bulking
-        </button>
-      </div>
-    </div>
+      <IconsBulking />
+      <template #actions>
+        <div class="mode-toggle">
+          <button
+            class="toggle-btn"
+            :class="{ active: addMode === 'single' }"
+            @click="addMode = 'single'"
+          >
+            <IconsCheck />
+            Single
+          </button>
+          <button
+            class="toggle-btn"
+            :class="{ active: addMode === 'bulking' }"
+            @click="addMode = 'bulking'"
+          >
+            <IconsBulking />
+            Bulking
+          </button>
+        </div>
+      </template>
+    </PageHeader>
 
     <!-- ── Add new store ── -->
     <section class="card">
@@ -654,6 +616,7 @@ async function testProxy(id: string) {
             @click="clearInputs"
             :disabled="isFindingShop"
           >
+            <IconsRefresh />
             Clear
           </button>
           <button
@@ -661,6 +624,8 @@ async function testProxy(id: string) {
             :disabled="isFindingShop"
             @click="addShop"
           >
+            <IconsSync v-if="isFindingShop" />
+            <IconsAdd v-else />
             {{ isFindingShop ? "Processing…" : "Add connect" }}
           </button>
         </div>
@@ -684,16 +649,7 @@ async function testProxy(id: string) {
           <BasePopover align="right">
             <template #trigger="{ isOpen }">
               <button class="btn-sort" :class="{ 'is-active': isOpen }">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M3 6h14M3 10h10M3 14h7" />
-                </svg>
+                <IconsSort />
               </button>
             </template>
             <template #default="{ close }">
@@ -782,6 +738,8 @@ async function testProxy(id: string) {
             :disabled="testingProxies[store.id]"
             @click="testProxy(store.id)"
           >
+            <IconsSync v-if="testingProxies[store.id]" />
+            <IconsCheck v-else />
             {{ testingProxies[store.id] ? "Testing…" : "Test Proxy" }}
           </button>
           <button
@@ -789,12 +747,15 @@ async function testProxy(id: string) {
             :disabled="rotatingIds[store.id]"
             @click="rotateToken(store.id)"
           >
+            <IconsSync />
             {{ rotatingIds[store.id] ? "Rotating…" : "Rotate" }}
           </button>
           <button class="btn-outline" @click="openEditModal(store.id)">
+            <IconsMore />
             Edit
           </button>
           <button class="btn-danger" @click="deleteStore(store.id)">
+            <IconsDelete />
             Delete
           </button>
         </div>
@@ -854,8 +815,14 @@ async function testProxy(id: string) {
         </div>
 
         <div class="modal-actions">
-          <button class="btn-outline" @click="closeEditModal">Cancel</button>
-          <button class="btn-primary" @click="saveEditedStore">Save</button>
+          <button class="btn-outline" @click="closeEditModal">
+            <IconsArrowRight class="icon-left" />
+            Cancel
+          </button>
+          <button class="btn-primary" @click="saveEditedStore">
+            <IconsCheck />
+            Save
+          </button>
         </div>
       </div>
     </div>
@@ -868,19 +835,6 @@ async function testProxy(id: string) {
   margin: 0 auto;
   padding: 28px 20px 48px;
   font-size: 14px;
-}
-.page-header {
-  margin-bottom: 24px;
-}
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-.page-sub {
-  font-size: 13px;
-  color: var(--text-secondary, #6d6d6d);
 }
 /* Card */
 .card {
@@ -910,6 +864,41 @@ async function testProxy(id: string) {
 .card-actions {
   display: flex;
   gap: 8px;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 4px;
+}
+
+.toggle-btn {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 10px;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.toggle-btn.active {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow);
 }
 
 .card-title {
@@ -980,6 +969,9 @@ async function testProxy(id: string) {
   gap: 8px;
 }
 .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1001,6 +993,9 @@ async function testProxy(id: string) {
   cursor: not-allowed;
 }
 .btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border: 1px solid #fcc;
   border-radius: 6px;
@@ -1049,6 +1044,7 @@ async function testProxy(id: string) {
 .btn-sort {
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 5px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1164,6 +1160,10 @@ async function testProxy(id: string) {
 }
 
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   height: 30px;
   padding: 0 14px;
   background: var(--text-primary, #1a1a1a);
@@ -1242,6 +1242,10 @@ async function testProxy(id: string) {
   font-weight: 600;
 }
 .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: none;
   background: transparent;
   color: var(--text-sub);
@@ -1252,6 +1256,21 @@ async function testProxy(id: string) {
 }
 .btn-ghost:hover {
   background: var(--bg);
+}
+
+.btn-outline :deep(svg),
+.btn-danger :deep(svg),
+.btn-primary :deep(svg),
+.btn-ghost :deep(svg),
+.toggle-btn :deep(svg),
+.btn-sort :deep(svg) {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.icon-left {
+  transform: rotate(180deg);
 }
 .modal-body {
   display: grid;

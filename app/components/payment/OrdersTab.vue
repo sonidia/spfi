@@ -158,22 +158,6 @@
                   </template>
                 </AppPopover>
               </div>
-              <div
-                v-if="
-                  getTransactionStatus(order.id) === 'in_transit' &&
-                  order.fulfillment_status !== 'fulfilled'
-                "
-              >
-                <button 
-                  class="btn-add-track" 
-                  @click.stop="addTracking(order)"
-                  :disabled="processingOrderId === order.id"
-                  :class="{ 'is-loading': processingOrderId === order.id }"
-                >
-                  <span v-html="ICONS.plus"></span>
-                  Add track
-                </button>
-              </div>
               <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
                 >—</span
               >
@@ -189,7 +173,6 @@
 </template>
 
 <script setup lang="ts">
-import { useSheetService } from "~/composables/useSheetService";
 import {
   financialBadge,
   fmtDateTime,
@@ -197,22 +180,13 @@ import {
   fulfillmentBadge,
   getCustomerName,
   getShipmentLabel,
-  ICONS,
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
-import { getSheetUrls } from "~~/utils/sheets";
-
-const { BUFF1_SHEET_URL, BUFF2_SHEET_URL } = getSheetUrls();
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
-const formStore = useFormStore();
-const toastStore = useToastStore();
 const router = useRouter();
-const processingOrderId = ref<string | null>(null);
-const { readSheetValues, batchUpdateSheetValues, normalizeSpreadsheetId } =
-  useSheetService();
 
 function getTransactionStatus(orderId: any) {
   if (!orderId) return null;
@@ -222,238 +196,4 @@ function getTransactionStatus(orderId: any) {
   return tx?.payout_status || null;
 }
 
-function resolveToken(sid: string): string | null {
-  const storeCookie = useLocalStorage<any>(sid, {}).state;
-  const data = storeCookie.value;
-  const now = Date.now();
-  if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
-    return data.accessToken;
-  }
-  return null;
-}
-
-async function addTracking(order: any) {
-  const sid = formStore.storeId;
-  const token = sid ? resolveToken(sid) : null;
-
-  if (!sid || !token) {
-    alert(
-      "Error: Store ID or Access Token is missing. Please select a store first.",
-    );
-    return;
-  }
-
-  processingOrderId.value = order.id;
-  toastStore.addToast(`Adding tracking for order ${order.name || "#" + order.order_number}...`, "info");
-
-  // Priority: 1. Shipping Address, 2. Billing Address, 3. Customer Default Address, 4. Fallback 'CA'
-  const provinceCode =
-    order.shipping_address?.province_code ||
-    order.billing_address?.province_code ||
-    order.customer?.default_address?.province_code ||
-    "CA";
-
-  try {
-    const toTs = Date.now();
-    const fromTs = toTs - 7 * 24 * 60 * 60 * 1000; // 7 days ago
-
-    const payloadBody = {
-      state: provinceCode,
-      from: fromTs,
-      to: toTs,
-      carrier: "fedex",
-    };
-    console.log("Requesting trackingnr from Tracktaco:", {
-      state: provinceCode,
-      from: new Date(fromTs).toLocaleString(),
-      to: new Date(toTs).toLocaleString(),
-      carrier: "fedex",
-    });
-
-    const tracktacoRes = await $fetch<any>("/api/tracktaco/get-trackingnr", {
-      method: "POST",
-      body: payloadBody,
-    });
-
-    const trackingNr = tracktacoRes.trackingNr;
-    if (!trackingNr) {
-      throw new Error("No tracking number returned from Tracktaco");
-    }
-
-    const foRes = await $fetch<any>(
-      `/api/order/${order.id}/fulfillment_orders`,
-      {
-        method: "GET",
-        params: { storeId: sid, token: token },
-      },
-    );
-
-    const openFO = foRes.fulfillment_orders?.find(
-      (fo: any) => fo.status === "open" || fo.status === "in_progress",
-    );
-
-    if (!openFO) {
-      throw new Error("No open fulfillment order found for this order.");
-    }
-
-    const payload = {
-      storeId: sid,
-      token: token,
-      fulfillment: {
-        line_items_by_fulfillment_order: [
-          {
-            fulfillment_order_id: openFO.id,
-          },
-        ],
-        tracking_info: {
-          number: trackingNr,
-          url: `https://www.fedex.com/fedextrack/?trknbr=${trackingNr}`,
-        },
-      },
-    };
-
-    const response = await $fetch<any>(`/api/order/${order.id}/fulfill`, {
-      method: "POST",
-      body: payload,
-    });
-
-    console.log("Tracking updated/created:", response);
-    await orderStore.fetchAll(sid, token);
-
-    toastStore.addToast(
-      `Tracking updated successfully! (${trackingNr})`,
-      "success",
-    );
-  } catch (err: any) {
-    console.error("Failed to update tracking:", err);
-    const msg = err.data?.message || err.message || "Unknown error";
-    if (err.data) {
-      console.error("Detailed error data:", err.data);
-    }
-    toastStore.addToast(`Failed to update tracking: ${msg}`, "error");
-  } finally {
-    processingOrderId.value = null;
-  }
-}
-
-async function updateSheetTracking(order: any, trackingNr: string) {
-  const sid = formStore.storeId;
-  const cookie = useLocalStorage<any>(sid, {}).state;
-  const domain = cookie.value?.domain;
-  const customerName = getCustomerName(order);
-  const customerEmail = order.customer?.email || "";
-
-  const normalize = (s: string) =>
-    String(s || "")
-      .toLowerCase()
-      .replace(/\s+/g, "")
-      .trim();
-
-  if (!domain || (!customerName && !customerEmail)) {
-    toastStore.addToast(`Error: Missing domain or customer info`, "error");
-    return;
-  }
-
-  const domainTarget = normalize(domain);
-  const customerTarget = normalize(customerName || "");
-  const emailTarget = normalize(customerEmail);
-
-  toastStore.addToast(
-    `🛡️ Bulletproof Search for: [${customerName || customerEmail}]`,
-    "info",
-  );
-
-  // 1. Identify sheet
-  const [b1Results, b2Results] = await Promise.allSettled([
-    readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF1_SHEET_URL),
-      range: "'order 1'!A:ZZ",
-    }),
-    readSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(BUFF2_SHEET_URL),
-      range: "'Sheet1'!A:ZZ",
-    }),
-  ]);
-
-  const buff1Rows = b1Results.status === "fulfilled" ? b1Results.value : [];
-  const buff2Rows = b2Results.status === "fulfilled" ? b2Results.value : [];
-
-  let targetRows: any[][] = [];
-  let targetRangeSheet = "";
-  let spreadsheetId = "";
-
-  // Identify sheet using any column matching the domain
-  const hasDomainAnywhere = (rows: any[][]) =>
-    rows.some((row) =>
-      row.some(
-        (cell) =>
-          normalize(String(cell)).includes(domainTarget) ||
-          domainTarget.includes(normalize(String(cell))),
-      ),
-    );
-
-  if (hasDomainAnywhere(buff1Rows)) {
-    targetRows = buff1Rows;
-    targetRangeSheet = "'order 1'";
-    spreadsheetId = BUFF1_SHEET_URL;
-    toastStore.addToast("📂 Target found in BUFF 1", "info");
-  } else if (hasDomainAnywhere(buff2Rows)) {
-    targetRows = buff2Rows;
-    targetRangeSheet = "'Sheet1'";
-    spreadsheetId = BUFF2_SHEET_URL;
-    toastStore.addToast("📂 Target found in BUFF 2", "info");
-  }
-
-  if (!spreadsheetId) {
-    toastStore.addToast(
-      `❌ Domain [${domainTarget}] NOT FOUND in either sheet`,
-      "error",
-    );
-    return;
-  }
-
-  // 2. Find row - Column Agnostic Search
-  const updates: any[] = [];
-  targetRows.forEach((row, index) => {
-    const rowValues = row.map((c) => normalize(String(c)));
-
-    // Does any cell in this row contain the customer name or email?
-    const hasCustomer =
-      (customerTarget &&
-        rowValues.some((val) => val.includes(customerTarget))) ||
-      (emailTarget && rowValues.some((val) => val.includes(emailTarget)));
-
-    // Does any cell in this row contain the domain? (Optional if sheet already identified, but safer to check)
-    const hasDomain = rowValues.some(
-      (val) => val.includes(domainTarget) || domainTarget.includes(val),
-    );
-
-    // If both found (or domain is missing from row but sheet is already identified as target)
-    if (hasCustomer && (hasDomain || !rowValues.some((v) => v !== ""))) {
-      const rowNum = index + 1;
-      toastStore.addToast(
-        `✅ Row ${rowNum} is a BULLETPROOF match!`,
-        "success",
-      );
-      updates.push({
-        range: `${targetRangeSheet}!K${rowNum}:K${rowNum}`,
-        values: [[trackingNr]],
-      });
-    }
-  });
-
-  if (updates.length > 0) {
-    toastStore.addToast(`🚀 Updating ${updates.length} instances...`, "info");
-    await batchUpdateSheetValues({
-      spreadsheetId: normalizeSpreadsheetId(spreadsheetId),
-      data: updates,
-    });
-    toastStore.addToast(
-      `🎉 COMPLETED: Sheet updated for ${customerName}`,
-      "success",
-    );
-  } else {
-    toastStore.addToast(`❌ Still no row contains [${customerName}]`, "error");
-  }
-}
 </script>
