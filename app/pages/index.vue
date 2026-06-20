@@ -2,8 +2,9 @@
   <main class="landing-page">
     <section class="landing-hero">
       <div class="hero-copy">
-        <p class="eyebrow">Shopify Operations Console</p>
-        <h1>Run setup, sheets, payments, and status checks from one desk.</h1>
+        <p class="eyebrow is-ok">Shopify Operations Console</p>
+        <!-- <h1>Run setup, sheets, payments, and status checks from one desk.</h1> -->
+        <h1>Accessing the storefront from onedesk</h1>
         <p class="hero-sub">
           A compact workspace for connecting shops, rotating tokens, checking
           public store status, and reading Google Sheet data without jumping
@@ -120,7 +121,7 @@ const quickLinks = [
 .landing-hero {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(360px, 0.8fr);
-  min-height: calc(100vh - 180px);
+  min-height: calc(100vh - 190px);
   align-items: center;
   gap: 42px;
 }
@@ -138,6 +139,11 @@ const quickLinks = [
   font-weight: 900;
   letter-spacing: 0;
   text-transform: uppercase;
+  background: var(--green-soft);
+  color: var(--green);
+  border-radius: 999px;
+  padding: 4px 9px;
+  width: fit-content;
 }
 
 .hero-copy h1 {

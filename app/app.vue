@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import AppFooter from "./components/AppFooter.vue";
 import BaseToast from "./components/BaseToast.vue";
 import LoadingOverlay from "./components/LoadingOverlay.vue";
 import Nav from "./components/Nav.vue";
@@ -17,6 +18,7 @@ useTokenRotation();
     <NuxtLayout>
       <NuxtPage :keepalive="{ max: 12 }" />
     </NuxtLayout>
+    <AppFooter />
   </main>
 </template>
 
@@ -33,6 +35,7 @@ useTokenRotation();
 
 :root {
   color-scheme: light;
+  --footer-height: 36px;
   --bg: #f5f7f4;
   --surface: #ffffff;
   --surface-soft: #eef4f0;
@@ -66,7 +69,9 @@ useTokenRotation();
   --badge-pending-text: #9b6416;
   --radius: 8px;
   --radius-sm: 8px;
-  --font: "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font:
+    "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
   --text-primary: var(--text);
   --text-secondary: var(--muted);
   --text-muted: #8b9991;
@@ -122,21 +127,19 @@ textarea {
 *::-webkit-scrollbar-thumb {
   border: 2px solid rgba(245, 247, 244, 0.9);
   border-radius: 999px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(31, 122, 77, 0.72),
-      rgba(39, 92, 145, 0.66)
-    );
+  background: linear-gradient(
+    180deg,
+    rgba(31, 122, 77, 0.72),
+    rgba(39, 92, 145, 0.66)
+  );
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(31, 122, 77, 0.88),
-      rgba(39, 92, 145, 0.82)
-    );
+  background: linear-gradient(
+    180deg,
+    rgba(31, 122, 77, 0.88),
+    rgba(39, 92, 145, 0.82)
+  );
 }
 
 *::-webkit-scrollbar-corner {
@@ -147,6 +150,8 @@ textarea {
   font-family: var(--font);
   color: var(--text-primary);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .layout,

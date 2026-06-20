@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   // Diagnostic logging (masked password)
   const maskedProxy = maskProxyUrl(proxyUrl);
-  console.log(`[CheckProxy] Final URL: ${maskedProxy}`);
+  // console.log(`[CheckProxy] Final URL: ${maskedProxy}`);
 
   let agent: any;
   try {

@@ -26,18 +26,13 @@ onBeforeUnmount(() => {
   <nav class="topbar" :class="{ 'is-scrolled': isScrolled }">
     <div class="topbar-inner">
       <NuxtLink class="brand" to="/">
-        <div class="topbar-logo">
-          <svg viewBox="0 0 24 24">
-            <path
-              d="M15.337 2.24l-.19-.02c-.26-.02-.47.17-.49.43l-.26 2.6-1.16-.22c-.22-.04-.44.08-.52.29l-3.3 9.9-1.4-3.33c-.1-.23-.34-.38-.58-.35l-1.3.18L5.5 7.5c-.04-.27-.29-.46-.56-.42l-1.5.22L2.08 18.5l7.42 1.3L21.5 18 15.337 2.24z"
-            />
-          </svg>
-        </div>
-        <span class="topbar-title">Shopify</span>
+        <img src="/favicon.svg" alt="Logo" />
+        <span class="topbar-title">Spfi</span>
       </NuxtLink>
       <div class="nav-list">
         <NuxtLink to="/setup">Setup</NuxtLink>
         <NuxtLink to="/manager">Manager</NuxtLink>
+        <NuxtLink to="/profile">Profile</NuxtLink>
         <NuxtLink to="/payment">Payment</NuxtLink>
         <NuxtLink to="/sheet">Sheet</NuxtLink>
         <NuxtLink to="/status">Status</NuxtLink>
@@ -79,26 +74,12 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
 }
-.topbar-logo {
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(145deg, var(--green), var(--blue));
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 18px rgba(31, 122, 77, 0.18);
-}
-.topbar-logo svg {
-  width: 18px;
-  height: 18px;
-  fill: white;
-}
 .topbar-title {
   color: var(--text);
   font-weight: 800;
-  font-size: 14px;
+  font-size: 1.2rem;
   margin-left: 8px;
+  text-shadow: 0 0 2px rgba(31, 122, 77, 0.14);
 }
 .nav-list {
   display: flex;
@@ -133,13 +114,8 @@ onBeforeUnmount(() => {
   }
 
   .topbar-inner {
-    align-items: flex-start;
     flex-direction: column;
     gap: 10px;
-  }
-
-  .nav-list {
-    justify-content: flex-start;
   }
 }
 </style>
