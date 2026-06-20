@@ -2,8 +2,12 @@
 import StatusBatchProgressBar from "~/components/status/StatusBatchProgressBar.vue";
 import StatusBatchRunButton from "~/components/status/StatusBatchRunButton.vue";
 import StatusCheckCard from "~/components/status/StatusCheckCard.vue";
-import StatusIntroSection from "~/components/status/StatusIntroSection.vue";
+import StatusCommonProxyField from "~/components/status/StatusCommonProxyField.vue";
 import StatusProxyModeToggle from "~/components/status/StatusProxyModeToggle.vue";
+import {
+  getSocks5ProxyInputError,
+  isSocks5ProxyInput,
+} from "~/composables/useSocks5ProxyInput";
 import type {
   BatchStatus,
   CheckPlatform,
@@ -208,7 +212,9 @@ function parseBatchInput(): BatchCheckInput[] {
       const parsed = parseSeparateProxyLine(line.value);
 
       if (!parsed.target || !parsed.proxy) {
-        throw new Error(`Line ${line.lineNumber}: SOCKS5 proxy and URL/domain are required.`);
+        throw new Error(
+          `Line ${line.lineNumber}: SOCKS5 proxy and URL/domain are required.`,
+        );
       }
 
       const proxyError = getSocks5ProxyInputError(parsed.proxy);
@@ -263,61 +269,6 @@ function parseSeparateProxyLine(line: string) {
   };
 }
 
-function isSocks5ProxyInput(proxy: string) {
-  const trimmed = proxy.trim();
-
-  if (
-    !trimmed ||
-    /^https?:\/\//i.test(trimmed) ||
-    /^socks(4|4a):\/\//i.test(trimmed)
-  ) {
-    return false;
-  }
-
-  if (/^socks5h?:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-
-      return Boolean(url.hostname && url.port);
-    } catch {
-      return false;
-    }
-  }
-
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    return false;
-  }
-
-  const [host = "", port = ""] = trimmed.split(":");
-
-  return Boolean(host.trim() && /^\d{1,5}$/.test(port.trim()));
-}
-
-function getSocks5ProxyInputError(proxy: string) {
-  const trimmed = proxy.trim();
-
-  if (!trimmed) {
-    return "Enter SOCKS5 proxy as host:port or host:port:user:pass.";
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return "Only SOCKS5 proxy is supported, not HTTP/HTTPS proxy.";
-  }
-
-  if (/^socks(4|4a):\/\//i.test(trimmed)) {
-    return "Only SOCKS5 proxy is supported, not SOCKS4/SOCKS4A.";
-  }
-
-  if (
-    /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) &&
-    !/^socks5h?:\/\//i.test(trimmed)
-  ) {
-    return "Only SOCKS5 proxy is supported; host:port without protocol is accepted.";
-  }
-
-  return "";
-}
-
 function getBatchRowProxyDisplay(row: BatchCheckRow) {
   if (!row.proxy) {
     return "Direct";
@@ -359,8 +310,14 @@ function updateBatchRow(id: number, patch: Partial<BatchCheckRow>) {
     return;
   }
 
+  const currentRow = batchRows.value[rowIndex];
+
+  if (!currentRow) {
+    return;
+  }
+
   batchRows.value[rowIndex] = {
-    ...batchRows.value[rowIndex],
+    ...currentRow,
     ...patch,
   };
 }
@@ -511,6 +468,10 @@ async function runBatchCheck() {
       const row = batchRows.value[cursor];
       cursor += 1;
 
+      if (!row) {
+        continue;
+      }
+
       updateBatchRow(row.id, {
         status: "checking",
         errorMessage: "",
@@ -644,15 +605,19 @@ function formatDate(value: string) {
 
 <template>
   <main class="status-shell">
+    <PageHeader
+      title="Check Status"
+      sub="Batch check public storefront signals"
+    >
+      <IconsCheck />
+      <template #actions>
+        <span class="platform-pill">Shopify</span>
+      </template>
+    </PageHeader>
+
     <div class="checker-workspace" :class="{ 'has-result': result }">
       <div class="checker-left-column">
         <section class="checker-panel">
-          <StatusIntroSection />
-
-          <div class="checker-platform-section">
-            <span class="platform-pill">Shopify</span>
-          </div>
-
           <form class="batch-form" @submit.prevent="runBatchCheck">
             <div class="batch-topbar">
               <div class="batch-topbar-left">
@@ -701,15 +666,10 @@ function formatDate(value: string) {
               />
             </div>
 
-            <div v-if="proxyMode === 'common-proxy'" class="proxy-field">
-              <label for="common-proxy">Common SOCKS5 proxy</label>
-              <input
-                id="common-proxy"
-                v-model="commonProxy"
-                autocomplete="off"
-                placeholder="127.0.0.1:1080:user:pass"
-              />
-            </div>
+            <StatusCommonProxyField
+              v-if="proxyMode === 'common-proxy'"
+              v-model="commonProxy"
+            />
 
             <StatusBatchProgressBar
               v-if="isBatchProgressVisible"
@@ -889,21 +849,12 @@ function formatDate(value: string) {
 
 .checker-panel {
   display: grid;
-  grid-template-columns: minmax(160px, 0.35fr) minmax(360px, 1fr);
-  gap: 20px;
-  align-items: center;
+  gap: 12px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
-}
-
-.checker-platform-section {
-  display: flex;
-  height: min-content;
-  align-items: center;
-  justify-content: flex-end;
 }
 
 .platform-pill {
@@ -924,8 +875,6 @@ function formatDate(value: string) {
   grid-column: 1 / -1;
   display: grid;
   gap: 10px;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
 }
 
 .batch-topbar {
@@ -1014,32 +963,8 @@ function formatDate(value: string) {
   padding: 10px 12px;
 }
 
-.proxy-field {
-  display: grid;
-  gap: 6px;
-}
-
-.proxy-field label {
-  color: var(--text);
-  font-size: 0.84rem;
-  font-weight: 800;
-}
-
-.proxy-field input {
-  min-height: 40px;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 12px;
-  color: var(--text);
-  background: var(--surface-soft);
-  font: inherit;
-  font-size: 0.9rem;
-  outline: none;
-}
-
 .batch-textarea-wrap:focus-within,
-.proxy-field input:focus {
+.batch-textarea:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 4px rgba(31, 122, 77, 0.12);
 }
@@ -1356,10 +1281,6 @@ function formatDate(value: string) {
   }
 
   .batch-topbar-right {
-    justify-content: flex-start;
-  }
-
-  .checker-platform-section {
     justify-content: flex-start;
   }
 

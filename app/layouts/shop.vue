@@ -182,11 +182,8 @@ const filteredStores = computed(() => {
   });
 });
 
-const {
-  readProxySheetRows,
-  buildRangeFromSheetName,
-  normalizeSpreadsheetId,
-} = useSheetService();
+const { readProxySheetRows, buildRangeFromSheetName, normalizeSpreadsheetId } =
+  useSheetService();
 
 // ── Add Store Modal State ───────────────────────────────────────────────────
 const isAddModalOpen = ref(false);
@@ -440,7 +437,6 @@ function deleteStoreOption(id: string) {
     }
   }
 }
-
 </script>
 
 <template>
@@ -800,11 +796,8 @@ function deleteStoreOption(id: string) {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border-radius: 12px;
   margin: 12px 0px;
   overflow: hidden;
-  box-shadow: var(--shadow);
   max-height: calc(100vh - 64px);
 }
 

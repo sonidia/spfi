@@ -260,10 +260,12 @@ function removeRecentSheet(source: string) {
 
 <template>
   <div class="sheet-page">
-    <div class="page-header">
-      <h1 class="page-title">Sheet Management</h1>
-      <p class="page-sub">Manage your Google Sheets to view data</p>
-    </div>
+    <PageHeader
+      title="Sheet Management"
+      sub="Manage your Google Sheets to view data"
+    >
+      <IconsCopy />
+    </PageHeader>
 
     <div class="sheet-add-form">
       <div class="sheet-field-wide">
@@ -283,6 +285,8 @@ function removeRecentSheet(source: string) {
         :disabled="sheetLoading || !sheetInputValue.trim()"
         @click="addAndLoadSheet"
       >
+        <IconsSync v-if="sheetLoading" />
+        <IconsAdd v-else />
         <span>{{ sheetLoading ? "Loading…" : "Load & Add" }}</span>
       </button>
     </div>
@@ -318,12 +322,14 @@ function removeRecentSheet(source: string) {
               class="sheet-btn-outline"
               @click="loadSheetViewerData(sheet)"
             >
+              <IconsCheck />
               View
             </button>
             <button
               class="sheet-btn-danger"
               @click="removeRecentSheet(sheet.source)"
             >
+              <IconsDelete />
               Delete
             </button>
           </div>
@@ -375,22 +381,6 @@ function removeRecentSheet(source: string) {
   margin: 0 auto;
   padding: 28px 24px 60px;
   font-size: 14px;
-}
-
-.page-header {
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.page-sub {
-  font-size: 13px;
-  color: var(--text-secondary, #6d6d6d);
 }
 
 .card {
@@ -534,6 +524,9 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -553,6 +546,9 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border: 1px solid #fcc;
   border-radius: 6px;
@@ -567,6 +563,14 @@ function removeRecentSheet(source: string) {
 
 .sheet-btn-danger:hover {
   background: #fce8e8;
+}
+
+.sheet-btn-primary :deep(svg),
+.sheet-btn-outline :deep(svg),
+.sheet-btn-danger :deep(svg) {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 
 .sheet-viewer-section {

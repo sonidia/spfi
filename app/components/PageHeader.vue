@@ -7,7 +7,7 @@ defineProps<{
 
 <template>
   <div class="page-header">
-    <div class="hero-icon">
+    <div v-if="$slots.default" class="hero-icon">
       <slot />
     </div>
     <div class="page-header-text">
@@ -15,6 +15,9 @@ defineProps<{
       <p class="page-sub">
         {{ sub }}
       </p>
+    </div>
+    <div v-if="$slots.actions" class="page-header-actions">
+      <slot name="actions" />
     </div>
   </div>
 </template>
@@ -25,6 +28,7 @@ defineProps<{
   align-items: center;
   gap: 16px;
   margin-bottom: 24px;
+  min-width: 0;
 }
 
 .hero-icon {
@@ -34,8 +38,19 @@ defineProps<{
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  color: #5b47e0;
+  background: var(--green-soft, #dff4e8);
+  color: var(--green, #1f7a4d);
   flex-shrink: 0;
+}
+
+.hero-icon :deep(svg) {
+  width: 28px;
+  height: 28px;
+}
+
+.page-header-text {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .page-title {
@@ -48,5 +63,25 @@ defineProps<{
 .page-sub {
   font-size: 13px;
   color: var(--text-secondary, #6d6d6d);
+}
+
+.page-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
