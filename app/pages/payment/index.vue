@@ -8,53 +8,55 @@
 
     <section class="page">
       <!-- ════════════════ LOADING STATE -->
-      <div v-if="paymentStore.isLoading" class="payment-empty is-loading">
-        <div class="empty-icon">
+      <ShopEmptyState
+        v-if="paymentStore.isLoading"
+        title="Loading payment data"
+        description="Fetching transactions, payouts, and store finance details."
+        loading
+      >
+        <template #icon>
           <IconsSync />
-        </div>
-        <h2>Loading payment data</h2>
-        <p>Fetching transactions, payouts, and store finance details.</p>
-      </div>
+        </template>
+      </ShopEmptyState>
 
       <!-- ════════════════ EMPTY / NOT FETCHED -->
-      <div
+      <ShopEmptyState
         v-else-if="
           !paymentStore.isLoading &&
           paymentStore.payouts.length === 0 &&
           !paymentStore.error
         "
-        class="payment-empty"
+        :title="paymentEmptyState.title"
+        :description="paymentEmptyState.description"
       >
-        <div class="empty-icon">
+        <template #icon>
           <IconsHero v-if="paymentEmptyState.kind === 'no-stores'" />
           <IconsCheck v-else-if="paymentEmptyState.kind === 'no-selection'" />
           <IconsDate v-else />
-        </div>
-        <h2>{{ paymentEmptyState.title }}</h2>
-        <p>{{ paymentEmptyState.description }}</p>
-        <div class="empty-actions">
+        </template>
+        <template #actions>
           <NuxtLink
             v-if="paymentEmptyState.kind === 'no-stores'"
             to="/manager"
-            class="empty-action primary"
+            class="shop-empty-action primary"
           >
             <IconsAdd />
             Add store
           </NuxtLink>
           <button
             v-else-if="formStore.storeId"
-            class="empty-action primary"
+            class="shop-empty-action primary"
             type="button"
             @click="refreshCurrentStore"
           >
             <IconsRefresh />
             Refresh payment
           </button>
-          <span v-else class="empty-hint">
+          <span v-else class="shop-empty-hint">
             Pick a store from the left sidebar.
           </span>
-        </div>
-      </div>
+        </template>
+      </ShopEmptyState>
 
       <!-- ════════════════ SCREEN 1: CONTENT -->
       <div v-else class="screen">
@@ -341,101 +343,6 @@ function resolveToken(sid: string): string | null {
   margin-bottom: 16px;
 }
 
-.payment-empty {
-  min-height: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 48px 28px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.96)),
-    var(--surface);
-  box-shadow: var(--shadow);
-  text-align: center;
-}
-
-.empty-icon {
-  width: 52px;
-  height: 52px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(31, 122, 77, 0.16);
-  border-radius: 12px;
-  background: var(--green-soft);
-  color: var(--green);
-  box-shadow: 0 10px 24px rgba(31, 122, 77, 0.1);
-}
-
-.empty-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.payment-empty.is-loading .empty-icon svg {
-  animation: spin 0.9s linear infinite;
-}
-
-.payment-empty h2 {
-  margin: 4px 0 0;
-  color: var(--text-primary);
-  font-size: 1.3rem;
-  font-weight: 750;
-}
-
-.payment-empty p {
-  max-width: 460px;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.94rem;
-  line-height: 1.55;
-}
-
-.empty-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.empty-action {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 0;
-  border-radius: 8px;
-  padding: 0 14px;
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.empty-action.primary {
-  background: var(--text-primary);
-  color: white;
-}
-
-.empty-action svg {
-  width: 15px;
-  height: 15px;
-}
-
-.empty-hint {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
 /* ─── OVERVIEW ─── */
 .overview-card {
   display: grid;
@@ -513,7 +420,11 @@ function resolveToken(sid: string): string | null {
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font);
-  transition: all 0.15s;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
   line-height: 1.4;
   display: inline-flex;
   align-items: center;
@@ -529,7 +440,15 @@ function resolveToken(sid: string): string | null {
   color: var(--text-primary);
 }
 .tab-btn:hover:not(.active) {
-  background: #f0f0f0;
+  background: var(--surface-soft);
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
+  transform: translateY(-1px);
+}
+
+.tab-btn:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.45);
+  outline-offset: 2px;
 }
 .tab-count {
   display: inline-flex;

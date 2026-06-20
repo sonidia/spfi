@@ -7,6 +7,7 @@ import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
+import { useShopProfileStore } from "../stores/shopProfile";
 
 const { SPF_SHEET_URL } = getSheetUrls();
 
@@ -14,6 +15,7 @@ const formStore = useFormStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
+const shopProfileStore = useShopProfileStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -44,6 +46,9 @@ const isFetching = computed(() => {
     return orderStore.isLoading;
   if (path.startsWith("/payment")) return paymentStore.isLoading;
   if (path === "/product") return productStore.isLoading;
+  if (path === "/profile") {
+    return shopProfileStore.isLoading || productStore.isLoading;
+  }
   return false;
 });
 
@@ -53,7 +58,11 @@ const noStores = computed(() => formStore.knownStores.length === 0);
 watch(
   () => route.path,
   (newPath) => {
-    if (newPath.startsWith("/order") || newPath.startsWith("/payment")) {
+    if (
+      newPath.startsWith("/order") ||
+      newPath.startsWith("/payment") ||
+      newPath === "/profile"
+    ) {
       fetchCurrent();
     }
   },
@@ -97,6 +106,9 @@ function hydrateStoreData(storeId: string) {
 
   const hasProducts = productStore.hydrate(storeId);
   if (!hasProducts) productStore.$reset();
+
+  const hasShopProfile = shopProfileStore.hydrate(storeId);
+  if (!hasShopProfile) shopProfileStore.$reset();
 }
 
 function onSelectStore(id: string) {
@@ -133,12 +145,14 @@ function fetchCurrent(force = false) {
     const msg = "Token expired or missing. Please go to Token page.";
     if (route.path === "/order") orderStore.error = msg;
     if (route.path.startsWith("/payment")) paymentStore.error = msg;
+    if (route.path === "/profile") shopProfileStore.error = msg;
     return;
   }
 
   // Clear previous errors
   if (route.path.startsWith("/order")) orderStore.error = null;
   if (route.path.startsWith("/payment")) paymentStore.error = null;
+  if (route.path === "/profile") shopProfileStore.error = null;
 
   if (route.path === "/order") {
     if (force || !orderStore.hasFetchedAll) orderStore.fetchAll(sid, token);
@@ -161,6 +175,13 @@ function fetchCurrent(force = false) {
     }
   } else if (route.path === "/product") {
     if (force || !productStore.hasFetchedAll) productStore.fetchAll(sid, token);
+  } else if (route.path === "/profile") {
+    if (force || !shopProfileStore.hasFetchedProfile) {
+      shopProfileStore.fetchProfile(sid, token);
+    }
+    if (force || !productStore.hasFetchedAll) {
+      productStore.fetchAll(sid, token);
+    }
   }
 }
 
@@ -440,9 +461,9 @@ function deleteStoreOption(id: string) {
 </script>
 
 <template>
-  <div class="shop-layout-container">
+  <div class="shop-layout-container" :class="{ 'is-single-panel': noStores }">
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside v-if="!noStores" class="sidebar">
       <div class="sidebar-header">
         <button
           class="btn-sidebar-add"
@@ -537,8 +558,8 @@ function deleteStoreOption(id: string) {
         <div class="shop-bar-left">
           <div class="title-container">
             <slot name="title" />
-            <IconsArrowRight />
-            <h3>
+            <IconsArrowRight v-if="formStore.storeId" />
+            <h3 v-if="formStore.storeId">
               {{ getStoreDomain(formStore.storeId) || formStore.storeId }}
             </h3>
           </div>
@@ -546,8 +567,9 @@ function deleteStoreOption(id: string) {
 
         <div class="shop-bar-right">
           <button
+            v-if="formStore.storeId"
             class="btn-fetch"
-            :disabled="isFetching || !formStore.storeId"
+            :disabled="isFetching"
             @click="fetchCurrent(true)"
           >
             <svg
@@ -776,8 +798,8 @@ function deleteStoreOption(id: string) {
 <style scoped>
 .shop-layout-container {
   display: flex;
-  min-height: calc(100vh - 64px);
-  max-height: calc(100vh - 64px); /* Subtract nav height if any */
+  min-height: calc(100vh - 64px - var(--footer-height, 36px));
+  max-height: calc(100vh - 64px - var(--footer-height, 36px));
   max-width: 1400px;
   margin: 0 auto;
   gap: 24px;
@@ -785,8 +807,17 @@ function deleteStoreOption(id: string) {
   overflow: hidden !important;
 }
 
+.shop-layout-container.is-single-panel {
+  max-width: 900px;
+  justify-content: center;
+}
+
+.shop-layout-container.is-single-panel .main-content {
+  max-width: 760px;
+}
+
 .page-content {
-  max-height: calc(100vh - 64px) !important;
+  max-height: calc(100vh - 64px - var(--footer-height, 36px)) !important;
   overflow-y: auto !important;
 }
 
@@ -798,7 +829,7 @@ function deleteStoreOption(id: string) {
   flex-direction: column;
   margin: 12px 0px;
   overflow: hidden;
-  max-height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px - var(--footer-height, 36px));
 }
 
 .sidebar-header {
@@ -1068,6 +1099,11 @@ function deleteStoreOption(id: string) {
     flex-direction: column;
     padding: 0 12px;
   }
+
+  .shop-layout-container.is-single-panel .main-content {
+    max-width: none;
+  }
+
   .sidebar {
     width: 100%;
     max-height: 200px;

@@ -88,24 +88,60 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 .nav-list a {
+  position: relative;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
   padding: 6px 12px;
   border-radius: 6px;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
   text-decoration: none;
 }
-.nav-list a:hover {
-  background: var(--surface-soft);
-  color: var(--green);
+
+.nav-list a::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
+
+.nav-list a:hover {
+  background: var(--surface);
+  color: var(--green);
+  box-shadow:
+    inset 0 0 0 1px rgba(31, 122, 77, 0.18),
+    0 8px 18px rgba(31, 122, 77, 0.1);
+  transform: translateY(-1px);
+}
+
+.nav-list a:hover::after,
+.nav-list a.router-link-active::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
 .nav-list a.router-link-active {
   background: var(--green-soft);
   color: var(--green);
   box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
+}
+
+.nav-list a:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.45);
+  outline-offset: 2px;
 }
 
 @media (max-width: 700px) {
