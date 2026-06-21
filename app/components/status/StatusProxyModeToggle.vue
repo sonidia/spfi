@@ -22,23 +22,18 @@ function selectMode(value: ProxyMode) {
 
 <template>
   <div class="mode-toggle" role="radiogroup" aria-label="Proxy mode">
-    <label
+    <button
       v-for="option in options"
       :key="option.value"
+      type="button"
       class="mode-option"
       :class="{ 'is-active': props.modelValue === option.value }"
+      role="radio"
+      :aria-checked="props.modelValue === option.value"
+      @click="selectMode(option.value)"
     >
-      <input
-        class="mode-input"
-        type="radio"
-        name="status-proxy-mode"
-        :value="option.value"
-        :checked="props.modelValue === option.value"
-        :aria-label="option.label"
-        @change="selectMode(option.value)"
-      />
       <span>{{ option.label }}</span>
-    </label>
+    </button>
   </div>
 </template>
 
@@ -70,17 +65,14 @@ function selectMode(value: ProxyMode) {
   font-weight: 800;
 }
 
-.mode-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+.mode-option:hover,
+.mode-option:focus-visible {
+  color: var(--green);
 }
 
-.mode-option:hover,
-.mode-option:focus-within {
-  color: var(--green);
+.mode-option:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.34);
+  outline-offset: 2px;
 }
 
 .mode-option.is-active {

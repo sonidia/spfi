@@ -772,7 +772,9 @@ function formatDate(value: string) {
       <section v-if="result" class="result-layout" aria-live="polite">
         <aside class="summary-panel" :class="`is-${result.verdict.severity}`">
           <p class="eyebrow">Store status</p>
-          <h2>{{ result.verdict.status }}</h2>
+          <h2>
+            {{ result.verdict.status }}
+          </h2>
           <p>{{ result.verdict.summary }}</p>
           <dl>
             <div>
@@ -847,6 +849,7 @@ function formatDate(value: string) {
   overflow: hidden;
   position: sticky;
   top: 16px;
+  min-width: 30rem;
 }
 
 .checker-panel {
@@ -856,7 +859,6 @@ function formatDate(value: string) {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .platform-pill {
@@ -1058,13 +1060,14 @@ function formatDate(value: string) {
 
 .batch-table {
   width: 100%;
-  min-width: 920px;
+  /* min-width: 920px; */
   border-collapse: separate;
   border-spacing: 0;
 }
 
 .batch-table.is-no-proxy {
-  min-width: 820px;
+  /* min-width: 820px; */
+  max-width: 100%;
 }
 
 .batch-table th,
@@ -1082,7 +1085,7 @@ function formatDate(value: string) {
   z-index: 1;
   background: rgba(238, 244, 240, 0.86);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 900;
 }
 
@@ -1097,6 +1100,10 @@ function formatDate(value: string) {
   transition:
     background 0.16s ease,
     box-shadow 0.16s ease;
+}
+
+.batch-table tbody tr td:nth-child(3) {
+  white-space: nowrap;
 }
 
 .batch-table tbody tr:last-child td {
