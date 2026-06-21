@@ -56,6 +56,8 @@ export const usePaymentStore = defineStore("payment", () => {
   const transactionsByPayout = ref<Record<string, Transaction[]>>({});
 
   const balanceTransactions = ref<any[]>([]);
+  const hasFetchedAll = ref(false);
+  const hasFetchedBalanceTransactions = ref(false);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -69,15 +71,31 @@ export const usePaymentStore = defineStore("payment", () => {
         payoutDetails: Record<string, Payout>;
         transactionsByPayout: Record<string, Transaction[]>;
         balanceTransactions: any[];
+        hasFetchedAll: boolean;
+        hasFetchedBalanceTransactions: boolean;
       }
     >
   >({});
 
-  async function fetchAll(storeId: string, token: string) {
+  function rememberStore(storeId: string) {
+    storeCache.value[storeId] = {
+      balance: balance.value,
+      payouts: [...payouts.value],
+      payoutDetails: { ...payoutDetails.value },
+      transactionsByPayout: { ...transactionsByPayout.value },
+      balanceTransactions: [...balanceTransactions.value],
+      hasFetchedAll: hasFetchedAll.value,
+      hasFetchedBalanceTransactions: hasFetchedBalanceTransactions.value,
+    };
+  }
+
+  async function fetchAll(storeId: string, token: string, force = false) {
     if (!storeId || !token) {
       error.value = "Store ID and Access Token are required.";
       return;
     }
+
+    if (!force && hasFetchedAll.value) return;
 
     isLoading.value = true;
     error.value = null;
@@ -91,13 +109,8 @@ export const usePaymentStore = defineStore("payment", () => {
       balance.value = response.balance || null;
       payouts.value = response.payouts || [];
       transactionsByPayout.value = response.transactionsByPayout || {};
-      storeCache.value[storeId] = {
-        balance: balance.value,
-        payouts: [...payouts.value],
-        payoutDetails: { ...payoutDetails.value },
-        transactionsByPayout: { ...transactionsByPayout.value },
-        balanceTransactions: [...balanceTransactions.value],
-      };
+      hasFetchedAll.value = true;
+      rememberStore(storeId);
     } catch (err: any) {
       error.value =
         err?.data?.statusMessage ??
@@ -118,7 +131,7 @@ export const usePaymentStore = defineStore("payment", () => {
       return;
     }
 
-    if (!force && balanceTransactions.value.length > 0) return;
+    if (!force && hasFetchedBalanceTransactions.value) return;
 
     isLoading.value = true;
     error.value = null;
@@ -131,13 +144,8 @@ export const usePaymentStore = defineStore("payment", () => {
       balanceTransactions.value = (res.transactions || []).filter(
         (t: any) => t.type !== "payout",
       );
-      storeCache.value[storeId] = {
-        balance: balance.value,
-        payouts: [...payouts.value],
-        payoutDetails: { ...payoutDetails.value },
-        transactionsByPayout: { ...transactionsByPayout.value },
-        balanceTransactions: [...balanceTransactions.value],
-      };
+      hasFetchedBalanceTransactions.value = true;
+      rememberStore(storeId);
     } catch (err: any) {
       error.value = err.message || "Failed to load transactions";
     } finally {
@@ -190,13 +198,7 @@ export const usePaymentStore = defineStore("payment", () => {
       transactionsByPayout.value[String(payoutId)] =
         response.transactions ?? [];
 
-      storeCache.value[storeId] = {
-        balance: balance.value,
-        payouts: [...payouts.value],
-        payoutDetails: { ...payoutDetails.value },
-        transactionsByPayout: { ...transactionsByPayout.value },
-        balanceTransactions: [...balanceTransactions.value],
-      };
+      rememberStore(storeId);
     } catch (err: any) {
       error.value =
         err?.data?.statusMessage ??
@@ -215,6 +217,9 @@ export const usePaymentStore = defineStore("payment", () => {
     payoutDetails.value = { ...cached.payoutDetails };
     transactionsByPayout.value = { ...cached.transactionsByPayout };
     balanceTransactions.value = [...cached.balanceTransactions];
+    hasFetchedAll.value = cached.hasFetchedAll;
+    hasFetchedBalanceTransactions.value =
+      cached.hasFetchedBalanceTransactions;
     error.value = null;
     return true;
   }
@@ -225,6 +230,8 @@ export const usePaymentStore = defineStore("payment", () => {
     payoutDetails.value = {};
     transactionsByPayout.value = {};
     balanceTransactions.value = [];
+    hasFetchedAll.value = false;
+    hasFetchedBalanceTransactions.value = false;
     error.value = null;
     isLoading.value = false;
   }
@@ -235,6 +242,8 @@ export const usePaymentStore = defineStore("payment", () => {
     payoutDetails,
     transactionsByPayout,
     balanceTransactions,
+    hasFetchedAll,
+    hasFetchedBalanceTransactions,
     isLoading,
     error,
     fetchAll,

@@ -59,7 +59,9 @@
             </div>
             <div class="metric-item">
               <span>Plan</span>
-              <strong>{{ shop?.plan_display_name || shop?.plan_name || "-" }}</strong>
+              <strong>{{
+                shop?.plan_display_name || shop?.plan_name || "-"
+              }}</strong>
             </div>
           </div>
         </section>
@@ -81,7 +83,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from "vue";
+import {
+  computed,
+  onActivated,
+  onDeactivated,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import { useShopProfileStore } from "~/stores/shopProfile";
@@ -97,6 +106,8 @@ definePageMeta({ layout: false });
 const formStore = useFormStore();
 const productStore = useProductStore();
 const profileStore = useShopProfileStore();
+const isPageActive = ref(true);
+const hasSkippedInitialActivation = ref(false);
 
 const shop = computed(() => profileStore.shop);
 const products = computed(() => productStore.products);
@@ -112,7 +123,8 @@ const profileEmptyState = computed(() => {
 
   return {
     title: "Select a shop",
-    description: "Choose a store from the sidebar to view its profile and products.",
+    description:
+      "Choose a store from the sidebar to view its profile and products.",
   };
 });
 
@@ -192,9 +204,26 @@ onMounted(() => {
   loadProfileData();
 });
 
+onActivated(() => {
+  isPageActive.value = true;
+
+  if (!hasSkippedInitialActivation.value) {
+    hasSkippedInitialActivation.value = true;
+    return;
+  }
+
+  loadProfileData();
+});
+
+onDeactivated(() => {
+  isPageActive.value = false;
+});
+
 watch(
   () => formStore.storeId,
   () => {
+    if (!isPageActive.value) return;
+
     loadProfileData();
   },
 );
@@ -211,7 +240,7 @@ async function loadProfileData(force = false) {
 
   const requests: Promise<any>[] = [];
 
-  if (force || !profileStore.hasFetchedProfile) {
+  if (force || (!profileStore.hasFetchedProfile && !profileStore.isLoading)) {
     requests.push(profileStore.fetchProfile(storeId, token));
   }
 
@@ -259,9 +288,12 @@ function resolveToken(storeId: string): string | null {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background:
-    linear-gradient(135deg, rgba(223, 244, 232, 0.74), rgba(226, 238, 249, 0.78)),
+    linear-gradient(
+      135deg,
+      rgba(223, 244, 232, 0.74),
+      rgba(226, 238, 249, 0.78)
+    ),
     var(--surface);
-  box-shadow: var(--shadow);
   padding: 22px;
 }
 

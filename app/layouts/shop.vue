@@ -20,24 +20,28 @@ const route = useRoute();
 const router = useRouter();
 
 const { loading: globalLoading } = useLoading();
+const isLayoutActive = ref(true);
+const hasSkippedInitialActivation = ref(false);
 
 onMounted(() => {
   formStore.loadKnownStores();
+  syncShopFromRoute(true);
+});
 
-  // Try to restore from URL first, then cookie
-  const queryShop = route.query.shop as string;
-  const cookieShop = useLocalStorage("active_store_id", "").state.value;
-  const initialShop = queryShop || cookieShop;
+onActivated(() => {
+  isLayoutActive.value = true;
 
-  if (queryShop) {
-    formStore.storeId = queryShop;
-    useLocalStorage("active_store_id", "").state.value = queryShop;
-    hydrateStoreData(queryShop);
-    fetchCurrent();
-  } else {
-    // If no query shop, we don't auto-select from cookie anymore
-    formStore.storeId = "";
+  if (!hasSkippedInitialActivation.value) {
+    hasSkippedInitialActivation.value = true;
+    return;
   }
+
+  syncShopFromRoute(true);
+});
+
+onDeactivated(() => {
+  isLayoutActive.value = false;
+  globalLoading.value = false;
 });
 
 const isFetching = computed(() => {
@@ -58,6 +62,8 @@ const noStores = computed(() => formStore.knownStores.length === 0);
 watch(
   () => route.path,
   (newPath) => {
+    if (!isLayoutActive.value) return;
+
     if (
       newPath.startsWith("/order") ||
       newPath.startsWith("/payment") ||
@@ -71,6 +77,8 @@ watch(
 watch(
   isFetching,
   (val) => {
+    if (!isLayoutActive.value) return;
+
     if (val) globalLoading.value = true;
     else {
       globalLoading.value = false;
@@ -82,17 +90,10 @@ watch(
 // Sync shop from URL query changes (e.g. forward/backward or manual entry)
 watch(
   () => route.query.shop,
-  (newShop) => {
-    if (newShop) {
-      if (newShop !== formStore.storeId) {
-        formStore.storeId = newShop as string;
-        useLocalStorage("active_store_id", "").state.value = newShop as string;
-        hydrateStoreData(newShop as string);
-        fetchCurrent();
-      }
-    } else {
-      formStore.storeId = "";
-    }
+  () => {
+    if (!isLayoutActive.value) return;
+
+    syncShopFromRoute(true);
   },
 );
 
@@ -109,6 +110,38 @@ function hydrateStoreData(storeId: string) {
 
   const hasShopProfile = shopProfileStore.hydrate(storeId);
   if (!hasShopProfile) shopProfileStore.$reset();
+}
+
+function getRouteShop() {
+  const queryShop = route.query.shop;
+
+  if (Array.isArray(queryShop)) {
+    return queryShop[0] || "";
+  }
+
+  return typeof queryShop === "string" ? queryShop : "";
+}
+
+function syncShopFromRoute(shouldFetch = false) {
+  const queryShop = getRouteShop();
+
+  if (!queryShop) {
+    // If no query shop, we don't auto-select from cookie anymore.
+    formStore.storeId = "";
+    return;
+  }
+
+  const didChangeShop = formStore.storeId !== queryShop;
+  formStore.storeId = queryShop;
+  useLocalStorage("active_store_id", "").state.value = queryShop;
+
+  if (didChangeShop) {
+    hydrateStoreData(queryShop);
+  }
+
+  if (shouldFetch) {
+    fetchCurrent();
+  }
 }
 
 function onSelectStore(id: string) {
@@ -163,8 +196,8 @@ function fetchCurrent(force = false) {
       orderStore.fetchById(sid, token, idMatch[1], force);
     }
   } else if (route.path === "/payment") {
-    if (force || (!paymentStore.payouts.length && !paymentStore.balance)) {
-      paymentStore.fetchAll(sid, token);
+    if (force || !paymentStore.hasFetchedAll) {
+      paymentStore.fetchAll(sid, token, force);
     }
   } else if (route.path === "/payment/transactions") {
     paymentStore.fetchBalanceTransactions(sid, token, force);
@@ -996,7 +1029,6 @@ function deleteStoreOption(id: string) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
 }
 

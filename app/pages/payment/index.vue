@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onActivated, onDeactivated, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
@@ -165,6 +165,8 @@ const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
 const activeTab = ref<"payouts" | "transactions" | "orders" | "products">(
   "transactions",
 );
+const isPageActive = ref(true);
+const hasSkippedInitialActivation = ref(false);
 
 function setActiveTab(tab: "payouts" | "transactions" | "orders" | "products") {
   activeTab.value = tab;
@@ -227,15 +229,36 @@ const paymentEmptyState = computed(() => {
 });
 
 onMounted(() => {
+  fetchPaymentSupportData();
+});
+
+onActivated(() => {
+  isPageActive.value = true;
+
+  if (!hasSkippedInitialActivation.value) {
+    hasSkippedInitialActivation.value = true;
+    return;
+  }
+
+  fetchPaymentSupportData();
+});
+
+onDeactivated(() => {
+  isPageActive.value = false;
+});
+
+function fetchPaymentSupportData() {
   if (formStore.storeId) {
     const token = resolveToken(formStore.storeId);
     if (token) paymentStore.fetchBalanceTransactions(formStore.storeId, token);
   }
-});
+}
 
 watch(
   () => formStore.storeId,
   () => {
+    if (!isPageActive.value) return;
+
     if (formStore.storeId) {
       const token = resolveToken(formStore.storeId);
       if (token) {
@@ -249,6 +272,8 @@ watch(
 );
 
 watch(activeTab, (newTab) => {
+  if (!isPageActive.value) return;
+
   if (newTab === "orders" && formStore.storeId) {
     const token = resolveToken(formStore.storeId);
     if (token) {

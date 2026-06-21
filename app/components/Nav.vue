@@ -119,16 +119,11 @@ onBeforeUnmount(() => {
 }
 
 .nav-list a:hover {
-  background: var(--surface);
   color: var(--green);
-  box-shadow:
-    inset 0 0 0 1px rgba(31, 122, 77, 0.18),
-    0 8px 18px rgba(31, 122, 77, 0.1);
   transform: translateY(-1px);
 }
 
-.nav-list a:hover::after,
-.nav-list a.router-link-active::after {
+.nav-list a:hover::after {
   opacity: 1;
   transform: scaleX(1);
 }
@@ -137,6 +132,10 @@ onBeforeUnmount(() => {
   background: var(--green-soft);
   color: var(--green);
   box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
+}
+
+.nav-list a.router-link-active:hover::after {
+  opacity: 0;
 }
 
 .nav-list a:focus-visible {

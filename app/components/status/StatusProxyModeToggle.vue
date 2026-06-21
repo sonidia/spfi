@@ -6,7 +6,7 @@ interface ProxyModeOption {
   label: string;
 }
 
-defineProps<{
+const props = defineProps<{
   modelValue: ProxyMode;
   options: ProxyModeOption[];
 }>();
@@ -22,17 +22,23 @@ function selectMode(value: ProxyMode) {
 
 <template>
   <div class="mode-toggle" role="radiogroup" aria-label="Proxy mode">
-    <button
+    <label
       v-for="option in options"
       :key="option.value"
-      type="button"
-      role="radio"
-      :aria-checked="modelValue === option.value"
-      :class="{ 'is-active': modelValue === option.value }"
-      @click="selectMode(option.value)"
+      class="mode-option"
+      :class="{ 'is-active': props.modelValue === option.value }"
     >
-      {{ option.label }}
-    </button>
+      <input
+        class="mode-input"
+        type="radio"
+        name="status-proxy-mode"
+        :value="option.value"
+        :checked="props.modelValue === option.value"
+        :aria-label="option.label"
+        @change="selectMode(option.value)"
+      />
+      <span>{{ option.label }}</span>
+    </label>
   </div>
 </template>
 
@@ -47,7 +53,8 @@ function selectMode(value: ProxyMode) {
   background: var(--surface-soft);
 }
 
-.mode-toggle button {
+.mode-option {
+  position: relative;
   min-height: 30px;
   border: 0;
   border-radius: 6px;
@@ -63,17 +70,20 @@ function selectMode(value: ProxyMode) {
   font-weight: 800;
 }
 
-.mode-toggle button:hover,
-.mode-toggle button:focus-visible {
+.mode-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-option:hover,
+.mode-option:focus-within {
   color: var(--green);
 }
 
-.mode-toggle button:focus-visible {
-  outline: 2px solid rgba(31, 122, 77, 0.32);
-  outline-offset: 2px;
-}
-
-.mode-toggle button.is-active {
+.mode-option.is-active {
   background: var(--surface);
   color: var(--green);
   box-shadow: 0 1px 3px rgba(20, 34, 27, 0.12);
@@ -84,7 +94,7 @@ function selectMode(value: ProxyMode) {
     width: 100%;
   }
 
-  .mode-toggle button {
+  .mode-option {
     flex: 1 1 100%;
     width: 100%;
   }

@@ -39,7 +39,6 @@ defineProps<{
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .profile-card-head {

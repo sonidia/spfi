@@ -287,7 +287,7 @@ function removeRecentSheet(source: string) {
       >
         <IconsSync v-if="sheetLoading" />
         <IconsAdd v-else />
-        <span>{{ sheetLoading ? "Loading…" : "Load & Add" }}</span>
+        <span>{{ sheetLoading ? "Loading…" : "Import" }}</span>
       </button>
     </div>
 
@@ -412,7 +412,7 @@ function removeRecentSheet(source: string) {
 
 .sheet-field-wide {
   flex: 2;
-  min-width: 180px;
+  min-width: 48rem;
 }
 
 .sheet-inp {

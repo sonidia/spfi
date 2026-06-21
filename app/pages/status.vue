@@ -815,9 +815,10 @@ function formatDate(value: string) {
 
 <style scoped>
 .status-shell {
-  width: min(1320px, calc(100% - 32px));
+  /* width: min(60%, calc(100% - 32px)); */
+  width: fit-content;
   margin: 0 auto;
-  padding: 16px 0 40px;
+  padding: 28px 0 40px;
 }
 
 .checker-workspace {
@@ -837,6 +838,7 @@ function formatDate(value: string) {
   display: grid;
   min-width: 0;
   gap: 12px;
+  min-width: 65rem;
 }
 
 .checker-workspace.has-result .checker-left-column {
