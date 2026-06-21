@@ -7,6 +7,7 @@ import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
+import { useShopProfileStore } from "../stores/shopProfile";
 
 const { SPF_SHEET_URL } = getSheetUrls();
 
@@ -14,28 +15,33 @@ const formStore = useFormStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
+const shopProfileStore = useShopProfileStore();
 const route = useRoute();
 const router = useRouter();
 
 const { loading: globalLoading } = useLoading();
+const isLayoutActive = ref(true);
+const hasSkippedInitialActivation = ref(false);
 
 onMounted(() => {
   formStore.loadKnownStores();
+  syncShopFromRoute(true);
+});
 
-  // Try to restore from URL first, then cookie
-  const queryShop = route.query.shop as string;
-  const cookieShop = useLocalStorage("active_store_id", "").state.value;
-  const initialShop = queryShop || cookieShop;
+onActivated(() => {
+  isLayoutActive.value = true;
 
-  if (queryShop) {
-    formStore.storeId = queryShop;
-    useLocalStorage("active_store_id", "").state.value = queryShop;
-    hydrateStoreData(queryShop);
-    fetchCurrent();
-  } else {
-    // If no query shop, we don't auto-select from cookie anymore
-    formStore.storeId = "";
+  if (!hasSkippedInitialActivation.value) {
+    hasSkippedInitialActivation.value = true;
+    return;
   }
+
+  syncShopFromRoute(true);
+});
+
+onDeactivated(() => {
+  isLayoutActive.value = false;
+  globalLoading.value = false;
 });
 
 const isFetching = computed(() => {
@@ -44,6 +50,9 @@ const isFetching = computed(() => {
     return orderStore.isLoading;
   if (path.startsWith("/payment")) return paymentStore.isLoading;
   if (path === "/product") return productStore.isLoading;
+  if (path === "/profile") {
+    return shopProfileStore.isLoading || productStore.isLoading;
+  }
   return false;
 });
 
@@ -53,7 +62,13 @@ const noStores = computed(() => formStore.knownStores.length === 0);
 watch(
   () => route.path,
   (newPath) => {
-    if (newPath.startsWith("/order") || newPath.startsWith("/payment")) {
+    if (!isLayoutActive.value) return;
+
+    if (
+      newPath.startsWith("/order") ||
+      newPath.startsWith("/payment") ||
+      newPath === "/profile"
+    ) {
       fetchCurrent();
     }
   },
@@ -62,6 +77,8 @@ watch(
 watch(
   isFetching,
   (val) => {
+    if (!isLayoutActive.value) return;
+
     if (val) globalLoading.value = true;
     else {
       globalLoading.value = false;
@@ -73,17 +90,10 @@ watch(
 // Sync shop from URL query changes (e.g. forward/backward or manual entry)
 watch(
   () => route.query.shop,
-  (newShop) => {
-    if (newShop) {
-      if (newShop !== formStore.storeId) {
-        formStore.storeId = newShop as string;
-        useLocalStorage("active_store_id", "").state.value = newShop as string;
-        hydrateStoreData(newShop as string);
-        fetchCurrent();
-      }
-    } else {
-      formStore.storeId = "";
-    }
+  () => {
+    if (!isLayoutActive.value) return;
+
+    syncShopFromRoute(true);
   },
 );
 
@@ -97,6 +107,41 @@ function hydrateStoreData(storeId: string) {
 
   const hasProducts = productStore.hydrate(storeId);
   if (!hasProducts) productStore.$reset();
+
+  const hasShopProfile = shopProfileStore.hydrate(storeId);
+  if (!hasShopProfile) shopProfileStore.$reset();
+}
+
+function getRouteShop() {
+  const queryShop = route.query.shop;
+
+  if (Array.isArray(queryShop)) {
+    return queryShop[0] || "";
+  }
+
+  return typeof queryShop === "string" ? queryShop : "";
+}
+
+function syncShopFromRoute(shouldFetch = false) {
+  const queryShop = getRouteShop();
+
+  if (!queryShop) {
+    // If no query shop, we don't auto-select from cookie anymore.
+    formStore.storeId = "";
+    return;
+  }
+
+  const didChangeShop = formStore.storeId !== queryShop;
+  formStore.storeId = queryShop;
+  useLocalStorage("active_store_id", "").state.value = queryShop;
+
+  if (didChangeShop) {
+    hydrateStoreData(queryShop);
+  }
+
+  if (shouldFetch) {
+    fetchCurrent();
+  }
 }
 
 function onSelectStore(id: string) {
@@ -133,12 +178,14 @@ function fetchCurrent(force = false) {
     const msg = "Token expired or missing. Please go to Token page.";
     if (route.path === "/order") orderStore.error = msg;
     if (route.path.startsWith("/payment")) paymentStore.error = msg;
+    if (route.path === "/profile") shopProfileStore.error = msg;
     return;
   }
 
   // Clear previous errors
   if (route.path.startsWith("/order")) orderStore.error = null;
   if (route.path.startsWith("/payment")) paymentStore.error = null;
+  if (route.path === "/profile") shopProfileStore.error = null;
 
   if (route.path === "/order") {
     if (force || !orderStore.hasFetchedAll) orderStore.fetchAll(sid, token);
@@ -149,8 +196,8 @@ function fetchCurrent(force = false) {
       orderStore.fetchById(sid, token, idMatch[1], force);
     }
   } else if (route.path === "/payment") {
-    if (force || (!paymentStore.payouts.length && !paymentStore.balance)) {
-      paymentStore.fetchAll(sid, token);
+    if (force || !paymentStore.hasFetchedAll) {
+      paymentStore.fetchAll(sid, token, force);
     }
   } else if (route.path === "/payment/transactions") {
     paymentStore.fetchBalanceTransactions(sid, token, force);
@@ -161,6 +208,13 @@ function fetchCurrent(force = false) {
     }
   } else if (route.path === "/product") {
     if (force || !productStore.hasFetchedAll) productStore.fetchAll(sid, token);
+  } else if (route.path === "/profile") {
+    if (force || !shopProfileStore.hasFetchedProfile) {
+      shopProfileStore.fetchProfile(sid, token);
+    }
+    if (force || !productStore.hasFetchedAll) {
+      productStore.fetchAll(sid, token);
+    }
   }
 }
 
@@ -440,9 +494,9 @@ function deleteStoreOption(id: string) {
 </script>
 
 <template>
-  <div class="shop-layout-container">
+  <div class="shop-layout-container" :class="{ 'is-single-panel': noStores }">
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside v-if="!noStores" class="sidebar">
       <div class="sidebar-header">
         <button
           class="btn-sidebar-add"
@@ -537,8 +591,8 @@ function deleteStoreOption(id: string) {
         <div class="shop-bar-left">
           <div class="title-container">
             <slot name="title" />
-            <IconsArrowRight />
-            <h3>
+            <IconsArrowRight v-if="formStore.storeId" />
+            <h3 v-if="formStore.storeId">
               {{ getStoreDomain(formStore.storeId) || formStore.storeId }}
             </h3>
           </div>
@@ -546,8 +600,9 @@ function deleteStoreOption(id: string) {
 
         <div class="shop-bar-right">
           <button
+            v-if="formStore.storeId"
             class="btn-fetch"
-            :disabled="isFetching || !formStore.storeId"
+            :disabled="isFetching"
             @click="fetchCurrent(true)"
           >
             <svg
@@ -776,8 +831,8 @@ function deleteStoreOption(id: string) {
 <style scoped>
 .shop-layout-container {
   display: flex;
-  min-height: calc(100vh - 64px);
-  max-height: calc(100vh - 64px); /* Subtract nav height if any */
+  min-height: calc(100vh - 64px - var(--footer-height, 36px));
+  max-height: calc(100vh - 64px - var(--footer-height, 36px));
   max-width: 1400px;
   margin: 0 auto;
   gap: 24px;
@@ -785,8 +840,17 @@ function deleteStoreOption(id: string) {
   overflow: hidden !important;
 }
 
+.shop-layout-container.is-single-panel {
+  max-width: 900px;
+  justify-content: center;
+}
+
+.shop-layout-container.is-single-panel .main-content {
+  max-width: 760px;
+}
+
 .page-content {
-  max-height: calc(100vh - 64px) !important;
+  max-height: calc(100vh - 64px - var(--footer-height, 36px)) !important;
   overflow-y: auto !important;
 }
 
@@ -798,7 +862,7 @@ function deleteStoreOption(id: string) {
   flex-direction: column;
   margin: 12px 0px;
   overflow: hidden;
-  max-height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px - var(--footer-height, 36px));
 }
 
 .sidebar-header {
@@ -965,7 +1029,6 @@ function deleteStoreOption(id: string) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
 }
 
@@ -1068,6 +1131,11 @@ function deleteStoreOption(id: string) {
     flex-direction: column;
     padding: 0 12px;
   }
+
+  .shop-layout-container.is-single-panel .main-content {
+    max-width: none;
+  }
+
   .sidebar {
     width: 100%;
     max-height: 200px;

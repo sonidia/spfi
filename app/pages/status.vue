@@ -1,9 +1,4 @@
 <script setup lang="ts">
-import StatusBatchProgressBar from "~/components/status/StatusBatchProgressBar.vue";
-import StatusBatchRunButton from "~/components/status/StatusBatchRunButton.vue";
-import StatusCheckCard from "~/components/status/StatusCheckCard.vue";
-import StatusCommonProxyField from "~/components/status/StatusCommonProxyField.vue";
-import StatusProxyModeToggle from "~/components/status/StatusProxyModeToggle.vue";
 import {
   getSocks5ProxyInputError,
   isSocks5ProxyInput,
@@ -74,6 +69,10 @@ const proxyModeOptions: { value: ProxyMode; label: string }[] = [
   { value: "separate-proxy", label: "Separate proxy" },
   { value: "no-proxy", label: "No proxy" },
 ];
+
+function setProxyMode(mode: ProxyMode) {
+  proxyMode.value = mode;
+}
 
 const batchPlaceholder = computed(() => {
   const examples = ["shop-a.myshopify.com", "shop-b.com", "example.com"];
@@ -618,13 +617,22 @@ function formatDate(value: string) {
     <div class="checker-workspace" :class="{ 'has-result': result }">
       <div class="checker-left-column">
         <section class="checker-panel">
-          <form class="batch-form" @submit.prevent="runBatchCheck">
+          <div class="batch-form">
             <div class="batch-topbar">
               <div class="batch-topbar-left">
-                <StatusProxyModeToggle
-                  v-model="proxyMode"
-                  :options="proxyModeOptions"
-                />
+                <div class="mode-toggle" role="group" aria-label="Proxy mode">
+                  <button
+                    v-for="option in proxyModeOptions"
+                    :key="option.value"
+                    type="button"
+                    class="mode-option"
+                    :class="{ 'is-active': proxyMode === option.value }"
+                    :aria-pressed="proxyMode === option.value"
+                    @click="setProxyMode(option.value)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
               </div>
 
               <div class="batch-topbar-right">
@@ -632,6 +640,7 @@ function formatDate(value: string) {
                   :busy="isBatchChecking"
                   label="Check Shopify"
                   busy-label="Checking Shopify"
+                  @run="runBatchCheck"
                   @stop="stopBatchCheck"
                 />
               </div>
@@ -680,7 +689,7 @@ function formatDate(value: string) {
               :running="batchStats.checking"
               :total="batchStats.total"
             />
-          </form>
+          </div>
 
           <p v-if="batchErrorMessage" class="error-message">
             {{ batchErrorMessage }}
@@ -772,7 +781,9 @@ function formatDate(value: string) {
       <section v-if="result" class="result-layout" aria-live="polite">
         <aside class="summary-panel" :class="`is-${result.verdict.severity}`">
           <p class="eyebrow">Store status</p>
-          <h2>{{ result.verdict.status }}</h2>
+          <h2>
+            {{ result.verdict.status }}
+          </h2>
           <p>{{ result.verdict.summary }}</p>
           <dl>
             <div>
@@ -815,9 +826,10 @@ function formatDate(value: string) {
 
 <style scoped>
 .status-shell {
-  width: min(1320px, calc(100% - 32px));
+  /* width: min(60%, calc(100% - 32px)); */
+  width: fit-content;
   margin: 0 auto;
-  padding: 16px 0 40px;
+  padding: 28px 0 40px;
 }
 
 .checker-workspace {
@@ -837,6 +849,7 @@ function formatDate(value: string) {
   display: grid;
   min-width: 0;
   gap: 12px;
+  min-width: 65rem;
 }
 
 .checker-workspace.has-result .checker-left-column {
@@ -845,6 +858,7 @@ function formatDate(value: string) {
   overflow: hidden;
   position: sticky;
   top: 16px;
+  min-width: 30rem;
 }
 
 .checker-panel {
@@ -854,7 +868,6 @@ function formatDate(value: string) {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .platform-pill {
@@ -869,6 +882,48 @@ function formatDate(value: string) {
   color: var(--blue);
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--surface-soft);
+}
+
+.mode-option {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.mode-option:hover,
+.mode-option:focus-visible {
+  color: var(--green);
+}
+
+.mode-option:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.34);
+  outline-offset: 2px;
+}
+
+.mode-option.is-active {
+  background: var(--surface);
+  color: var(--green);
+  box-shadow: 0 1px 3px rgba(20, 34, 27, 0.12);
 }
 
 .batch-form {
@@ -1056,13 +1111,14 @@ function formatDate(value: string) {
 
 .batch-table {
   width: 100%;
-  min-width: 920px;
+  /* min-width: 920px; */
   border-collapse: separate;
   border-spacing: 0;
 }
 
 .batch-table.is-no-proxy {
-  min-width: 820px;
+  /* min-width: 820px; */
+  max-width: 100%;
 }
 
 .batch-table th,
@@ -1080,7 +1136,7 @@ function formatDate(value: string) {
   z-index: 1;
   background: rgba(238, 244, 240, 0.86);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 900;
 }
 
@@ -1095,6 +1151,10 @@ function formatDate(value: string) {
   transition:
     background 0.16s ease,
     box-shadow 0.16s ease;
+}
+
+.batch-table tbody tr td:nth-child(3) {
+  white-space: nowrap;
 }
 
 .batch-table tbody tr:last-child td {
@@ -1302,6 +1362,15 @@ function formatDate(value: string) {
 }
 
 @media (max-width: 560px) {
+  .mode-toggle {
+    width: 100%;
+  }
+
+  .mode-option {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
   .batch-table {
     min-width: 760px;
   }

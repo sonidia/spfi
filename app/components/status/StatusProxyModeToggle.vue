@@ -6,7 +6,7 @@ interface ProxyModeOption {
   label: string;
 }
 
-defineProps<{
+const props = defineProps<{
   modelValue: ProxyMode;
   options: ProxyModeOption[];
 }>();
@@ -21,14 +21,14 @@ function selectMode(value: ProxyMode) {
 </script>
 
 <template>
-  <div class="mode-toggle" role="radiogroup" aria-label="Proxy mode">
+  <div class="mode-toggle" role="group" aria-label="Proxy mode">
     <button
       v-for="option in options"
       :key="option.value"
       type="button"
-      role="radio"
-      :aria-checked="modelValue === option.value"
-      :class="{ 'is-active': modelValue === option.value }"
+      class="mode-option"
+      :class="{ 'is-active': props.modelValue === option.value }"
+      :aria-pressed="props.modelValue === option.value"
       @click="selectMode(option.value)"
     >
       {{ option.label }}
@@ -47,7 +47,7 @@ function selectMode(value: ProxyMode) {
   background: var(--surface-soft);
 }
 
-.mode-toggle button {
+.mode-option {
   min-height: 30px;
   border: 0;
   border-radius: 6px;
@@ -63,17 +63,17 @@ function selectMode(value: ProxyMode) {
   font-weight: 800;
 }
 
-.mode-toggle button:hover,
-.mode-toggle button:focus-visible {
+.mode-option:hover,
+.mode-option:focus-visible {
   color: var(--green);
 }
 
-.mode-toggle button:focus-visible {
-  outline: 2px solid rgba(31, 122, 77, 0.32);
+.mode-option:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.34);
   outline-offset: 2px;
 }
 
-.mode-toggle button.is-active {
+.mode-option.is-active {
   background: var(--surface);
   color: var(--green);
   box-shadow: 0 1px 3px rgba(20, 34, 27, 0.12);
@@ -84,7 +84,7 @@ function selectMode(value: ProxyMode) {
     width: 100%;
   }
 
-  .mode-toggle button {
+  .mode-option {
     flex: 1 1 100%;
     width: 100%;
   }

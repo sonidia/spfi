@@ -79,7 +79,7 @@ onBeforeUnmount(() => {
   font-weight: 800;
   font-size: 1.2rem;
   margin-left: 8px;
-  text-shadow: 0 0 2px rgba(31, 122, 77, 0.14);
+  text-shadow: 1px 1px 2px rgba(31, 122, 77, 0.2);
 }
 .nav-list {
   display: flex;
@@ -88,24 +88,59 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 .nav-list a {
+  position: relative;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
   padding: 6px 12px;
   border-radius: 6px;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
   text-decoration: none;
 }
-.nav-list a:hover {
-  background: var(--surface-soft);
-  color: var(--green);
+
+.nav-list a::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
+
+.nav-list a:hover {
+  color: var(--green);
+  transform: translateY(-1px);
+}
+
+.nav-list a:hover::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
 .nav-list a.router-link-active {
   background: var(--green-soft);
   color: var(--green);
   box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
+}
+
+.nav-list a.router-link-active:hover::after {
+  opacity: 0;
+}
+
+.nav-list a:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.45);
+  outline-offset: 2px;
 }
 
 @media (max-width: 700px) {

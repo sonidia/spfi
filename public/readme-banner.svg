@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">SPFI Shopify Operations Console</title>
+  <desc id="desc">A professional banner for the SPFI README.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14221b"/>
+      <stop offset="0.52" stop-color="#1f7a4d"/>
+      <stop offset="1" stop-color="#275c91"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#e2eef9" stop-opacity="0.9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#07100c" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="360" rx="28" fill="url(#bg)"/>
+  <path d="M0 271 C150 210 245 331 397 269 C531 214 627 94 760 137 C909 185 1004 70 1200 106 L1200 360 L0 360 Z" fill="#dff4e8" opacity="0.13"/>
+  <path d="M0 67 C185 127 300 10 478 64 C653 117 776 206 966 150 C1054 124 1121 111 1200 129" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+
+  <g transform="translate(74 70)">
+    <rect width="92" height="92" rx="24" fill="#ffffff" opacity="0.95"/>
+    <path d="M29 64 L44 24 H66 L54 48 H72 L35 77 L44 56 Z" fill="#1f7a4d"/>
+    <text x="0" y="143" fill="#ffffff" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="2">SPFI</text>
+    <text x="3" y="184" fill="#e9f4ee" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25" font-weight="600">Shopify Operations Console</text>
+    <text x="3" y="222" fill="#c9dbd2" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17">Setup, token rotation, Google Sheets, payments, orders, products, and status checks in one workspace.</text>
+  </g>
+
+  <g transform="translate(735 62)" filter="url(#shadow)">
+    <rect width="382" height="236" rx="18" fill="url(#card)"/>
+    <rect x="0" y="0" width="382" height="48" rx="18" fill="#eef4f0"/>
+    <circle cx="27" cy="24" r="7" fill="#1f7a4d"/>
+    <circle cx="50" cy="24" r="7" fill="#9b6416"/>
+    <circle cx="73" cy="24" r="7" fill="#275c91"/>
+    <text x="244" y="30" fill="#65756c" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Live workspace</text>
+
+    <g transform="translate(24 74)">
+      <rect width="334" height="54" rx="12" fill="#ffffff" stroke="#d9e4dd"/>
+      <text x="18" y="23" fill="#65756c" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Batch status</text>
+      <text x="18" y="40" fill="#14221b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="800">18 storefronts alive</text>
+      <rect x="238" y="15" width="76" height="24" rx="12" fill="#dff4e8"/>
+      <text x="256" y="32" fill="#1f7a4d" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="800">200 OK</text>
+    </g>
+
+    <g transform="translate(24 144)">
+      <rect width="156" height="58" rx="12" fill="#ffffff" stroke="#d9e4dd"/>
+      <text x="16" y="24" fill="#65756c" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Token rotation</text>
+      <text x="16" y="43" fill="#14221b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="800">Ready</text>
+    </g>
+
+    <g transform="translate(202 144)">
+      <rect width="156" height="58" rx="12" fill="#ffffff" stroke="#d9e4dd"/>
+      <text x="16" y="24" fill="#65756c" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">Sheet lookup</text>
+      <text x="16" y="43" fill="#14221b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="800">4 tabs</text>
+    </g>
+  </g>
+</svg>

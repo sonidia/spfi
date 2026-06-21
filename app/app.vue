@@ -1,8 +1,4 @@
 <script lang="ts" setup>
-import AppFooter from "./components/AppFooter.vue";
-import BaseToast from "./components/BaseToast.vue";
-import LoadingOverlay from "./components/LoadingOverlay.vue";
-import Nav from "./components/Nav.vue";
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
 
@@ -18,7 +14,6 @@ useTokenRotation();
     <NuxtLayout>
       <NuxtPage :keepalive="{ max: 12 }" />
     </NuxtLayout>
-    <AppFooter />
   </main>
 </template>
 

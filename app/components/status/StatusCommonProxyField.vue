@@ -116,7 +116,7 @@ function getErrorMessage(error: unknown, fallback: string) {
         id="common-proxy"
         v-model="proxyValue"
         autocomplete="off"
-        placeholder="127.0.0.1:1080:user:pass"
+        placeholder="host:port:user:pass"
       />
 
       <button type="button" :disabled="checking" @click="checkProxy">

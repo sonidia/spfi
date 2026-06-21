@@ -508,24 +508,18 @@ async function testProxy(id: string) {
 
     <!-- ── Add new store ── -->
     <section class="card">
-      <div class="card-head" style="border-bottom: none; padding-bottom: 0">
-        <input
-          v-if="addMode === 'single'"
-          v-model="newDomain"
-          type="text"
-          placeholder="Your store domain (e.g., myshop.store)"
-          class="inp domain_inp"
-          @keyup.enter="addShop"
-        />
-        <textarea
-          v-else
-          v-model="newDomain"
-          placeholder="Your store domains (one per line, e.g. myshop.store)"
-          class="inp domain_inp"
-          rows="25"
-        ></textarea>
-      </div>
       <div class="add-form" v-if="addMode === 'single'">
+        <div class="field field-50">
+          <label class="field-label">Shop domain/URL</label>
+          <input
+            v-if="addMode === 'single'"
+            v-model="newDomain"
+            type="text"
+            placeholder="Your store domain (e.g., myshop.store)"
+            class="inp domain_inp"
+            @keyup.enter="addShop"
+          />
+        </div>
         <div class="field field-50">
           <label class="field-label">Sock/Proxy</label>
           <input
@@ -535,7 +529,7 @@ async function testProxy(id: string) {
             class="inp"
           />
         </div>
-        <div class="field field-50">
+        <div class="field field-33">
           <label class="field-label">Store ID</label>
           <input
             v-model="newStoreId"
@@ -546,7 +540,7 @@ async function testProxy(id: string) {
           />
         </div>
 
-        <div class="field field-50">
+        <div class="field field-33">
           <label class="field-label">Client ID</label>
           <input
             v-model="newClientId"
@@ -556,7 +550,7 @@ async function testProxy(id: string) {
             @paste="handlePaste"
           />
         </div>
-        <div class="field field-50">
+        <div class="field field-33">
           <label class="field-label">Client Secret</label>
           <input
             v-model="newClientSecret"
@@ -566,6 +560,15 @@ async function testProxy(id: string) {
             @paste="handlePaste"
           />
         </div>
+      </div>
+
+      <div class="card-head" v-else>
+        <textarea
+          v-model="newDomain"
+          placeholder="Your store domains (one per line, e.g. myshop.store)"
+          class="inp domain_inp"
+          rows="25"
+        ></textarea>
       </div>
 
       <div class="form-actions-container" style="padding: 20px">
@@ -740,7 +743,7 @@ async function testProxy(id: string) {
           >
             <IconsSync v-if="testingProxies[store.id]" />
             <IconsCheck v-else />
-            {{ testingProxies[store.id] ? "Testing…" : "Test Proxy" }}
+            {{ testingProxies[store.id] ? "Testing…" : "Check" }}
           </button>
           <button
             class="btn-outline"
@@ -778,20 +781,7 @@ async function testProxy(id: string) {
         </div>
 
         <div class="modal-body">
-          <div class="field field-full">
-            <label class="field-label">Store ID</label>
-            <input class="inp" :value="editingStoreId" disabled />
-          </div>
-          <div class="field field-full">
-            <label class="field-label">Domain</label>
-            <input
-              v-model="editDomain"
-              type="text"
-              class="inp"
-              placeholder="myshop.store"
-            />
-          </div>
-          <div class="field field-full">
+          <div class="field field-2">
             <label class="field-label">Sock (Proxy URL)</label>
             <input
               v-model="editSock"
@@ -800,11 +790,24 @@ async function testProxy(id: string) {
               placeholder="IP:Port:User:Pass"
             />
           </div>
-          <div class="field field-50">
+          <div class="field field-1">
+            <label class="field-label">Domain</label>
+            <input
+              v-model="editDomain"
+              type="text"
+              class="inp"
+              placeholder="myshop.store"
+            />
+          </div>
+          <div class="field field-1">
+            <label class="field-label">Store ID</label>
+            <input class="inp" :value="editingStoreId" disabled />
+          </div>
+          <div class="field field-1">
             <label class="field-label">Client ID</label>
             <input v-model="editClientId" type="text" class="inp" />
           </div>
-          <div class="field field-50">
+          <div class="field field-1">
             <label class="field-label">Client Secret</label>
             <input v-model="editClientSecret" type="text" class="inp" />
           </div>
@@ -814,7 +817,7 @@ async function testProxy(id: string) {
           {{ editError }}
         </div>
 
-        <div class="modal-actions">
+        <div class="modal-actions_2">
           <button class="btn-outline" @click="closeEditModal">
             <IconsArrowRight class="icon-left" />
             Cancel
@@ -831,7 +834,7 @@ async function testProxy(id: string) {
 
 <style scoped>
 .token-page {
-  max-width: 760px;
+  min-width: 58rem;
   margin: 0 auto;
   padding: 28px 20px 48px;
   font-size: 14px;
@@ -972,7 +975,7 @@ async function testProxy(id: string) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 5px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -1094,17 +1097,21 @@ async function testProxy(id: string) {
 }
 .add-form {
   display: grid;
-  grid-template-columns: repeat(20, 1fr);
+  grid-template-columns: repeat(60, 1fr);
   gap: 12px;
   padding: 16px 18px;
 }
 
+.field-33 {
+  grid-column: span 20;
+}
+
 .field-50 {
-  grid-column: span 10;
+  grid-column: span 30;
 }
 
 .field-full {
-  grid-column: span 20;
+  grid-column: span 60;
 }
 
 /* Steps */
@@ -1274,16 +1281,28 @@ async function testProxy(id: string) {
 }
 .modal-body {
   display: grid;
-  grid-template-columns: repeat(20, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   padding: 16px;
 }
-.modal-actions {
+.modal-actions,
+.modal-actions_2 {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
+
+.modal-actions_2 {
+  padding: 0 16px 16px;
+}
 .modal-alert {
   margin: 0 16px;
+}
+.field-1 {
+  grid-column: span 1;
+}
+
+.field-2 {
+  grid-column: span 2;
 }
 </style>

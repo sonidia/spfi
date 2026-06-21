@@ -1,0 +1,141 @@
+<script setup lang="ts">
+withDefaults(
+  defineProps<{
+    title: string;
+    description: string;
+    loading?: boolean;
+  }>(),
+  {
+    loading: false,
+  },
+);
+</script>
+
+<template>
+  <section class="shop-empty-state" :class="{ 'is-loading': loading }">
+    <div v-if="$slots.icon" class="shop-empty-icon">
+      <slot name="icon" />
+    </div>
+    <h2>{{ title }}</h2>
+    <p>{{ description }}</p>
+    <div v-if="$slots.actions" class="shop-empty-actions">
+      <slot name="actions" />
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.shop-empty-state {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 48px 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.96)),
+    var(--surface);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.shop-empty-icon {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(31, 122, 77, 0.16);
+  border-radius: 12px;
+  background: var(--green-soft);
+  color: var(--green);
+  box-shadow: 0 10px 24px rgba(31, 122, 77, 0.1);
+}
+
+.shop-empty-icon :deep(svg) {
+  width: 24px;
+  height: 24px;
+}
+
+.shop-empty-state.is-loading .shop-empty-icon :deep(svg) {
+  animation: spin 0.9s linear infinite;
+}
+
+.shop-empty-state h2 {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 750;
+}
+
+.shop-empty-state p {
+  max-width: 460px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.shop-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+:deep(.shop-empty-action) {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    filter 0.16s ease,
+    transform 0.16s ease;
+}
+
+:deep(.shop-empty-action.primary) {
+  background: var(--text-primary);
+  color: white;
+}
+
+:deep(.shop-empty-action.primary:hover) {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+:deep(.shop-empty-action:focus-visible) {
+  outline: 2px solid rgba(31, 122, 77, 0.45);
+  outline-offset: 2px;
+}
+
+:deep(.shop-empty-action svg) {
+  width: 15px;
+  height: 15px;
+}
+
+:deep(.shop-empty-hint) {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

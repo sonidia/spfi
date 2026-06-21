@@ -6,6 +6,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
+  run: [];
   stop: [];
 }>();
 </script>
@@ -22,7 +23,12 @@ const emit = defineEmits<{
       <span class="stop-icon" aria-hidden="true" />
       Stop
     </button>
-    <button type="submit" :disabled="busy" title="Run status check">
+    <button
+      type="button"
+      :disabled="busy"
+      title="Run status check"
+      @click="emit('run')"
+    >
       <span v-if="busy" class="spinner" aria-hidden="true" />
       <span v-else class="play-icon" aria-hidden="true" />
       {{ busy ? busyLabel : label }}
