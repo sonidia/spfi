@@ -21,25 +21,18 @@ function selectMode(value: ProxyMode) {
 </script>
 
 <template>
-  <div class="mode-toggle" role="radiogroup" aria-label="Proxy mode">
-    <label
+  <div class="mode-toggle" role="group" aria-label="Proxy mode">
+    <button
       v-for="option in options"
       :key="option.value"
+      type="button"
       class="mode-option"
       :class="{ 'is-active': props.modelValue === option.value }"
+      :aria-pressed="props.modelValue === option.value"
+      @click="selectMode(option.value)"
     >
-      <input
-        class="mode-input"
-        type="radio"
-        name="status-proxy-mode"
-        :value="option.value"
-        :checked="props.modelValue === option.value"
-        :aria-label="option.label"
-        @change="selectMode(option.value)"
-        @click="selectMode(option.value)"
-      />
-      <span class="mode-option-label">{{ option.label }}</span>
-    </label>
+      {{ option.label }}
+    </button>
   </div>
 </template>
 
@@ -55,46 +48,32 @@ function selectMode(value: ProxyMode) {
 }
 
 .mode-option {
-  position: relative;
   min-height: 30px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: inline-flex;
-}
-
-.mode-input {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.mode-option-label {
-  position: relative;
-  min-height: 30px;
+  border: 0;
   border-radius: 6px;
   padding: 0 10px;
   background: transparent;
   color: var(--muted);
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: inherit;
   font-size: 0.76rem;
   font-weight: 800;
-  pointer-events: none;
 }
 
-.mode-option:hover .mode-option-label,
-.mode-option:focus-within .mode-option-label {
+.mode-option:hover,
+.mode-option:focus-visible {
   color: var(--green);
 }
 
-.mode-option.is-active .mode-option-label {
+.mode-option:focus-visible {
+  outline: 2px solid rgba(31, 122, 77, 0.34);
+  outline-offset: 2px;
+}
+
+.mode-option.is-active {
   background: var(--surface);
   color: var(--green);
   box-shadow: 0 1px 3px rgba(20, 34, 27, 0.12);
@@ -107,10 +86,6 @@ function selectMode(value: ProxyMode) {
 
   .mode-option {
     flex: 1 1 100%;
-    width: 100%;
-  }
-
-  .mode-option-label {
     width: 100%;
   }
 }
