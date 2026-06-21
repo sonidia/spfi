@@ -79,7 +79,7 @@ onBeforeUnmount(() => {
   font-weight: 800;
   font-size: 1.2rem;
   margin-left: 8px;
-  text-shadow: 0 0 2px rgba(31, 122, 77, 0.14);
+  text-shadow: 1px 1px 2px rgba(31, 122, 77, 0.2);
 }
 .nav-list {
   display: flex;
