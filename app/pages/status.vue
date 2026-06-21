@@ -618,7 +618,7 @@ function formatDate(value: string) {
     <div class="checker-workspace" :class="{ 'has-result': result }">
       <div class="checker-left-column">
         <section class="checker-panel">
-          <form class="batch-form" @submit.prevent="runBatchCheck">
+          <div class="batch-form">
             <div class="batch-topbar">
               <div class="batch-topbar-left">
                 <StatusProxyModeToggle
@@ -632,6 +632,7 @@ function formatDate(value: string) {
                   :busy="isBatchChecking"
                   label="Check Shopify"
                   busy-label="Checking Shopify"
+                  @run="runBatchCheck"
                   @stop="stopBatchCheck"
                 />
               </div>
@@ -680,7 +681,7 @@ function formatDate(value: string) {
               :running="batchStats.checking"
               :total="batchStats.total"
             />
-          </form>
+          </div>
 
           <p v-if="batchErrorMessage" class="error-message">
             {{ batchErrorMessage }}

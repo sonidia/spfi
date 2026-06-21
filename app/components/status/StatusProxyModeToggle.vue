@@ -15,11 +15,6 @@ const emit = defineEmits<{
   "update:modelValue": [value: ProxyMode];
 }>();
 
-const proxyModeValue = computed({
-  get: () => props.modelValue,
-  set: (value: ProxyMode) => selectMode(value),
-});
-
 function selectMode(value: ProxyMode) {
   emit("update:modelValue", value);
 }
@@ -27,14 +22,21 @@ function selectMode(value: ProxyMode) {
 
 <template>
   <div class="mode-toggle" role="radiogroup" aria-label="Proxy mode">
-    <label v-for="option in options" :key="option.value" class="mode-option">
+    <label
+      v-for="option in options"
+      :key="option.value"
+      class="mode-option"
+      :class="{ 'is-active': props.modelValue === option.value }"
+    >
       <input
-        v-model="proxyModeValue"
         class="mode-input"
         type="radio"
         name="status-proxy-mode"
         :value="option.value"
+        :checked="props.modelValue === option.value"
         :aria-label="option.label"
+        @change="selectMode(option.value)"
+        @click="selectMode(option.value)"
       />
       <span class="mode-option-label">{{ option.label }}</span>
     </label>
@@ -92,7 +94,7 @@ function selectMode(value: ProxyMode) {
   color: var(--green);
 }
 
-.mode-input:checked + .mode-option-label {
+.mode-option.is-active .mode-option-label {
   background: var(--surface);
   color: var(--green);
   box-shadow: 0 1px 3px rgba(20, 34, 27, 0.12);
