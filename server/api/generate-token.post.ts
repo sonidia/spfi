@@ -3,11 +3,12 @@ import { defineEventHandler, readBody } from "h3";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import {
   buildProxyVariants,
-  createProxyAgent,
   createApiErrorFromMessage,
+  createProxyAgent,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
+  resolveStoreAdminDomain,
 } from "~~/server/utils/callShopifyApi";
 
 interface GenerateTokenBody {
@@ -62,7 +63,8 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  const url = `https://${storeId}.myshopify.com/admin/oauth/access_token`;
+  const adminDomain = resolveStoreAdminDomain(storeId);
+  const url = `https://${adminDomain}/admin/oauth/access_token`;
   const payload = new URLSearchParams({
     grant_type: "client_credentials",
     client_id: clientId,
@@ -79,6 +81,7 @@ export default defineEventHandler(async (event) => {
         {
           httpAgent: agent,
           httpsAgent: agent,
+          proxy: false,
           timeout: TOKEN_TIMEOUT_MS,
           headers: {
             "Content-Type": OAUTH_CONTENT_TYPE,

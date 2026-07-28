@@ -1,6 +1,5 @@
 ﻿import axios, { type AxiosRequestConfig } from "axios";
 import { createError, getCookie, parseCookies, type H3Event } from "h3";
-import { HttpsProxyAgent } from "https-proxy-agent";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { useAppConfig } from "#imports";
 import { StoreStatusInputError } from "./status-checker-errors";
@@ -244,11 +243,50 @@ export function resolveStoreDomain(
 
 export function resolveStoreAdminDomain(
   storeId: string,
-  _cookieDomain?: string,
+  cookieDomain?: string,
 ): string {
-  const sid = String(storeId || "").trim();
-  if (sid.includes(".myshopify.com")) return sid;
-  return `${sid}.myshopify.com`;
+  const storeHost = normalizeStoreHost(storeId);
+  const cookieHost = normalizeStoreHost(cookieDomain);
+  const myshopifyHost = [storeHost, cookieHost].find((host) =>
+    host.endsWith(".myshopify.com"),
+  );
+
+  if (myshopifyHost) {
+    return myshopifyHost;
+  }
+
+  const handle = resolveStoreHandle(storeHost || storeId);
+  return handle ? `${handle}.myshopify.com` : "";
+}
+
+function normalizeStoreHost(value?: string): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    return new URL(raw).hostname.toLowerCase();
+  } catch {
+    return raw
+      .replace(/^https?:\/\//i, "")
+      .split(/[/?#]/)[0]
+      ?.replace(/:\d+$/, "")
+      .toLowerCase()
+      .trim() || "";
+  }
+}
+
+function resolveStoreHandle(value: string): string {
+  const normalized = normalizeStoreHost(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.endsWith(".myshopify.com")) {
+    return normalized.slice(0, -".myshopify.com".length);
+  }
+
+  return normalized.includes(".") ? normalized.split(".")[0] || "" : normalized;
 }
 
 export function normalizeProxyUrl(input: string): string {
@@ -328,10 +366,12 @@ export function buildProxyVariants(sock: string): string[] {
   );
 }
 
-export function createProxyAgent(proxyUrl: string) {
-  return proxyUrl.startsWith("http")
-    ? new HttpsProxyAgent(proxyUrl)
-    : new SocksProxyAgent(proxyUrl);
+export function createProxyAgent(proxyUrl: string): SocksProxyAgent {
+  const agent = new SocksProxyAgent(proxyUrl);
+
+  assertRemoteDnsSocks5hAgent(agent, proxyUrl);
+
+  return agent;
 }
 
 export function maskProxyUrl(proxyUrl: string): string {
@@ -346,7 +386,7 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
   method = "GET",
   body,
   params,
-  useAdminDomain = false,
+  useAdminDomain = true,
   missingProxyMessage = "Missing sock proxy for this store. Please update it in Manager page.",
   timeoutMs = DEFAULT_TIMEOUT_MS,
 }: CallShopifyApiOptions<TBody>): Promise<TResponse> {
@@ -377,22 +417,22 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
   let lastError: unknown;
 
   for (const proxyUrl of proxyVariants) {
-    const agent = createProxyAgent(proxyUrl);
-    const requestConfig: AxiosRequestConfig<TBody> = {
-      url: `${baseURL}${path.startsWith("/") ? path : `/${path}`}`,
-      method,
-      data: body,
-      params,
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": SHOPIFY_JSON_CONTENT_TYPE,
-      },
-      httpAgent: agent,
-      httpsAgent: agent,
-      timeout: timeoutMs,
-    };
-
     try {
+      const agent = createProxyAgent(proxyUrl);
+      const requestConfig: AxiosRequestConfig<TBody> = {
+        url: `${baseURL}${path.startsWith("/") ? path : `/${path}`}`,
+        method,
+        data: body,
+        params,
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": SHOPIFY_JSON_CONTENT_TYPE,
+        },
+        httpAgent: agent,
+        httpsAgent: agent,
+        proxy: false,
+        timeout: timeoutMs,
+      };
       const response = await axios.request<TResponse, { data: TResponse }, TBody>(
         requestConfig,
       );

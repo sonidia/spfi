@@ -39,6 +39,7 @@ async function runVariant(
     const response = await axios.get<unknown>(testUrl, {
       httpAgent: agent,
       httpsAgent: agent,
+      proxy: false,
       timeout: timeoutMs,
     });
 
