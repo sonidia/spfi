@@ -56,6 +56,23 @@ export interface ShopifyAddress {
   longitude?: number | null;
 }
 
+export interface ShopifyCustomerAddress extends ShopifyAddress {
+  id?: number;
+  customer_id?: number;
+  first_name?: string | null;
+  last_name?: string | null;
+  country_code?: string | null;
+  country_name?: string | null;
+  default?: boolean;
+}
+
+export interface ShopifyMarketingConsent {
+  state?: string | null;
+  opt_in_level?: string | null;
+  consent_updated_at?: string | null;
+  consent_collected_from?: string | null;
+}
+
 export interface ShopifyCustomer {
   id?: number;
   email?: string | null;
@@ -63,6 +80,21 @@ export interface ShopifyCustomer {
   last_name?: string | null;
   phone?: string | null;
   orders_count?: number;
+  total_spent?: string;
+  currency?: string;
+  state?: string;
+  tags?: string;
+  note?: string | null;
+  verified_email?: boolean;
+  tax_exempt?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  last_order_id?: number | null;
+  last_order_name?: string | null;
+  email_marketing_consent?: ShopifyMarketingConsent | null;
+  sms_marketing_consent?: ShopifyMarketingConsent | null;
+  default_address?: ShopifyCustomerAddress | null;
+  addresses?: ShopifyCustomerAddress[];
 }
 
 export interface ShopifyLineItem {
@@ -272,6 +304,35 @@ export interface OrdersResponse {
 export interface ProductsResponse {
   products?: ShopifyProduct[];
   product?: ShopifyProduct;
+}
+
+export interface CustomersResponse {
+  customers?: ShopifyCustomer[];
+  customer?: ShopifyCustomer;
+}
+
+export interface CustomerDetailResponse {
+  customer: ShopifyCustomer | null;
+  orders: ShopifyOrder[];
+}
+
+export interface ShopifyMetafield {
+  id: number | string;
+  namespace: string;
+  key: string;
+  value: string;
+  type: string;
+  description?: string | null;
+  owner_id?: number | string;
+  owner_resource?: string;
+  created_at?: string;
+  updated_at?: string;
+  admin_graphql_api_id?: string;
+}
+
+export interface MetafieldsResponse {
+  metafields?: ShopifyMetafield[];
+  metafield?: ShopifyMetafield;
 }
 
 export interface ShopProfileResponse {

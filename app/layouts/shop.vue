@@ -11,6 +11,7 @@ import type {
 } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
 import { useLoading } from "../composables/useLoading";
+import { useCustomerStore } from "../stores/customers";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
@@ -20,6 +21,7 @@ import { useShopProfileStore } from "../stores/shopProfile";
 const { SPF_SHEET_URL } = getSheetUrls();
 
 const formStore = useFormStore();
+const customerStore = useCustomerStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
@@ -57,6 +59,9 @@ const isFetching = computed(() => {
   if (path === "/order" || path.startsWith("/order/"))
     return orderStore.isLoading;
   if (path.startsWith("/payment")) return paymentStore.isLoading;
+  if (path === "/customer") {
+    return customerStore.isLoading || customerStore.isLoadingDetail;
+  }
   if (path === "/product") return productStore.isLoading;
   if (path === "/profile") {
     return shopProfileStore.isLoading || productStore.isLoading;
@@ -75,6 +80,7 @@ watch(
     if (
       newPath.startsWith("/order") ||
       newPath.startsWith("/payment") ||
+      newPath === "/customer" ||
       newPath === "/profile"
     ) {
       fetchCurrent();
@@ -115,6 +121,9 @@ function hydrateStoreData(storeId: string) {
 
   const hasProducts = productStore.hydrate(storeId);
   if (!hasProducts) productStore.$reset();
+
+  const hasCustomers = customerStore.hydrate(storeId);
+  if (!hasCustomers) customerStore.$reset();
 
   const hasShopProfile = shopProfileStore.hydrate(storeId);
   if (!hasShopProfile) shopProfileStore.$reset();
@@ -186,6 +195,7 @@ function fetchCurrent(force = false) {
     const msg = "Token expired or missing. Please go to Token page.";
     if (route.path === "/order") orderStore.error = msg;
     if (route.path.startsWith("/payment")) paymentStore.error = msg;
+    if (route.path === "/customer") customerStore.error = msg;
     if (route.path === "/profile") shopProfileStore.error = msg;
     return;
   }
@@ -193,6 +203,7 @@ function fetchCurrent(force = false) {
   // Clear previous errors
   if (route.path.startsWith("/order")) orderStore.error = null;
   if (route.path.startsWith("/payment")) paymentStore.error = null;
+  if (route.path === "/customer") customerStore.error = null;
   if (route.path === "/profile") shopProfileStore.error = null;
 
   if (route.path === "/order") {
@@ -216,6 +227,10 @@ function fetchCurrent(force = false) {
     }
   } else if (route.path === "/product") {
     if (force || !productStore.hasFetchedAll) productStore.fetchAll(sid, token);
+  } else if (route.path === "/customer") {
+    if (force || !customerStore.hasFetchedAll) {
+      customerStore.fetchAll(sid, token, customerStore.activeQuery);
+    }
   } else if (route.path === "/profile") {
     if (force || !shopProfileStore.hasFetchedProfile) {
       shopProfileStore.fetchProfile(sid, token);

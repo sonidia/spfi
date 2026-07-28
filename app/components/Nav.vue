@@ -1,6 +1,15 @@
 <script setup lang="ts">
+const route = useRoute();
 const isScrolled = ref(false);
 let pageScrollContainer: Element | null = null;
+
+function withActiveShop(path: string) {
+  const shop = Array.isArray(route.query.shop)
+    ? route.query.shop[0]
+    : route.query.shop;
+
+  return shop ? { path, query: { shop } } : path;
+}
 
 function updateScrollState() {
   isScrolled.value =
@@ -32,8 +41,9 @@ onBeforeUnmount(() => {
       <div class="nav-list">
         <NuxtLink to="/setup">Setup</NuxtLink>
         <NuxtLink to="/manager">Manager</NuxtLink>
-        <NuxtLink to="/profile">Profile</NuxtLink>
-        <NuxtLink to="/payment">Payment</NuxtLink>
+        <NuxtLink :to="withActiveShop('/profile')">Profile</NuxtLink>
+        <NuxtLink :to="withActiveShop('/customer')">Customers</NuxtLink>
+        <NuxtLink :to="withActiveShop('/payment')">Payment</NuxtLink>
         <NuxtLink to="/sheet">Sheet</NuxtLink>
         <NuxtLink to="/status">Status</NuxtLink>
       </div>
