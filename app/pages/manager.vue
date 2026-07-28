@@ -187,7 +187,12 @@ const filteredStoreList = computed(() => {
 
 // ── Delete store ──────────────────────────────────────────────────────────────
 function deleteStore(id: string) {
+  if (!confirm(`Are you sure you want to delete store ${id}?`)) return;
+
   formStore.removeKnownStore(id);
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem(id);
+  }
 }
 
 // ── Edit store ───────────────────────────────────────────────────────────────

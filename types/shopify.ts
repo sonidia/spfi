@@ -161,6 +161,9 @@ export interface ShopifyVariant {
   title?: string;
   price?: string;
   sku?: string | null;
+  inventory_item_id?: number;
+  inventory_management?: string | null;
+  inventory_policy?: string;
   inventory_quantity?: number;
 }
 
@@ -286,7 +289,32 @@ export interface ShopifyFulfillmentOrder {
 
 export interface ShopifyLocation {
   id: number;
+  name?: string;
   active?: boolean;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  zip?: string | null;
+  province?: string | null;
+  province_code?: string | null;
+  country?: string | null;
+  country_code?: string | null;
+  country_name?: string | null;
+  phone?: string | null;
+  legacy?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  localized_country_name?: string | null;
+  localized_province_name?: string | null;
+  admin_graphql_api_id?: string;
+}
+
+export interface ShopifyInventoryLevel {
+  inventory_item_id: number;
+  location_id: number;
+  available: number | null;
+  updated_at?: string;
+  admin_graphql_api_id?: string;
 }
 
 export interface ShopifyAccessTokenResponse {
@@ -333,6 +361,15 @@ export interface ShopifyMetafield {
 export interface MetafieldsResponse {
   metafields?: ShopifyMetafield[];
   metafield?: ShopifyMetafield;
+}
+
+export interface InventoryLevelsResponse {
+  inventory_levels?: ShopifyInventoryLevel[];
+}
+
+export interface LocationsResponse extends InventoryLevelsResponse {
+  locations?: ShopifyLocation[];
+  location?: ShopifyLocation;
 }
 
 export interface ShopProfileResponse {

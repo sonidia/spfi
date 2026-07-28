@@ -198,7 +198,7 @@ const currentBalance = computed(() => {
   return b;
 });
 
-const transactionsCount = computed(() => paymentStore.payouts.length);
+const transactionsCount = computed(() => paymentStore.balanceTransactions.length);
 const payoutsCount = computed(() => paymentStore.payouts.length);
 const ordersCount = computed(() => orderStore.orders.length);
 const productsCount = computed(() => productStore.products.length);

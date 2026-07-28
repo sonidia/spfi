@@ -248,6 +248,8 @@ async function loadSheetViewerData(sheet: StoredSheet) {
 }
 
 function removeRecentSheet(source: string) {
+  if (!confirm("Are you sure you want to delete this recent sheet?")) return;
+
   persistRecentSheets(
     recentSheets.value.filter((sheet) => sheet.source !== source),
   );

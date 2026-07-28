@@ -25,6 +25,7 @@
           </button>
         </div>
 
+        <div class="product-workspace">
         <div class="card table-card">
           <table class="products-table">
             <thead>
@@ -43,6 +44,8 @@
                 v-for="(prod, index) in products"
                 :key="prod.id || index"
                 class="product-row"
+                :class="{ selected: selectedProduct?.id === prod.id }"
+                @click="selectProduct(prod)"
               >
                 <td>
                   <div class="product-info-cell">
@@ -124,6 +127,15 @@
                           <button
                             class="popover-item"
                             @click.stop="
+                              selectProduct(prod);
+                              close();
+                            "
+                          >
+                            Details
+                          </button>
+                          <button
+                            class="popover-item"
+                            @click.stop="
                               openEditModal(prod);
                               close();
                             "
@@ -150,6 +162,131 @@
           <div v-if="products.length === 0" class="empty-state">
             No products found. Create one.
           </div>
+        </div>
+
+        <aside v-if="selectedProduct" class="card product-detail-card">
+          <div class="detail-head">
+            <div class="detail-product">
+              <img
+                v-if="selectedProduct.image"
+                :src="selectedProduct.image.src"
+                class="detail-thumb"
+                alt="Selected product"
+              />
+              <div v-else class="detail-thumb empty-thumb">No Img</div>
+              <div class="detail-product-main">
+                <div class="detail-title">{{ selectedProduct.title }}</div>
+                <div class="detail-sub">ID: {{ selectedProduct.id }}</div>
+              </div>
+            </div>
+            <button
+              class="btn-ghost-sm btn-icon"
+              type="button"
+              :disabled="isLoadingLocations"
+              title="Refresh locations"
+              @click="refreshSelectedProductLocations"
+            >
+              <IconsRefresh />
+            </button>
+          </div>
+
+          <div class="detail-meta-grid">
+            <div class="detail-meta-item">
+              <span>Status</span>
+              <strong>{{ selectedProduct.status || "Unknown" }}</strong>
+            </div>
+            <div class="detail-meta-item">
+              <span>Variants</span>
+              <strong>{{ selectedProduct.variants?.length || 0 }}</strong>
+            </div>
+            <div class="detail-meta-item">
+              <span>Total inventory</span>
+              <strong>{{ totalVariantInventory }}</strong>
+            </div>
+            <div class="detail-meta-item">
+              <span>Tracked variants</span>
+              <strong>{{ trackedVariantCount }}</strong>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-title">Variants</div>
+            <div v-if="selectedProduct.variants?.length" class="variant-list">
+              <div
+                v-for="variant in selectedProduct.variants"
+                :key="variant.id"
+                class="variant-row"
+              >
+                <div>
+                  <div class="variant-title">{{ variant.title || "Default" }}</div>
+                  <div class="variant-sub">
+                    {{ variant.sku || "No SKU" }}
+                    <span v-if="variant.inventory_item_id">
+                      - Item {{ variant.inventory_item_id }}
+                    </span>
+                  </div>
+                </div>
+                <span class="variant-inventory">
+                  {{ formatVariantInventory(variant) }}
+                </span>
+              </div>
+            </div>
+            <div v-else class="detail-empty">No variants found.</div>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-head">
+              <div>
+                <div class="detail-section-title">Inventory locations</div>
+                <div class="detail-section-sub">
+                  {{ visibleLocations.length }} location{{
+                    visibleLocations.length !== 1 ? "s" : ""
+                  }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="isLoadingLocations" class="detail-loading">
+              Loading locations...
+            </div>
+            <div v-else-if="locationError" class="detail-error">
+              {{ locationError }}
+            </div>
+            <div v-else-if="!visibleLocations.length" class="detail-empty">
+              No locations found.
+            </div>
+            <div v-else class="location-list">
+              <div
+                v-for="location in visibleLocations"
+                :key="location.id"
+                class="location-row"
+              >
+                <div class="location-main">
+                  <div class="location-name">
+                    {{ location.name || `Location ${location.id}` }}
+                  </div>
+                  <div class="location-address">
+                    {{ formatLocationAddress(location) }}
+                  </div>
+                </div>
+                <div class="location-side">
+                  <span class="inventory-count">
+                    {{ getLocationInventoryLabel(location.id) }}
+                  </span>
+                  <span
+                    class="location-status"
+                    :class="{
+                      active: location.active,
+                      inactive: location.active === false,
+                    }"
+                  >
+                    {{ location.active === false ? "Inactive" : "Active" }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
         </div>
       </div>
     </div>
@@ -294,17 +431,103 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
-import type { ShopifyProduct, StoreLocalData } from "~~/types/shopify";
+import type {
+  ShopifyLocation,
+  ShopifyProduct,
+  StoreLocalData,
+} from "~~/types/shopify";
 
 definePageMeta({ layout: false });
 
 const productStore = useProductStore();
 const formStore = useFormStore();
+const {
+  locations,
+  inventoryLevels,
+  isLoadingLocations,
+  locationError,
+  fetchProductInventory,
+} = useLocations();
 
 const products = computed(() => productStore.products);
+const selectedProductId = ref<number | null>(null);
+const selectedProduct = computed(() => {
+  if (!products.value.length) return null;
+
+  return (
+    products.value.find((product) => product.id === selectedProductId.value) ||
+    products.value[0] ||
+    null
+  );
+});
+const selectedInventoryItemIds = computed(() =>
+  Array.from(
+    new Set(
+      (selectedProduct.value?.variants || [])
+        .map((variant) => variant.inventory_item_id)
+        .filter((id): id is number => typeof id === "number"),
+    ),
+  ),
+);
+const selectedInventoryItemIdSet = computed(
+  () => new Set(selectedInventoryItemIds.value),
+);
+const selectedInventoryLevels = computed(() =>
+  inventoryLevels.value.filter((level) =>
+    selectedInventoryItemIdSet.value.has(level.inventory_item_id),
+  ),
+);
+const inventoryByLocation = computed(() => {
+  const summaries = new Map<
+    number,
+    { available: number; levelCount: number; hasUntracked: boolean }
+  >();
+
+  selectedInventoryLevels.value.forEach((level) => {
+    const current = summaries.get(level.location_id) || {
+      available: 0,
+      levelCount: 0,
+      hasUntracked: false,
+    };
+
+    current.levelCount += 1;
+    if (level.available === null) {
+      current.hasUntracked = true;
+    } else {
+      current.available += level.available;
+    }
+
+    summaries.set(level.location_id, current);
+  });
+
+  return summaries;
+});
+const visibleLocations = computed(() => {
+  if (!selectedInventoryLevels.value.length) {
+    return locations.value;
+  }
+
+  const locationIds = new Set(
+    selectedInventoryLevels.value.map((level) => level.location_id),
+  );
+
+  return locations.value.filter((location) => locationIds.has(location.id));
+});
+const totalVariantInventory = computed(() =>
+  (selectedProduct.value?.variants || []).reduce(
+    (sum, variant) => sum + (variant.inventory_quantity || 0),
+    0,
+  ),
+);
+const trackedVariantCount = computed(
+  () =>
+    (selectedProduct.value?.variants || []).filter(
+      (variant) => !!variant.inventory_management,
+    ).length,
+);
 
 // ── Local state for modals ──
 const showCreateModal = ref(false);
@@ -330,6 +553,87 @@ const editProduct = ref({
 const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`;
 
 // ── Actions ──
+function selectProduct(prod: ShopifyProduct) {
+  selectedProductId.value = prod.id;
+}
+
+async function loadLocationsForSelectedProduct(force = false) {
+  if (!selectedProduct.value) return;
+
+  await fetchProductInventory(selectedProduct.value, force);
+}
+
+function refreshSelectedProductLocations() {
+  void loadLocationsForSelectedProduct(true);
+}
+
+function formatVariantInventory(variant: ShopifyProduct["variants"][number]) {
+  if (typeof variant.inventory_quantity === "number") {
+    return `${variant.inventory_quantity} available`;
+  }
+
+  return variant.inventory_management ? "Tracked" : "Not tracked";
+}
+
+function formatLocationAddress(location: ShopifyLocation) {
+  const parts = [
+    location.address1,
+    location.address2,
+    location.city,
+    location.province_code || location.province,
+    location.zip,
+    location.country_code || location.country,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(", ") : "No address";
+}
+
+function getLocationInventoryLabel(locationId: number) {
+  if (selectedInventoryItemIds.value.length === 0) {
+    return "No inventory item ID";
+  }
+
+  const summary = inventoryByLocation.value.get(locationId);
+  if (!summary) {
+    return "No inventory level";
+  }
+
+  if (summary.hasUntracked && summary.available === 0) {
+    return "Not tracked";
+  }
+
+  return `${summary.available} available${
+    summary.hasUntracked ? " + untracked" : ""
+  }`;
+}
+
+watch(
+  products,
+  (list) => {
+    if (!list.length) {
+      selectedProductId.value = null;
+      return;
+    }
+
+    if (!list.some((product) => product.id === selectedProductId.value)) {
+      selectedProductId.value = list[0]?.id || null;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [
+    formStore.storeId,
+    selectedProduct.value?.id || "",
+    selectedInventoryItemIds.value.join(","),
+  ],
+  () => {
+    void loadLocationsForSelectedProduct();
+  },
+  { immediate: true },
+);
+
 async function createProduct() {
   const sid = formStore.storeId;
   const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
@@ -431,6 +735,13 @@ async function removeProduct(prodId: number) {
   overflow: visible !important;
 }
 
+.product-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 16px;
+  align-items: start;
+}
+
 .products-table {
   width: 100%;
   border-collapse: separate;
@@ -455,6 +766,13 @@ async function removeProduct(prodId: number) {
 
 .product-row:hover {
   background: #f8f9fa;
+}
+.product-row {
+  cursor: pointer;
+}
+.product-row.selected,
+.product-row.selected:hover {
+  background: #f0f7ff;
 }
 
 .product-info-cell {
@@ -599,6 +917,173 @@ async function removeProduct(prodId: number) {
   display: flex;
 }
 
+.product-detail-card {
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+}
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-product {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.detail-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.detail-product-main {
+  min-width: 0;
+}
+.detail-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.detail-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.detail-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f8f9fa;
+}
+.detail-meta-item span {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+.detail-meta-item strong {
+  font-size: 13px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.detail-section {
+  padding-top: 14px;
+}
+.detail-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.detail-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.detail-section-sub {
+  margin-top: -4px;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.variant-list,
+.location-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.variant-row,
+.location-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.variant-title,
+.location-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.variant-sub,
+.location-address {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-sub);
+  overflow-wrap: anywhere;
+}
+.variant-inventory,
+.inventory-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+  white-space: nowrap;
+}
+.location-main {
+  min-width: 0;
+}
+.location-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.location-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f1f2f4;
+  color: #6d7175;
+}
+.location-status.active {
+  background: var(--badge-paid);
+  color: var(--badge-paid-text);
+}
+.location-status.inactive {
+  background: var(--badge-cancelled);
+  color: var(--badge-cancelled-text);
+}
+.detail-loading,
+.detail-error,
+.detail-empty {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-sub);
+  background: #f9f9fa;
+}
+.detail-error {
+  color: var(--badge-cancelled-text);
+  background: var(--badge-cancelled);
+}
+
 .empty-state {
   padding: 60px 20px;
   text-align: center;
@@ -719,5 +1204,16 @@ async function removeProduct(prodId: number) {
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (max-width: 1080px) {
+  .product-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .product-detail-card {
+    position: static;
+    max-height: none;
+  }
 }
 </style>
