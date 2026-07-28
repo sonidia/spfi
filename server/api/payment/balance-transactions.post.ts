@@ -1,16 +1,16 @@
-import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
-import {
-  buildProxyVariants,
-  createProxyAgent,
-  resolveStoreCookieData,
-  resolveStoreDomain,
-} from "~~/utils/proxy/store-proxy";
+﻿import { createError, defineEventHandler, readBody } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import type { BalanceTransactionsResponse } from "~~/types/shopify";
+
+interface BalanceTransactionsBody {
+  storeId?: string;
+  token?: string;
+}
 
 export default defineEventHandler(async (event) => {
-  const appConfig = useAppConfig();
-  const body = await readBody(event);
-  const { storeId, token } = body;
+  const body = (await readBody<BalanceTransactionsBody>(event)) || {};
+  const storeId = String(body.storeId || "");
+  const token = String(body.token || "");
 
   if (!storeId || !token) {
     throw createError({
@@ -19,46 +19,15 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const storeCookie = resolveStoreCookieData(event, storeId);
-  const sock = String(storeCookie?.sock || "").trim();
-  if (!sock) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing sock proxy for this store.",
-    });
-  }
-
-  const domain = resolveStoreDomain(storeId, storeCookie?.domain);
-  const baseURL = `https://${domain}/${appConfig.apiBase}`;
-  const headers = {
-    "X-Shopify-Access-Token": token,
-    "Content-Type": appConfig.contentType,
-  };
-  const proxyVariants = buildProxyVariants(sock);
-
-  let lastError: any;
-  for (const proxyUrl of proxyVariants) {
-    const agent = createProxyAgent(proxyUrl);
-    try {
-      const res = await axios.get(
-        `${baseURL}/shopify_payments/balance/transactions.json`,
-        { headers, httpAgent: agent, httpsAgent: agent },
-      );
-
-      return {
-        transactions: res.data.transactions ?? [],
-      };
-    } catch (error: any) {
-      lastError = error;
-    }
-  }
-
-  const message =
-    lastError?.response?.data?.errors ||
-    lastError?.response?.data?.message ||
-    lastError?.message;
-  throw createError({
-    statusCode: lastError?.response?.status || 500,
-    statusMessage: message,
+  const response = await callShopifyApi<BalanceTransactionsResponse>({
+    event,
+    storeId,
+    token,
+    path: "/shopify_payments/balance/transactions.json",
+    missingProxyMessage: "Missing sock proxy for this store.",
   });
+
+  return {
+    transactions: response.transactions ?? [],
+  } satisfies BalanceTransactionsResponse;
 });

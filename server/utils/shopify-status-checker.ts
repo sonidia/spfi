@@ -1,4 +1,4 @@
-import { resolve4, resolve6, resolveCname, resolveNs } from "node:dns/promises";
+﻿import { resolve4, resolve6, resolveCname, resolveNs } from "node:dns/promises";
 import * as http from "node:http";
 import * as https from "node:https";
 import { isIP } from "node:net";
@@ -11,7 +11,7 @@ import type {
   StoreCheckResult,
 } from "~~/types/store-status";
 import { StoreStatusInputError } from "./status-checker-errors";
-import { createSocksProxyAgents } from "./status-proxy-agent";
+import { createSocksProxyAgents } from "./callShopifyApi";
 import { resolveProxyIp } from "./status-proxy-ip";
 import {
   buildShopifyStatusVerdict,
@@ -54,6 +54,17 @@ interface SslSnapshot {
   error?: string;
 }
 
+
+type CertificateFieldValue = string | string[] | undefined;
+
+interface CertificateDetails {
+  valid_from?: string;
+  valid_to?: string;
+  subject?: Record<string, CertificateFieldValue>;
+  issuer?: Record<string, CertificateFieldValue>;
+  fingerprint256?: string;
+}
+
 const SHOPIFY_A_RECORDS = new Set(["23.227.38.65"]);
 const SHOPIFY_TEXT_MARKERS = [
   "this store is unavailable",
@@ -65,6 +76,8 @@ const SHOPIFY_TEXT_MARKERS = [
 ];
 
 const REQUEST_TIMEOUT_MS = 12000;
+const SSL_CHECK_TIMEOUT_MS = 3500;
+const PROXY_IP_TIMEOUT_MS = 3500;
 const MAX_REDIRECTS = 5;
 const BODY_SNIPPET_LIMIT = 12000;
 
@@ -90,17 +103,32 @@ export async function checkShopifyStoreStatus(
     throw new StoreStatusInputError(blockedDnsReason);
   }
 
+  const productsUrl = new URL("/products.json?limit=1", normalizedUrl).toString();
   const [website, http, endpoint, ssl, proxyIp] = await Promise.all([
-    fetchSnapshot(normalizedUrl, "GET", "follow", proxyAgents),
-    fetchSnapshot(normalizedUrl, "HEAD", "manual", proxyAgents),
-    fetchSnapshot(
-      new URL("/products.json?limit=1", normalizedUrl).toString(),
-      "GET",
-      "follow",
-      proxyAgents,
+    resolveWithin(
+      fetchSnapshot(normalizedUrl, "GET", "follow", proxyAgents),
+      REQUEST_TIMEOUT_MS + 500,
+      () => buildTimeoutSnapshot(normalizedUrl, "GET", "Website request"),
     ),
-    hasProxy ? Promise.resolve<SslSnapshot | null>(null) : checkSsl(host),
-    hasProxy ? resolveProxyIp(proxyAgents) : Promise.resolve(""),
+    resolveWithin(
+      fetchSnapshot(normalizedUrl, "HEAD", "manual", proxyAgents),
+      REQUEST_TIMEOUT_MS + 500,
+      () => buildTimeoutSnapshot(normalizedUrl, "HEAD", "HTTP request"),
+    ),
+    resolveWithin(
+      fetchSnapshot(productsUrl, "GET", "follow", proxyAgents),
+      REQUEST_TIMEOUT_MS + 500,
+      () => buildTimeoutSnapshot(productsUrl, "GET", "Products endpoint"),
+    ),
+    hasProxy
+      ? Promise.resolve<SslSnapshot | null>(null)
+      : resolveWithin(checkSsl(host), SSL_CHECK_TIMEOUT_MS, () => ({
+          ok: false,
+          error: `TLS check exceeded ${SSL_CHECK_TIMEOUT_MS}ms.`,
+        })),
+    hasProxy
+      ? resolveWithin(resolveProxyIp(proxyAgents), PROXY_IP_TIMEOUT_MS, () => "")
+      : Promise.resolve(""),
   ]);
 
   if (
@@ -163,6 +191,38 @@ export async function checkShopifyStoreStatus(
   };
 }
 
+function resolveWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: () => T,
+): Promise<T> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(fallback()), timeoutMs);
+
+    promise
+      .then(resolve)
+      .catch(() => resolve(fallback()))
+      .finally(() => clearTimeout(timeout));
+  });
+}
+
+function buildTimeoutSnapshot(
+  url: string,
+  method: "GET" | "HEAD",
+  label: string,
+): FetchSnapshot {
+  return {
+    ok: false,
+    status: null,
+    statusText: `${method} timed out`,
+    url,
+    redirected: false,
+    headers: {},
+    bodySnippet: "",
+    contentType: "",
+    error: `${label} exceeded ${REQUEST_TIMEOUT_MS}ms.`,
+  };
+}
 function normalizeTarget(input: string) {
   const trimmed = input.trim().replace(/^@/, "");
   if (!trimmed || /\s/.test(trimmed)) {
@@ -344,8 +404,8 @@ function requestSnapshot(
         path: `${targetUrl.pathname}${targetUrl.search}`,
         method,
         headers,
-        agent: agent as any,
-        timeout: REQUEST_TIMEOUT_MS,
+        agent: agent as unknown as http.Agent,
+        timeout: SSL_CHECK_TIMEOUT_MS,
       },
       (response) => {
         const responseHeaders = normalizeResponseHeaders(response.headers);
@@ -741,7 +801,7 @@ function checkSsl(host: string): Promise<SslSnapshot> {
         port: 443,
         servername: host,
         rejectUnauthorized: false,
-        timeout: REQUEST_TIMEOUT_MS,
+        timeout: SSL_CHECK_TIMEOUT_MS,
       },
       () => {
         const certificate = socket.getPeerCertificate();
@@ -768,7 +828,7 @@ function checkSsl(host: string): Promise<SslSnapshot> {
 }
 
 function getSslSnapshotFromSocket(socket: unknown): SslSnapshot | undefined {
-  const tlsSocket = socket as { getPeerCertificate?: () => any } | undefined;
+  const tlsSocket = socket as { getPeerCertificate?: () => CertificateDetails } | undefined;
 
   if (typeof tlsSocket?.getPeerCertificate !== "function") {
     return undefined;
@@ -783,7 +843,7 @@ function getSslSnapshotFromSocket(socket: unknown): SslSnapshot | undefined {
   return buildSslSnapshotFromCertificate(certificate);
 }
 
-function buildSslSnapshotFromCertificate(certificate: any): SslSnapshot {
+function buildSslSnapshotFromCertificate(certificate: CertificateDetails): SslSnapshot {
   const validToTime = certificate.valid_to
     ? new Date(certificate.valid_to).getTime()
     : NaN;
@@ -797,15 +857,29 @@ function buildSslSnapshotFromCertificate(certificate: any): SslSnapshot {
       (daysRemaining === undefined || daysRemaining > 0),
     validFrom: certificate.valid_from,
     validTo: certificate.valid_to,
-    subject: certificate.subject
-      ? Object.values(certificate.subject).join(", ")
-      : undefined,
-    issuer: certificate.issuer
-      ? Object.values(certificate.issuer).join(", ")
-      : undefined,
+    subject: formatCertificateName(certificate.subject),
+    issuer: formatCertificateName(certificate.issuer),
     fingerprint: certificate.fingerprint256,
     daysRemaining,
   };
+}
+
+function formatCertificateName(
+  value?: Record<string, CertificateFieldValue>,
+): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parts = Object.values(value).flatMap((item) => {
+    if (Array.isArray(item)) {
+      return item;
+    }
+
+    return item ? [item] : [];
+  });
+
+  return parts.length ? parts.join(", ") : undefined;
 }
 
 function buildSslCheck(
@@ -952,3 +1026,7 @@ function isPrivateIp(value: string) {
 
   return false;
 }
+
+
+
+

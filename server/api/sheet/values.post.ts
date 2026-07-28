@@ -28,11 +28,13 @@ export default defineEventHandler(async (event) => {
       range,
       values: response.data.values || [],
     };
-  } catch (error: any) {
+  } catch (error) {
     throw createError({
       statusCode: 500,
       statusMessage:
-        error?.message || "Failed to fetch data from Google Sheet API.",
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch data from Google Sheet API.",
     });
   }
 });

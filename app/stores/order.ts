@@ -1,13 +1,15 @@
-import { defineStore } from "pinia";
+﻿import { defineStore } from "pinia";
 import { ref } from "vue";
+import type { OrdersResponse, ShopifyOrder } from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 
 export const useOrderStore = defineStore("order", () => {
-  const orders = ref<any[]>([]);
+  const orders = ref<ShopifyOrder[]>([]);
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const storeCache = ref<
-    Record<string, { orders: any[]; hasFetchedAll: boolean }>
+    Record<string, { orders: ShopifyOrder[]; hasFetchedAll: boolean }>
   >({});
 
   async function fetchAll(storeId: string, token: string) {
@@ -20,23 +22,19 @@ export const useOrderStore = defineStore("order", () => {
     error.value = null;
 
     try {
-      const response = await $fetch<any>("/api/order/all", {
+      const response = await $fetch<OrdersResponse>("/api/order/all", {
         method: "POST",
         body: { storeId, token },
       });
 
-      orders.value =
-        response.orders || (response.order ? [response.order] : []);
+      orders.value = response.orders || (response.order ? [response.order] : []);
       hasFetchedAll.value = true;
       storeCache.value[storeId] = {
         orders: [...orders.value],
         hasFetchedAll: hasFetchedAll.value,
       };
-    } catch (err: any) {
-      error.value =
-        err?.data?.statusMessage ??
-        err?.message ??
-        "Failed to fetch order data.";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Failed to fetch order data.");
     } finally {
       isLoading.value = false;
     }
@@ -48,18 +46,19 @@ export const useOrderStore = defineStore("order", () => {
     id: string,
     force = false,
   ) {
+    void force;
     if (!storeId || !token || !id) return;
 
     isLoading.value = true;
     error.value = null;
 
     try {
-      const response = await $fetch<any>(`/api/order/${id}`, {
+      const response = await $fetch<OrdersResponse>(`/api/order/${id}`, {
         params: { storeId, token },
       });
 
       if (response.order) {
-        const index = orders.value.findIndex((o) => o.id?.toString() === id);
+        const index = orders.value.findIndex((order) => order.id?.toString() === id);
         if (index > -1) {
           orders.value[index] = response.order;
         } else {
@@ -70,8 +69,8 @@ export const useOrderStore = defineStore("order", () => {
           hasFetchedAll: hasFetchedAll.value,
         };
       }
-    } catch (err: any) {
-      error.value = err.message || "Failed to fetch order detail.";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Failed to fetch order detail.");
     } finally {
       isLoading.value = false;
     }

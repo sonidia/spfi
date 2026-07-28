@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { usePaymentStore } from "~/stores/payment";
 import { capitalize, fmtDate } from "~~/helpers";
@@ -65,7 +65,7 @@ const filteredPayouts = computed(() =>
 
 function getPayoutProcessedDate(payoutId: number) {
   const txs = paymentStore.transactionsByPayout[String(payoutId)] || [];
-  const payoutTx = txs.find((t: any) => t.type === "charge");
+  const payoutTx = txs.find((tx) => tx.type === "charge");
   return payoutTx ? fmtDate(payoutTx.processed_at) : "—";
 }
 

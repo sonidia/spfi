@@ -174,6 +174,8 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
+import type { Payout, Transaction } from "~/stores/payment";
+import type { StoreLocalData } from "~~/types/shopify";
 import { capitalize, fmtDate } from "~~/helpers";
 
 const paymentStore = usePaymentStore();
@@ -182,7 +184,7 @@ const formStore = useFormStore();
 
 onMounted(() => {
   if (!orderStore.hasFetchedAll && formStore.storeId) {
-    const cookie = useLocalStorage<any>(formStore.storeId, {}).state;
+    const cookie = useLocalStorage<StoreLocalData>(formStore.storeId, {}).state;
     const token = cookie.value?.accessToken;
     if (token) {
       orderStore.fetchAll(formStore.storeId, token);
@@ -224,29 +226,29 @@ function getPayoutDateById(payoutId: number | null) {
   return payout ? fmtDate(payout.date) : "—";
 }
 
-function getPayoutAmount(payout: any) {
+function getPayoutAmount(payout: Payout) {
   const amount = payout?.summary?.charges_gross_amount;
   return Math.abs(parseFloat(amount ?? payout.amount ?? "0"));
 }
 
-function getPayoutFee(payout: any) {
+function getPayoutFee(payout: Payout) {
   const fee = payout?.summary?.charges_fee_amount;
   return Math.abs(parseFloat(fee ?? "0"));
 }
 
 function getChildTransactions(payoutId: number) {
   return (paymentStore.transactionsByPayout[String(payoutId)] || []).filter(
-    (tx: any) => tx.type !== "payout",
+    (tx) => tx.type !== "payout",
   );
 }
 
 function getLatestTransactionForPayout(payoutId: number) {
   const transactions = getChildTransactions(payoutId).filter(
-    (tx: any) => tx.source_order_id,
+    (tx) => tx.source_order_id,
   );
   if (!transactions.length) return null;
   return transactions.sort(
-    (a: any, b: any) =>
+    (a, b) =>
       new Date(b.processed_at).getTime() - new Date(a.processed_at).getTime(),
   )[0];
 }
@@ -262,16 +264,16 @@ function getLatestCustomerName(payoutId: number) {
   return getCustomerName(tx);
 }
 
-function getOrderNumber(tx: any) {
+function getOrderNumber(tx: Transaction) {
   if (!tx.source_order_id) return null;
   // Note: orderMap was empty in index.vue, keeping logic same
   const orderMap: Record<number, string> = {};
   return orderMap[tx.source_order_id] || tx.source_order_id;
 }
 
-function getCustomerName(tx: any) {
+function getCustomerName(tx: Transaction) {
   if (!tx.source_order_id) return "—";
-  const order = orderStore.orders.find((o) => o.id == tx.source_order_id);
+  const order = orderStore.orders.find((o) => o.id === tx.source_order_id);
   if (order && order.customer) {
     return (
       `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim() ||

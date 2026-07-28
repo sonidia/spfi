@@ -1,7 +1,6 @@
-import { type H3Event, getCookie, parseCookies } from "h3";
+﻿import { type H3Event, getCookie, parseCookies } from "h3";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { SocksProxyAgent } from "socks-proxy-agent";
-import { normalizeProxyUrl } from "./proxy";
 
 export type StoreCookieData = {
   domain?: string;
@@ -11,6 +10,80 @@ export type StoreCookieData = {
   accessToken?: string;
   expiresTime?: number;
 };
+
+const INVISIBLE_OR_CONTROL_CHARS =
+  /[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g;
+const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
+const SOCKS5_PROTOCOL_PATTERN = /^socks5h?:\/\//i;
+const SOCKS5H_PROTOCOL = "socks5h:";
+
+export type ProxyInputMeta = {
+  hasScheme: boolean;
+  segmentCount: number;
+  usernameLength: number;
+  passwordLength: number;
+  hasInvisibleChars: boolean;
+};
+
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizePart(value: string) {
+  return String(value || "").replace(INVISIBLE_OR_CONTROL_CHARS, "").trim();
+}
+
+function normalizeCredential(value: string) {
+  return encodeURIComponent(safeDecode(sanitizePart(value)));
+}
+
+export function hasInvisibleOrControlChars(value: string): boolean {
+  return INVISIBLE_OR_CONTROL_CHARS.test(String(value || ""));
+}
+
+export function inspectProxyInput(input: string): ProxyInputMeta {
+  const raw = String(input || "");
+  const hasScheme = SOCKS5_PROTOCOL_PATTERN.test(raw);
+
+  if (hasScheme) {
+    try {
+      const parsed = new URL(raw);
+      const username = safeDecode(parsed.username || "");
+      const password = safeDecode(parsed.password || "");
+      return {
+        hasScheme: true,
+        segmentCount: 0,
+        usernameLength: username.length,
+        passwordLength: password.length,
+        hasInvisibleChars: hasInvisibleOrControlChars(raw),
+      };
+    } catch {
+      return {
+        hasScheme: true,
+        segmentCount: 0,
+        usernameLength: 0,
+        passwordLength: 0,
+        hasInvisibleChars: hasInvisibleOrControlChars(raw),
+      };
+    }
+  }
+
+  const parts = raw.split(":");
+  const username = sanitizePart(parts[2] || "");
+  const password = sanitizePart(parts.slice(3).join(":") || "");
+
+  return {
+    hasScheme: false,
+    segmentCount: parts.length,
+    usernameLength: username.length,
+    passwordLength: password.length,
+    hasInvisibleChars: hasInvisibleOrControlChars(raw),
+  };
+}
 
 function tryParseCookieValue(rawValue: string): StoreCookieData | null {
   if (!rawValue) return null;
@@ -45,11 +118,15 @@ function tryParseCookieValue(rawValue: string): StoreCookieData | null {
 }
 
 function toRawProxyVariant(sock: string): string | null {
-  const raw = String(sock || "").trim();
+  const raw = sanitizePart(sock || "");
   if (!raw) return null;
 
-  if (/^socks(4|4a|5|5h)?:\/\//i.test(raw) || /^https?:\/\//i.test(raw)) {
-    return raw;
+  if (SOCKS5_PROTOCOL_PATTERN.test(raw)) {
+    return raw.replace(/^socks5:\/\//i, "socks5h://");
+  }
+
+  if (PROXY_PROTOCOL_PATTERN.test(raw)) {
+    return null;
   }
 
   const parts = raw.split(":");
@@ -60,27 +137,26 @@ function toRawProxyVariant(sock: string): string | null {
   if (!host || !port) return null;
 
   if (parts.length === 2) {
-    return `socks5://${host}:${port}`;
+    return `socks5h://${host}:${port}`;
   }
 
   const user = (parts[2] || "").trim();
   const pass = parts
     .slice(3)
     .join(":")
-    .replace(/[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g, "")
+    .replace(INVISIBLE_OR_CONTROL_CHARS, "")
     .trim();
   if (!user || !pass) return null;
 
-  return `socks5://${user}:${pass}@${host}:${port}`;
+  return `socks5h://${user}:${pass}@${host}:${port}`;
 }
 
 export function resolveStoreCookieData(
   event: H3Event,
   storeId: string,
 ): StoreCookieData | null {
-  // 1. Try reading from x-store-data header first
-  const headerData = event.node?.req?.headers?.['x-store-data'];
-  if (typeof headerData === 'string' && headerData.length > 0) {
+  const headerData = event.node?.req?.headers?.["x-store-data"];
+  if (typeof headerData === "string" && headerData.length > 0) {
     const parsed = tryParseCookieValue(headerData);
     if (parsed) return parsed;
   }
@@ -143,6 +219,67 @@ export function resolveStoreAdminDomain(
   return `${sid}.myshopify.com`;
 }
 
+export function normalizeProxyUrl(input: string): string {
+  const raw = sanitizePart(input || "");
+
+  if (!raw) {
+    throw new Error("Proxy is empty.");
+  }
+
+  if (PROXY_PROTOCOL_PATTERN.test(raw) && !SOCKS5_PROTOCOL_PATTERN.test(raw)) {
+    throw new Error(
+      "Only SOCKS5 proxy is supported. Use host:port or host:port:user:pass.",
+    );
+  }
+
+  if (SOCKS5_PROTOCOL_PATTERN.test(raw)) {
+    const parsed = new URL(raw);
+
+    if (parsed.username) {
+      parsed.username = normalizeCredential(parsed.username);
+    }
+
+    if (parsed.password) {
+      parsed.password = normalizeCredential(parsed.password);
+    }
+
+    parsed.hostname = sanitizePart(parsed.hostname);
+    if (parsed.port) {
+      parsed.port = sanitizePart(parsed.port);
+    }
+
+    parsed.protocol = SOCKS5H_PROTOCOL;
+
+    return parsed.toString();
+  }
+
+  const parts = raw.split(":").map((part) => sanitizePart(part));
+  if (parts.length < 2) {
+    throw new Error("Invalid proxy format. Use ip:port or ip:port:user:pass.");
+  }
+
+  const [host, port, ...credentials] = parts;
+  if (!host || !port) {
+    throw new Error("Invalid proxy format. Use ip:port or ip:port:user:pass.");
+  }
+
+  if (credentials.length === 0) {
+    return `socks5h://${host}:${port}`;
+  }
+
+  const username = sanitizePart(credentials.shift() || "");
+  const password = sanitizePart(credentials.join(":") || "");
+  if (!username || !password) {
+    throw new Error(
+      "Invalid proxy credentials. Use ip:port:user:pass when auth is required.",
+    );
+  }
+
+  return `socks5h://${normalizeCredential(username)}:${normalizeCredential(
+    password,
+  )}@${host}:${port}`;
+}
+
 export function buildProxyVariants(sock: string): string[] {
   const raw = String(sock || "").trim();
   if (!raw) return [];
@@ -164,4 +301,8 @@ export function createProxyAgent(proxyUrl: string) {
   return proxyUrl.startsWith("http")
     ? new HttpsProxyAgent(proxyUrl)
     : new SocksProxyAgent(proxyUrl);
+}
+
+export function maskProxyUrl(proxyUrl: string): string {
+  return proxyUrl.replace(/\/\/([^:/@]+):([^@]+)@/, "//****:****@");
 }

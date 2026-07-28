@@ -67,14 +67,19 @@ async function readServiceAccountFile() {
     const parsed = JSON.parse(raw) as ServiceAccountFile;
     cachedServiceAccount = parsed;
     return parsed;
-  } catch (error: any) {
+  } catch (error) {
     throw createError({
       statusCode: 500,
       statusMessage:
-        error?.code === "ENOENT"
+        getErrorCode(error) === "ENOENT"
           ? "Missing service account file at server/service_account.json"
           : "Invalid service account file format in server/service_account.json",
     });
   }
 }
 
+function getErrorCode(error: unknown) {
+  return typeof error === "object" && error && "code" in error
+    ? String(error.code)
+    : "";
+}

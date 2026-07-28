@@ -97,7 +97,7 @@
                     v-if="order.fulfillments?.[0]?.shipment_status"
                     class="delivery-cell"
                   >
-                    <AppPopover align="right" position="top">
+                    <BasePopover align="right" position="top">
                       <template #trigger>
                         <div class="delivery-status-trigger">
                           <span
@@ -172,7 +172,7 @@
                           </div>
                         </div>
                       </template>
-                    </AppPopover>
+                    </BasePopover>
                   </div>
                   <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
                     >—</span
@@ -192,6 +192,7 @@ import { computed, onMounted } from "vue";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
+import type { StoreLocalData } from "~~/types/shopify";
 import {
   financialBadge,
   fmtDateTime,
@@ -211,10 +212,10 @@ const formStore = useFormStore();
 
 const orders = computed(() => orderStore.orders);
 
-function getTransactionStatus(orderId: any) {
+function getTransactionStatus(orderId: number | string | null | undefined) {
   if (!orderId) return null;
   const tx = paymentStore.balanceTransactions.find(
-    (t: any) => String(t.source_order_id) === String(orderId),
+    (transaction) => String(transaction.source_order_id) === String(orderId),
   );
   return tx?.payout_status || null;
 }
@@ -226,7 +227,7 @@ onMounted(() => {
 
   const sid = formStore.storeId;
   if (sid) {
-    const cookie = useLocalStorage<any>(sid, {}).state;
+    const cookie = useLocalStorage<StoreLocalData>(sid, {}).state;
     const token = cookie.value?.accessToken;
     if (token) {
       paymentStore.fetchBalanceTransactions(sid, token);

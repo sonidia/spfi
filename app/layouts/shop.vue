@@ -1,7 +1,15 @@
 <script lang="ts" setup>
-import { useSheetService } from "~/composables/useSheetService";
+import {
+  useSheetService,
+  type ProxySheetRow,
+} from "~/composables/useSheetService";
 import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
+import type {
+  ShopifyAccessTokenResponse,
+  StoreLocalData,
+} from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 import { useLoading } from "../composables/useLoading";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
@@ -159,7 +167,7 @@ function onSelectStore(id: string) {
 // ── Resolve valid token for current storeId ──────────────────────────────────
 function resolveToken(sid: string): string | null {
   if (!sid) return null;
-  const storeCookie = useLocalStorage<any>(sid, {}).state;
+  const storeCookie = useLocalStorage<StoreLocalData>(sid, {}).state;
   const data = storeCookie.value;
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
@@ -221,7 +229,7 @@ function fetchCurrent(force = false) {
 // ── Get domain label for store select ────────────────────────────────────────
 function getStoreDomain(id: string): string {
   if (!id) return "";
-  const cookie = useLocalStorage<any>(id, {}).state;
+  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
   return cookie.value?.domain || "";
 }
 
@@ -276,10 +284,8 @@ function setStep(id: string, status: "pending" | "active" | "done" | "error") {
   if (step) step.status = status;
 }
 
-function toUserFriendlyMessage(error: any) {
-  const rawMessage = String(
-    error?.data?.statusMessage || error?.data?.message || error?.message || "",
-  );
+function toUserFriendlyMessage(error: unknown) {
+  const rawMessage = getAppErrorMessage(error, "");
   const msg = rawMessage.toLowerCase();
 
   if (
@@ -331,7 +337,7 @@ async function addShop() {
     // 0. SPF cache setup
     const spfUrl = SPF_SHEET_URL.trim();
     let spfSheetNames: string[] = [...SPF_SHEET_TABS];
-    const spfRowsCache: Record<string, any[]> = {};
+    const spfRowsCache: Record<string, ProxySheetRow[]> = {};
 
     for (const domain of domains) {
       resetSteps();
@@ -354,7 +360,7 @@ async function addShop() {
 
           // 1. Discovery Phase
 
-          let foundShop = null;
+          let foundShop: ProxySheetRow | null = null;
 
           for (const sheetName of spfSheetNames) {
             if (!spfRowsCache[sheetName]) {
@@ -370,9 +376,10 @@ async function addShop() {
               });
             }
 
-            foundShop = spfRowsCache[sheetName].find(
-              (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
-            );
+            foundShop =
+              spfRowsCache[sheetName].find(
+                (row) => row.domain.trim().toLowerCase() === domainSearch,
+              ) || null;
 
             if (foundShop) break;
           }
@@ -401,7 +408,9 @@ async function addShop() {
         }
 
         setStep("TOKEN_GEN", "active");
-        const res: any = await $fetch("/api/generate-token", {
+        const res = await $fetch<ShopifyAccessTokenResponse>(
+          "/api/generate-token",
+          {
           method: "POST",
           body: {
             storeId: sId,
@@ -409,7 +418,8 @@ async function addShop() {
             clientSecret: cSec,
             sock: sock,
           },
-        });
+          },
+        );
 
         if (!res?.access_token) {
           throw new Error("Failed to retrieve access token");
@@ -420,7 +430,7 @@ async function addShop() {
         setStep("DONE", "active");
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        const cookie = useLocalStorage<any>(
+        const cookie = useLocalStorage<StoreLocalData>(
           sId,
           {},
           { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
@@ -441,7 +451,7 @@ async function addShop() {
 
         successCount++;
         setStep("DONE", "done");
-      } catch (err: any) {
+      } catch (err) {
         setStep("TOKEN_GEN", "error");
         errors.push(`${domain}: ${toUserFriendlyMessage(err)}`);
       }

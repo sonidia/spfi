@@ -1,6 +1,14 @@
 <script lang="ts" setup>
-import { useSheetService } from "~/composables/useSheetService";
+import {
+  useSheetService,
+  type ProxySheetRow,
+} from "~/composables/useSheetService";
 import { useFormStore } from "~/stores/form";
+import type {
+  ShopifyAccessTokenResponse,
+  StoreLocalData,
+} from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 
@@ -60,10 +68,8 @@ function setStep(id: string, status: "pending" | "active" | "done" | "error") {
   if (step) step.status = status;
 }
 
-function toUserFriendlyMessage(error: any) {
-  const rawMessage = String(
-    error?.data?.statusMessage || error?.data?.message || error?.message || "",
-  );
+function toUserFriendlyMessage(error: unknown) {
+  const rawMessage = getAppErrorMessage(error, "");
   const msg = rawMessage.toLowerCase();
 
   if (
@@ -109,7 +115,7 @@ interface StoreInfo {
 }
 
 function getStoreInfo(id: string): StoreInfo {
-  const cookie = useLocalStorage<any>(id, {}).state;
+  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
   const data = cookie.value;
   if (!data || typeof data !== "object") {
     return {
@@ -157,8 +163,8 @@ const filteredStoreList = computed(() => {
     if (sortOrder.value === "domain_desc")
       return b.domain.localeCompare(a.domain);
 
-    const cookieA = useLocalStorage<any>(a.id, {}).state.value || {};
-    const cookieB = useLocalStorage<any>(b.id, {}).state.value || {};
+    const cookieA = useLocalStorage<StoreLocalData>(a.id, {}).state.value;
+    const cookieB = useLocalStorage<StoreLocalData>(b.id, {}).state.value;
     const timeA = cookieA.expiresTime || 0;
     const timeB = cookieB.expiresTime || 0;
 
@@ -186,7 +192,7 @@ const editClientSecret = ref("");
 const editError = ref("");
 
 function openEditModal(id: string) {
-  const cookie = useLocalStorage<any>(id, {}).state;
+  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
   const data = cookie.value || {};
 
   editingStoreId.value = id;
@@ -212,7 +218,7 @@ function saveEditedStore() {
   if (!editingStoreId.value) return;
 
   const id = editingStoreId.value;
-  const cookie = useLocalStorage<any>(
+  const cookie = useLocalStorage<StoreLocalData>(
     id,
     {},
     { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
@@ -262,7 +268,7 @@ async function addShop() {
     // 0. SPF cache setup
     const spfUrl = SPF_SHEET_URL.trim();
     let spfSheetNames: string[] = [...SPF_SHEET_TABS];
-    const spfRowsCache: Record<string, any[]> = {};
+    const spfRowsCache: Record<string, ProxySheetRow[]> = {};
 
     for (const domain of domains) {
       resetSteps();
@@ -285,7 +291,7 @@ async function addShop() {
 
           // 1. Discovery Phase
 
-          let foundShop = null;
+          let foundShop: ProxySheetRow | null = null;
 
           for (const sheetName of spfSheetNames) {
             if (!spfRowsCache[sheetName]) {
@@ -301,9 +307,10 @@ async function addShop() {
               });
             }
 
-            foundShop = spfRowsCache[sheetName].find(
-              (r: any) => r.domain?.trim().toLowerCase() === domainSearch,
-            );
+            foundShop =
+              spfRowsCache[sheetName].find(
+                (row) => row.domain.trim().toLowerCase() === domainSearch,
+              ) || null;
 
             if (foundShop) break;
           }
@@ -332,7 +339,9 @@ async function addShop() {
         }
 
         setStep("TOKEN_GEN", "active");
-        const res: any = await $fetch("/api/generate-token", {
+        const res = await $fetch<ShopifyAccessTokenResponse>(
+          "/api/generate-token",
+          {
           method: "POST",
           body: {
             storeId: sId,
@@ -340,7 +349,8 @@ async function addShop() {
             clientSecret: cSec,
             sock: sock,
           },
-        });
+          },
+        );
 
         if (!res?.access_token) {
           throw new Error("Failed to retrieve access token");
@@ -351,7 +361,7 @@ async function addShop() {
         setStep("DONE", "active");
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        const cookie = useLocalStorage<any>(
+        const cookie = useLocalStorage<StoreLocalData>(
           sId,
           {},
           { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
@@ -372,7 +382,7 @@ async function addShop() {
 
         successCount++;
         setStep("DONE", "done");
-      } catch (err: any) {
+      } catch (err) {
         setStep("TOKEN_GEN", "error");
         errors.push(`${domain}: ${toUserFriendlyMessage(err)}`);
       }
@@ -398,8 +408,7 @@ async function addShop() {
 }
 
 async function rotateToken(id: string) {
-  const storeInfo = getStoreInfo(id);
-  const cookie = useLocalStorage<any>(id, {}).state;
+  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
   const data = cookie.value;
 
   if (!data?.clientId || !data?.clientSecret) {
@@ -409,7 +418,7 @@ async function rotateToken(id: string) {
 
   rotatingIds.value[id] = true;
   try {
-    const res: any = await $fetch("/api/generate-token", {
+    const res = await $fetch<ShopifyAccessTokenResponse>("/api/generate-token", {
       method: "POST",
       body: {
         storeId: id,
@@ -430,7 +439,7 @@ async function rotateToken(id: string) {
     } else {
       throw new Error("Failed to rotate token");
     }
-  } catch (e: any) {
+  } catch (e) {
     alert("Rotate failed: " + toUserFriendlyMessage(e));
   } finally {
     rotatingIds.value[id] = false;
@@ -450,7 +459,7 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 async function testProxy(id: string) {
-  const cookie = useLocalStorage<any>(id, {}).state;
+  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
   const data = cookie.value;
   if (!data?.sock) {
     alert("No sock/proxy information found for this store.");
@@ -461,15 +470,20 @@ async function testProxy(id: string) {
   delete proxyResults.value[id];
 
   try {
-    const res: any = await $fetch("/api/check-proxy", {
+    const res = await $fetch<{
+      success: boolean;
+      ip?: string;
+      duration?: number;
+      error?: string;
+    }>("/api/check-proxy", {
       method: "POST",
       body: { proxy: data.sock },
     });
     proxyResults.value[id] = res;
-  } catch (err: any) {
+  } catch (err) {
     proxyResults.value[id] = {
       success: false,
-      error: err.message || "Request failed",
+      error: getAppErrorMessage(err, "Request failed"),
     };
   } finally {
     testingProxies.value[id] = false;

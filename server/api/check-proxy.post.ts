@@ -1,8 +1,12 @@
-import axios from "axios";
+﻿import axios from "axios";
 import { createError, defineEventHandler, readBody } from "h3";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { SocksProxyAgent } from "socks-proxy-agent";
-import { maskProxyUrl, normalizeProxyUrl } from "~~/utils/proxy/proxy";
+import { createProxyAgent, maskProxyUrl, normalizeProxyUrl } from "~~/utils/proxy/store-proxy";
+
+interface CheckProxyBody {
+  proxy?: string;
+}
+
+type ProxyAgent = ReturnType<typeof createProxyAgent>;
 
 type ProxyLocationResponse = {
   status?: string;
@@ -16,8 +20,8 @@ type ProxyLocationResponse = {
 };
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
-  const { proxy } = body;
+  const body = (await readBody<CheckProxyBody>(event)) || {};
+  const proxy = String(body.proxy || "");
 
   if (!proxy) {
     throw createError({
@@ -26,26 +30,17 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // ── Parse Proxy ────────────────────────────────────────────────────────────
   const proxyUrl = normalizeProxyUrl(proxy);
-
-  // Diagnostic logging (masked password)
   const maskedProxy = maskProxyUrl(proxyUrl);
-  // console.log(`[CheckProxy] Final URL: ${maskedProxy}`);
+  void maskedProxy;
 
-  let agent: any;
   try {
-    if (proxyUrl.startsWith("socks")) {
-      agent = new SocksProxyAgent(proxyUrl);
-    } else {
-      agent = new HttpsProxyAgent(proxyUrl);
-    }
-
+    const agent = createProxyAgent(proxyUrl);
     const start = Date.now();
-    const res = await axios.get("https://httpbin.org/ip", {
+    const res = await axios.get<{ origin?: string }>("https://httpbin.org/ip", {
       httpAgent: agent,
       httpsAgent: agent,
-      timeout: 10000, // 10 seconds timeout
+      timeout: 10000,
     });
     const duration = Date.now() - start;
     const ip = String(res.data?.origin || "");
@@ -65,15 +60,15 @@ export default defineEventHandler(async (event) => {
       },
       duration,
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       success: false,
-      error: error.message || "Proxy check failed",
+      error: error instanceof Error ? error.message : "Proxy check failed",
     };
   }
 });
 
-async function resolveProxyLocation(agent: any) {
+async function resolveProxyLocation(agent: ProxyAgent) {
   try {
     const response = await axios.get<ProxyLocationResponse>(
       "http://ip-api.com/json/?fields=status,message,query,country,regionName,city,isp,org,timezone",

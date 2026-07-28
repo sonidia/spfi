@@ -1,3 +1,10 @@
+import type { ShopifyAddress, ShopifyOrder } from "~~/types/shopify";
+
+type BadgeInfo = {
+  cls: string;
+  label: string;
+};
+
 export const ICONS = {
   edit: `<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z"/><path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z"/></svg>`,
   dots: `<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm5.5 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm7-1.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z"/></svg>`,
@@ -13,13 +20,18 @@ export const ICONS = {
   plus: `<svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"/></svg>`,
 };
 
-export function isNil(v: any) {
+export function isNil(v: unknown) {
   return v === undefined || v === null || v === "None" || v === "";
 }
-export function nilVal(v: any, fallback: any = null) {
+export function nilVal<T>(v: T | null | undefined | "" | "None", fallback: T): T;
+export function nilVal<T>(v: T | null | undefined | "" | "None"): T | null;
+export function nilVal<T>(
+  v: T | null | undefined | "" | "None",
+  fallback: T | null = null,
+) {
   return isNil(v) ? fallback : v;
 }
-export function fmtDate(iso: string) {
+export function fmtDate(iso?: string | null) {
   if (!iso || isNil(iso)) return null;
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
@@ -27,7 +39,7 @@ export function fmtDate(iso: string) {
     day: "numeric",
   });
 }
-export function fmtDateTime(iso: string) {
+export function fmtDateTime(iso?: string | null) {
   if (!iso || isNil(iso)) return null;
   const d = new Date(iso);
   return (
@@ -42,19 +54,25 @@ export function fmtDateTime(iso: string) {
       .toLowerCase()
   );
 }
-export function fmtMoney(amount: any, currency: string) {
+export function fmtMoney(
+  amount: string | number | null | undefined,
+  currency?: string | null,
+) {
   if (amount === undefined || amount === null) return "—";
-  return `$${parseFloat(amount).toFixed(2)} ${currency || ""}`.trim();
+  return `$${Number(amount).toFixed(2)} ${currency || ""}`.trim();
 }
 export function capitalize(str: string) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, " ");
 }
-export function addressSame(a: any, b: any) {
+export function addressSame(
+  a?: ShopifyAddress | null,
+  b?: ShopifyAddress | null,
+) {
   if (!a || !b) return false;
   return a.address1 === b.address1 && a.city === b.city && a.zip === b.zip;
 }
-export function formatAddress(addr: any) {
+export function formatAddress(addr?: ShopifyAddress | null) {
   if (!addr) return "";
   return [
     nilVal(addr.name),
@@ -77,7 +95,9 @@ export function serviceName(s: string) {
   if (!s || s === "manual") return "Manual";
   return s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
-export function getShipmentLabel(status: string) {
+export function getShipmentLabel(status?: string | null) {
+  if (!status) return "";
+
   const labels: Record<string, string> = {
     in_transit: "In transit",
     delivered: "Delivered",
@@ -89,7 +109,9 @@ export function getShipmentLabel(status: string) {
   };
   return labels[status] || capitalize(status);
 }
-export function getDeliverBy(createdAt: string) {
+export function getDeliverBy(createdAt?: string | null) {
+  if (!createdAt) return "";
+
   const d = new Date(createdAt);
   d.setDate(d.getDate() + 3);
   return d.toLocaleDateString("en-US", {
@@ -99,7 +121,7 @@ export function getDeliverBy(createdAt: string) {
     year: "numeric",
   });
 }
-export function getSource(order: any) {
+export function getSource(order?: ShopifyOrder | null) {
   const sourceMap: Record<string, string> = {
     web: "Online Store",
     pos: "POS",
@@ -107,13 +129,10 @@ export function getSource(order: any) {
     shopify_draft_order: "Draft Order",
   };
   if (!order) return "Online Store";
-  return (
-    sourceMap[order.source_name] ||
-    capitalize(order.source_name) ||
-    "Online Store"
-  );
+  const sourceName = order.source_name || "";
+  return sourceMap[sourceName] || capitalize(sourceName) || "Online Store";
 }
-export function financialBadge(status: string) {
+export function financialBadge(status?: string | null) {
   if (!status) return null;
   const cls: Record<string, string> = {
     paid: "badge-paid",
@@ -125,16 +144,20 @@ export function financialBadge(status: string) {
   };
   return { cls: cls[status] || "badge-archived", label: capitalize(status) };
 }
-export function fulfillmentBadge(status: string) {
+export function fulfillmentBadge(status?: string | null) {
   if (isNil(status)) return { cls: "badge-unfulfilled", label: "Unfulfilled" };
+  const normalizedStatus = String(status);
   const cls: Record<string, string> = {
     fulfilled: "badge-fulfilled",
     partial: "badge-partial",
     restocked: "badge-archived",
   };
-  return { cls: cls[status] || "badge-archived", label: capitalize(status) };
+  return {
+    cls: cls[normalizedStatus] || "badge-archived",
+    label: capitalize(normalizedStatus),
+  };
 }
-export function transactionBadge(status: string) {
+export function transactionBadge(status?: string | null) {
   if (!status) return null;
   const cls: Record<string, string> = {
     paid: "badge-paid",
@@ -145,8 +168,8 @@ export function transactionBadge(status: string) {
   return { cls: cls[status] || "badge-archived", label: capitalize(status) };
 }
 
-export function getOrderBadges(order: any) {
-  const badges: any[] = [];
+export function getOrderBadges(order?: ShopifyOrder | null): BadgeInfo[] {
+  const badges: BadgeInfo[] = [];
   if (!order) return badges;
   if (order.financial_status) {
     const b = financialBadge(order.financial_status);
@@ -162,7 +185,7 @@ export function getOrderBadges(order: any) {
     badges.push({ cls: "badge-cancelled", label: "Cancelled" });
   return badges;
 }
-export function getCustomerName(order: any) {
+export function getCustomerName(order?: ShopifyOrder | null) {
   if (!order || !order.customer) return null;
   const cust = order.customer;
   const name = [nilVal(cust.first_name, ""), nilVal(cust.last_name, "")]
@@ -170,7 +193,7 @@ export function getCustomerName(order: any) {
     .join(" ");
   return name || null;
 }
-export function getCustomerEmail(order: any) {
+export function getCustomerEmail(order?: ShopifyOrder | null) {
   if (!order) return null;
   return (
     nilVal(order.customer?.email) ||
@@ -179,25 +202,28 @@ export function getCustomerEmail(order: any) {
     null
   );
 }
-export function getSubtotal(order: any) {
+export function getSubtotal(order?: ShopifyOrder | null) {
   if (!order) return "0.00";
   return nilVal(
     order.subtotal_price,
     nilVal(order.current_subtotal_price, "0.00"),
   );
 }
-export function getTax(order: any) {
+export function getTax(order?: ShopifyOrder | null) {
   if (!order) return "0.00";
   return nilVal(order.total_tax, nilVal(order.current_total_tax, "0.00"));
 }
-export function getDiscount(order: any) {
+export function getDiscount(order?: ShopifyOrder | null) {
   if (!order) return "0.00";
   return nilVal(
     order.total_discounts,
     nilVal(order.current_total_discounts, "0.00"),
   );
 }
-export function getItemCount(order: any) {
+export function getItemCount(order?: ShopifyOrder | null) {
   if (!order) return 0;
-  return (order.line_items || []).reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+  return (order.line_items || []).reduce(
+    (sum, item) => sum + (item.quantity || 1),
+    0,
+  );
 }

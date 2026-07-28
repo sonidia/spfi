@@ -9,7 +9,7 @@ type BatchUpdateBody = {
   spreadsheetId?: string;
   data: {
     range: string;
-    values: any[][];
+    values: Array<Array<string | number | boolean | null>>;
   }[];
 };
 
@@ -39,11 +39,13 @@ export default defineEventHandler(async (event) => {
       totalUpdatedCells: response.data.totalUpdatedCells,
       totalUpdatedRows: response.data.totalUpdatedRows,
     };
-  } catch (error: any) {
+  } catch (error) {
     throw createError({
       statusCode: 500,
       statusMessage:
-        error?.message || "Failed to batch update data via Google Sheet API.",
+        error instanceof Error
+          ? error.message
+          : "Failed to batch update data via Google Sheet API.",
     });
   }
 });

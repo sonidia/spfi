@@ -128,7 +128,7 @@
               <div>
                 <span class="overview-amount"
                   >${{
-                    parseFloat(currentBalance.amount || 0).toFixed(2)
+                    Number(currentBalance.amount || 0).toFixed(2)
                   }}</span
                 >
                 <span class="overview-currency">{{
@@ -151,6 +151,7 @@ import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import { useProductStore } from "~/stores/product";
+import type { StoreLocalData } from "~~/types/shopify";
 
 definePageMeta({ layout: false });
 
@@ -294,7 +295,7 @@ watch(activeTab, (newTab) => {
 
 function resolveToken(sid: string): string | null {
   // Use raw document.cookie fallback if outside Nuxt context, but we are client side anyway
-  const storeCookie = useLocalStorage<any>(sid, {}).state;
+  const storeCookie = useLocalStorage<StoreLocalData>(sid, {}).state;
   const data = storeCookie.value;
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {

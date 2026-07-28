@@ -8,7 +8,7 @@ import {
 type SheetBody = {
   spreadsheetId?: string;
   range: string;
-  values: any[][];
+  values: Array<Array<string | number | boolean | null>>;
 };
 
 export default defineEventHandler(async (event) => {
@@ -38,11 +38,13 @@ export default defineEventHandler(async (event) => {
       success: true,
       updatedCells: response.data.updatedCells,
     };
-  } catch (error: any) {
+  } catch (error) {
     throw createError({
       statusCode: 500,
       statusMessage:
-        error?.message || "Failed to update data via Google Sheet API.",
+        error instanceof Error
+          ? error.message
+          : "Failed to update data via Google Sheet API.",
     });
   }
 });

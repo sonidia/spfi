@@ -1,13 +1,15 @@
-import { defineStore } from "pinia";
+﻿import { defineStore } from "pinia";
 import { ref } from "vue";
+import type { ShopifyShop, ShopProfileResponse } from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 
 export const useShopProfileStore = defineStore("shopProfile", () => {
-  const shop = ref<Record<string, any> | null>(null);
+  const shop = ref<ShopifyShop | null>(null);
   const hasFetchedProfile = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const storeCache = ref<
-    Record<string, { shop: Record<string, any> | null; hasFetchedProfile: boolean }>
+    Record<string, { shop: ShopifyShop | null; hasFetchedProfile: boolean }>
   >({});
 
   async function fetchProfile(storeId: string, token: string) {
@@ -20,7 +22,7 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
     error.value = null;
 
     try {
-      const response = await $fetch<any>("/api/shop/profile", {
+      const response = await $fetch<ShopProfileResponse>("/api/shop/profile", {
         method: "POST",
         body: { storeId, token },
       });
@@ -31,11 +33,8 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
         shop: shop.value ? { ...shop.value } : null,
         hasFetchedProfile: hasFetchedProfile.value,
       };
-    } catch (err: any) {
-      error.value =
-        err?.data?.statusMessage ??
-        err?.message ??
-        "Failed to fetch shop profile.";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Failed to fetch shop profile.");
     } finally {
       isLoading.value = false;
     }

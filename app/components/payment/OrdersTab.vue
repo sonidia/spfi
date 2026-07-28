@@ -82,7 +82,7 @@
                 v-if="order.fulfillments?.[0]?.shipment_status"
                 class="delivery-cell"
               >
-                <AppPopover align="right" position="top">
+                <BasePopover align="right" position="top">
                   <template #trigger>
                     <div class="delivery-status-trigger">
                       <span
@@ -156,7 +156,7 @@
                       </div>
                     </div>
                   </template>
-                </AppPopover>
+                </BasePopover>
               </div>
               <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
                 >—</span
@@ -188,10 +188,10 @@ const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const router = useRouter();
 
-function getTransactionStatus(orderId: any) {
+function getTransactionStatus(orderId: number | string | null | undefined) {
   if (!orderId) return null;
   const tx = paymentStore.balanceTransactions.find(
-    (t: any) => String(t.source_order_id) === String(orderId),
+    (transaction) => String(transaction.source_order_id) === String(orderId),
   );
   return tx?.payout_status || null;
 }

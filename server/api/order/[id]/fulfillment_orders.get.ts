@@ -1,17 +1,16 @@
-import axios from "axios";
-import { createError, defineEventHandler, getQuery } from "h3";
-import {
-  buildProxyVariants,
-  createProxyAgent,
-  resolveStoreAdminDomain,
-  resolveStoreCookieData,
-} from "~~/utils/proxy/store-proxy";
+﻿import { createError, defineEventHandler, getQuery } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import type { ShopifyFulfillmentOrder } from "~~/types/shopify";
+
+interface FulfillmentOrdersResponse {
+  fulfillment_orders?: ShopifyFulfillmentOrder[];
+}
 
 export default defineEventHandler(async (event) => {
-  const appConfig = useAppConfig();
   const id = event.context.params?.id;
   const query = getQuery(event);
-  const { storeId, token } = query;
+  const storeId = String(query.storeId || "");
+  const token = String(query.token || "");
 
   if (!id || !storeId || !token) {
     throw createError({
@@ -21,54 +20,12 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const storeCookie = resolveStoreCookieData(event, String(storeId));
-  const sock = String(storeCookie?.sock || "").trim();
-  if (!sock) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing sock proxy.",
-    });
-  }
-
-  const adminDomain = resolveStoreAdminDomain(
-    String(storeId),
-    storeCookie?.domain,
-  );
-  const baseURL = `https://${adminDomain}/${appConfig.apiBase}`;
-  const headers = {
-    "X-Shopify-Access-Token": String(token),
-    "Content-Type": appConfig.contentType,
-  };
-  const proxyVariants = buildProxyVariants(sock);
-
-  try {
-    let lastError: any;
-
-    for (const proxyUrl of proxyVariants) {
-      const agent = createProxyAgent(proxyUrl);
-      try {
-        const response = await axios.get(
-          `${baseURL}/orders/${id}/fulfillment_orders.json`,
-          {
-            headers,
-            httpAgent: agent,
-            httpsAgent: agent,
-          },
-        );
-
-        return response.data;
-      } catch (error: any) {
-        lastError = error;
-      }
-    }
-
-    throw lastError || new Error("Unknown proxy error");
-  } catch (err: any) {
-    const message = err.response?.data || err.message;
-    throw createError({
-      statusCode: err.response?.status || 500,
-      statusMessage:
-        typeof message === "string" ? message : JSON.stringify(message),
-    });
-  }
+  return callShopifyApi<FulfillmentOrdersResponse>({
+    event,
+    storeId,
+    token,
+    path: `/orders/${id}/fulfillment_orders.json`,
+    useAdminDomain: true,
+    missingProxyMessage: "Missing sock proxy.",
+  });
 });

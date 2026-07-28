@@ -1,16 +1,37 @@
-import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
-import {
-  buildProxyVariants,
-  createProxyAgent,
-  resolveStoreCookieData,
-  resolveStoreDomain,
-} from "~~/utils/proxy/store-proxy";
+﻿import { createError, defineEventHandler, readBody } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import type { ProductsResponse } from "~~/types/shopify";
+
+interface ProductAllBody extends Record<string, unknown> {
+  storeId?: string;
+  token?: string;
+}
+
+function toShopifyQueryParams(body: Record<string, unknown>) {
+  const params: Record<string, string | number | boolean | null> = {};
+
+  for (const [key, value] of Object.entries(body)) {
+    if (["storeId", "token"].includes(key)) {
+      continue;
+    }
+
+    if (
+      value === null ||
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      params[key] = value;
+    }
+  }
+
+  return params;
+}
 
 export default defineEventHandler(async (event) => {
-  const appConfig = useAppConfig();
-  const body = await readBody(event);
-  const { storeId, token, ...queryParams } = body;
+  const body = (await readBody<ProductAllBody>(event)) || {};
+  const storeId = String(body.storeId || "");
+  const token = String(body.token || "");
 
   if (!storeId || !token) {
     throw createError({
@@ -19,58 +40,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const storeCookie = resolveStoreCookieData(event, storeId);
-  const sock = String(storeCookie?.sock || "").trim();
-  if (!sock) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        "Missing sock proxy for this store. Please update it in Manager page.",
-    });
-  }
-
-  const domain = resolveStoreDomain(storeId, storeCookie?.domain);
-  const baseURL = `https://${domain}/${appConfig.apiBase}`;
-  const headers = {
-    "X-Shopify-Access-Token": token,
-    "Content-Type": appConfig.contentType,
-  };
-  const proxyVariants = buildProxyVariants(sock);
-
-  if (proxyVariants.length === 0) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        "Invalid sock proxy format. Please verify this store's proxy in Manager page.",
-    });
-  }
-
-  try {
-    let lastError: any;
-
-    for (const proxyUrl of proxyVariants) {
-      const agent = createProxyAgent(proxyUrl);
-      try {
-        const productsRes = await axios.get(`${baseURL}/products.json`, {
-          headers,
-          httpAgent: agent,
-          httpsAgent: agent,
-          params: queryParams,
-        });
-
-        return productsRes.data;
-      } catch (error: any) {
-        lastError = error;
-      }
-    }
-
-    throw lastError || new Error("Unknown proxy error");
-  } catch (err: any) {
-    const message =
-      err.response?.data?.errors || err.response?.data?.message || err.message;
-    throw createError({
-      statusCode: err.response?.status || 500,
-      statusMessage: message,
-    });
-  }
+  return callShopifyApi<ProductsResponse>({
+    event,
+    storeId,
+    token,
+    path: "/products.json",
+    params: toShopifyQueryParams(body),
+  });
 });

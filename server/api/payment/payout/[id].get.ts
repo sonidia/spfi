@@ -1,14 +1,16 @@
-import axios from "axios";
-import { createError, defineEventHandler, getQuery } from "h3";
-import {
-  buildProxyVariants,
-  createProxyAgent,
-  resolveStoreCookieData,
-  resolveStoreDomain,
-} from "~~/utils/proxy/store-proxy";
+﻿import { createError, defineEventHandler, getQuery } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import type {
+  BalanceTransactionsResponse,
+  PayoutDetailResponse,
+  ShopifyPayout,
+} from "~~/types/shopify";
+
+interface PayoutResponse {
+  payout?: ShopifyPayout;
+}
 
 export default defineEventHandler(async (event) => {
-  const appConfig = useAppConfig();
   const payoutId = event.context.params?.id;
   const query = getQuery(event);
   const storeId = String(query.storeId || "");
@@ -21,65 +23,24 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const storeCookie = resolveStoreCookieData(event, storeId);
-  const sock = String(storeCookie?.sock || "").trim();
-  if (!sock) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        "Missing sock proxy for this store. Please update it in Manager page.",
-    });
-  }
+  const [payoutRes, txRes] = await Promise.all([
+    callShopifyApi<PayoutResponse>({
+      event,
+      storeId,
+      token,
+      path: `/shopify_payments/payouts/${payoutId}.json`,
+    }),
+    callShopifyApi<BalanceTransactionsResponse>({
+      event,
+      storeId,
+      token,
+      path: "/shopify_payments/balance/transactions.json",
+      params: { payout_id: payoutId },
+    }),
+  ]);
 
-  const domain = resolveStoreDomain(storeId, storeCookie?.domain);
-  const baseURL = `https://${domain}/${appConfig.apiBase}`;
-  const headers = {
-    "X-Shopify-Access-Token": token,
-    "Content-Type": appConfig.contentType,
-  };
-  const proxyVariants = buildProxyVariants(sock);
-
-  if (proxyVariants.length === 0) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        "Invalid sock proxy format. Please verify this store's proxy in Manager page.",
-    });
-  }
-
-  let lastError: any;
-  for (const proxyUrl of proxyVariants) {
-    const agent = createProxyAgent(proxyUrl);
-    try {
-      const [payoutRes, txRes] = await Promise.all([
-        axios.get(`${baseURL}/shopify_payments/payouts/${payoutId}.json`, {
-          headers,
-          httpAgent: agent,
-          httpsAgent: agent,
-        }),
-        axios.get(`${baseURL}/shopify_payments/balance/transactions.json`, {
-          headers,
-          httpAgent: agent,
-          httpsAgent: agent,
-          params: { payout_id: payoutId },
-        }),
-      ]);
-
-      return {
-        payout: payoutRes.data.payout,
-        transactions: txRes.data.transactions ?? [],
-      };
-    } catch (error: any) {
-      lastError = error;
-    }
-  }
-
-  const message =
-    lastError?.response?.data?.errors ||
-    lastError?.response?.data?.message ||
-    lastError?.message;
-  throw createError({
-    statusCode: lastError?.response?.status || 500,
-    statusMessage: message,
-  });
+  return {
+    payout: payoutRes.payout ?? null,
+    transactions: txRes.transactions ?? [],
+  } satisfies PayoutDetailResponse;
 });

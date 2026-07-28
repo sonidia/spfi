@@ -30,12 +30,13 @@ export default defineEventHandler(async (event) => {
       title: spreadsheetTitle,
       sheets: sheetTitles,
     };
-  } catch (error: any) {
+  } catch (error) {
     throw createError({
       statusCode: 500,
       statusMessage:
-        error?.message ||
-        "Failed to fetch spreadsheet metadata from Google Sheets API.",
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch spreadsheet metadata from Google Sheets API.",
     });
   }
 });

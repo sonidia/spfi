@@ -1,4 +1,4 @@
-import { ref, watch } from "vue";
+﻿import { ref, watch, type Ref } from "vue";
 
 type StorageValue<T> = {
   value: T;
@@ -37,7 +37,7 @@ export function useLocalStorage<T>(
     }
   };
 
-  const state = ref<T>(getStored()) as any;
+  const state = ref(getStored()) as Ref<T>;
 
   const save = (value: T) => {
     const data: StorageValue<T> = {
@@ -102,3 +102,4 @@ export function useLocalStorage<T>(
 // function logout() {
 //   remove();
 // }
+

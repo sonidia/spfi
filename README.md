@@ -97,13 +97,12 @@ node .output/server/index.mjs
 
 ## 🌐 Proxy Formats
 
-Proxy fields accept SOCKS-style shorthand or full proxy URLs:
+Proxy fields accept SOCKS5H remote-DNS shorthand or full proxy URLs:
 
 ```text
 127.0.0.1:1080
 127.0.0.1:1080:user:pass
-socks5://user:pass@127.0.0.1:1080
-http://user:pass@127.0.0.1:8080
+socks5h://user:pass@127.0.0.1:1080
 ```
 
 The status checker supports three modes:

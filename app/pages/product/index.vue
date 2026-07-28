@@ -297,6 +297,7 @@
 import { computed, ref } from "vue";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
+import type { ShopifyProduct, StoreLocalData } from "~~/types/shopify";
 
 definePageMeta({ layout: false });
 
@@ -331,7 +332,7 @@ const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="curren
 // ── Actions ──
 async function createProduct() {
   const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
+  const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token) {
@@ -354,7 +355,7 @@ async function createProduct() {
   }
 }
 
-function openEditModal(prod: any) {
+function openEditModal(prod: ShopifyProduct) {
   editProduct.value = {
     id: prod.id,
     title: prod.title || "",
@@ -368,7 +369,7 @@ function openEditModal(prod: any) {
 
 async function saveEditProduct() {
   const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
+  const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token || !editProduct.value.id) return;
@@ -393,7 +394,7 @@ async function saveEditProduct() {
 async function removeProduct(prodId: number) {
   if (!confirm("Are you sure you want to delete this product?")) return;
   const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<any>(sid, {}).state : null;
+  const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
   const token = cookie?.value?.accessToken;
 
   if (!sid || !token) return;

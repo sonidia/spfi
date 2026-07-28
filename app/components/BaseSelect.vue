@@ -1,32 +1,36 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from "vue";
+
+type SelectValue = string | number | boolean | Record<string, unknown> | null;
 
 interface Option {
   label: string;
-  value: any;
+  value: SelectValue;
 }
 
-const props = defineProps({
-  modelValue: [String, Number, Object],
-  options: {
-    type: Array as () => Option[],
-    default: () => [],
-  },
-  placeholder: {
-    type: String,
-    default: 'Select an option',
-  },
-  disabled: Boolean,
-  className: String,
+const props = withDefaults(defineProps<{
+  modelValue?: SelectValue;
+  options?: Option[];
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+}>(), {
+  options: () => [],
+  placeholder: "Select an option",
+  disabled: false,
+  className: "",
 });
 
-const emit = defineEmits(['update:modelValue', 'change']);
+const emit = defineEmits<{
+  "update:modelValue": [value: SelectValue];
+  change: [value: SelectValue];
+}>();
 
 const isOpen = ref(false);
 const selectRef = ref<HTMLElement | null>(null);
 
 const selectedOption = computed(() => {
-  return props.options.find(opt => opt.value === props.modelValue);
+  return props.options.find((opt) => opt.value === props.modelValue);
 });
 
 const toggle = () => {
@@ -39,10 +43,15 @@ const close = () => {
 };
 
 const selectOption = (option: Option) => {
-  emit('update:modelValue', option.value);
-  emit('change', option.value);
+  emit("update:modelValue", option.value);
+  emit("change", option.value);
   close();
 };
+
+const getOptionKey = (option: Option) =>
+  typeof option.value === "object"
+    ? JSON.stringify(option.value)
+    : String(option.value);
 
 const handleClickOutside = (event: MouseEvent) => {
   if (selectRef.value && !selectRef.value.contains(event.target as Node)) {
@@ -51,11 +60,11 @@ const handleClickOutside = (event: MouseEvent) => {
 };
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside);
+  document.addEventListener("mousedown", handleClickOutside);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside);
+  document.removeEventListener("mousedown", handleClickOutside);
 });
 </script>
 
@@ -75,7 +84,7 @@ onUnmounted(() => {
       <div v-if="isOpen" class="select-dropdown">
         <div 
           v-for="option in options" 
-          :key="option.value" 
+          :key="getOptionKey(option)" 
           class="select-option" 
           :class="{ 'is-selected': option.value === modelValue }"
           @click="selectOption(option)"

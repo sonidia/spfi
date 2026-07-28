@@ -1,4 +1,4 @@
-import * as http from "node:http";
+﻿import * as http from "node:http";
 import * as https from "node:https";
 import { URL } from "node:url";
 import type { SocksProxyAgent } from "socks-proxy-agent";
@@ -7,7 +7,7 @@ const PROXY_IP_LOOKUP_URLS = [
   "https://api.ipify.org?format=json",
   "https://icanhazip.com/",
 ];
-const PROXY_IP_TIMEOUT_MS = 8000;
+const PROXY_IP_TIMEOUT_MS = 3500;
 const IP_ADDRESS_PATTERN =
   /\b(?:\d{1,3}\.){3}\d{1,3}\b|\b(?:[a-f0-9]{1,4}:){2,}[a-f0-9]{1,4}\b/i;
 
@@ -41,7 +41,7 @@ function requestProxyIp(url: string, agent: SocksProxyAgent): Promise<string> {
           accept: "application/json,text/plain,*/*",
           "user-agent": "StoreStatusChecker/1.0",
         },
-        agent: agent as any,
+        agent: agent as unknown as http.Agent,
         timeout: PROXY_IP_TIMEOUT_MS,
       },
       (response) => {
@@ -97,3 +97,4 @@ function extractIpAddress(value: string) {
 
   return trimmed.match(IP_ADDRESS_PATTERN)?.[0] || "";
 }
+

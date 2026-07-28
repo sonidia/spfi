@@ -1,4 +1,7 @@
 import { ref } from "vue";
+import { getAppErrorMessage } from "~~/utils/error";
+
+type SheetCellValue = string | number | boolean | null;
 
 interface SheetValuesResponse {
   spreadsheetId: string;
@@ -10,6 +13,17 @@ interface SheetMetaResponse {
   spreadsheetId: string;
   title: string;
   sheets: string[];
+}
+
+interface SheetUpdateResponse {
+  success: boolean;
+  updatedCells?: number | null;
+}
+
+interface SheetBatchUpdateResponse {
+  success: boolean;
+  totalUpdatedCells?: number | null;
+  totalUpdatedRows?: number | null;
 }
 
 export interface ProxySheetRow {
@@ -118,9 +132,8 @@ export function useSheetService() {
       filteredRows.value = rows.value;
 
       return values;
-    } catch (e: any) {
-      error.value =
-        e?.data?.statusMessage || e.message || "Failed to read sheet";
+    } catch (e) {
+      error.value = getAppErrorMessage(e, "Failed to read sheet");
       throw e;
     } finally {
       loading.value = false;
@@ -142,9 +155,8 @@ export function useSheetService() {
       });
 
       return response;
-    } catch (e: any) {
-      error.value =
-        e?.data?.statusMessage || e.message || "Failed to read sheet metadata";
+    } catch (e) {
+      error.value = getAppErrorMessage(e, "Failed to read sheet metadata");
       throw e;
     } finally {
       loading.value = false;
@@ -241,13 +253,13 @@ export function useSheetService() {
   async function updateSheetValues(options: {
     spreadsheetId?: string;
     range: string;
-    values: any[][];
+    values: SheetCellValue[][];
   }) {
     loading.value = true;
     error.value = null;
     try {
       await waitForRateLimit();
-      const response = await $fetch<any>("/api/sheet/update", {
+      const response = await $fetch<SheetUpdateResponse>("/api/sheet/update", {
         method: "POST",
         body: {
           spreadsheetId: options.spreadsheetId,
@@ -256,9 +268,8 @@ export function useSheetService() {
         },
       });
       return response;
-    } catch (e: any) {
-      error.value =
-        e?.data?.statusMessage || e.message || "Failed to update sheet";
+    } catch (e) {
+      error.value = getAppErrorMessage(e, "Failed to update sheet");
       throw e;
     } finally {
       loading.value = false;
@@ -267,24 +278,26 @@ export function useSheetService() {
 
   async function batchUpdateSheetValues(options: {
     spreadsheetId?: string;
-    data: { range: string; values: any[][] }[];
+    data: { range: string; values: SheetCellValue[][] }[];
   }) {
     if (!options.data || options.data.length === 0) return;
     loading.value = true;
     error.value = null;
     try {
       await waitForRateLimit();
-      const response = await $fetch<any>("/api/sheet/batch-update", {
+      const response = await $fetch<SheetBatchUpdateResponse>(
+        "/api/sheet/batch-update",
+        {
         method: "POST",
         body: {
           spreadsheetId: options.spreadsheetId,
           data: options.data,
         },
-      });
+        },
+      );
       return response;
-    } catch (e: any) {
-      error.value =
-        e?.data?.statusMessage || e.message || "Failed to batch update sheet";
+    } catch (e) {
+      error.value = getAppErrorMessage(e, "Failed to batch update sheet");
       throw e;
     } finally {
       loading.value = false;

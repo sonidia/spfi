@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from "vue";
 
-const props = defineProps({
-  align: {
-    type: String,
-    default: 'right', // 'left' or 'right'
-  }
+interface BasePopoverProps {
+  align?: "left" | "right";
+  position?: "top" | "bottom";
+}
+
+withDefaults(defineProps<BasePopoverProps>(), {
+  align: "right",
+  position: "bottom",
 });
 
 const isOpen = ref(false);
 const popoverRef = ref<HTMLElement | null>(null);
 
-const toggle = () => {
+const toggle = (event?: Event) => {
+  event?.stopPropagation();
   isOpen.value = !isOpen.value;
 };
 
@@ -26,11 +30,11 @@ const handleClickOutside = (event: MouseEvent) => {
 };
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside);
+  document.addEventListener("mousedown", handleClickOutside);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside);
+  document.removeEventListener("mousedown", handleClickOutside);
 });
 
 defineExpose({ close, toggle });
@@ -42,7 +46,11 @@ defineExpose({ close, toggle });
       <slot name="trigger" :isOpen="isOpen"></slot>
     </div>
     <Transition name="popover">
-      <div v-if="isOpen" class="popover-content" :class="[`align-${align}`]">
+      <div
+        v-if="isOpen"
+        class="popover-content"
+        :class="[`align-${align}`, `pos-${position}`]"
+      >
         <slot :close="close"></slot>
       </div>
     </Transition>
@@ -56,12 +64,12 @@ defineExpose({ close, toggle });
 }
 
 .popover-trigger {
+  display: inline-flex;
   cursor: pointer;
 }
 
 .popover-content {
   position: absolute;
-  top: calc(100% + 8px);
   z-index: 1000;
   background: white;
   border: 1px solid var(--border, #e5e5e5);
@@ -69,6 +77,16 @@ defineExpose({ close, toggle });
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   min-width: 180px;
   transform-origin: top;
+}
+
+.pos-bottom {
+  top: calc(100% + 8px);
+  transform-origin: top;
+}
+
+.pos-top {
+  bottom: calc(100% + 8px);
+  transform-origin: bottom;
 }
 
 .align-right {
@@ -88,6 +106,15 @@ defineExpose({ close, toggle });
 .popover-enter-from,
 .popover-leave-to {
   opacity: 0;
+}
+
+.pos-bottom.popover-enter-from,
+.pos-bottom.popover-leave-to {
   transform: translateY(-4px) scale(0.98);
+}
+
+.pos-top.popover-enter-from,
+.pos-top.popover-leave-to {
+  transform: translateY(4px) scale(0.98);
 }
 </style>

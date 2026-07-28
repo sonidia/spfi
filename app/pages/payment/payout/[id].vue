@@ -220,6 +220,7 @@ import { useRoute } from "vue-router";
 import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
 import { usePaymentStore } from "../../../stores/payment";
+import type { StoreLocalData } from "~~/types/shopify";
 
 definePageMeta({ layout: false });
 
@@ -239,7 +240,7 @@ onMounted(() => {
 });
 
 function resolveToken(sid: string): string | null {
-  const storeCookie = useLocalStorage<any>(sid, {}).state;
+  const storeCookie = useLocalStorage<StoreLocalData>(sid, {}).state;
   const data = storeCookie.value;
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {

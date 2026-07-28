@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import type { ShopifyProduct } from "~~/types/shopify";
+
 defineProps<{
-  products: any[];
+  products: ShopifyProduct[];
   loading?: boolean;
   error?: string | null;
 }>();
 
-function getProductImage(product: any): string {
+function getProductImage(product: ShopifyProduct): string {
   return product?.image?.src || product?.images?.[0]?.src || "";
 }
 
-function getProductTags(product: any): string[] {
+function getProductTags(product: ShopifyProduct): string[] {
   return String(product?.tags || "")
     .split(",")
     .map((tag) => tag.trim())

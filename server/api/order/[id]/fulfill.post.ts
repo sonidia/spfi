@@ -1,17 +1,76 @@
-import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
-import {
-  buildProxyVariants,
-  createProxyAgent,
-  resolveStoreAdminDomain,
-  resolveStoreCookieData,
-} from "~~/utils/proxy/store-proxy";
+﻿import { createError, defineEventHandler, readBody } from "h3";
+import { callShopifyApi, formatErrorMessage } from "~~/server/utils/callShopifyApi";
+import type {
+  ShopifyFulfillmentOrder,
+  ShopifyFulfillmentOrderLineItem,
+  ShopifyLocation,
+} from "~~/types/shopify";
+
+interface TrackingInfo {
+  number?: string;
+  company?: string;
+}
+
+interface FulfillmentLineItemsByOrder {
+  fulfillment_order_id?: number;
+  fulfillment_order_line_items?: ShopifyFulfillmentOrderLineItem[];
+}
+
+interface FulfillmentInfo {
+  tracking_info?: TrackingInfo;
+  line_items_by_fulfillment_order?: FulfillmentLineItemsByOrder[];
+}
+
+interface OrderFulfillBody {
+  storeId?: string;
+  token?: string;
+  fulfillment?: FulfillmentInfo;
+}
+
+interface FulfillmentOrdersResponse {
+  fulfillment_orders?: ShopifyFulfillmentOrder[];
+}
+
+interface LocationsResponse {
+  locations?: ShopifyLocation[];
+}
+
+interface ModernFulfillmentPayload {
+  fulfillment: {
+    notify_customer: boolean;
+    line_items_by_fulfillment_order: Array<{
+      fulfillment_order_id: number;
+      fulfillment_order_line_items?: ShopifyFulfillmentOrderLineItem[];
+    }>;
+    tracking_info: {
+      number?: string;
+      company: string;
+      url: string;
+    };
+  };
+}
+
+interface LegacyFulfillmentPayload {
+  fulfillment: {
+    location_id: number;
+    notify_customer: boolean;
+    tracking_info: {
+      number?: string;
+      company: string;
+      url: string;
+    };
+    tracking_number?: string;
+    tracking_company: string;
+  };
+}
 
 export default defineEventHandler(async (event) => {
   const appConfig = useAppConfig();
   const id = event.context.params?.id;
-  const body = await readBody(event);
-  const { storeId, token, fulfillment: fulfillmentInfo } = body;
+  const body = (await readBody<OrderFulfillBody>(event)) || {};
+  const storeId = String(body.storeId || "");
+  const token = String(body.token || "");
+  const fulfillmentInfo = body.fulfillment;
 
   if (!id || !storeId || !token) {
     throw createError({
@@ -20,159 +79,133 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const storeCookie = resolveStoreCookieData(event, String(storeId));
-  const sock = String(storeCookie?.sock || "").trim();
-  if (!sock) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing sock proxy.",
-    });
-  }
-
-  const adminDomain = resolveStoreAdminDomain(
-    String(storeId),
-    storeCookie?.domain,
-  );
-  const baseURL = `https://${adminDomain}/${appConfig.apiBase}`;
-  const headers = {
-    "X-Shopify-Access-Token": String(token),
-    "Content-Type": appConfig.contentType,
-  };
-  const proxyVariants = buildProxyVariants(sock);
+  const trackingNumber = fulfillmentInfo?.tracking_info?.number;
+  const trackingCompany =
+    fulfillmentInfo?.tracking_info?.company || appConfig.tracking.company;
+  const trackingUrl = `${appConfig.tracking.url}${trackingNumber || ""}`;
 
   try {
-    let lastError: any;
+    let openFulfillmentOrder: ShopifyFulfillmentOrder | null = null;
+    let fulfillmentOrderLineItems: ShopifyFulfillmentOrderLineItem[] = [];
 
-    for (const proxyUrl of proxyVariants) {
-      const agent = createProxyAgent(proxyUrl);
-      const commonAxiosConfig = {
-        headers,
-        httpAgent: agent,
-        httpsAgent: agent,
-      };
+    try {
+      const explicitFulfillmentOrder =
+        fulfillmentInfo?.line_items_by_fulfillment_order?.[0];
 
-      try {
-        const trackingNumber = fulfillmentInfo?.tracking_info?.number;
-        const trackingUrl = `${appConfig.tracking.url}${trackingNumber}`;
+      if (explicitFulfillmentOrder?.fulfillment_order_id) {
+        openFulfillmentOrder = {
+          id: explicitFulfillmentOrder.fulfillment_order_id,
+        };
+        fulfillmentOrderLineItems =
+          explicitFulfillmentOrder.fulfillment_order_line_items || [];
+      } else {
+        const fulfillmentOrdersResponse =
+          await callShopifyApi<FulfillmentOrdersResponse>({
+            event,
+            storeId,
+            token,
+            path: `/orders/${id}/fulfillment_orders.json`,
+            useAdminDomain: true,
+            missingProxyMessage: "Missing sock proxy.",
+          });
+        const fulfillmentOrders =
+          fulfillmentOrdersResponse.fulfillment_orders || [];
 
-        // --- TRY MODERN WAY FIRST (Fulfillment Orders) ---
-        try {
-          let openFO: any;
-          let foLineItems: any[] = [];
+        openFulfillmentOrder =
+          fulfillmentOrders.find(
+            (order) => order.status === "open" || order.status === "in_progress",
+          ) || null;
 
-          // If fulfillment_order_id is provided in the body, use it directly
-          const explicitFO =
-            fulfillmentInfo?.line_items_by_fulfillment_order?.[0];
-          if (explicitFO?.fulfillment_order_id) {
-            openFO = { id: explicitFO.fulfillment_order_id };
-            foLineItems = explicitFO.fulfillment_order_line_items || [];
-          } else {
-            // Fallback to searching for an open FO
-            const foRes = await axios.get(
-              `${baseURL}/orders/${id}/fulfillment_orders.json`,
-              commonAxiosConfig,
-            );
-            const fulfillmentOrders = foRes.data.fulfillment_orders;
-            openFO = fulfillmentOrders.find(
-              (fo: any) => fo.status === "open" || fo.status === "in_progress",
-            );
+        if (openFulfillmentOrder && "line_items" in openFulfillmentOrder) {
+          fulfillmentOrderLineItems = (openFulfillmentOrder.line_items || [])
+            .map((lineItem) => ({
+              id: lineItem.id,
+              quantity: lineItem.fulfillable_quantity || lineItem.quantity,
+            }))
+            .filter((lineItem) => lineItem.quantity > 0);
+        }
+      }
 
-            if (openFO) {
-              foLineItems = (openFO.line_items || [])
-                .map((li: any) => ({
-                  id: li.id,
-                  quantity: li.fulfillable_quantity || li.quantity,
-                }))
-                .filter((li: any) => li.quantity > 0);
-            }
-          }
+      if (openFulfillmentOrder) {
+        const fulfillmentOrderPayload: ModernFulfillmentPayload["fulfillment"]["line_items_by_fulfillment_order"][number] = {
+          fulfillment_order_id: openFulfillmentOrder.id,
+        };
 
-          if (openFO) {
-            const fulfillmentPayload: any = {
-              notify_customer: true,
-              line_items_by_fulfillment_order: [
-                {
-                  fulfillment_order_id: openFO.id,
-                },
-              ],
-              tracking_info: {
-                number: trackingNumber,
-                company:
-                  fulfillmentInfo?.tracking_info?.company ||
-                  appConfig.tracking.company,
-                url: trackingUrl,
-              },
-            };
-
-            if (foLineItems && foLineItems.length > 0) {
-              fulfillmentPayload.line_items_by_fulfillment_order[0].fulfillment_order_line_items =
-                foLineItems;
-            }
-
-            const createRes = await axios.post(
-              `${baseURL}/fulfillments.json`,
-              {
-                fulfillment: fulfillmentPayload,
-              },
-              commonAxiosConfig,
-            );
-
-            return createRes.data;
-          }
-        } catch (foErr: any) {
-          console.warn("[Fulfillment] Modern way failed: ", foErr.message);
+        if (fulfillmentOrderLineItems.length > 0) {
+          fulfillmentOrderPayload.fulfillment_order_line_items =
+            fulfillmentOrderLineItems;
         }
 
-        // --- TRY LEGACY WAY (Orders/Fulfillments) ---
-        // 1. Get locations (required for legacy fulfillment)
-        const locRes = await axios.get(
-          `${baseURL}/locations.json`,
-          commonAxiosConfig,
-        );
-        const locations = locRes.data.locations;
-        const primaryLoc = locations.find((l: any) => l.active) || locations[0];
-
-        if (!primaryLoc) {
-          throw new Error("No active location found to fulfill items.");
-        }
-
-        const legacyRes = await axios.post(
-          `${baseURL}/orders/${id}/fulfillments.json`,
-          {
+        return await callShopifyApi<Record<string, unknown>, ModernFulfillmentPayload>({
+          event,
+          storeId,
+          token,
+          method: "POST",
+          path: "/fulfillments.json",
+          useAdminDomain: true,
+          missingProxyMessage: "Missing sock proxy.",
+          body: {
             fulfillment: {
-              location_id: primaryLoc.id,
               notify_customer: true,
+              line_items_by_fulfillment_order: [fulfillmentOrderPayload],
               tracking_info: {
                 number: trackingNumber,
-                company:
-                  fulfillmentInfo?.tracking_info?.company ||
-                  appConfig.tracking.company,
+                company: trackingCompany,
                 url: trackingUrl,
               },
-              tracking_number: trackingNumber,
-              tracking_company:
-                fulfillmentInfo?.tracking_info?.company ||
-                appConfig.tracking.company,
             },
           },
-          commonAxiosConfig,
-        );
-
-        return legacyRes.data;
-      } catch (error: any) {
-        lastError = error;
+        });
       }
+    } catch (fulfillmentOrderError) {
+      console.warn(
+        "[Fulfillment] Modern way failed: ",
+        formatErrorMessage(fulfillmentOrderError),
+      );
     }
 
-    throw lastError || new Error("Unknown proxy error");
-  } catch (err: any) {
-    let message = err.response?.data || err.message;
-    let statusCode = err.response?.status || 500;
+    const locationsResponse = await callShopifyApi<LocationsResponse>({
+      event,
+      storeId,
+      token,
+      path: "/locations.json",
+      useAdminDomain: true,
+      missingProxyMessage: "Missing sock proxy.",
+    });
+    const locations = locationsResponse.locations || [];
+    const primaryLocation = locations.find((location) => location.active) || locations[0];
 
+    if (!primaryLocation) {
+      throw new Error("No active location found to fulfill items.");
+    }
+
+    return await callShopifyApi<Record<string, unknown>, LegacyFulfillmentPayload>({
+      event,
+      storeId,
+      token,
+      method: "POST",
+      path: `/orders/${id}/fulfillments.json`,
+      useAdminDomain: true,
+      missingProxyMessage: "Missing sock proxy.",
+      body: {
+        fulfillment: {
+          location_id: primaryLocation.id,
+          notify_customer: true,
+          tracking_info: {
+            number: trackingNumber,
+            company: trackingCompany,
+            url: trackingUrl,
+          },
+          tracking_number: trackingNumber,
+          tracking_company: trackingCompany,
+        },
+      },
+    });
+  } catch (error) {
     throw createError({
-      statusCode,
-      statusMessage:
-        typeof message === "string" ? message : JSON.stringify(message),
+      statusCode: 500,
+      statusMessage: formatErrorMessage(error),
     });
   }
 });
+

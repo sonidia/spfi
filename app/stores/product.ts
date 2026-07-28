@@ -1,13 +1,19 @@
-import { defineStore } from "pinia";
+﻿import { defineStore } from "pinia";
 import { ref } from "vue";
+import type {
+  ProductsResponse,
+  ShopifyProduct,
+  ShopifyProductInput,
+} from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 
 export const useProductStore = defineStore("product", () => {
-  const products = ref<any[]>([]);
+  const products = ref<ShopifyProduct[]>([]);
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const storeCache = ref<
-    Record<string, { products: any[]; hasFetchedAll: boolean }>
+    Record<string, { products: ShopifyProduct[]; hasFetchedAll: boolean }>
   >({});
 
   async function fetchAll(storeId: string, token: string, limit = 50) {
@@ -20,7 +26,7 @@ export const useProductStore = defineStore("product", () => {
     error.value = null;
 
     try {
-      const response = await $fetch<any>("/api/product/all", {
+      const response = await $fetch<ProductsResponse>("/api/product/all", {
         method: "POST",
         body: { storeId, token, limit },
       });
@@ -31,17 +37,18 @@ export const useProductStore = defineStore("product", () => {
         products: [...products.value],
         hasFetchedAll: hasFetchedAll.value,
       };
-    } catch (err: any) {
-      error.value =
-        err?.data?.statusMessage ??
-        err?.message ??
-        "Failed to fetch product data.";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Failed to fetch product data.");
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function createProduct(storeId: string, token: string, product: any) {
+  async function createProduct(
+    storeId: string,
+    token: string,
+    product: ShopifyProductInput,
+  ) {
     if (!storeId || !token) return;
     isLoading.value = true;
     error.value = null;
@@ -52,8 +59,8 @@ export const useProductStore = defineStore("product", () => {
       });
       await fetchAll(storeId, token);
       return true;
-    } catch (err: any) {
-      error.value = err.data?.statusMessage || err.message || "Create failed";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Create failed");
       return false;
     } finally {
       isLoading.value = false;
@@ -64,7 +71,7 @@ export const useProductStore = defineStore("product", () => {
     storeId: string,
     token: string,
     id: number,
-    product: any,
+    product: ShopifyProductInput,
   ) {
     if (!storeId || !token || !id) return;
     isLoading.value = true;
@@ -76,8 +83,8 @@ export const useProductStore = defineStore("product", () => {
       });
       await fetchAll(storeId, token);
       return true;
-    } catch (err: any) {
-      error.value = err.data?.statusMessage || err.message || "Update failed";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Update failed");
       return false;
     } finally {
       isLoading.value = false;
@@ -95,8 +102,8 @@ export const useProductStore = defineStore("product", () => {
       });
       await fetchAll(storeId, token);
       return true;
-    } catch (err: any) {
-      error.value = err.data?.statusMessage || err.message || "Delete failed";
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Delete failed");
       return false;
     } finally {
       isLoading.value = false;

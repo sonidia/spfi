@@ -1,47 +1,41 @@
-import axios from "axios";
+﻿import axios from "axios";
 import { createError, defineEventHandler, readBody } from "h3";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { SocksProxyAgent } from "socks-proxy-agent";
+import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import {
+  buildProxyVariants,
+  createProxyAgent,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
-  normalizeProxyUrl,
-} from "~~/utils/proxy/proxy";
+} from "~~/utils/proxy/store-proxy";
 
-function toRawProxyVariant(sock: string): string | null {
-  const raw = String(sock || "").trim();
-  if (!raw) return null;
-
-  if (/^socks(4|4a|5|5h)?:\/\//i.test(raw) || /^https?:\/\//i.test(raw)) {
-    return raw;
-  }
-
-  const parts = raw.split(":");
-  if (parts.length < 2) return null;
-
-  const host = (parts[0] || "").trim();
-  const port = (parts[1] || "").trim();
-  if (!host || !port) return null;
-
-  if (parts.length === 2) {
-    return `socks5://${host}:${port}`;
-  }
-
-  const user = (parts[2] || "").trim();
-  const pass = parts
-    .slice(3)
-    .join(":")
-    .replace(/[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g, "")
-    .trim();
-  if (!user || !pass) return null;
-
-  return `socks5://${user}:${pass}@${host}:${port}`;
+interface GenerateTokenBody {
+  storeId?: string;
+  clientId?: string;
+  clientSecret?: string;
+  sock?: string;
 }
 
+interface ProxyVariant {
+  name: string;
+  proxyUrl: string;
+}
+
+interface TokenAttemptError {
+  name: string;
+  message: string;
+  code: string | null;
+}
+
+const OAUTH_CONTENT_TYPE = "application/x-www-form-urlencoded";
+const TOKEN_TIMEOUT_MS = 15000;
+
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
-  const { storeId, clientId, clientSecret, sock } = body;
+  const body = (await readBody<GenerateTokenBody>(event)) || {};
+  const storeId = String(body.storeId || "").trim();
+  const clientId = String(body.clientId || "").trim();
+  const clientSecret = String(body.clientSecret || "").trim();
+  const sock = String(body.sock || "").trim();
 
   if (!storeId || !clientId || !clientSecret) {
     throw createError({
@@ -50,13 +44,11 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // ── Debug Logging ────────────────────────────────────────────────────────
   console.log(`[GenerateToken] Received StoreId: ${storeId}`);
   console.log(
-    `[GenerateToken] Incoming Sock: ${sock ? sock.substring(0, 10) + "..." : "MISSING"}`,
+    `[GenerateToken] Incoming Sock: ${sock ? `${sock.substring(0, 10)}...` : "MISSING"}`,
   );
 
-  // ── Parse Proxy ────────────────────────────────────────────────────────────
   if (!sock) {
     throw createError({
       statusCode: 400,
@@ -64,16 +56,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const variants = [
-    { name: "normalized_encoded", proxyUrl: normalizeProxyUrl(sock) },
-    ...(toRawProxyVariant(sock)
-      ? [{ name: "raw_unencoded", proxyUrl: toRawProxyVariant(sock) as string }]
-      : []),
-  ].filter(
-    (variant, index, list) =>
-      list.findIndex((candidate) => candidate.proxyUrl === variant.proxyUrl) ===
-      index,
-  );
+  const variants = buildNamedProxyVariants(sock);
 
   for (const variant of variants) {
     console.log(
@@ -81,34 +64,37 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  const url = `https://${storeId}.myshopify.com/admin/oauth/access_token?grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`;
-
-  const errors: Array<{ name: string; message: string; code?: string | null }> =
-    [];
+  const url = `https://${storeId}.myshopify.com/admin/oauth/access_token`;
+  const payload = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+  const errors: TokenAttemptError[] = [];
 
   for (const variant of variants) {
     try {
-      const agent = variant.proxyUrl.startsWith("http")
-        ? new HttpsProxyAgent(variant.proxyUrl)
-        : new SocksProxyAgent(variant.proxyUrl);
-
-      const response = await axios.post(url, null, {
-        httpAgent: agent,
-        httpsAgent: agent,
-        headers: { "Content-Type": "application/json" },
-      });
+      const agent = createProxyAgent(variant.proxyUrl);
+      const response = await axios.post<ShopifyAccessTokenResponse>(
+        url,
+        payload.toString(),
+        {
+          httpAgent: agent,
+          httpsAgent: agent,
+          timeout: TOKEN_TIMEOUT_MS,
+          headers: {
+            "Content-Type": OAUTH_CONTENT_TYPE,
+            Accept: "application/json",
+          },
+        },
+      );
 
       return response.data;
-    } catch (error: any) {
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Error generating access token";
-
+    } catch (error) {
       errors.push({
         name: variant.name,
-        message: errorMessage,
-        code: error?.code || null,
+        message: getTokenErrorMessage(error),
+        code: getTokenErrorCode(error),
       });
     }
   }
@@ -125,7 +111,7 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 500,
       statusMessage:
-        "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw variant",
+        "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw SOCKS5H variants",
       data: {
         hint: "Call POST /api/debug-proxy with body { proxy } to view which variant passes/fails with details.",
         variantsTried: variants.map((item) => ({
@@ -144,8 +130,51 @@ export default defineEventHandler(async (event) => {
   throw createError({
     statusCode: 500,
     statusMessage: lastError?.message || "Error generating access token",
-    data: {
-      errors,
-    },
+    data: { errors },
   });
 });
+
+function buildNamedProxyVariants(sock: string): ProxyVariant[] {
+  try {
+    return buildProxyVariants(sock).map((proxyUrl, index) => ({
+      name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
+      proxyUrl,
+    }));
+  } catch (error) {
+    throw createError({
+      statusCode: 400,
+      statusMessage:
+        error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",
+    });
+  }
+}
+
+function getTokenErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    const responseMessage = getResponseMessage(data);
+    return responseMessage || error.message || "Error generating access token";
+  }
+
+  return error instanceof Error ? error.message : "Error generating access token";
+}
+
+function getResponseMessage(data: unknown): string {
+  if (!data) return "";
+  if (typeof data === "string") return data;
+
+  if (typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    const message =
+      record.message || record.error_description || record.error || record.errors;
+
+    if (typeof message === "string") return message;
+    if (message) return JSON.stringify(message);
+  }
+
+  return JSON.stringify(data);
+}
+
+function getTokenErrorCode(error: unknown) {
+  return axios.isAxiosError(error) ? error.code || null : null;
+}

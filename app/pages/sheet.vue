@@ -136,10 +136,10 @@ function getSelectedSheetName(sheet: StoredSheet): string {
   return sheet.ranges[0] || "";
 }
 
-function setSelectedSheetName(source: string, sheetName: string) {
+function setSelectedSheetName(source: string, sheetName: unknown) {
   selectedSheetRanges.value = {
     ...selectedSheetRanges.value,
-    [source]: sheetName,
+    [source]: typeof sheetName === "string" ? sheetName : String(sheetName || ""),
   };
 }
 

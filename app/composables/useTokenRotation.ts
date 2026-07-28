@@ -1,11 +1,16 @@
 import { useFormStore } from "~/stores/form";
+import type { ShopifyAccessTokenResponse, StoreLocalData } from "~~/types/shopify";
 
 export function useTokenRotation() {
   const formStore = useFormStore();
   const rotatingIds = ref<Record<string, boolean>>({});
 
   async function rotateToken(id: string) {
-    const cookie = useLocalStorage<any>(id, {}, { ttl: (60 * 60 * 24 * 365 * 10 ) * 1000 }).state;
+    const cookie = useLocalStorage<StoreLocalData>(
+      id,
+      {},
+      { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
+    ).state;
     const data = cookie.value;
 
     if (!data?.clientId || !data?.clientSecret) {
@@ -20,7 +25,7 @@ export function useTokenRotation() {
     rotatingIds.value[id] = true;
     try {
       console.log(`Rotating token for store: ${id}`);
-      const res: any = await $fetch("/api/generate-token", {
+      const res = await $fetch<ShopifyAccessTokenResponse>("/api/generate-token", {
         method: "POST",
         body: {
           storeId: id,
@@ -61,7 +66,7 @@ export function useTokenRotation() {
     const MARGIN = 5 * 60 * 1000; // 5 minutes margin
 
     formStore.knownStores.forEach((id) => {
-      const cookie = useLocalStorage<any>(id, {}).state;
+      const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
       const data = cookie.value;
 
       if (data && typeof data === "object" && data.accessToken) {

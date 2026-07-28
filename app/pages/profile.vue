@@ -94,6 +94,7 @@ import {
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import { useShopProfileStore } from "~/stores/shopProfile";
+import type { StoreLocalData } from "~~/types/shopify";
 import {
   buildShopProfileRows,
   formatProfileTimestamp,
@@ -128,10 +129,10 @@ const profileEmptyState = computed(() => {
   };
 });
 
-const currentStoreData = computed<Record<string, any>>(() => {
+const currentStoreData = computed<StoreLocalData>(() => {
   if (!formStore.storeId) return {};
 
-  return useLocalStorage<any>(formStore.storeId, {}).state.value || {};
+  return useLocalStorage<StoreLocalData>(formStore.storeId, {}).state.value || {};
 });
 
 const tokenStatus = computed(() => {
@@ -238,7 +239,7 @@ async function loadProfileData(force = false) {
     return;
   }
 
-  const requests: Promise<any>[] = [];
+  const requests: Promise<unknown>[] = [];
 
   if (force || (!profileStore.hasFetchedProfile && !profileStore.isLoading)) {
     requests.push(profileStore.fetchProfile(storeId, token));
@@ -252,7 +253,7 @@ async function loadProfileData(force = false) {
 }
 
 function resolveToken(storeId: string): string | null {
-  const data = useLocalStorage<any>(storeId, {}).state.value;
+  const data = useLocalStorage<StoreLocalData>(storeId, {}).state.value;
   const now = Date.now();
 
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {

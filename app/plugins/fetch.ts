@@ -1,43 +1,50 @@
-import { defineNuxtPlugin } from '#imports'
+﻿import { defineNuxtPlugin } from "#imports";
+import type { StoreLocalData } from "~~/types/shopify";
 
-export default defineNuxtPlugin((nuxtApp) => {
+function readStoreId(source: unknown): string | null {
+  if (!source || typeof source !== "object" || !("storeId" in source)) {
+    return null;
+  }
+
+  const value = (source as { storeId?: unknown }).storeId;
+  return typeof value === "string" && value ? value : null;
+}
+
+export default defineNuxtPlugin(() => {
   const customFetch = $fetch.create({
-    onRequest({ request, options }: { request: any, options: any }) {
-      if (typeof window === 'undefined') return;
-      
-      const url = request.toString()
-      if (!url.startsWith('/api')) return;
+    onRequest({ request, options }) {
+      if (typeof window === "undefined") return;
 
-      let storeId: string | null = null;
-      if (options.body && typeof options.body === 'object') {
-        storeId = (options.body as any).storeId;
-      } else if (options.query && typeof options.query === 'object') {
-        storeId = (options.query as any).storeId;
-      } else if (options.params && typeof options.params === 'object') {
-        storeId = (options.params as any).storeId;
-      }
+      const url = request.toString();
+      if (!url.startsWith("/api")) return;
+
+      let storeId =
+        readStoreId(options.body) ||
+        readStoreId(options.query) ||
+        readStoreId(options.params);
 
       if (!storeId) {
         storeId = useLocalStorage("active_store_id", "").state.value;
       }
 
-      if (storeId && typeof storeId === 'string') {
-        const cookieData = useLocalStorage<any>(storeId, {}).state.value;
+      if (storeId) {
+        const cookieData = useLocalStorage<StoreLocalData>(storeId, {}).state.value;
         if (cookieData && Object.keys(cookieData).length > 0) {
-          options.headers = new Headers(options.headers || {})
-          options.headers.set('x-store-data', encodeURIComponent(JSON.stringify(cookieData)))
+          options.headers = new Headers(options.headers || {});
+          options.headers.set(
+            "x-store-data",
+            encodeURIComponent(JSON.stringify(cookieData)),
+          );
         }
       }
-    }
-  })
+    },
+  });
 
-  // Override global $fetch
-  globalThis.$fetch = customFetch
-  
-  // Expose it to Nuxt context so useFetch also picks it up
+  globalThis.$fetch = customFetch;
+
   return {
     provide: {
-      fetch: customFetch
-    }
-  }
-})
+      fetch: customFetch,
+    },
+  };
+});

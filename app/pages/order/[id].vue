@@ -174,7 +174,7 @@
                     {{
                       fmtMoney(
                         (
-                          parseFloat(item.price || 0) * (item.quantity || 1)
+                          Number(item.price || 0) * (item.quantity || 1)
                         ).toFixed(2),
                         nilVal(currentOrder.currency, "CAD"),
                       )
@@ -233,7 +233,7 @@
                     {{
                       fmtMoney(
                         (
-                          parseFloat(item.price || 0) * (item.quantity || 1)
+                          Number(item.price || 0) * (item.quantity || 1)
                         ).toFixed(2),
                         nilVal(currentOrder.currency, "CAD"),
                       )
@@ -469,7 +469,7 @@
                   >
                   <template v-else>
                     <a
-                      :href="currentOrder.referring_site"
+                      :href="currentOrder.referring_site || '#'"
                       target="_blank"
                       class="sidebar-link"
                       >{{ currentOrder.referring_site }}</a
@@ -522,7 +522,7 @@ const route = useRoute();
 const currentOrder = computed(() => {
   const orderId = route.params.id;
   return (
-    orderStore.orders.find((o: any) => o.id?.toString() === orderId) || null
+    orderStore.orders.find((order) => order.id.toString() === orderId) || null
   );
 });
 </script>
