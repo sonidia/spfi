@@ -11,12 +11,16 @@ interface ProxyLocationInfo {
   timezone?: string;
 }
 
+interface ProxyCheckError {
+  message?: string;
+}
+
 interface ProxyCheckResponse {
   success: boolean;
   ip?: string;
   duration?: number;
   location?: ProxyLocationInfo;
-  error?: string;
+  error?: string | ProxyCheckError;
 }
 
 const props = defineProps<{
@@ -80,12 +84,32 @@ async function checkProxy() {
     result.value = data;
     errorMessage.value = data.success
       ? ""
-      : data.error || "Proxy check failed.";
+      : getProxyCheckErrorMessage(data.error, "Proxy check failed.");
   } catch (error) {
     errorMessage.value = getErrorMessage(error, "Proxy check failed.");
   } finally {
     checking.value = false;
   }
+}
+
+function getProxyCheckErrorMessage(
+  error: ProxyCheckResponse["error"],
+  fallback: string,
+) {
+  if (typeof error === "string" && error) {
+    return error;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    typeof error.message === "string" &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 function getErrorMessage(error: unknown, fallback: string) {

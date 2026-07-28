@@ -28,6 +28,14 @@ const isGenerating = ref(false);
 const isFindingShop = ref(false);
 const rotatingIds = ref<Record<string, boolean>>({});
 const testingProxies = ref<Record<string, boolean>>({});
+type ProxyCheckError = string | { message?: string };
+type ProxyCheckResult = {
+  success: boolean;
+  ip?: string;
+  duration?: number;
+  error?: ProxyCheckError;
+};
+
 const proxyResults = ref<
   Record<
     string,
@@ -470,16 +478,14 @@ async function testProxy(id: string) {
   delete proxyResults.value[id];
 
   try {
-    const res = await $fetch<{
-      success: boolean;
-      ip?: string;
-      duration?: number;
-      error?: string;
-    }>("/api/check-proxy", {
+    const res = await $fetch<ProxyCheckResult>("/api/check-proxy", {
       method: "POST",
       body: { proxy: data.sock },
     });
-    proxyResults.value[id] = res;
+    proxyResults.value[id] = {
+      ...res,
+      error: getProxyCheckErrorMessage(res.error),
+    };
   } catch (err) {
     proxyResults.value[id] = {
       success: false,
@@ -488,6 +494,23 @@ async function testProxy(id: string) {
   } finally {
     testingProxies.value[id] = false;
   }
+}
+
+function getProxyCheckErrorMessage(error?: ProxyCheckError) {
+  if (typeof error === "string" && error) {
+    return error;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    typeof error.message === "string" &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return undefined;
 }
 </script>
 

@@ -1,4 +1,8 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody } from "h3";
+import {
+  createApiError,
+  createApiErrorFromMessage,
+} from "../../utils/callShopifyApi";
 import {
   createGoogleSheetsClient,
   GOOGLE_SHEET_SCOPES,
@@ -17,10 +21,10 @@ export default defineEventHandler(async (event) => {
   const range = body.range;
 
   if (!range || !body.values) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing spreadsheetId, range, or values.",
-    });
+    throw createApiErrorFromMessage(
+      "Missing spreadsheetId, range, or values.",
+      400,
+    );
   }
 
   try {
@@ -39,12 +43,6 @@ export default defineEventHandler(async (event) => {
       updatedCells: response.data.updatedCells,
     };
   } catch (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage:
-        error instanceof Error
-          ? error.message
-          : "Failed to update data via Google Sheet API.",
-    });
+    throw createApiError(error, "Failed to update data via Google Sheet API.");
   }
 });

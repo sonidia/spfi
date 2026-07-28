@@ -1,6 +1,10 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody } from "h3";
 import { StoreStatusInputError } from "../../utils/status-checker-errors";
 import { checkShopifyStoreStatus } from "../../utils/shopify-status-checker";
+import {
+  createApiError,
+  createApiErrorFromMessage,
+} from "../../utils/callShopifyApi";
 
 type StatusCheckBody = {
   target?: string;
@@ -13,23 +17,16 @@ export default defineEventHandler(async (event) => {
   const proxy = body?.proxy?.trim();
 
   if (!target) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing target",
-    });
+    throw createApiErrorFromMessage("Missing target", 400);
   }
 
   try {
     return await checkShopifyStoreStatus(target, proxy ? { proxy } : {});
   } catch (error) {
     if (error instanceof StoreStatusInputError) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: error.message,
-        message: error.message,
-      });
+      throw createApiErrorFromMessage(error.message, 400);
     }
 
-    throw error;
+    throw createApiError(error, "Failed to check store status.");
   }
 });

@@ -1,12 +1,13 @@
 ﻿import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody } from "h3";
 import {
   buildProxyVariants,
+  createApiErrorFromMessage,
   createProxyAgent,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
-} from "~~/utils/proxy/store-proxy";
+} from "~~/server/utils/callShopifyApi";
 
 interface DebugProxyBody {
   proxy?: string;
@@ -74,13 +75,20 @@ export default defineEventHandler(async (event) => {
   const timeoutMs = Number(body.timeoutMs || 10000);
 
   if (!proxy.trim()) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing proxy in body",
-    });
+    throw createApiErrorFromMessage("Missing proxy in body", 400);
   }
 
-  const variants = buildDebugVariants(proxy);
+  let variants: DebugVariant[];
+
+  try {
+    variants = buildDebugVariants(proxy);
+  } catch (error) {
+    throw createApiErrorFromMessage(
+      error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",
+      400,
+    );
+  }
+
   const results = [];
 
   for (const variant of variants) {

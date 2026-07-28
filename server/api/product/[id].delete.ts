@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, readBody } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, readBody } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 import type { ProductsResponse } from "~~/types/shopify";
 
 interface ProductDeleteBody {
@@ -14,10 +17,7 @@ export default defineEventHandler(async (event) => {
   const productId = event.context.params?.id;
 
   if (!storeId || !token || !productId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Store ID, Access Token, and Product ID are required.",
-    });
+    throw createApiErrorFromMessage("Store ID, Access Token, and Product ID are required.", 400);
   }
 
   return callShopifyApi<ProductsResponse>({

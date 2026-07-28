@@ -1,13 +1,14 @@
 ﻿import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody } from "h3";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import {
   buildProxyVariants,
   createProxyAgent,
+  createApiErrorFromMessage,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
-} from "~~/utils/proxy/store-proxy";
+} from "~~/server/utils/callShopifyApi";
 
 interface GenerateTokenBody {
   storeId?: string;
@@ -38,10 +39,10 @@ export default defineEventHandler(async (event) => {
   const sock = String(body.sock || "").trim();
 
   if (!storeId || !clientId || !clientSecret) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing storeId, clientId, or clientSecret",
-    });
+    throw createApiErrorFromMessage(
+      "Missing storeId, clientId, or clientSecret",
+      400,
+    );
   }
 
   console.log(`[GenerateToken] Received StoreId: ${storeId}`);
@@ -50,10 +51,7 @@ export default defineEventHandler(async (event) => {
   );
 
   if (!sock) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "No proxy (sock) provided.",
-    });
+    throw createApiErrorFromMessage("No proxy (sock) provided.", 400);
   }
 
   const variants = buildNamedProxyVariants(sock);
@@ -108,11 +106,10 @@ export default defineEventHandler(async (event) => {
     const inputMeta = inspectProxyInput(sock);
     const hasHiddenChars = hasInvisibleOrControlChars(sock);
 
-    throw createError({
-      statusCode: 500,
-      statusMessage:
-        "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw SOCKS5H variants",
-      data: {
+    throw createApiErrorFromMessage(
+      "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw SOCKS5H variants",
+      500,
+      {
         hint: "Call POST /api/debug-proxy with body { proxy } to view which variant passes/fails with details.",
         variantsTried: variants.map((item) => ({
           name: item.name,
@@ -124,14 +121,14 @@ export default defineEventHandler(async (event) => {
           hasInvisibleChars: hasHiddenChars,
         },
       },
-    });
+    );
   }
 
-  throw createError({
-    statusCode: 500,
-    statusMessage: lastError?.message || "Error generating access token",
-    data: { errors },
-  });
+  throw createApiErrorFromMessage(
+    lastError?.message || "Error generating access token",
+    500,
+    { errors },
+  );
 });
 
 function buildNamedProxyVariants(sock: string): ProxyVariant[] {
@@ -141,11 +138,10 @@ function buildNamedProxyVariants(sock: string): ProxyVariant[] {
       proxyUrl,
     }));
   } catch (error) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",
-    });
+    throw createApiErrorFromMessage(
+      error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",
+      400,
+    );
   }
 }
 

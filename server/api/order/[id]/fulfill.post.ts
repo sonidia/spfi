@@ -1,5 +1,10 @@
-﻿import { createError, defineEventHandler, readBody } from "h3";
-import { callShopifyApi, formatErrorMessage } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, readBody } from "h3";
+import {
+  callShopifyApi,
+  createApiError,
+  createApiErrorFromMessage,
+  formatErrorMessage,
+} from "~~/server/utils/callShopifyApi";
 import type {
   ShopifyFulfillmentOrder,
   ShopifyFulfillmentOrderLineItem,
@@ -73,10 +78,7 @@ export default defineEventHandler(async (event) => {
   const fulfillmentInfo = body.fulfillment;
 
   if (!id || !storeId || !token) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Order ID, Store ID and Access Token are required.",
-    });
+    throw createApiErrorFromMessage("Order ID, Store ID and Access Token are required.", 400);
   }
 
   const trackingNumber = fulfillmentInfo?.tracking_info?.number;
@@ -202,10 +204,7 @@ export default defineEventHandler(async (event) => {
       },
     });
   } catch (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: formatErrorMessage(error),
-    });
+    throw createApiError(error, "Failed to fulfill order.");
   }
 });
 

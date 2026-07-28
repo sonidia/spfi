@@ -151,6 +151,22 @@ function getErrorMessage(error: unknown, fallback: string) {
       ? (error as { data?: { message?: unknown; statusMessage?: unknown } })
           .data
       : undefined;
+  const standardData =
+    typeof data === "object" && data && "error" in data
+      ? (data as { error?: { message?: unknown } })
+      : undefined;
+  const nestedData =
+    typeof data === "object" && data && "data" in data
+      ? (data as { data?: { error?: { message?: unknown } } }).data
+      : undefined;
+
+  if (typeof nestedData?.error?.message === "string") {
+    return nestedData.error.message;
+  }
+
+  if (typeof standardData?.error?.message === "string") {
+    return standardData.error.message;
+  }
 
   if (typeof data?.message === "string") {
     return data.message;

@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, getQuery } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, getQuery } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
@@ -9,10 +12,7 @@ export default defineEventHandler(async (event) => {
   const accessToken = String(token || "");
 
   if (!id || !sid || !accessToken) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "ID, Store ID and Access Token are required.",
-    });
+    throw createApiErrorFromMessage("ID, Store ID and Access Token are required.", 400);
   }
 
   return callShopifyApi<OrdersResponse>({

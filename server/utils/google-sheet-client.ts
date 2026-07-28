@@ -1,7 +1,7 @@
 import { google } from "googleapis";
-import { createError } from "h3";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createApiErrorFromMessage } from "./callShopifyApi";
 
 type ServiceAccountFile = {
   client_email?: string;
@@ -19,10 +19,7 @@ export function requireSpreadsheetId(value?: string) {
   const spreadsheetId = String(value || "").trim();
 
   if (!spreadsheetId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing spreadsheetId.",
-    });
+    throw createApiErrorFromMessage("Missing spreadsheetId.", 400);
   }
 
   return spreadsheetId;
@@ -41,11 +38,10 @@ export async function createGoogleSheetsClient(scopes: readonly string[]) {
   );
 
   if (!clientEmail || !privateKey) {
-    throw createError({
-      statusCode: 500,
-      statusMessage:
-        "Missing client_email/private_key in server/service_account.json",
-    });
+    throw createApiErrorFromMessage(
+      "Missing client_email/private_key in server/service_account.json",
+      500,
+    );
   }
 
   const auth = new google.auth.JWT({
@@ -68,13 +64,12 @@ async function readServiceAccountFile() {
     cachedServiceAccount = parsed;
     return parsed;
   } catch (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage:
-        getErrorCode(error) === "ENOENT"
-          ? "Missing service account file at server/service_account.json"
-          : "Invalid service account file format in server/service_account.json",
-    });
+    throw createApiErrorFromMessage(
+      getErrorCode(error) === "ENOENT"
+        ? "Missing service account file at server/service_account.json"
+        : "Invalid service account file format in server/service_account.json",
+      500,
+    );
   }
 }
 

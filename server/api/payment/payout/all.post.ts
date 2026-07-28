@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, readBody } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, readBody } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 import type { PayoutsResponse } from "~~/types/shopify";
 
 interface PayoutAllBody {
@@ -13,10 +16,7 @@ export default defineEventHandler(async (event) => {
   const token = String(body.token || "");
 
   if (!storeId || !token) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Store ID and Access Token are required.",
-    });
+    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
   }
 
   const response = await callShopifyApi<PayoutsResponse>({

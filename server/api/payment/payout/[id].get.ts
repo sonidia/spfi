@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, getQuery } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, getQuery } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 import type {
   BalanceTransactionsResponse,
   PayoutDetailResponse,
@@ -17,10 +20,7 @@ export default defineEventHandler(async (event) => {
   const token = String(query.token || "");
 
   if (!storeId || !token || !payoutId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "storeId, token and payout id are required.",
-    });
+    throw createApiErrorFromMessage("storeId, token and payout id are required.", 400);
   }
 
   const [payoutRes, txRes] = await Promise.all([

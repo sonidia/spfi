@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, readBody } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, readBody } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 import type { ProductsResponse, ShopifyProductInput } from "~~/types/shopify";
 
 interface ProductCreateBody {
@@ -15,10 +18,7 @@ export default defineEventHandler(async (event) => {
   const product = body.product;
 
   if (!storeId || !token || !product) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Store ID, Access Token, and Product payload are required.",
-    });
+    throw createApiErrorFromMessage("Store ID, Access Token, and Product payload are required.", 400);
   }
 
   return callShopifyApi<ProductsResponse, { product: ShopifyProductInput }>({

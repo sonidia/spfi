@@ -1,4 +1,5 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody } from "h3";
+import { createApiError } from "../../utils/callShopifyApi";
 import {
   createGoogleSheetsClient,
   GOOGLE_SHEET_SCOPES,
@@ -29,12 +30,6 @@ export default defineEventHandler(async (event) => {
       values: response.data.values || [],
     };
   } catch (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage:
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch data from Google Sheet API.",
-    });
+    throw createApiError(error, "Failed to fetch data from Google Sheet API.");
   }
 });

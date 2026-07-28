@@ -5,6 +5,14 @@ export interface JsonObject {
 }
 
 export interface AppErrorData {
+  data?: {
+    error?: {
+      message?: unknown;
+    };
+  };
+  error?: {
+    message?: unknown;
+  };
   message?: unknown;
   statusMessage?: unknown;
 }

@@ -1,4 +1,8 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody } from "h3";
+import {
+  createApiError,
+  createApiErrorFromMessage,
+} from "../../utils/callShopifyApi";
 import {
   createGoogleSheetsClient,
   GOOGLE_SHEET_SCOPES,
@@ -18,10 +22,7 @@ export default defineEventHandler(async (event) => {
   const spreadsheetId = requireSpreadsheetId(body.spreadsheetId);
 
   if (!body.data || !Array.isArray(body.data)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing spreadsheetId or data array.",
-    });
+    throw createApiErrorFromMessage("Missing spreadsheetId or data array.", 400);
   }
 
   try {
@@ -40,12 +41,9 @@ export default defineEventHandler(async (event) => {
       totalUpdatedRows: response.data.totalUpdatedRows,
     };
   } catch (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage:
-        error instanceof Error
-          ? error.message
-          : "Failed to batch update data via Google Sheet API.",
-    });
+    throw createApiError(
+      error,
+      "Failed to batch update data via Google Sheet API.",
+    );
   }
 });

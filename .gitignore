@@ -25,3 +25,5 @@ logs
 server/service_account.json
 *.zip
 *.txt
+
+TODO.md

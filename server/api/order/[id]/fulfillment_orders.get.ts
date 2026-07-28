@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, getQuery } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, getQuery } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 import type { ShopifyFulfillmentOrder } from "~~/types/shopify";
 
 interface FulfillmentOrdersResponse {
@@ -13,11 +16,7 @@ export default defineEventHandler(async (event) => {
   const token = String(query.token || "");
 
   if (!id || !storeId || !token) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        "Order ID, Store ID and Access Token are required in query params.",
-    });
+    throw createApiErrorFromMessage("Order ID, Store ID and Access Token are required in query params.", 400);
   }
 
   return callShopifyApi<FulfillmentOrdersResponse>({

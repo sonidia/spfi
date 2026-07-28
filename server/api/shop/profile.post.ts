@@ -1,10 +1,11 @@
-﻿import { createError, defineEventHandler, readBody } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
-import type { ShopifyShop, ShopProfileResponse } from "~~/types/shopify";
+import { defineEventHandler, readBody } from "h3";
 import {
+  callShopifyApi,
+  createApiErrorFromMessage,
   resolveStoreCookieData,
   resolveStoreDomain,
-} from "~~/utils/proxy/store-proxy";
+} from "~~/server/utils/callShopifyApi";
+import type { ShopifyShop, ShopProfileResponse } from "~~/types/shopify";
 
 interface ShopProfileBody {
   storeId?: string;
@@ -17,10 +18,10 @@ export default defineEventHandler(async (event) => {
   const token = String(body.token || "");
 
   if (!storeId || !token) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Store ID and Access Token are required.",
-    });
+    throw createApiErrorFromMessage(
+      "Store ID and Access Token are required.",
+      400,
+    );
   }
 
   const storeCookie = resolveStoreCookieData(event, storeId);

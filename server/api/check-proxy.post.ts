@@ -1,6 +1,11 @@
 ﻿import axios from "axios";
-import { createError, defineEventHandler, readBody } from "h3";
-import { createProxyAgent, maskProxyUrl, normalizeProxyUrl } from "~~/utils/proxy/store-proxy";
+import { defineEventHandler, readBody } from "h3";
+import {
+  createApiErrorFromMessage,
+  createProxyAgent,
+  normalizeProxyUrl,
+  toStandardApiError,
+} from "~~/server/utils/callShopifyApi";
 
 interface CheckProxyBody {
   proxy?: string;
@@ -24,17 +29,11 @@ export default defineEventHandler(async (event) => {
   const proxy = String(body.proxy || "");
 
   if (!proxy) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Missing proxy URL or sock string",
-    });
+    throw createApiErrorFromMessage("Missing proxy URL or sock string", 400);
   }
 
-  const proxyUrl = normalizeProxyUrl(proxy);
-  const maskedProxy = maskProxyUrl(proxyUrl);
-  void maskedProxy;
-
   try {
+    const proxyUrl = normalizeProxyUrl(proxy);
     const agent = createProxyAgent(proxyUrl);
     const start = Date.now();
     const res = await axios.get<{ origin?: string }>("https://httpbin.org/ip", {
@@ -61,10 +60,7 @@ export default defineEventHandler(async (event) => {
       duration,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Proxy check failed",
-    };
+    return toStandardApiError(error, "Proxy check failed");
   }
 });
 

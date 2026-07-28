@@ -1,5 +1,8 @@
-﻿import { createError, defineEventHandler, readBody } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, readBody } from "h3";
+import {
+  callShopifyApi,
+  createApiErrorFromMessage,
+} from "~~/server/utils/callShopifyApi";
 
 interface TrackingInfo {
   number?: string;
@@ -34,10 +37,7 @@ export default defineEventHandler(async (event) => {
   const fulfillmentInfo = body.fulfillment;
 
   if (!id || !storeId || !token) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Fulfillment ID, Store ID and Access Token are required.",
-    });
+    throw createApiErrorFromMessage("Fulfillment ID, Store ID and Access Token are required.", 400);
   }
 
   const trackingNumber = fulfillmentInfo?.tracking_info?.number;
