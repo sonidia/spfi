@@ -100,6 +100,9 @@ node .output/server/index.mjs
 The production stack runs Nuxt behind Nginx. Nginx is the only public
 service; the Nuxt port is available only on the internal Compose network.
 
+The app service is tagged as `ghcr.io/sonidia/spfi:latest` by default. Override
+it with `APP_IMAGE` when you want to run another image tag.
+
 Make sure the Google service account file exists before starting the stack:
 
 ```text
@@ -110,6 +113,13 @@ Build and start the containers:
 
 ```bash
 docker compose up -d --build
+```
+
+To run a published GHCR image without rebuilding locally:
+
+```bash
+docker compose pull app
+docker compose up -d --no-build
 ```
 
 Open `http://localhost`. To use another host port:
@@ -132,6 +142,29 @@ docker compose ps
 docker compose logs -f
 docker compose down
 ```
+
+## GitHub Actions CI/CD
+
+The Docker workflow lives at `.github/workflows/docker-image.yml`. It builds the
+Docker image on pull requests to `main` or `master`, then publishes to GHCR on
+pushes to `main`, `master`, version tags like `v1.2.3`, or manual dispatch.
+
+Published image:
+
+```text
+ghcr.io/sonidia/spfi
+```
+
+Tag rules:
+
+- Pull requests build only and do not publish.
+- Pushes to the default branch publish `latest`, the branch tag, and `sha-<short>`.
+- Tags like `v1.2.3` publish `1.2.3`, `1.2`, and `sha-<short>`.
+
+The workflow uses GitHub's built-in `GITHUB_TOKEN`, so no custom PAT is required
+unless the repository or organization has restricted package publishing. The
+token needs `contents: read` and `packages: write`, which are already declared
+in the workflow.
 
 ## 🌐 Proxy Formats
 
