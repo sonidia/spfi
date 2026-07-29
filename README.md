@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/readme-banner.svg" alt="SPFI Shopify Operations Console" width="100%" />
+  <img src="./public/banner.png" alt="SPFI Shopify Operations Console" width="100%" />
 </p>
 
 <h1 align="center">SPFI</h1>
@@ -26,13 +26,13 @@
 
 ## 🧭 Core Workflows
 
-| Route | Workflow | What it does |
-| --- | --- | --- |
-| `/setup` | Setup Guide | Documents the Shopify custom app setup flow and required access scopes. |
-| `/manager` | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens. |
-| `/payment` | Payments | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs. |
-| `/sheet` | Sheets | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
-| `/status` | Status Checker | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes. |
+| Route      | Workflow        | What it does                                                                                                     |
+| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `/setup`   | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                          |
+| `/manager` | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                       |
+| `/payment` | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
+| `/sheet`   | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
+| `/status`  | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
 
 ## 🧰 Tech Stack
 
@@ -95,6 +95,44 @@ For a Node deployment, ship the Nuxt output and start the Nitro server:
 node .output/server/index.mjs
 ```
 
+## Docker Compose + Nginx
+
+The production stack runs Nuxt behind Nginx. Nginx is the only public
+service; the Nuxt port is available only on the internal Compose network.
+
+Make sure the Google service account file exists before starting the stack:
+
+```text
+server/service_account.json
+```
+
+Build and start the containers:
+
+```bash
+docker compose up -d --build
+```
+
+Open `http://localhost`. To use another host port:
+
+```bash
+NGINX_PORT=8080 docker compose up -d --build
+```
+
+On PowerShell:
+
+```powershell
+$env:NGINX_PORT = "8080"
+docker compose up -d --build
+```
+
+Inspect or stop the stack:
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose down
+```
+
 ## 🌐 Proxy Formats
 
 Proxy fields accept SOCKS5H remote-DNS shorthand or full proxy URLs:
@@ -132,10 +170,10 @@ Expected header aliases for store auto-fill:
 
 ## 🧪 Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Nuxt development server. |
-| `npm run build` | Build the production client and Nitro server. |
-| `npm run preview` | Run a local preview of the production build. |
-| `npm run generate` | Generate a static output where supported by the app. |
-| `npm run postinstall` | Prepare Nuxt after dependency installation. |
+| Command               | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `npm run dev`         | Start the Nuxt development server.                   |
+| `npm run build`       | Build the production client and Nitro server.        |
+| `npm run preview`     | Run a local preview of the production build.         |
+| `npm run generate`    | Generate a static output where supported by the app. |
+| `npm run postinstall` | Prepare Nuxt after dependency installation.          |
