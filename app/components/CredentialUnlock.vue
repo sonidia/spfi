@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { isCredentialRouteWhitelisted } from "~/utils/credentialRouteAccess";
 
 const vault = useCredentialVaultStore();
+const route = useRoute();
+const { t } = useLocalization();
 const password = ref("");
 const confirmPassword = ref("");
 const showPassword = ref(false);
 
 const isSetup = computed(() => vault.needsSetup);
+const shouldShowUnlock = computed(
+  () =>
+    vault.isInitialized &&
+    !vault.isUnlocked &&
+    !isCredentialRouteWhitelisted(route.path),
+);
 const canSubmit = computed(() => {
   if (password.value.length < 4) return false;
   return !isSetup.value || password.value === confirmPassword.value;
@@ -28,7 +37,7 @@ async function submit() {
 <template>
   <Transition name="vault-fade">
     <div
-      v-if="vault.isInitialized && !vault.isUnlocked"
+      v-if="shouldShowUnlock"
       class="vault-overlay"
       role="dialog"
       aria-modal="true"
@@ -36,20 +45,20 @@ async function submit() {
     >
       <form class="vault-card" @submit.prevent="submit">
         <div class="vault-mark" aria-hidden="true">SP</div>
-        <p class="vault-eyebrow">Secure workspace</p>
+        <p class="vault-eyebrow">{{ t("vault.eyebrow") }}</p>
         <h1 id="vault-title">
-          {{ isSetup ? "Create your security PIN" : "Unlock your credentials" }}
+          {{ isSetup ? t("vault.setupTitle") : t("vault.unlockTitle") }}
         </h1>
         <p class="vault-description">
           {{
             isSetup
-              ? "This PIN encrypts Client Secrets and Access Tokens on this device. It cannot be recovered if forgotten."
-              : "Enter the PIN/password used for this browser. Decrypted credentials stay in memory only until refresh."
+              ? t("vault.setupDescription")
+              : t("vault.unlockDescription")
           }}
         </p>
 
         <label class="vault-field">
-          <span>PIN or password</span>
+          <span>{{ t("vault.passwordLabel") }}</span>
           <div class="vault-input-wrap">
             <input
               v-model="password"
@@ -57,27 +66,29 @@ async function submit() {
               autocomplete="current-password"
               minlength="4"
               autofocus
-              placeholder="At least 4 characters"
+              :placeholder="t('vault.passwordPlaceholder')"
             />
             <button
               type="button"
               class="vault-reveal"
-              :aria-label="showPassword ? 'Hide password' : 'Show password'"
+              :aria-label="
+                showPassword ? t('vault.hidePassword') : t('vault.showPassword')
+              "
               @click="showPassword = !showPassword"
             >
-              {{ showPassword ? "Hide" : "Show" }}
+              {{ showPassword ? t("vault.hidePassword") : t("vault.showPassword") }}
             </button>
           </div>
         </label>
 
         <label v-if="isSetup" class="vault-field">
-          <span>Confirm PIN or password</span>
+          <span>{{ t("vault.confirmPasswordLabel") }}</span>
           <input
             v-model="confirmPassword"
             :type="showPassword ? 'text' : 'password'"
             autocomplete="new-password"
             minlength="4"
-            placeholder="Enter it again"
+            :placeholder="t('vault.confirmPasswordPlaceholder')"
           />
         </label>
 
@@ -88,15 +99,25 @@ async function submit() {
           v-else-if="isSetup && confirmPassword && password !== confirmPassword"
           class="vault-error"
         >
-          PIN/password confirmation does not match.
+          {{ t("vault.mismatch") }}
         </p>
 
-        <button class="vault-submit" type="submit" :disabled="!canSubmit || vault.isBusy">
-          {{ vault.isBusy ? "Securing credentials…" : isSetup ? "Create vault" : "Unlock" }}
+        <button
+          class="vault-submit"
+          type="submit"
+          :disabled="!canSubmit || vault.isBusy"
+        >
+          {{
+            vault.isBusy
+              ? t("vault.submitSecuring")
+              : isSetup
+                ? t("vault.submitCreate")
+                : t("vault.submitUnlock")
+          }}
         </button>
 
         <div class="vault-security-note">
-          AES-GCM · PBKDF2 · Device-local encrypted storage
+          {{ t("vault.securityNote") }}
         </div>
       </form>
     </div>

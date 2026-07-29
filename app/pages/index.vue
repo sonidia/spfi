@@ -2,37 +2,35 @@
   <main class="landing-page">
     <section class="landing-hero">
       <div class="hero-copy">
-        <p class="eyebrow is-ok">Shopify Operations Console</p>
-        <h1>Telescope the storefront from one desk</h1>
+        <p class="eyebrow is-ok">{{ t("home.eyebrow") }}</p>
+        <h1>{{ t("home.heroTitle") }}</h1>
         <p class="hero-sub">
-          A compact workspace for connecting shops, rotating tokens, checking
-          public store status, and reading Google Sheet data without jumping
-          between tools.
+          {{ t("home.heroSub") }}
         </p>
         <div class="hero-actions">
           <NuxtLink class="hero-btn hero-btn-primary" to="/manager">
             <IconsBulking />
-            Open Manager
+            {{ t("home.openManager") }}
           </NuxtLink>
           <NuxtLink class="hero-btn hero-btn-secondary" to="/status">
             <IconsCheck />
-            Check Status
+            {{ t("home.checkStatus") }}
           </NuxtLink>
         </div>
       </div>
 
-      <div class="ops-preview" aria-label="Operations preview">
+      <div class="ops-preview" :aria-label="t('home.previewAria')">
         <div class="preview-toolbar">
           <span />
           <span />
           <span />
-          <strong>Live workspace</strong>
+          <strong>{{ t("home.previewLive") }}</strong>
         </div>
         <div class="preview-grid">
           <div class="preview-panel preview-panel-large">
             <div class="preview-panel-head">
-              <span class="panel-kicker">Batch status</span>
-              <span class="panel-pill is-ok">Alive 18</span>
+              <span class="panel-kicker">{{ t("home.previewBatch") }}</span>
+              <span class="panel-pill is-ok">{{ t("home.previewAlive") }}</span>
             </div>
             <div class="status-lines">
               <span class="line is-long" />
@@ -40,31 +38,31 @@
               <span class="line is-short" />
             </div>
             <div class="signal-row">
-              <span>HTTP</span>
+              <span>{{ t("home.previewHttp") }}</span>
               <strong>200 OK</strong>
             </div>
             <div class="signal-row">
-              <span>Products endpoint</span>
+              <span>{{ t("home.previewProducts") }}</span>
               <strong>JSON</strong>
             </div>
           </div>
 
           <div class="preview-panel">
             <div class="preview-icon"><IconsRefresh /></div>
-            <span>Token rotation</span>
-            <strong>Ready</strong>
+            <span>{{ t("home.previewToken") }}</span>
+            <strong>{{ t("home.previewReady") }}</strong>
           </div>
 
           <div class="preview-panel">
             <div class="preview-icon"><IconsCopy /></div>
-            <span>Sheet lookup</span>
-            <strong>4 tabs</strong>
+            <span>{{ t("home.previewSheet") }}</span>
+            <strong>{{ t("home.previewTabs") }}</strong>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="quick-links" aria-label="Primary workflows">
+    <section class="quick-links" :aria-label="t('home.workflowsAria')">
       <NuxtLink
         v-for="item in quickLinks"
         :key="item.to"
@@ -82,12 +80,10 @@
 
     <section class="motivation-section landing-section">
       <div class="section-heading">
-        <p class="eyebrow">Motivation</p>
-        <h2>Keep repetitive Shopify ops calm, visible, and fast.</h2>
+        <p class="eyebrow">{{ t("home.motivationEyebrow") }}</p>
+        <h2>{{ t("home.motivationTitle") }}</h2>
         <p>
-          Spfi is built for the small but expensive moments: switching between
-          stores, checking whether storefronts are reachable, and pulling the
-          right sheet data while orders keep moving.
+          {{ t("home.motivationBody") }}
         </p>
       </div>
 
@@ -108,8 +104,8 @@
 
     <section class="runbook-section landing-section">
       <div class="section-heading section-heading-narrow">
-        <p class="eyebrow is-blue">Daily Flow</p>
-        <h2>A tighter loop from access to verification.</h2>
+        <p class="eyebrow is-blue">{{ t("home.flowEyebrow") }}</p>
+        <h2>{{ t("home.flowTitle") }}</h2>
       </div>
 
       <div class="runbook-list">
@@ -129,8 +125,8 @@
 
     <section class="faq-section landing-section">
       <div class="section-heading">
-        <p class="eyebrow is-amber">FAQ</p>
-        <h2>Questions before you open the workspace.</h2>
+        <p class="eyebrow is-amber">{{ t("home.faqEyebrow") }}</p>
+        <h2>{{ t("home.faqTitle") }}</h2>
       </div>
 
       <div class="faq-list">
@@ -144,14 +140,14 @@
       </div>
     </section>
 
-    <section class="landing-cta" aria-label="Open workspace">
+    <section class="landing-cta" :aria-label="t('home.ctaAria')">
       <div>
-        <p class="eyebrow">Ready Desk</p>
-        <h2>Start with the manager, then branch into the task you need.</h2>
+        <p class="eyebrow">{{ t("home.ctaEyebrow") }}</p>
+        <h2>{{ t("home.ctaTitle") }}</h2>
       </div>
       <NuxtLink class="hero-btn hero-btn-primary" to="/manager">
         <IconsArrowRight />
-        Open Manager
+        {{ t("home.openManager") }}
       </NuxtLink>
     </section>
 
@@ -164,97 +160,89 @@ import IconsLandingClean from "~/components/icons/landing/Clean.vue";
 import IconsLandingFlash from "~/components/icons/landing/Flash.vue";
 import IconsLandingUsefull from "~/components/icons/landing/Usefull.vue";
 
-const quickLinks = [
+const { t } = useLocalization();
+
+const quickLinks = computed(() => [
   {
     to: "/setup",
-    title: "Setup Guide",
-    description: "Follow the app creation and credential checklist.",
+    title: t("home.quickSetupTitle"),
+    description: t("home.quickSetupDescription"),
     icon: "IconsHero",
   },
   {
     to: "/manager",
-    title: "Shop Management",
-    description: "Add stores, rotate tokens, and test proxies.",
+    title: t("home.quickManagerTitle"),
+    description: t("home.quickManagerDescription"),
     icon: "IconsBulking",
   },
   {
     to: "/sheet",
-    title: "Sheets",
-    description: "Open sheet tabs and inspect rows quickly.",
+    title: t("home.quickSheetTitle"),
+    description: t("home.quickSheetDescription"),
     icon: "IconsCopy",
   },
   {
     to: "/status",
-    title: "Status Checker",
-    description: "Batch check Shopify storefront availability.",
+    title: t("home.quickStatusTitle"),
+    description: t("home.quickStatusDescription"),
     icon: "IconsCheck",
   },
-];
+]);
 
-const motivationItems = [
+const motivationItems = computed(() => [
   {
-    title: "Fewer tab jumps",
-    description:
-      "Move between setup, profiles, payments, sheets, and status checks from one predictable place.",
+    title: t("home.motivationTabsTitle"),
+    description: t("home.motivationTabsDescription"),
     icon: IconsLandingFlash,
   },
   {
-    title: "Cleaner store checks",
-    description:
-      "Run quick storefront checks with proxy context so blocked or unhealthy shops are easier to spot.",
+    title: t("home.motivationChecksTitle"),
+    description: t("home.motivationChecksDescription"),
     icon: IconsLandingClean,
   },
   {
-    title: "Less manual copywork",
-    description:
-      "Use saved shop profiles and sheet lookups to reduce the repeated handoff work around orders.",
+    title: t("home.motivationCopyTitle"),
+    description: t("home.motivationCopyDescription"),
     icon: IconsLandingUsefull,
   },
-];
+]);
 
-const runbookSteps = [
+const runbookSteps = computed(() => [
   {
     step: "01",
-    title: "Connect the shop",
-    description:
-      "Add store credentials, prepare tokens, and keep profile data ready for follow-up tasks.",
+    title: t("home.flowConnectTitle"),
+    description: t("home.flowConnectDescription"),
   },
   {
     step: "02",
-    title: "Check the surface",
-    description:
-      "Confirm storefront access and endpoint responses before spending time on deeper order work.",
+    title: t("home.flowCheckTitle"),
+    description: t("home.flowCheckDescription"),
   },
   {
     step: "03",
-    title: "Use the source data",
-    description:
-      "Open sheet tabs, inspect rows, and move into product, order, or payment workflows as needed.",
+    title: t("home.flowDataTitle"),
+    description: t("home.flowDataDescription"),
   },
-];
+]);
 
-const faqItems = [
+const faqItems = computed(() => [
   {
-    question: "What should I open first?",
-    answer:
-      "Start with Manager when you are preparing stores or credentials. Use Status when you only need a fast storefront health check.",
+    question: t("home.faqFirstQuestion"),
+    answer: t("home.faqFirstAnswer"),
   },
   {
-    question: "Does this replace Shopify Admin?",
-    answer:
-      "No. It keeps the repetitive operational checks nearby, then links your day-to-day work back to the specific shop data you need.",
+    question: t("home.faqAdminQuestion"),
+    answer: t("home.faqAdminAnswer"),
   },
   {
-    question: "Where does sheet data fit?",
-    answer:
-      "The Sheet page helps inspect connected Google Sheet tabs and rows when order or product work depends on spreadsheet data.",
+    question: t("home.faqSheetQuestion"),
+    answer: t("home.faqSheetAnswer"),
   },
   {
-    question: "Can I use it for batch status checks?",
-    answer:
-      "Yes. The Status Checker is designed for running multiple storefront availability checks in one focused view.",
+    question: t("home.faqBatchQuestion"),
+    answer: t("home.faqBatchAnswer"),
   },
-];
+]);
 </script>
 
 <style scoped>

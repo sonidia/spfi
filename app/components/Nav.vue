@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute();
 const isScrolled = ref(false);
+const { t } = useLocalization();
 let pageScrollContainer: Element | null = null;
 
 function withActiveShop(path: string) {
@@ -39,14 +40,15 @@ onBeforeUnmount(() => {
         <span class="topbar-title">Spfi</span>
       </NuxtLink>
       <div class="nav-list">
-        <NuxtLink to="/setup">Setup</NuxtLink>
-        <NuxtLink to="/manager">Manager</NuxtLink>
-        <NuxtLink :to="withActiveShop('/profile')">Profile</NuxtLink>
-        <NuxtLink :to="withActiveShop('/customer')">Customers</NuxtLink>
-        <NuxtLink :to="withActiveShop('/payment')">Payment</NuxtLink>
-        <NuxtLink to="/sheet">Sheet</NuxtLink>
-        <NuxtLink to="/status">Status</NuxtLink>
+        <NuxtLink to="/setup">{{ t("nav.setup") }}</NuxtLink>
+        <NuxtLink to="/manager">{{ t("nav.manager") }}</NuxtLink>
+        <NuxtLink :to="withActiveShop('/profile')">{{ t("nav.profile") }}</NuxtLink>
+        <NuxtLink :to="withActiveShop('/customer')">{{ t("nav.customers") }}</NuxtLink>
+        <NuxtLink :to="withActiveShop('/payment')">{{ t("nav.payment") }}</NuxtLink>
+        <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
+        <NuxtLink to="/status">{{ t("nav.status") }}</NuxtLink>
       </div>
+      <LocaleSwitcher />
     </div>
   </nav>
 </template>
