@@ -517,7 +517,7 @@ function removeRecentSheet(source: string) {
   min-width: 150px;
   max-width: 220px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   border-radius: 6px;
   padding: 5px 10px;
   font-size: 12px;
@@ -544,7 +544,7 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-btn-outline:hover:not(:disabled) {
-  background: var(--bg);
+  background: var(--surface-soft);
 }
 
 .sheet-btn-danger {
@@ -552,9 +552,9 @@ function removeRecentSheet(source: string) {
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  border: 1px solid #fcc;
+  border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--red);
   font-size: 12px;
   font-weight: 500;
@@ -564,7 +564,7 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-btn-danger:hover {
-  background: #fce8e8;
+  background: var(--red-soft);
 }
 
 .sheet-btn-primary :deep(svg),
@@ -590,17 +590,17 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-status--loading {
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #e5e5e5;
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  border: 1px solid var(--border);
 }
 
 .sheet-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid #ddd;
-  border-top-color: #534ab7;
+  border: 2px solid var(--line);
+  border-top-color: var(--blue);
   border-radius: 50%;
   animation: sheet-spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -637,28 +637,28 @@ function removeRecentSheet(source: string) {
   padding: 12px 20px;
   text-align: left;
   font-weight: 600;
-  color: #475467;
+  color: var(--text-sub);
   font-size: 12px;
   text-transform: none;
   letter-spacing: 0px;
-  border-bottom: 2px solid #eaecf0;
+  border-bottom: 2px solid var(--border);
   white-space: nowrap;
-  background: #f9fafb;
+  background: var(--surface-soft);
 }
 
 .sheet-table-wrap td {
   padding: 12px 20px;
-  color: #344054;
-  border-bottom: 1px solid #eaecf0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
   transition: background-color 0.2s;
 }
 
 .sheet-table-wrap tbody tr:nth-child(even) {
-  background-color: #f9fafb;
+  background-color: var(--surface-low);
 }
 
 .sheet-table-wrap tbody tr:hover td {
-  background: #f2f4f7;
+  background: var(--surface-soft);
 }
 
 .sheet-table-wrap tbody tr:last-child td {
@@ -670,8 +670,8 @@ function removeRecentSheet(source: string) {
   font-size: 10px;
   padding: 2px 7px;
   border-radius: 99px;
-  background: #ede9ff;
-  color: #534ab7;
+  background: var(--blue-soft);
+  color: var(--blue);
   margin-left: 6px;
   font-weight: 500;
   text-transform: none;
@@ -692,7 +692,7 @@ function removeRecentSheet(source: string) {
 }
 
 .sheet-url {
-  color: #007bff;
+  color: var(--text-link);
   text-decoration: none;
 }
 

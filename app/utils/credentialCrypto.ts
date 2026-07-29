@@ -16,6 +16,12 @@ function base64ToBytes(value: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
 function getCrypto(): Crypto {
   if (!globalThis.crypto?.subtle) {
     throw new Error("Web Crypto is not available in this browser.");
@@ -36,7 +42,7 @@ export async function deriveCredentialKey(
   const cryptoApi = getCrypto();
   const material = await cryptoApi.subtle.importKey(
     "raw",
-    new TextEncoder().encode(password),
+    bytesToArrayBuffer(new TextEncoder().encode(password)),
     "PBKDF2",
     false,
     ["deriveKey"],
@@ -45,7 +51,7 @@ export async function deriveCredentialKey(
   return cryptoApi.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: base64ToBytes(salt),
+      salt: bytesToArrayBuffer(base64ToBytes(salt)),
       iterations: KEY_DERIVATION_ITERATIONS,
       hash: "SHA-256",
     },
@@ -68,11 +74,11 @@ export async function encryptJson<T>(
   const ciphertext = await cryptoApi.subtle.encrypt(
     {
       name: "AES-GCM",
-      iv,
-      additionalData: new TextEncoder().encode(additionalData),
+      iv: bytesToArrayBuffer(iv),
+      additionalData: bytesToArrayBuffer(new TextEncoder().encode(additionalData)),
     },
     key,
-    plaintext,
+    bytesToArrayBuffer(plaintext),
   );
 
   return {
@@ -94,11 +100,11 @@ export async function decryptJson<T>(
   const plaintext = await getCrypto().subtle.decrypt(
     {
       name: "AES-GCM",
-      iv: base64ToBytes(payload.iv),
-      additionalData: new TextEncoder().encode(additionalData),
+      iv: bytesToArrayBuffer(base64ToBytes(payload.iv)),
+      additionalData: bytesToArrayBuffer(new TextEncoder().encode(additionalData)),
     },
     key,
-    base64ToBytes(payload.ciphertext),
+    bytesToArrayBuffer(base64ToBytes(payload.ciphertext)),
   );
 
   return JSON.parse(new TextDecoder().decode(plaintext)) as T;

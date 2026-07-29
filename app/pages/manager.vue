@@ -930,7 +930,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   font-size: 14px;
 }
 .count-badge {
-  background: #e8e8e8;
+  background: var(--surface-soft);
   color: var(--text-primary);
   font-size: 11px;
   font-weight: 600;
@@ -972,16 +972,16 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   font-weight: 600;
 }
 .tag-ok {
-  background: #e6f4ea;
-  color: #2d7a45;
+  background: var(--green-soft);
+  color: var(--green);
 }
 .tag-warn {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 .tag-err {
-  background: #fce8e8;
-  color: #c0392b;
+  background: var(--red-soft);
+  color: var(--red);
 }
 .expiry {
   font-size: 12px;
@@ -1010,7 +1010,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
     opacity 0.15s;
 }
 .btn-outline:hover:not(:disabled) {
-  background: var(--bg);
+  background: var(--surface-soft);
 }
 .btn-outline:disabled {
   opacity: 0.5;
@@ -1021,9 +1021,9 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  border: 1px solid #fcc;
+  border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--red);
   font-size: 12px;
   font-weight: 500;
@@ -1032,7 +1032,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   transition: background 0.15s;
 }
 .btn-danger:hover {
-  background: #fce8e8;
+  background: var(--red-soft);
 }
 /* Add form */
 .inp {
@@ -1081,7 +1081,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
 }
 .btn-sort:hover,
 .btn-sort.is-active {
-  background: #f6f6f6;
+  background: var(--surface-soft);
   border-color: var(--blue);
 }
 .popover-menu {
@@ -1096,12 +1096,12 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   transition: background 0.1s;
 }
 .popover-item:hover {
-  background: #f4f6f8;
+  background: var(--surface-soft);
 }
 .popover-item.active {
   color: var(--blue);
   font-weight: 600;
-  background: #f0f7ff;
+  background: var(--blue-soft);
 }
 .popover-divider {
   height: 1px;
@@ -1139,7 +1139,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
 .step-progress {
   margin: 0 18px 18px;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--surface-soft);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -1167,7 +1167,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   font-weight: 500;
 }
 .step-item.status-done {
-  color: #2d7a45;
+  color: var(--green);
 }
 .step-item.status-error {
   color: var(--red);
@@ -1176,7 +1176,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
 .spinner-sm {
   width: 12px;
   height: 12px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--line);
   border-top-color: var(--blue);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -1195,7 +1195,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   height: 30px;
   padding: 0 14px;
   background: var(--text-primary, #1a1a1a);
-  color: #fff;
+  color: white;
   border: none;
   border-radius: 6px;
   font-size: 13px;
@@ -1220,12 +1220,12 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   font-size: 13px;
 }
 .alert-err {
-  background: #fce8e8;
+  background: var(--red-soft);
   color: var(--red);
 }
 .alert-ok {
-  background: #e6f4ea;
-  color: #2d7a45;
+  background: var(--green-soft);
+  color: var(--green);
 }
 /* Empty */
 .empty-state {
@@ -1283,7 +1283,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   border-radius: 6px;
 }
 .btn-ghost:hover {
-  background: var(--bg);
+  background: var(--surface-soft);
 }
 
 .btn-outline :deep(svg),

@@ -44,16 +44,13 @@ async function submit() {
       aria-labelledby="vault-title"
     >
       <form class="vault-card" @submit.prevent="submit">
-        <div class="vault-mark" aria-hidden="true">SP</div>
         <p class="vault-eyebrow">{{ t("vault.eyebrow") }}</p>
         <h1 id="vault-title">
           {{ isSetup ? t("vault.setupTitle") : t("vault.unlockTitle") }}
         </h1>
         <p class="vault-description">
           {{
-            isSetup
-              ? t("vault.setupDescription")
-              : t("vault.unlockDescription")
+            isSetup ? t("vault.setupDescription") : t("vault.unlockDescription")
           }}
         </p>
 
@@ -76,7 +73,9 @@ async function submit() {
               "
               @click="showPassword = !showPassword"
             >
-              {{ showPassword ? t("vault.hidePassword") : t("vault.showPassword") }}
+              {{
+                showPassword ? t("vault.hidePassword") : t("vault.showPassword")
+              }}
             </button>
           </div>
         </label>
@@ -115,10 +114,6 @@ async function submit() {
                 : t("vault.submitUnlock")
           }}
         </button>
-
-        <div class="vault-security-note">
-          {{ t("vault.securityNote") }}
-        </div>
       </form>
     </div>
   </Transition>
@@ -140,31 +135,17 @@ async function submit() {
 
 .vault-card {
   width: min(100%, 430px);
-  padding: 32px;
+  padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 30px 90px rgba(7, 19, 12, 0.34);
 }
 
-.vault-mark {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 22px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #1f7a4d, #275c91);
-  color: white;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .vault-eyebrow {
   margin-bottom: 6px;
   color: var(--green);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -172,7 +153,7 @@ async function submit() {
 
 .vault-card h1 {
   color: var(--text);
-  font-size: clamp(24px, 5vw, 32px);
+  font-size: clamp(20px, 2vw, 28px);
   line-height: 1.15;
   letter-spacing: -0.035em;
 }
@@ -201,10 +182,12 @@ async function submit() {
   padding: 0 13px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fbfcfb;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
-  transition: border-color 0.16s, box-shadow 0.16s;
+  transition:
+    border-color 0.16s,
+    box-shadow 0.16s;
 }
 
 .vault-field input:focus {
@@ -263,13 +246,6 @@ async function submit() {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.vault-security-note {
-  margin-top: 17px;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-align: center;
 }
 
 .vault-fade-enter-active,

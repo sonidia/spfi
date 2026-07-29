@@ -159,7 +159,7 @@ function formatProductDate(value: string | undefined) {
 .products-table th {
   padding: 11px 16px;
   border-bottom: 1px solid var(--border);
-  background: #f9f9fa;
+  background: var(--surface-soft);
   color: var(--text-sub);
   text-align: left;
   font-size: 12px;

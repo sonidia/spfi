@@ -48,7 +48,10 @@ onBeforeUnmount(() => {
         <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
         <NuxtLink to="/status">{{ t("nav.status") }}</NuxtLink>
       </div>
-      <LocaleSwitcher />
+      <div class="topbar-controls">
+        <LocaleSwitcher />
+        <ThemeToggle />
+      </div>
     </div>
   </nav>
 </template>
@@ -68,10 +71,10 @@ onBeforeUnmount(() => {
     box-shadow 0.18s ease;
 }
 .topbar.is-scrolled {
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface-overlay);
   backdrop-filter: blur(14px);
   border-bottom-color: var(--line);
-  box-shadow: 0 8px 24px rgba(20, 34, 27, 0.06);
+  box-shadow: var(--shadow-soft);
 }
 .topbar-inner {
   width: min(100%, 1400px);
@@ -98,6 +101,13 @@ onBeforeUnmount(() => {
   gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.topbar-controls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 .nav-list a {
   position: relative;
@@ -163,6 +173,10 @@ onBeforeUnmount(() => {
   .topbar-inner {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .topbar-controls {
+    justify-content: center;
   }
 }
 </style>

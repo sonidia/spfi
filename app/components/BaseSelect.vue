@@ -110,7 +110,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border, #e5e5e5);
   border-radius: 6px;
   cursor: pointer;
@@ -128,7 +128,7 @@ onUnmounted(() => {
 }
 
 .is-disabled .select-trigger {
-  background: #f5f5f5;
+  background: var(--surface-soft);
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -157,10 +157,11 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 1001;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border, #e5e5e5);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  color: var(--text);
+  box-shadow: var(--shadow-soft, 0 4px 20px rgba(0, 0, 0, 0.12));
   max-height: 250px;
   overflow-y: auto;
   padding: 4px;
@@ -178,11 +179,11 @@ onUnmounted(() => {
 }
 
 .select-option:hover {
-  background: #f4f6f8;
+  background: var(--surface-soft);
 }
 
 .select-option.is-selected {
-  background: #f0f7ff;
+  background: var(--blue-soft);
   color: var(--blue, #005bd3);
   font-weight: 500;
 }

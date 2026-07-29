@@ -296,12 +296,12 @@ function getTransactionStatus(orderId: number | string | null | undefined) {
   color: var(--badge-pending-text);
 }
 .badge-partial {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 .badge-unfulfilled {
-  background: #f1f2f4;
-  color: #6d7175;
+  background: var(--surface-soft);
+  color: var(--text-sub);
 }
 
 .card {
@@ -405,7 +405,7 @@ function getTransactionStatus(orderId: number | string | null | undefined) {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-sub);
-  background: #f9f9fa;
+  background: var(--surface-soft);
   border-bottom: 1px solid var(--border);
 }
 
@@ -423,7 +423,7 @@ function getTransactionStatus(orderId: number | string | null | undefined) {
 }
 
 .order-row:hover {
-  background: #f8f9fa;
+  background: var(--surface-soft);
 }
 
 .order-link {
@@ -458,6 +458,6 @@ function getTransactionStatus(orderId: number | string | null | undefined) {
 }
 
 .order-card:hover {
-  background: #f8f9fa;
+  background: var(--surface-soft);
 }
 </style>

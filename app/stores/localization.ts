@@ -47,9 +47,10 @@ export const useLocalizationStore = defineStore("localization", () => {
 
     if (typeof window !== "undefined") {
       const storedLocale = localStorage.getItem(LOCALE_STORAGE_KEY);
-      locale.value = isLocaleCode(storedLocale || "")
-        ? storedLocale
-        : detectBrowserLocale();
+      locale.value =
+        storedLocale && isLocaleCode(storedLocale)
+          ? storedLocale
+          : detectBrowserLocale();
       syncDocumentLanguage(locale.value);
     }
 

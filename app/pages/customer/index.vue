@@ -392,7 +392,7 @@ function formatOrderTotal(value: string, currency = "USD") {
 }
 
 .customers-table th {
-  background: #f9f9fa;
+  background: var(--surface-soft);
   color: var(--text-sub);
   font-weight: 600;
 }

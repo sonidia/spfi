@@ -102,6 +102,44 @@
       </div>
     </section>
 
+    <section class="assurance-section landing-section">
+      <div class="section-heading">
+        <p class="eyebrow is-blue">{{ t("home.assuranceEyebrow") }}</p>
+        <h2>{{ t("home.assuranceTitle") }}</h2>
+        <p>
+          {{ t("home.assuranceBody") }}
+        </p>
+      </div>
+
+      <div class="assurance-grid">
+        <article
+          v-for="item in assuranceItems"
+          :key="item.title"
+          class="assurance-item"
+        >
+          <div class="assurance-icon">
+            <component :is="item.icon" />
+          </div>
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.description }}</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="metrics-strip" :aria-label="t('home.metricsEyebrow')">
+      <p class="eyebrow is-amber">{{ t("home.metricsEyebrow") }}</p>
+      <div class="metrics-grid">
+        <article
+          v-for="item in metricItems"
+          :key="item.label"
+          class="metric-card"
+        >
+          <strong>{{ item.value }}</strong>
+          <span>{{ item.label }}</span>
+        </article>
+      </div>
+    </section>
+
     <section class="runbook-section landing-section">
       <div class="section-heading section-heading-narrow">
         <p class="eyebrow is-blue">{{ t("home.flowEyebrow") }}</p>
@@ -204,6 +242,39 @@ const motivationItems = computed(() => [
     title: t("home.motivationCopyTitle"),
     description: t("home.motivationCopyDescription"),
     icon: IconsLandingUsefull,
+  },
+]);
+
+const assuranceItems = computed(() => [
+  {
+    title: t("home.assuranceVaultTitle"),
+    description: t("home.assuranceVaultDescription"),
+    icon: "IconsCheck",
+  },
+  {
+    title: t("home.assuranceRateTitle"),
+    description: t("home.assuranceRateDescription"),
+    icon: "IconsSync",
+  },
+  {
+    title: t("home.assuranceFlowTitle"),
+    description: t("home.assuranceFlowDescription"),
+    icon: "IconsRefresh",
+  },
+]);
+
+const metricItems = computed(() => [
+  {
+    value: t("home.metricStoresValue"),
+    label: t("home.metricStoresLabel"),
+  },
+  {
+    value: t("home.metricTokensValue"),
+    label: t("home.metricTokensLabel"),
+  },
+  {
+    value: t("home.metricOrdersValue"),
+    label: t("home.metricOrdersLabel"),
   },
 ]);
 
@@ -385,7 +456,7 @@ const faqItems = computed(() => [
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
-  background: #fff;
+  background: var(--surface-raised);
 }
 
 .preview-panel-large {
@@ -578,6 +649,111 @@ const faqItems = computed(() => [
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   width: 100%;
+}
+
+.assurance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.assurance-item {
+  display: grid;
+  gap: 12px;
+  min-height: 210px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--surface);
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.assurance-item:hover {
+  border-color: rgba(31, 122, 77, 0.3);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-4px);
+}
+
+.assurance-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.assurance-item:nth-child(2) .assurance-icon {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.assurance-item:nth-child(3) .assurance-icon {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.assurance-icon :deep(svg) {
+  width: 18px;
+  height: 18px;
+}
+
+.assurance-item h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.assurance-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.62;
+}
+
+.metrics-strip {
+  display: grid;
+  gap: 18px;
+  padding: 72px 0 0;
+  animation: section-rise 0.68s ease both;
+  animation-timeline: view();
+  animation-range: entry 12% cover 34%;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
+}
+
+.metric-card strong {
+  color: var(--text);
+  font-size: clamp(1.25rem, 3vw, 1.9rem);
+  line-height: 1.1;
+}
+
+.metric-card span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 800;
 }
 
 .motivation-card {
@@ -858,7 +1034,9 @@ const faqItems = computed(() => [
 @media (max-width: 980px) {
   .landing-hero,
   .quick-links,
-  .motivation-grid {
+  .motivation-grid,
+  .assurance-grid,
+  .metrics-grid {
     grid-template-columns: 1fr;
   }
 
@@ -873,6 +1051,10 @@ const faqItems = computed(() => [
 
   .landing-cta {
     margin-top: 58px;
+  }
+
+  .metrics-strip {
+    padding-top: 58px;
   }
 }
 
@@ -914,6 +1096,7 @@ const faqItems = computed(() => [
   .ops-preview,
   .quick-links,
   .landing-section,
+  .metrics-strip,
   .landing-cta,
   .line,
   .motivation-icon {

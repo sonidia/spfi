@@ -86,7 +86,7 @@ function updatePageSize(event: Event) {
   gap: 16px;
   padding: 10px 14px;
   border-top: 1px solid var(--border);
-  background: linear-gradient(180deg, #fff, #fafcfb);
+  background: linear-gradient(180deg, var(--surface), var(--surface-low));
 }
 
 .pagination-summary {
@@ -121,7 +121,7 @@ function updatePageSize(event: Event) {
   padding: 0 28px 0 9px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: white;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   cursor: pointer;
@@ -134,7 +134,7 @@ function updatePageSize(event: Event) {
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: white;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 20px;

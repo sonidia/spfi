@@ -498,7 +498,7 @@ function resolveToken(sid: string): string | null {
   color: var(--text-primary);
 }
 .breadcrumb-back:hover {
-  background: #f6f6f6;
+  background: var(--surface-soft);
 }
 .page-title {
   font-size: 1.2rem;
@@ -590,7 +590,7 @@ function resolveToken(sid: string): string | null {
   flex-wrap: wrap;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, #fff, #fbfcfb);
+  background: linear-gradient(180deg, var(--surface), var(--surface-low));
 }
 .tab-btn {
   min-height: 34px;
@@ -644,7 +644,7 @@ function resolveToken(sid: string): string | null {
   font-weight: 600;
   line-height: 1.4;
   border-radius: 999px;
-  background: #eef0f3;
+  background: var(--surface-soft);
   color: var(--text-secondary);
 }
 .tab-btn.active .tab-count {
@@ -675,12 +675,12 @@ function resolveToken(sid: string): string | null {
   color: var(--green);
 }
 :deep(.badge-pending) {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--surface-soft);
+  color: var(--text-sub);
 }
 :deep(.badge-in-transit) {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 :deep(.badge-fulfilled) {
   background: var(--badge-fulfilled);
@@ -695,12 +695,12 @@ function resolveToken(sid: string): string | null {
   color: var(--badge-cancelled-text);
 }
 :deep(.badge-partial) {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 :deep(.badge-unfulfilled) {
-  background: #f1f2f4;
-  color: #6d7175;
+  background: var(--surface-soft);
+  color: var(--text-sub);
 }
 
 /* ─── TABLE ─── */
@@ -729,7 +729,7 @@ function resolveToken(sid: string): string | null {
   border-bottom: none;
 }
 :deep(tbody tr:hover) {
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 :deep(td) {
   padding: 12px 16px;
@@ -766,7 +766,7 @@ function resolveToken(sid: string): string | null {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #3535ff;
+  background: var(--blue);
   color: white !important;
   font-size: 9px;
   font-weight: 800;
@@ -807,7 +807,7 @@ function resolveToken(sid: string): string | null {
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  background: #f9f9fa;
+  background: var(--surface-soft);
 }
 :deep(.orders-table td) {
   padding: 12px 16px;
@@ -820,7 +820,7 @@ function resolveToken(sid: string): string | null {
   transition: background 0.12s;
 }
 :deep(.order-row:hover) {
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 :deep(.order-link) {
   color: var(--blue);
@@ -889,8 +889,8 @@ function resolveToken(sid: string): string | null {
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
 }
 :deep(.btn-add-track:disabled) {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: var(--surface-soft);
+  color: var(--text-muted);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;

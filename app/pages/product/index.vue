@@ -751,7 +751,7 @@ async function removeProduct(prodId: number) {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-sub);
-  background: #f9f9fa;
+  background: var(--surface-soft);
   border-bottom: 1px solid var(--border);
 }
 .products-table td {
@@ -763,14 +763,14 @@ async function removeProduct(prodId: number) {
 }
 
 .product-row:hover {
-  background: #f8f9fa;
+  background: var(--surface-soft);
 }
 .product-row {
   cursor: pointer;
 }
 .product-row.selected,
 .product-row.selected:hover {
-  background: #f0f7ff;
+  background: var(--blue-soft);
 }
 
 .product-info-cell {
@@ -789,8 +789,8 @@ async function removeProduct(prodId: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f4f4f4;
-  color: #aaa;
+  background: var(--surface-soft);
+  color: var(--text-muted);
   font-size: 10px;
   text-align: center;
 }
@@ -843,7 +843,7 @@ async function removeProduct(prodId: number) {
   cursor: pointer;
 }
 .btn-primary-sm:hover {
-  background: #006e52;
+  filter: brightness(0.94);
 }
 
 .btn-ghost-sm {
@@ -857,13 +857,13 @@ async function removeProduct(prodId: number) {
   border-radius: 4px;
 }
 .btn-ghost-sm:hover {
-  background: #f0f7ff;
+  background: var(--blue-soft);
 }
 .btn-danger-text {
   color: var(--badge-cancelled-text);
 }
 .btn-danger-text:hover {
-  background: #fff0f0;
+  background: var(--red-soft);
 }
 
 .tags-cell {
@@ -872,15 +872,15 @@ async function removeProduct(prodId: number) {
   flex-wrap: wrap;
 }
 .tag-item {
-  background: #f1f2f4;
+  background: var(--surface-soft);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
   color: var(--text-sub);
 }
 .tag-item.more {
-  background: #e0f0ff;
-  color: #0077cc;
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 .btn-icon {
   padding: 4px;
@@ -906,7 +906,7 @@ async function removeProduct(prodId: number) {
   font-family: inherit;
 }
 .popover-item:hover {
-  background: #f8f9fa;
+  background: var(--surface-soft);
 }
 .text-danger {
   color: var(--badge-cancelled-text) !important;
@@ -971,7 +971,7 @@ async function removeProduct(prodId: number) {
   gap: 3px;
   padding: 8px;
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--surface-soft);
 }
 .detail-meta-item span {
   font-size: 11px;
@@ -1017,7 +1017,7 @@ async function removeProduct(prodId: number) {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
 }
 .variant-title,
 .location-name {
@@ -1056,8 +1056,8 @@ async function removeProduct(prodId: number) {
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 600;
-  background: #f1f2f4;
-  color: #6d7175;
+  background: var(--surface-soft);
+  color: var(--text-sub);
 }
 .location-status.active {
   background: var(--badge-paid);
@@ -1075,7 +1075,7 @@ async function removeProduct(prodId: number) {
   border-radius: 6px;
   font-size: 13px;
   color: var(--text-sub);
-  background: #f9f9fa;
+  background: var(--surface-soft);
 }
 .detail-error {
   color: var(--badge-cancelled-text);
@@ -1176,15 +1176,16 @@ async function removeProduct(prodId: number) {
 }
 .btn-outline {
   padding: 10px 16px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  color: var(--text);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
 }
 .btn-outline:hover {
-  background: #f9f9fa;
+  background: var(--surface-soft);
 }
 .btn-primary {
   padding: 10px 16px;
@@ -1197,7 +1198,7 @@ async function removeProduct(prodId: number) {
   cursor: pointer;
 }
 .btn-primary:hover {
-  background: #006e52;
+  background: var(--green);
 }
 .btn-primary:disabled {
   opacity: 0.6;

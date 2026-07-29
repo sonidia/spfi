@@ -375,7 +375,7 @@ function getOrderNumber(tx: Transaction) {
   color: var(--text-primary, #1a1a1a);
 }
 .breadcrumb-back:hover {
-  background: #f6f6f6;
+  background: var(--surface-soft);
 }
 .page-title {
   font-size: 1.2rem;
@@ -394,8 +394,8 @@ function getOrderNumber(tx: Transaction) {
 }
 .badge-deposited,
 .badge-paid {
-  background: #e3f2e1;
-  color: #128200;
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 .btn {
@@ -417,7 +417,7 @@ function getOrderNumber(tx: Transaction) {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 .btn-secondary:hover {
-  background: #f6f6f6;
+  background: var(--surface-soft);
 }
 
 .card {
@@ -441,24 +441,24 @@ function getOrderNumber(tx: Transaction) {
 }
 .overview-label {
   font-size: 13px;
-  color: #6d6d6d;
+  color: var(--text-sub);
   margin-bottom: 4px;
 }
 .overview-amount {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.5px;
-  color: #1a1a1a;
+  color: var(--text);
 }
 .overview-currency {
   font-size: 28px;
   font-weight: 300;
-  color: #6d6d6d;
+  color: var(--text-sub);
   margin-left: 4px;
 }
 .overview-provider {
   font-size: 13px;
-  color: #6d6d6d;
+  color: var(--text-sub);
   margin-top: 6px;
 }
 .overview-meta {
@@ -468,7 +468,7 @@ function getOrderNumber(tx: Transaction) {
 }
 .meta-item label {
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: block;
@@ -478,16 +478,16 @@ function getOrderNumber(tx: Transaction) {
 .meta-item span {
   font-size: 13px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--text);
 }
 .text-muted {
-  color: #8c8c8c !important;
+  color: var(--text-muted) !important;
 }
 
 .summary-title {
   font-size: 13px;
   font-weight: 600;
-  color: #6d6d6d;
+  color: var(--text-sub);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -500,20 +500,20 @@ function getOrderNumber(tx: Transaction) {
   font-size: 14px;
 }
 .summary-row:not(:last-child) {
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--border);
 }
 .summary-label {
-  color: #6d6d6d;
+  color: var(--text-sub);
   display: flex;
   align-items: center;
   gap: 4px;
 }
 .summary-value {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text);
 }
 .summary-value.neg {
-  color: #e51c00;
+  color: var(--red);
 }
 
 .table-header {
@@ -531,11 +531,11 @@ function getOrderNumber(tx: Transaction) {
   cursor: pointer;
   border: none;
   background: transparent;
-  color: #6d6d6d;
+  color: var(--text-sub);
 }
 .tab-btn.active {
-  background: #e8e8e8;
-  color: #1a1a1a;
+  background: var(--surface-soft);
+  color: var(--text);
 }
 .table-actions {
   margin-left: auto;
@@ -552,7 +552,7 @@ function getOrderNumber(tx: Transaction) {
   cursor: pointer;
   border: none;
   background: transparent;
-  color: #6d6d6d;
+  color: var(--text-sub);
 }
 
 table {
@@ -564,7 +564,7 @@ thead th {
   text-align: left;
   font-size: 12px;
   font-weight: 500;
-  color: #6d6d6d;
+  color: var(--text-sub);
   border-bottom: 1px solid var(--border, #e5e5e5);
 }
 thead th.right {
@@ -575,27 +575,27 @@ tbody tr {
   transition: background 0.12s;
 }
 tbody tr:hover {
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 td {
   padding: 12px 16px;
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text);
 }
 td.right {
   text-align: right;
 }
 .td-date {
-  color: #6d6d6d;
+  color: var(--text-sub);
 }
 .td-order a {
-  color: #0070f3;
+  color: var(--text-link);
   font-weight: 500;
 }
 .card-brand {
   display: inline-flex;
   align-items: center;
-  background: #3535ff;
+  background: var(--blue);
   color: white !important;
   font-size: 9px;
   font-weight: 800;
@@ -604,12 +604,12 @@ td.right {
   text-transform: uppercase;
 }
 .td-fee {
-  color: #e51c00;
+  color: var(--red);
 }
 .empty {
   text-align: center;
   padding: 32px;
-  color: #8c8c8c;
+  color: var(--text-muted);
   font-size: 13px;
 }
 .pagination {
@@ -628,6 +628,6 @@ td.right {
   border-radius: 6px;
   border: 1px solid var(--border, #e5e5e5);
   background: transparent;
-  color: #6d6d6d;
+  color: var(--text-sub);
 }
 </style>

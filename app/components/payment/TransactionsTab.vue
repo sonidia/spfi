@@ -294,7 +294,7 @@ function getCustomerName(tx: Transaction) {
   color: var(--text-primary);
 }
 .payout-row {
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 .payout-cell {
   display: flex;
@@ -325,7 +325,7 @@ function getCustomerName(tx: Transaction) {
   font-weight: 500;
 }
 .child-row td {
-  background: #fff;
+  background: var(--surface);
 }
 .child-row .td-date {
   color: var(--text-secondary);
@@ -339,7 +339,7 @@ function getCustomerName(tx: Transaction) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #3535ff;
+  background: var(--blue);
   color: white !important;
   font-size: 9px;
   font-weight: 800;

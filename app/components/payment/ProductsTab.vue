@@ -316,7 +316,7 @@ async function removeProduct(prodId: number) {
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  background: #f9f9fa;
+  background: var(--surface-soft);
 }
 .products-table td {
   padding: 12px 16px;
@@ -330,7 +330,7 @@ async function removeProduct(prodId: number) {
   transition: background 0.12s;
 }
 .product-row:hover {
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 
 .product-info-cell {
@@ -350,8 +350,8 @@ async function removeProduct(prodId: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f4f4f4;
-  color: #aaa;
+  background: var(--surface-soft);
+  color: var(--text-muted);
   font-size: 10px;
   text-align: center;
 }
@@ -374,15 +374,15 @@ async function removeProduct(prodId: number) {
   flex-wrap: wrap;
 }
 .tag-item {
-  background: #f1f2f4;
+  background: var(--surface-soft);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
   color: var(--text-secondary);
 }
 .tag-item.more {
-  background: #e0f0ff;
-  color: #0077cc;
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 
 .product-actions-cell {
@@ -401,7 +401,7 @@ async function removeProduct(prodId: number) {
   justify-content: center;
 }
 .btn-ghost-sm:hover {
-  background: #f0f0f0;
+  background: var(--surface-soft);
 }
 .popover-actions {
   min-width: 120px;
@@ -421,7 +421,7 @@ async function removeProduct(prodId: number) {
   font-family: inherit;
 }
 .popover-item:hover {
-  background: #f8f9fa;
+  background: var(--surface-soft);
 }
 .text-danger {
   color: var(--red) !important;
@@ -528,15 +528,16 @@ async function removeProduct(prodId: number) {
 }
 .btn-outline {
   padding: 8px 16px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  color: var(--text);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
 }
 .btn-outline:hover {
-  background: #f9f9fa;
+  background: var(--surface-soft);
 }
 .btn-primary {
   padding: 8px 16px;

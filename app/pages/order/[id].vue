@@ -581,12 +581,12 @@ const currentOrder = computed(() => {
   color: var(--badge-pending-text);
 }
 .badge-partial {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 .badge-unfulfilled {
-  background: #f1f2f4;
-  color: #6d7175;
+  background: var(--badge-archived);
+  color: var(--badge-archived-text);
 }
 
 .grid {
@@ -685,7 +685,7 @@ const currentOrder = computed(() => {
   height: 44px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #f6f6f7;
+  background: var(--surface-soft);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -821,7 +821,7 @@ const currentOrder = computed(() => {
   align-items: center;
 }
 .icon-btn:hover {
-  background: #f1f2f4;
+  background: var(--surface-soft);
 }
 .kebab {
   background: none;

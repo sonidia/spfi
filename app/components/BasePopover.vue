@@ -71,10 +71,11 @@ defineExpose({ close, toggle });
 .popover-content {
   position: absolute;
   z-index: 1000;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border, #e5e5e5);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  color: var(--text);
+  box-shadow: var(--shadow-soft, 0 4px 12px rgba(0, 0, 0, 0.1));
   min-width: 180px;
   transform-origin: top;
 }

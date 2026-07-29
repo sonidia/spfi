@@ -255,7 +255,7 @@ const copyScopes = async () => {
   padding: 48px 24px;
   font-family:
     -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  color: #1a1a1a;
+  color: var(--text);
   line-height: 1.6;
 }
 
@@ -267,8 +267,8 @@ const copyScopes = async () => {
 }
 
 .step-card {
-  background: #fff;
-  border: 1px solid #e8e8ed;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
   margin-bottom: 10px;
@@ -284,7 +284,7 @@ const copyScopes = async () => {
   align-items: center;
   gap: 14px;
   padding: 18px 22px 14px;
-  border-bottom: 1px solid #f0f0f4;
+  border-bottom: 1px solid var(--border);
 }
 
 .step-badge {
@@ -293,8 +293,8 @@ const copyScopes = async () => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #f4f3ff;
-  color: #5b47e0;
+  background: var(--blue-soft);
+  color: var(--blue);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
@@ -306,7 +306,7 @@ const copyScopes = async () => {
   font-size: 16px;
   font-weight: 600;
   margin: 0;
-  color: #111;
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -315,8 +315,8 @@ const copyScopes = async () => {
 .tab-label {
   font-size: 12px;
   font-weight: 500;
-  color: #7c6fcd;
-  background: #f0effc;
+  color: var(--blue);
+  background: var(--blue-soft);
   padding: 2px 8px;
   border-radius: 20px;
 }
@@ -328,42 +328,42 @@ const copyScopes = async () => {
 .step-body > p {
   margin: 0 0 14px;
   font-size: 14px;
-  color: #374151;
+  color: var(--text-sub);
 }
 
 /* Tags */
 .tag {
   display: inline-block;
-  background: #f5f5f7;
-  color: #333;
+  background: var(--surface-soft);
+  color: var(--text);
   font-size: 13px;
   font-weight: 500;
   padding: 1px 7px;
   border-radius: 5px;
-  border: 1px solid #e0e0e6;
+  border: 1px solid var(--border);
 }
 
 /* Code */
 .code-inline {
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 13px;
-  background: #f5f5f7;
-  color: #d63384;
+  background: var(--surface-soft);
+  color: var(--red);
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #eaeaef;
+  border: 1px solid var(--border);
 }
 
 .code-inline.highlight {
-  background: #fff5f0;
-  color: #c2410c;
-  border-color: #fddccc;
+  background: var(--amber-soft);
+  color: var(--amber);
+  border-color: var(--border);
 }
 
 /* Example block */
 .example-block {
-  background: #fafafa;
-  border: 1px solid #e8e8ed;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 16px;
   margin-top: 4px;
@@ -374,7 +374,7 @@ const copyScopes = async () => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin-bottom: 8px;
 }
 
@@ -387,12 +387,12 @@ const copyScopes = async () => {
 }
 
 .arrow {
-  color: #9ca3af;
+  color: var(--text-muted);
   font-size: 16px;
 }
 
 .example-result {
-  color: #374151;
+  color: var(--text-sub);
   font-size: 14px;
 }
 
@@ -412,7 +412,7 @@ const copyScopes = async () => {
   align-items: center;
   gap: 12px;
   font-size: 14px;
-  color: #374151;
+  color: var(--text-sub);
   counter-increment: step-counter;
 }
 
@@ -423,8 +423,8 @@ const copyScopes = async () => {
   justify-content: center;
   min-width: 22px;
   height: 22px;
-  background: #ededf5;
-  color: #7c6fcd;
+  background: var(--blue-soft);
+  color: var(--blue);
   font-size: 11px;
   font-weight: 600;
   border-radius: 50%;
@@ -436,7 +436,7 @@ const copyScopes = async () => {
   display: flex;
   flex-direction: column;
   gap: 0;
-  border: 1px solid #e8e8ed;
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -452,15 +452,15 @@ const copyScopes = async () => {
 }
 
 .config-row:not(:last-child) {
-  border-bottom: 1px solid #f0f0f4;
+  border-bottom: 1px solid var(--border);
 }
 
 .config-row:nth-child(odd) {
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 
 .config-key {
-  color: #6b7280;
+  color: var(--text-sub);
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -468,17 +468,17 @@ const copyScopes = async () => {
 .badge-off {
   font-size: 12px;
   font-weight: 500;
-  color: #b45309;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border: 1px solid var(--border);
   padding: 2px 8px;
   border-radius: 20px;
 }
 
 /* Scope block */
 .scope-block {
-  background: #f9f9fc;
-  border: 1px solid #e8e8ed;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 14px;
@@ -492,16 +492,16 @@ const copyScopes = async () => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6b7280;
+  color: var(--text-sub);
   padding: 10px 14px;
-  border-bottom: 1px solid #e8e8ed;
-  background: #f3f3f8;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft);
 }
 
 .scope-code {
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 12px;
-  color: #374151;
+  color: var(--text);
   line-height: 1.8;
   margin: 0;
   padding: 14px;
@@ -515,17 +515,17 @@ const copyScopes = async () => {
   align-items: center;
   gap: 8px;
   font-size: 13.5px;
-  color: #4b5563;
-  background: #f0effc;
+  color: var(--text-sub);
+  background: var(--blue-soft);
   padding: 10px 14px;
   border-radius: 8px;
-  border-left: 3px solid #7c6fcd;
+  border-left: 3px solid var(--blue);
 }
 
 .action-icon {
   display: flex;
   align-items: center;
-  color: #7c6fcd;
+  color: var(--blue);
   flex-shrink: 0;
 }
 
@@ -541,8 +541,8 @@ const copyScopes = async () => {
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  background: #fafafa;
-  border: 1px solid #e8e8ed;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
   border-radius: 10px;
   width: 50%;
 }
@@ -550,8 +550,8 @@ const copyScopes = async () => {
 .credential-icon {
   width: 40px;
   height: 40px;
-  background: #f0effc;
-  color: #5b47e0;
+  background: var(--blue-soft);
+  color: var(--blue);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -565,13 +565,13 @@ const copyScopes = async () => {
 .credential-name {
   font-size: 14px;
   font-weight: 600;
-  color: #111;
+  color: var(--text);
   margin-bottom: 2px;
 }
 
 .credential-hint {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 /* Note card */
@@ -579,8 +579,8 @@ const copyScopes = async () => {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--green-soft);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px 20px;
   margin-top: 12px;
@@ -592,8 +592,8 @@ const copyScopes = async () => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--green-soft);
+  color: var(--green);
   border-radius: 8px;
   flex-shrink: 0;
 }
@@ -601,14 +601,14 @@ const copyScopes = async () => {
 .note-title {
   font-size: 13px;
   font-weight: 600;
-  color: #15803d;
+  color: var(--green);
   margin-bottom: 6px;
 }
 
 .note-format {
-  background: #fff;
-  border-color: #bbf7d0;
-  color: #166534;
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--green);
   font-size: 13px;
 }
 
@@ -665,9 +665,9 @@ const copyScopes = async () => {
 
 .expand-btn {
   pointer-events: auto;
-  border: 1px solid #e2e2e9;
-  background: #fff;
-  color: #5b47e0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--blue);
   padding: 10px 20px;
   border-radius: 20px;
   cursor: pointer;
@@ -683,8 +683,8 @@ const copyScopes = async () => {
 .expand-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(91, 71, 224, 0.18);
-  background: #f4f3ff;
-  border-color: #5b47e0;
+  background: var(--blue-soft);
+  border-color: var(--blue);
 }
 
 .expand-icon {
@@ -704,8 +704,8 @@ const copyScopes = async () => {
   right: 6px;
   width: 30px;
   height: 30px;
-  background: #fff;
-  border: 1px solid #e2e2e9;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -717,8 +717,8 @@ const copyScopes = async () => {
 }
 
 .copy-button:hover {
-  background: #f0fdf4;
-  border-color: #10ac00;
+  background: var(--green-soft);
+  border-color: var(--green);
   transform: scale(1.05);
   box-shadow: 0 4px 10px rgba(16, 172, 0, 0.1);
 }
@@ -726,8 +726,8 @@ const copyScopes = async () => {
 .copy-button.copied {
   width: auto;
   padding: 0 10px;
-  border-color: #10ac00;
-  background: #f0fdf4;
+  border-color: var(--green);
+  background: var(--green-soft);
 }
 
 .copy-icon {
@@ -739,7 +739,7 @@ const copyScopes = async () => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #10ac00;
+  color: var(--green);
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;

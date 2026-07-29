@@ -77,7 +77,7 @@ function onOverlayClick(event: MouseEvent) {
   height: 30px;
   border: 1px solid var(--border, #e5e5e5);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface, #fff);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -85,7 +85,7 @@ function onOverlayClick(event: MouseEvent) {
 }
 
 .modal-close:hover {
-  background: #f6f6f6;
+  background: var(--surface-soft, #f6f6f6);
 }
 
 .modal-body {

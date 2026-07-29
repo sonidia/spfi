@@ -244,7 +244,7 @@ const groupedEvents = computed(() => {
 .timeline-wrap {
   font-size: 14px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #1a1a1a;
+  color: var(--text);
   padding: 0.5rem 0;
 }
 
@@ -252,7 +252,7 @@ const groupedEvents = computed(() => {
 .date-label {
   font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-sub);
   letter-spacing: 0.04em;
   margin: 1.5rem 0 0.5rem 28px;
 }
@@ -277,14 +277,14 @@ const groupedEvents = computed(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #9ca3af;
+  background: var(--text-muted);
   flex-shrink: 0;
 }
 .dot.success {
-  background: #1d9e75;
+  background: var(--green);
 }
 .dot.info {
-  background: #378add;
+  background: var(--blue);
 }
 
 /* ── content area ───────────────────────────────────── */
@@ -301,13 +301,13 @@ const groupedEvents = computed(() => {
 
 .event-text {
   flex: 1;
-  color: #1a1a1a;
+  color: var(--text);
   line-height: 1.55;
 }
 
 .event-time {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-sub);
   white-space: nowrap;
   padding-top: 2px;
 }
@@ -315,29 +315,29 @@ const groupedEvents = computed(() => {
 /* ── payout badge ───────────────────────────────────── */
 .payout-tag {
   display: inline-block;
-  background: #f3f4f6;
-  border: 0.5px solid #d1d5db;
+  background: var(--blue-soft);
+  border: 0.5px solid var(--border);
   border-radius: 6px;
   padding: 1px 7px;
   font-size: 12px;
-  color: #2563eb;
+  color: var(--blue);
   margin: 0 3px;
   vertical-align: middle;
 }
 
 /* ── buttons ────────────────────────────────────────── */
 .action-btn {
-  border: 0.5px solid #d1d5db;
+  border: 0.5px solid var(--border);
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text);
   background: transparent;
   cursor: pointer;
   transition: background 0.15s;
 }
 .action-btn:hover {
-  background: #f3f4f6;
+  background: var(--surface-soft);
 }
 
 .expand-btn {
@@ -353,7 +353,7 @@ const groupedEvents = computed(() => {
 .chevron {
   display: inline-block;
   font-size: 16px;
-  color: #6b7280;
+  color: var(--text-sub);
   line-height: 1;
   transform: rotate(90deg);
   transition: transform 0.2s ease;
@@ -364,8 +364,8 @@ const groupedEvents = computed(() => {
 
 /* ── detail box ─────────────────────────────────────── */
 .detail-box {
-  background: #f9fafb;
-  border: 0.5px solid #e5e7eb;
+  background: var(--surface-soft);
+  border: 0.5px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
   margin-top: 6px;
@@ -376,58 +376,19 @@ const groupedEvents = computed(() => {
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
-  border-bottom: 0.5px solid #f0f0f0;
+  border-bottom: 0.5px solid var(--border);
 }
 .detail-row:last-child {
   border-bottom: none;
 }
 
 .detail-label {
-  color: #6b7280;
+  color: var(--text-sub);
 }
 .detail-value {
-  color: #1a1a1a;
+  color: var(--text);
   font-weight: 500;
 }
 
 /* ── dark mode ──────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  .timeline-wrap {
-    color: #f3f4f6;
-  }
-  .date-label {
-    color: #9ca3af;
-  }
-  .event-text {
-    color: #f3f4f6;
-  }
-  .event-time {
-    color: #9ca3af;
-  }
-  .payout-tag {
-    background: #1f2937;
-    border-color: #374151;
-    color: #60a5fa;
-  }
-  .action-btn {
-    color: #f3f4f6;
-    border-color: #374151;
-  }
-  .action-btn:hover {
-    background: #1f2937;
-  }
-  .detail-box {
-    background: #1f2937;
-    border-color: #374151;
-  }
-  .detail-row {
-    border-bottom-color: #374151;
-  }
-  .detail-label {
-    color: #9ca3af;
-  }
-  .detail-value {
-    color: #f3f4f6;
-  }
-}
 </style>

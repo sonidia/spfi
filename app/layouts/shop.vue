@@ -1079,7 +1079,7 @@ function deleteStoreOption(id: string) {
   transition: background 0.1s;
 }
 .popover-item:hover {
-  background: #f6f6f6;
+  background: var(--surface-soft);
 }
 
 .sidebar-content {
@@ -1104,7 +1104,7 @@ function deleteStoreOption(id: string) {
 }
 
 .sidebar-item:hover {
-  background: var(--bg);
+  background: var(--surface-soft);
 }
 
 .sidebar-item.active {
@@ -1456,9 +1456,10 @@ function deleteStoreOption(id: string) {
 }
 .btn-outline {
   padding: 8px 16px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  color: var(--text);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1469,12 +1470,12 @@ function deleteStoreOption(id: string) {
   font-size: 13px;
 }
 .alert-err {
-  background: #fce8e8;
-  color: #c0392b;
+  background: var(--red-soft);
+  color: var(--red);
 }
 .alert-ok {
-  background: #e4f2e8;
-  color: #1a7f37;
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 /* Step Progress */
@@ -1484,15 +1485,16 @@ function deleteStoreOption(id: string) {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--surface-soft);
   border-radius: 8px;
+  border: 1px solid var(--border);
 }
 .step-item {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: #666;
+  color: var(--text-sub);
 }
 .step-icon {
   width: 20px;
@@ -1506,16 +1508,16 @@ function deleteStoreOption(id: string) {
   font-weight: 600;
 }
 .status-done {
-  color: #1a7f37;
+  color: var(--green);
 }
 .status-error {
-  color: #c0392b;
+  color: var(--red);
 }
 
 .spinner-sm {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--line);
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
