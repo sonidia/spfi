@@ -8,6 +8,7 @@ useTokenRotation();
 
 <template>
   <main class="app-root">
+    <CredentialUnlock />
     <LoadingOverlay :visible="loading" />
     <BaseToast />
     <Nav />

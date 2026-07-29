@@ -3,16 +3,15 @@ import {
   useSheetService,
   type ProxySheetRow,
 } from "~/composables/useSheetService";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
+import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
-import type {
-  ShopifyAccessTokenResponse,
-  StoreLocalData,
-} from "~~/types/shopify";
-import { getAppErrorMessage } from "~~/utils/error";
 import { useLoading } from "../composables/useLoading";
 import { useCustomerStore } from "../stores/customers";
 import { useFormStore } from "../stores/form";
+import { useLocationStore } from "../stores/locations";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
@@ -21,7 +20,9 @@ import { useShopProfileStore } from "../stores/shopProfile";
 const { SPF_SHEET_URL } = getSheetUrls();
 
 const formStore = useFormStore();
+const credentialVault = useCredentialVaultStore();
 const customerStore = useCustomerStore();
+const locationStore = useLocationStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
@@ -35,7 +36,7 @@ const hasSkippedInitialActivation = ref(false);
 
 onMounted(() => {
   formStore.loadKnownStores();
-  syncShopFromRoute(true);
+  if (credentialVault.isUnlocked) syncShopFromRoute(true);
 });
 
 onActivated(() => {
@@ -81,6 +82,7 @@ watch(
       newPath.startsWith("/order") ||
       newPath.startsWith("/payment") ||
       newPath === "/customer" ||
+      newPath === "/product" ||
       newPath === "/profile"
     ) {
       fetchCurrent();
@@ -111,6 +113,15 @@ watch(
   },
 );
 
+watch(
+  () => credentialVault.isUnlocked,
+  (unlocked) => {
+    if (unlocked && isLayoutActive.value) {
+      syncShopFromRoute(true);
+    }
+  },
+);
+
 // ── Shop selector ────────────────────────────────────────────────────────────
 function hydrateStoreData(storeId: string) {
   const hasOrders = orderStore.hydrate(storeId);
@@ -121,6 +132,9 @@ function hydrateStoreData(storeId: string) {
 
   const hasProducts = productStore.hydrate(storeId);
   if (!hasProducts) productStore.$reset();
+
+  const hasLocations = locationStore.hydrate(storeId);
+  if (!hasLocations) locationStore.$reset();
 
   const hasCustomers = customerStore.hydrate(storeId);
   if (!hasCustomers) customerStore.$reset();
@@ -140,12 +154,15 @@ function getRouteShop() {
 }
 
 function syncShopFromRoute(shouldFetch = false) {
-  const queryShop = getRouteShop();
+  let queryShop = getRouteShop();
 
   if (!queryShop) {
-    // If no query shop, we don't auto-select from cookie anymore.
-    formStore.storeId = "";
-    return;
+    queryShop =
+      formStore.storeId ||
+      useLocalStorage("active_store_id", "").state.value ||
+      "";
+    if (!queryShop) return;
+    router.replace({ query: { ...route.query, shop: queryShop } });
   }
 
   const didChangeShop = formStore.storeId !== queryShop;
@@ -162,6 +179,13 @@ function syncShopFromRoute(shouldFetch = false) {
 }
 
 function onSelectStore(id: string) {
+  if (formStore.storeId === id) {
+    if (getRouteShop() !== id) {
+      router.replace({ query: { ...route.query, shop: id } });
+    }
+    return;
+  }
+
   formStore.storeId = id;
   useLocalStorage("active_store_id", "").state.value = id;
 
@@ -170,14 +194,12 @@ function onSelectStore(id: string) {
 
   // Hydrate cached data for quick switch, fallback to reset
   hydrateStoreData(id);
-  fetchCurrent();
 }
 
 // ── Resolve valid token for current storeId ──────────────────────────────────
 function resolveToken(sid: string): string | null {
   if (!sid) return null;
-  const storeCookie = useLocalStorage<StoreLocalData>(sid, {}).state;
-  const data = storeCookie.value;
+  const data = credentialVault.getStoreData(sid);
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
     return data.accessToken;
@@ -218,6 +240,10 @@ function fetchCurrent(force = false) {
     if (force || !paymentStore.hasFetchedAll) {
       paymentStore.fetchAll(sid, token, force);
     }
+    paymentStore.fetchBalanceTransactions(sid, token, force);
+    if (force || !orderStore.hasFetchedAll) {
+      orderStore.fetchAll(sid, token, force);
+    }
   } else if (route.path === "/payment/transactions") {
     paymentStore.fetchBalanceTransactions(sid, token, force);
   } else if (route.path.startsWith("/payment/payout/")) {
@@ -244,8 +270,17 @@ function fetchCurrent(force = false) {
 // ── Get domain label for store select ────────────────────────────────────────
 function getStoreDomain(id: string): string {
   if (!id) return "";
-  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-  return cookie.value?.domain || "";
+  return credentialVault.getPublicStoreData(id).domain || "";
+}
+
+function getStoreInitials(id: string): string {
+  const label = getStoreDomain(id) || id;
+  return (
+    label
+      .replace(/^https?:\/\//, "")
+      .charAt(0)
+      .toUpperCase() || "S"
+  );
 }
 
 // ── Search functionality ─────────────────────────────────────────────────────
@@ -426,13 +461,13 @@ async function addShop() {
         const res = await $fetch<ShopifyAccessTokenResponse>(
           "/api/generate-token",
           {
-          method: "POST",
-          body: {
-            storeId: sId,
-            clientId: cId,
-            clientSecret: cSec,
-            sock: sock,
-          },
+            method: "POST",
+            body: {
+              storeId: sId,
+              clientId: cId,
+              clientSecret: cSec,
+              sock: sock,
+            },
           },
         );
 
@@ -445,19 +480,14 @@ async function addShop() {
         setStep("DONE", "active");
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        const cookie = useLocalStorage<StoreLocalData>(
-          sId,
-          {},
-          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
-        ).state;
-        cookie.value = {
+        await credentialVault.saveStoreData(sId, {
           clientId: cId,
           clientSecret: cSec,
           accessToken: res.access_token,
           expiresTime,
           domain: domain,
           sock: sock,
-        };
+        });
 
         formStore.addKnownStore(sId);
         if (domains.length === 1) {
@@ -511,9 +541,7 @@ function handlePaste(event: ClipboardEvent) {
 function deleteStoreOption(id: string) {
   if (confirm(`Are you sure you want to delete store ${id}?`)) {
     formStore.removeKnownStore(id);
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem(id);
-    }
+    credentialVault.removeStoreData(id);
   }
 }
 </script>
@@ -522,6 +550,13 @@ function deleteStoreOption(id: string) {
   <div class="shop-layout-container" :class="{ 'is-single-panel': noStores }">
     <!-- Sidebar Navigation -->
     <aside v-if="!noStores" class="sidebar">
+      <div class="sidebar-overview">
+        <div>
+          <span>Workspace</span>
+          <strong>Connected stores</strong>
+        </div>
+        <span class="store-count">{{ formStore.knownStores.length }}</span>
+      </div>
       <div class="sidebar-header">
         <button
           class="btn-sidebar-add"
@@ -570,7 +605,11 @@ function deleteStoreOption(id: string) {
             }"
           >
             <div class="sidebar-item-label" @click="onSelectStore(id)">
-              {{ getStoreDomain(id) || id }}
+              <span class="store-mark">{{ getStoreInitials(id) }}</span>
+              <span class="store-copy">
+                <strong>{{ getStoreDomain(id) || id }}</strong>
+                <small>{{ id }}</small>
+              </span>
             </div>
             <div class="sidebar-item-action-wrapper">
               <div @click.stop class="sidebar-item-actions">
@@ -624,6 +663,14 @@ function deleteStoreOption(id: string) {
         </div>
 
         <div class="shop-bar-right">
+          <button
+            class="btn-lock"
+            type="button"
+            title="Lock local credentials"
+            @click="credentialVault.lock"
+          >
+            Lock
+          </button>
           <button
             v-if="formStore.storeId"
             class="btn-fetch"
@@ -885,13 +932,53 @@ function deleteStoreOption(id: string) {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  margin: 12px 0px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
   overflow: hidden;
   max-height: calc(100vh - 64px - var(--footer-height, 36px));
 }
 
+.sidebar-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 14px 10px;
+}
+
+.sidebar-overview > div {
+  display: grid;
+  gap: 1px;
+}
+
+.sidebar-overview span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar-overview strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.sidebar-overview .store-count {
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+}
+
 .sidebar-header {
-  padding: 6px 4px;
+  padding: 6px 10px 10px;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -999,14 +1086,15 @@ function deleteStoreOption(id: string) {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 4px;
+  padding: 4px 8px 10px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 10px;
+  min-height: 48px;
+  padding: 5px 8px;
   gap: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1022,16 +1110,58 @@ function deleteStoreOption(id: string) {
 .sidebar-item.active {
   background: var(--badge-paid);
   color: var(--badge-paid-text);
-  border-color: (--badge-paid-border);
+  border-color: var(--badge-paid-border);
 }
 
 .sidebar-item-label {
   width: 100%;
-  font-size: 13.5px;
-  font-weight: 500;
-  white-space: nowrap;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.store-mark {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(31, 122, 77, 0.12);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.sidebar-item.active .store-mark {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.store-copy {
+  min-width: 0;
+  display: grid;
+  line-height: 1.25;
+}
+
+.store-copy strong,
+.store-copy small {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-copy strong {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.store-copy small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .sidebar-empty {
@@ -1054,7 +1184,8 @@ function deleteStoreOption(id: string) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(217, 228, 221, 0.72);
 }
 
 .shop-bar-left {
@@ -1088,6 +1219,24 @@ function deleteStoreOption(id: string) {
   font-weight: 600;
   cursor: pointer;
   transition: filter 0.2s;
+}
+
+.btn-lock {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-lock:hover {
+  border-color: rgba(31, 122, 77, 0.35);
+  color: var(--green);
 }
 
 .btn-fetch:hover:not(:disabled) {
@@ -1155,6 +1304,9 @@ function deleteStoreOption(id: string) {
   .shop-layout-container {
     flex-direction: column;
     padding: 0 12px;
+    min-height: auto;
+    max-height: none;
+    overflow: visible !important;
   }
 
   .shop-layout-container.is-single-panel .main-content {
@@ -1163,7 +1315,27 @@ function deleteStoreOption(id: string) {
 
   .sidebar {
     width: 100%;
-    max-height: 200px;
+    max-height: 230px;
+    margin-bottom: 0;
+  }
+
+  .page-content {
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  .shop-bar {
+    align-items: flex-start;
+  }
+
+  .title-container {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .title-container > svg {
+    display: none;
   }
 }
 

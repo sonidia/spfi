@@ -3,11 +3,9 @@ import {
   useSheetService,
   type ProxySheetRow,
 } from "~/composables/useSheetService";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
-import type {
-  ShopifyAccessTokenResponse,
-  StoreLocalData,
-} from "~~/types/shopify";
+import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
 import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
@@ -17,6 +15,7 @@ const { SPF_SHEET_URL } = getSheetUrls();
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
+const credentialVault = useCredentialVaultStore();
 
 // ── Local state ───────────────────────────────────────────────────────────────
 const newStoreId = ref("");
@@ -123,8 +122,7 @@ interface StoreInfo {
 }
 
 function getStoreInfo(id: string): StoreInfo {
-  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-  const data = cookie.value;
+  const data = credentialVault.getStoreData(id);
   if (!data || typeof data !== "object") {
     return {
       id,
@@ -171,10 +169,8 @@ const filteredStoreList = computed(() => {
     if (sortOrder.value === "domain_desc")
       return b.domain.localeCompare(a.domain);
 
-    const cookieA = useLocalStorage<StoreLocalData>(a.id, {}).state.value;
-    const cookieB = useLocalStorage<StoreLocalData>(b.id, {}).state.value;
-    const timeA = cookieA.expiresTime || 0;
-    const timeB = cookieB.expiresTime || 0;
+    const timeA = credentialVault.getStoreData(a.id).expiresTime || 0;
+    const timeB = credentialVault.getStoreData(b.id).expiresTime || 0;
 
     if (sortOrder.value === "expiry_asc") return timeA - timeB;
     if (sortOrder.value === "expiry_desc") return timeB - timeA;
@@ -190,9 +186,7 @@ function deleteStore(id: string) {
   if (!confirm(`Are you sure you want to delete store ${id}?`)) return;
 
   formStore.removeKnownStore(id);
-  if (typeof localStorage !== "undefined") {
-    localStorage.removeItem(id);
-  }
+  credentialVault.removeStoreData(id);
 }
 
 // ── Edit store ───────────────────────────────────────────────────────────────
@@ -205,8 +199,7 @@ const editClientSecret = ref("");
 const editError = ref("");
 
 function openEditModal(id: string) {
-  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-  const data = cookie.value || {};
+  const data = credentialVault.getStoreData(id);
 
   editingStoreId.value = id;
   editDomain.value = data.domain || "";
@@ -227,30 +220,24 @@ function closeEditModal() {
   editError.value = "";
 }
 
-function saveEditedStore() {
+async function saveEditedStore() {
   if (!editingStoreId.value) return;
 
   const id = editingStoreId.value;
-  const cookie = useLocalStorage<StoreLocalData>(
-    id,
-    {},
-    { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
-  ).state;
-  const previous =
-    cookie.value && typeof cookie.value === "object" ? cookie.value : {};
+  const previous = credentialVault.getStoreData(id);
 
   if (!editClientId.value.trim() || !editClientSecret.value.trim()) {
     editError.value = "Client ID và Client Secret không được để trống.";
     return;
   }
 
-  cookie.value = {
+  await credentialVault.saveStoreData(id, {
     ...previous,
     domain: editDomain.value.trim(),
     sock: editSock.value.trim(),
     clientId: editClientId.value.trim(),
     clientSecret: editClientSecret.value.trim(),
-  };
+  });
 
   genSuccess.value = `Store \"${id}\" updated successfully.`;
   editError.value = "";
@@ -374,19 +361,14 @@ async function addShop() {
         setStep("DONE", "active");
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        const cookie = useLocalStorage<StoreLocalData>(
-          sId,
-          {},
-          { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
-        ).state;
-        cookie.value = {
+        await credentialVault.saveStoreData(sId, {
           clientId: cId,
           clientSecret: cSec,
           accessToken: res.access_token,
           expiresTime,
           domain: domain,
           sock: sock,
-        };
+        });
 
         formStore.addKnownStore(sId);
         if (domains.length === 1) {
@@ -421,8 +403,7 @@ async function addShop() {
 }
 
 async function rotateToken(id: string) {
-  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-  const data = cookie.value;
+  const data = credentialVault.getStoreData(id);
 
   if (!data?.clientId || !data?.clientSecret) {
     alert("Missing client ID or secret for this store. Please re-add it.");
@@ -444,11 +425,10 @@ async function rotateToken(id: string) {
     if (res?.access_token) {
       const now = Date.now();
       const expiresTime = now + 24 * 60 * 60 * 1000;
-      cookie.value = {
-        ...data,
+      await credentialVault.patchStoreData(id, {
         accessToken: res.access_token,
         expiresTime,
-      };
+      });
     } else {
       throw new Error("Failed to rotate token");
     }
@@ -472,8 +452,7 @@ function handlePaste(event: ClipboardEvent) {
 }
 
 async function testProxy(id: string) {
-  const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-  const data = cookie.value;
+  const data = credentialVault.getStoreData(id);
   if (!data?.sock) {
     alert("No sock/proxy information found for this store.");
     return;

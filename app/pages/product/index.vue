@@ -432,18 +432,19 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import type {
   ShopifyLocation,
   ShopifyProduct,
-  StoreLocalData,
 } from "~~/types/shopify";
 
 definePageMeta({ layout: false });
 
 const productStore = useProductStore();
 const formStore = useFormStore();
+const credentialVault = useCredentialVaultStore();
 const {
   locations,
   inventoryLevels,
@@ -636,8 +637,7 @@ watch(
 
 async function createProduct() {
   const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
-  const token = cookie?.value?.accessToken;
+  const token = sid ? credentialVault.getStoreData(sid).accessToken : null;
 
   if (!sid || !token) {
     alert("Store ID or Access Token is missing.");
@@ -673,8 +673,7 @@ function openEditModal(prod: ShopifyProduct) {
 
 async function saveEditProduct() {
   const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
-  const token = cookie?.value?.accessToken;
+  const token = sid ? credentialVault.getStoreData(sid).accessToken : null;
 
   if (!sid || !token || !editProduct.value.id) return;
 
@@ -698,8 +697,7 @@ async function saveEditProduct() {
 async function removeProduct(prodId: number) {
   if (!confirm("Are you sure you want to delete this product?")) return;
   const sid = formStore.storeId;
-  const cookie = sid ? useLocalStorage<StoreLocalData>(sid, {}).state : null;
-  const token = cookie?.value?.accessToken;
+  const token = sid ? credentialVault.getStoreData(sid).accessToken : null;
 
   if (!sid || !token) return;
 

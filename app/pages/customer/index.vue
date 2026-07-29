@@ -8,7 +8,9 @@
       <div class="page-toolbar">
         <div>
           <div class="page-meta">
-            {{ customers.length }} customer{{ customers.length === 1 ? "" : "s" }}
+            {{ customers.length }} customer{{
+              customers.length === 1 ? "" : "s"
+            }}
           </div>
           <div v-if="activeQuery" class="search-summary">
             Results for “{{ activeQuery }}”
@@ -39,7 +41,10 @@
       <div v-if="isLoading && !customers.length" class="state-message">
         Loading customers…
       </div>
-      <div v-else-if="error && !customers.length" class="state-message is-error">
+      <div
+        v-else-if="error && !customers.length"
+        class="state-message is-error"
+      >
         {{ error }}
       </div>
       <template v-else>
@@ -63,7 +68,9 @@
                   v-for="customer in customers"
                   :key="customer.id"
                   class="customer-row"
-                  :class="{ 'is-selected': customer.id === selectedCustomer?.id }"
+                  :class="{
+                    'is-selected': customer.id === selectedCustomer?.id,
+                  }"
                   @click="customer.id && selectCustomer(customer.id)"
                 >
                   <td>
@@ -71,7 +78,9 @@
                       <span class="avatar">{{ getInitials(customer) }}</span>
                       <span>
                         <strong>{{ getCustomerName(customer) }}</strong>
-                        <small>{{ customer.email || customer.phone || "No contact" }}</small>
+                        <small>{{
+                          customer.email || customer.phone || "No contact"
+                        }}</small>
                       </span>
                     </div>
                   </td>
@@ -177,7 +186,9 @@
                   }"
                 >
                   <span>
-                    <strong>{{ order.name || `#${order.order_number}` }}</strong>
+                    <strong>{{
+                      order.name || `#${order.order_number}`
+                    }}</strong>
                     <small>{{ formatDate(order.created_at) }}</small>
                   </span>
                   <span class="order-total">
@@ -185,7 +196,9 @@
                   </span>
                 </NuxtLink>
               </div>
-              <div v-else class="empty-orders">This customer has no orders.</div>
+              <div v-else class="empty-orders">
+                This customer has no orders.
+              </div>
             </div>
           </template>
         </section>
@@ -353,7 +366,6 @@ function formatOrderTotal(value: string, currency = "USD") {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .table-card {

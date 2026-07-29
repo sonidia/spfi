@@ -1,5 +1,6 @@
 import { useFormStore } from "~/stores/form";
-import type { ShopifyAccessTokenResponse, StoreLocalData } from "~~/types/shopify";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
+import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 
 type IdleDeadlineLike = {
   didTimeout: boolean;
@@ -22,6 +23,7 @@ const TOKEN_ROTATION_RETRY_DELAY_MS = 60 * 1000;
 
 export function useTokenRotation() {
   const formStore = useFormStore();
+  const credentialVault = useCredentialVaultStore();
   const rotatingIds = ref<Record<string, boolean>>({});
   let rotationTimer: ReturnType<typeof setTimeout> | null = null;
   let idleCallbackHandle: number | null = null;
@@ -29,12 +31,7 @@ export function useTokenRotation() {
   let isDisposed = false;
 
   async function rotateToken(id: string) {
-    const cookie = useLocalStorage<StoreLocalData>(
-      id,
-      {},
-      { ttl: 60 * 60 * 24 * 365 * 10 * 1000 },
-    ).state;
-    const data = cookie.value;
+    const data = credentialVault.getStoreData(id);
 
     if (!data?.clientId || !data?.clientSecret) {
       console.warn(
@@ -61,11 +58,10 @@ export function useTokenRotation() {
       if (res?.access_token) {
         const now = Date.now();
         const expiresTime = now + 24 * 60 * 60 * 1000;
-        cookie.value = {
-          ...data,
+        await credentialVault.patchStoreData(id, {
           accessToken: res.access_token,
           expiresTime,
-        };
+        });
         console.log(`Successfully rotated token for store: ${id}`);
       } else {
         throw new Error("Failed to rotate token");
@@ -122,8 +118,7 @@ export function useTokenRotation() {
     }
 
     formStore.knownStores.forEach((id) => {
-      const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-      const data = cookie.value;
+      const data = credentialVault.getStoreData(id);
 
       if (!data || typeof data !== "object" || !data.accessToken) {
         return;
@@ -167,6 +162,7 @@ export function useTokenRotation() {
   async function checkAndRotate() {
     if (typeof window === "undefined") return;
     if (!isDocumentVisible()) return;
+    if (!credentialVault.isUnlocked) return;
 
     if (formStore.knownStores.length === 0) {
       formStore.loadKnownStores();
@@ -176,8 +172,7 @@ export function useTokenRotation() {
     const rotationTasks: Promise<void>[] = [];
 
     formStore.knownStores.forEach((id) => {
-      const cookie = useLocalStorage<StoreLocalData>(id, {}).state;
-      const data = cookie.value;
+      const data = credentialVault.getStoreData(id);
 
       if (data && typeof data === "object" && data.accessToken) {
         const expired =
@@ -211,10 +206,13 @@ export function useTokenRotation() {
 
   onMounted(() => {
     stopKnownStoresWatch = watch(
-      () => formStore.knownStores.join("|"),
-      () => scheduleNextCheck(0),
+      [() => formStore.knownStores.join("|"), () => credentialVault.isUnlocked],
+      ([, unlocked]) => {
+        if (unlocked) scheduleNextCheck(0);
+        else clearScheduledRotation();
+      },
     );
-    scheduleNextCheck(0);
+    if (credentialVault.isUnlocked) scheduleNextCheck(0);
 
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", handleVisibilityChange);

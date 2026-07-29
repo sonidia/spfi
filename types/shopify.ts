@@ -26,9 +26,31 @@ export interface StoreLocalData {
   domain?: string;
   sock?: string;
   clientId?: string;
+  /**
+   * Legacy plaintext fields. They are read only during the one-time vault
+   * migration and are never written back to localStorage.
+   */
   clientSecret?: string;
   accessToken?: string;
   expiresTime?: number;
+  encryptedCredentials?: EncryptedPayload;
+}
+
+export interface StoreCredentials {
+  clientSecret?: string;
+  accessToken?: string;
+}
+
+export interface EncryptedPayload {
+  version: 1;
+  iv: string;
+  ciphertext: string;
+}
+
+export interface CredentialVaultMetadata {
+  version: 1;
+  salt: string;
+  verifier: EncryptedPayload;
 }
 
 export interface ShopifyMoneySet {

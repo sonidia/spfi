@@ -33,7 +33,7 @@
             </thead>
             <tbody>
               <tr
-                v-for="(order, index) in orders"
+                v-for="(order, index) in paginatedOrders"
                 :key="order.id || index"
                 @click="$router.push(`/order/${order.id}`)"
                 class="order-row"
@@ -181,6 +181,15 @@
               </tr>
             </tbody>
           </table>
+          <PaginationControls
+            v-if="orders.length"
+            :page="orderStore.currentPage"
+            :page-size="orderStore.pageSize"
+            :total-items="orders.length"
+            item-label="orders"
+            @update:page="orderStore.setPage"
+            @update:page-size="orderStore.setPageSize"
+          />
         </div>
       </div>
     </div>
@@ -188,11 +197,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
-import { useFormStore } from "~/stores/form";
+import { computed, watch } from "vue";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
-import type { StoreLocalData } from "~~/types/shopify";
 import {
   financialBadge,
   fmtDateTime,
@@ -208,9 +215,22 @@ definePageMeta({ layout: false });
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
-const formStore = useFormStore();
 
 const orders = computed(() => orderStore.orders);
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(orders.value.length / orderStore.pageSize)),
+);
+const paginatedOrders = computed(() => {
+  const page = Math.min(orderStore.currentPage, totalPages.value);
+  const start = (page - 1) * orderStore.pageSize;
+  return orders.value.slice(start, start + orderStore.pageSize);
+});
+
+watch(totalPages, (pageCount) => {
+  if (orderStore.currentPage > pageCount) {
+    orderStore.setPage(pageCount);
+  }
+});
 
 function getTransactionStatus(orderId: number | string | null | undefined) {
   if (!orderId) return null;
@@ -219,21 +239,6 @@ function getTransactionStatus(orderId: number | string | null | undefined) {
   );
   return tx?.payout_status || null;
 }
-
-onMounted(() => {
-  if (orderStore.orders.length) {
-    orderStore.error = null;
-  }
-
-  const sid = formStore.storeId;
-  if (sid) {
-    const cookie = useLocalStorage<StoreLocalData>(sid, {}).state;
-    const token = cookie.value?.accessToken;
-    if (token) {
-      paymentStore.fetchBalanceTransactions(sid, token);
-    }
-  }
-});
 
 </script>
 

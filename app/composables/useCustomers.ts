@@ -1,11 +1,12 @@
 import { storeToRefs } from "pinia";
 import { ref, watch } from "vue";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useCustomerStore } from "~/stores/customers";
 import { useFormStore } from "~/stores/form";
-import type { StoreLocalData } from "~~/types/shopify";
 
 export function useCustomers() {
   const customerStore = useCustomerStore();
+  const credentialVault = useCredentialVaultStore();
   const formStore = useFormStore();
   const {
     customers,
@@ -24,9 +25,7 @@ export function useCustomers() {
 
   function getCredentials() {
     const storeId = formStore.storeId;
-    const storeData = storeId
-      ? useLocalStorage<StoreLocalData>(storeId, {}).state.value
-      : null;
+    const storeData = storeId ? credentialVault.getStoreData(storeId) : null;
 
     return {
       storeId,

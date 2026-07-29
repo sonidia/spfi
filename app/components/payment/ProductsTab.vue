@@ -202,12 +202,14 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
-import type { ShopifyProduct, StoreLocalData } from "~~/types/shopify";
+import type { ShopifyProduct } from "~~/types/shopify";
 
 const productStore = useProductStore();
 const formStore = useFormStore();
+const credentialVault = useCredentialVaultStore();
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -232,8 +234,7 @@ const editProduct = ref({
 const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`;
 
 function resolveToken(sid: string): string | null {
-  const storeCookie = useLocalStorage<StoreLocalData>(sid, {}).state;
-  const data = storeCookie.value;
+  const data = credentialVault.getStoreData(sid);
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
     return data.accessToken;

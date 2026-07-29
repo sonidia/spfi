@@ -1,5 +1,5 @@
 ﻿import { defineNuxtPlugin } from "#imports";
-import type { StoreLocalData } from "~~/types/shopify";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 
 function readStoreId(source: unknown): string | null {
   if (!source || typeof source !== "object" || !("storeId" in source)) {
@@ -11,6 +11,7 @@ function readStoreId(source: unknown): string | null {
 }
 
 export default defineNuxtPlugin(() => {
+  const credentialVault = useCredentialVaultStore();
   const customFetch = $fetch.create({
     onRequest({ request, options }) {
       if (typeof window === "undefined") return;
@@ -28,12 +29,18 @@ export default defineNuxtPlugin(() => {
       }
 
       if (storeId) {
-        const cookieData = useLocalStorage<StoreLocalData>(storeId, {}).state.value;
-        if (cookieData && Object.keys(cookieData).length > 0) {
+        const storeData = credentialVault.getStoreData(storeId);
+        const requestStoreData = {
+          domain: storeData.domain,
+          sock: storeData.sock,
+          clientId: storeData.clientId,
+          expiresTime: storeData.expiresTime,
+        };
+        if (Object.values(requestStoreData).some(Boolean)) {
           options.headers = new Headers(options.headers || {});
           options.headers.set(
             "x-store-data",
-            encodeURIComponent(JSON.stringify(cookieData)),
+            encodeURIComponent(JSON.stringify(requestStoreData)),
           );
         }
       }

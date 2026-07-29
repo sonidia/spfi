@@ -1,7 +1,8 @@
 import { computed } from "vue";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useLocationStore } from "~/stores/locations";
-import type { ShopifyProduct, StoreLocalData } from "~~/types/shopify";
+import type { ShopifyProduct } from "~~/types/shopify";
 
 function getProductInventoryItemIds(product?: ShopifyProduct | null) {
   return Array.from(
@@ -16,12 +17,12 @@ function getProductInventoryItemIds(product?: ShopifyProduct | null) {
 export function useLocations() {
   const formStore = useFormStore();
   const locationStore = useLocationStore();
+  const credentialVault = useCredentialVaultStore();
 
   function resolveToken(storeId = formStore.storeId): string | null {
     if (!storeId || typeof window === "undefined") return null;
 
-    const storeCookie = useLocalStorage<StoreLocalData>(storeId, {}).state;
-    const data = storeCookie.value;
+    const data = credentialVault.getStoreData(storeId);
     const now = Date.now();
 
     if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {

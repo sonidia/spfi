@@ -217,16 +217,17 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
 import { usePaymentStore } from "../../../stores/payment";
-import type { StoreLocalData } from "~~/types/shopify";
 
 definePageMeta({ layout: false });
 
 const route = useRoute();
 const formStore = useFormStore();
 const paymentStore = usePaymentStore();
+const credentialVault = useCredentialVaultStore();
 
 const payoutId = Number(route.params.id);
 
@@ -240,8 +241,7 @@ onMounted(() => {
 });
 
 function resolveToken(sid: string): string | null {
-  const storeCookie = useLocalStorage<StoreLocalData>(sid, {}).state;
-  const data = storeCookie.value;
+  const data = credentialVault.getStoreData(sid);
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
     return data.accessToken;

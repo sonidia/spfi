@@ -42,10 +42,39 @@
 
       <div v-else class="profile-stack">
         <section class="profile-hero">
-          <div class="profile-hero-copy">
-            <span class="hero-kicker">Shop profile</span>
-            <h1>{{ shopTitle }}</h1>
-            <p>{{ shopDomain }}</p>
+          <div class="profile-identity">
+            <div class="profile-avatar" aria-hidden="true">
+              {{ shopInitials }}
+            </div>
+            <div class="profile-hero-copy">
+              <div class="hero-kicker-row">
+                <span class="hero-kicker">Shop profile</span>
+                <span
+                  class="connection-pill"
+                  :class="`is-${tokenStatus.toLowerCase()}`"
+                >
+                  <i />
+                  {{ tokenStatus }} token
+                </span>
+              </div>
+              <h1>{{ shopTitle }}</h1>
+              <p>{{ shopDomain }}</p>
+              <div class="profile-actions">
+                <a
+                  v-if="shopUrl"
+                  class="profile-action primary"
+                  :href="shopUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open storefront
+                  <IconsArrowRight />
+                </a>
+                <NuxtLink class="profile-action" to="/manager">
+                  Manage credentials
+                </NuxtLink>
+              </div>
+            </div>
           </div>
 
           <div class="profile-metrics">
@@ -70,8 +99,22 @@
           {{ profileStore.error }}
         </div>
 
-        <ProfileFieldGrid title="Connection" :rows="connectionRows" />
-        <ProfileFieldGrid title="Shop Information" :rows="shopRows" />
+        <div class="profile-detail-grid">
+          <div class="profile-detail-column">
+            <div class="section-label">
+              <span>Connection</span>
+              <small>AES-GCM protected locally</small>
+            </div>
+            <ProfileFieldGrid title="Access & security" :rows="connectionRows" />
+          </div>
+          <div class="profile-detail-column">
+            <div class="section-label">
+              <span>Store details</span>
+              <small>Synced from Shopify</small>
+            </div>
+            <ProfileFieldGrid title="Shop information" :rows="shopRows" />
+          </div>
+        </div>
         <ProfileProductsTable
           :products="products"
           :loading="productStore.isLoading"
@@ -83,14 +126,8 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  onActivated,
-  onDeactivated,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { computed } from "vue";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import { useShopProfileStore } from "~/stores/shopProfile";
@@ -105,10 +142,9 @@ import {
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
+const credentialVault = useCredentialVaultStore();
 const productStore = useProductStore();
 const profileStore = useShopProfileStore();
-const isPageActive = ref(true);
-const hasSkippedInitialActivation = ref(false);
 
 const shop = computed(() => profileStore.shop);
 const products = computed(() => productStore.products);
@@ -132,7 +168,7 @@ const profileEmptyState = computed(() => {
 const currentStoreData = computed<StoreLocalData>(() => {
   if (!formStore.storeId) return {};
 
-  return useLocalStorage<StoreLocalData>(formStore.storeId, {}).state.value || {};
+  return credentialVault.getStoreData(formStore.storeId);
 });
 
 const tokenStatus = computed(() => {
@@ -159,6 +195,20 @@ const shopDomain = computed(() => {
     formStore.storeId ||
     "-"
   );
+});
+
+const shopInitials = computed(() => {
+  const words = shopTitle.value.trim().split(/\s+/).filter(Boolean);
+  return words
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("") || "SP";
+});
+
+const shopUrl = computed(() => {
+  const domain = shopDomain.value;
+  if (!domain || domain === "-") return "";
+  return /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
 });
 
 const connectionRows = computed<ProfileFieldRow[]>(() => [
@@ -201,67 +251,6 @@ const connectionRows = computed<ProfileFieldRow[]>(() => [
 
 const shopRows = computed(() => buildShopProfileRows(shop.value));
 
-onMounted(() => {
-  loadProfileData();
-});
-
-onActivated(() => {
-  isPageActive.value = true;
-
-  if (!hasSkippedInitialActivation.value) {
-    hasSkippedInitialActivation.value = true;
-    return;
-  }
-
-  loadProfileData();
-});
-
-onDeactivated(() => {
-  isPageActive.value = false;
-});
-
-watch(
-  () => formStore.storeId,
-  () => {
-    if (!isPageActive.value) return;
-
-    loadProfileData();
-  },
-);
-
-async function loadProfileData(force = false) {
-  const storeId = formStore.storeId;
-  if (!storeId) return;
-
-  const token = resolveToken(storeId);
-  if (!token) {
-    profileStore.error = "Token expired or missing. Please go to Token page.";
-    return;
-  }
-
-  const requests: Promise<unknown>[] = [];
-
-  if (force || (!profileStore.hasFetchedProfile && !profileStore.isLoading)) {
-    requests.push(profileStore.fetchProfile(storeId, token));
-  }
-
-  if (force || (!productStore.hasFetchedAll && !productStore.isLoading)) {
-    requests.push(productStore.fetchAll(storeId, token));
-  }
-
-  await Promise.all(requests);
-}
-
-function resolveToken(storeId: string): string | null {
-  const data = useLocalStorage<StoreLocalData>(storeId, {}).state.value;
-  const now = Date.now();
-
-  if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
-    return data.accessToken;
-  }
-
-  return null;
-}
 </script>
 
 <style scoped>
@@ -287,7 +276,7 @@ function resolveToken(storeId: string): string | null {
   align-items: center;
   gap: 18px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 16px;
   background:
     linear-gradient(
       135deg,
@@ -295,7 +284,44 @@ function resolveToken(storeId: string): string | null {
       rgba(226, 238, 249, 0.78)
     ),
     var(--surface);
-  padding: 22px;
+  padding: 26px;
+  box-shadow: 0 18px 50px rgba(20, 34, 27, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.profile-hero::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  right: -72px;
+  top: -94px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.44);
+}
+
+.profile-identity {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.profile-avatar {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 17px;
+  background: linear-gradient(145deg, #1f7a4d, #275c91);
+  color: white;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  box-shadow: 0 10px 24px rgba(31, 122, 77, 0.2);
 }
 
 .profile-hero-copy {
@@ -309,6 +335,42 @@ function resolveToken(storeId: string): string | null {
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.hero-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-sub);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.connection-pill i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.connection-pill.is-valid {
+  color: var(--green);
+}
+
+.connection-pill.is-expired,
+.connection-pill.is-missing {
+  color: var(--red);
 }
 
 .profile-hero h1 {
@@ -327,6 +389,39 @@ function resolveToken(storeId: string): string | null {
   overflow-wrap: anywhere;
 }
 
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.profile-action {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid rgba(31, 122, 77, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-action.primary {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
+}
+
+.profile-action svg {
+  width: 13px;
+  height: 13px;
+}
+
 .profile-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(96px, 1fr));
@@ -338,9 +433,45 @@ function resolveToken(storeId: string): string | null {
   gap: 2px;
   min-width: 0;
   border: 1px solid rgba(31, 122, 77, 0.14);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.74);
-  padding: 10px 12px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+}
+
+.profile-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.profile-detail-column {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.section-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.section-label span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.section-label small {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .metric-item span {
@@ -376,11 +507,38 @@ function resolveToken(storeId: string): string | null {
   .profile-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .profile-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
   .profile-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .profile-identity {
+    flex-direction: column;
+  }
+
+  .profile-hero {
+    padding: 20px;
+  }
+
+  .profile-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .profile-action {
+    justify-content: center;
+  }
+
+  .section-label {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
   }
 }
 </style>

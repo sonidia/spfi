@@ -46,6 +46,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 
 const props = defineProps({
   order: {
@@ -60,8 +61,8 @@ defineEmits(["view-email"]);
 import {  useFetch } from "#app";
 
 const sid = useLocalStorage("active_store_id", "").state.value || "";
-const storeCookie = useLocalStorage(sid, {}).state.value || {};
-const token = storeCookie?.accessToken;
+const credentialVault = useCredentialVaultStore();
+const token = credentialVault.getStoreData(sid).accessToken;
 
 const { data, pending, error } = await useFetch(`/api/order/${props.order.id}/transactions`, {
   query: { storeId: sid, token },

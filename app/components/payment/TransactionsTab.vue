@@ -171,26 +171,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
-import { useFormStore } from "~/stores/form";
+import { computed, ref, watch } from "vue";
 import { useOrderStore } from "~/stores/order";
 import type { Payout, Transaction } from "~/stores/payment";
-import type { StoreLocalData } from "~~/types/shopify";
 import { capitalize, fmtDate } from "~~/helpers";
 
 const paymentStore = usePaymentStore();
 const orderStore = useOrderStore();
-const formStore = useFormStore();
-
-onMounted(() => {
-  if (!orderStore.hasFetchedAll && formStore.storeId) {
-    const cookie = useLocalStorage<StoreLocalData>(formStore.storeId, {}).state;
-    const token = cookie.value?.accessToken;
-    if (token) {
-      orderStore.fetchAll(formStore.storeId, token);
-    }
-  }
-});
 
 const sortedPayouts = computed(() =>
   [...paymentStore.payouts].sort(

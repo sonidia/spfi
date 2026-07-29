@@ -22,7 +22,7 @@
         </thead>
         <tbody>
           <tr
-            v-for="(order, index) in orderStore.orders"
+            v-for="(order, index) in paginatedOrders"
             :key="order.id || index"
             @click="router.push(`/order/${order.id}`)"
             class="order-row"
@@ -165,6 +165,15 @@
           </tr>
         </tbody>
       </table>
+      <PaginationControls
+        v-if="orderStore.orders.length"
+        :page="orderStore.currentPage"
+        :page-size="orderStore.pageSize"
+        :total-items="orderStore.orders.length"
+        item-label="orders"
+        @update:page="orderStore.setPage"
+        @update:page-size="orderStore.setPageSize"
+      />
       <div v-if="orderStore.orders.length === 0" class="empty">
         No orders found.
       </div>
@@ -173,6 +182,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed, watch } from "vue";
 import {
   financialBadge,
   fmtDateTime,
@@ -187,6 +197,23 @@ import {
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const router = useRouter();
+const totalPages = computed(() =>
+  Math.max(
+    1,
+    Math.ceil(orderStore.orders.length / orderStore.pageSize),
+  ),
+);
+const paginatedOrders = computed(() => {
+  const page = Math.min(orderStore.currentPage, totalPages.value);
+  const start = (page - 1) * orderStore.pageSize;
+  return orderStore.orders.slice(start, start + orderStore.pageSize);
+});
+
+watch(totalPages, (pageCount) => {
+  if (orderStore.currentPage > pageCount) {
+    orderStore.setPage(pageCount);
+  }
+});
 
 function getTransactionStatus(orderId: number | string | null | undefined) {
   if (!orderId) return null;
