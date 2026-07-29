@@ -9,7 +9,12 @@ export const localeOptions: Array<{
   shortLabel: string;
 }> = [
   { code: "en", label: "English", nativeLabel: "English", shortLabel: "EN" },
-  { code: "vi", label: "Vietnamese", nativeLabel: "Tiếng Việt", shortLabel: "VI" },
+  {
+    code: "vi",
+    label: "Vietnamese",
+    nativeLabel: "Tiếng Việt",
+    shortLabel: "VI",
+  },
   { code: "es", label: "Spanish", nativeLabel: "Español", shortLabel: "ES" },
   { code: "zh", label: "Chinese", nativeLabel: "中文", shortLabel: "ZH" },
   { code: "ja", label: "Japanese", nativeLabel: "日本語", shortLabel: "JA" },
@@ -62,7 +67,7 @@ const en = {
   "home.eyebrow": "Shopify Operations Console",
   "home.heroTitle": "Telescope the storefront from one desk",
   "home.heroSub":
-    "A compact workspace for connecting shops, rotating tokens, checking public store status, and reading Google Sheet data without jumping between tools.",
+    "A compact workspace for connecting shops, rotating tokens, checking public store status, and reading data without jumping between tools.",
   "home.openManager": "Open Manager",
   "home.checkStatus": "Check Status",
   "home.previewAria": "Operations preview",
@@ -85,8 +90,7 @@ const en = {
   "home.quickSheetTitle": "Sheets",
   "home.quickSheetDescription": "Open sheet tabs and inspect rows quickly.",
   "home.quickStatusTitle": "Status Checker",
-  "home.quickStatusDescription":
-    "Batch check Shopify storefront availability.",
+  "home.quickStatusDescription": "Batch check Shopify storefront availability.",
   "home.motivationEyebrow": "Motivation",
   "home.motivationTitle":
     "Keep repetitive Shopify ops calm, visible, and fast.",
@@ -102,7 +106,8 @@ const en = {
   "home.motivationCopyDescription":
     "Use saved shop profiles and sheet lookups to reduce the repeated handoff work around orders.",
   "home.assuranceEyebrow": "Operational Assurance",
-  "home.assuranceTitle": "Security, speed, and recovery stay close to the workflow.",
+  "home.assuranceTitle":
+    "Security, speed, and recovery stay close to the workflow.",
   "home.assuranceBody":
     "The console keeps sensitive data encrypted locally, limits risky API bursts, and gives operators a clear route from setup to verification.",
   "home.assuranceVaultTitle": "Local credential vault",
@@ -270,7 +275,8 @@ const vi: Record<MessageKey, string> = {
   "home.motivationCopyDescription":
     "Dùng profile shop và sheet lookup đã lưu để giảm việc bàn giao thủ công quanh order.",
   "home.assuranceEyebrow": "Đảm bảo vận hành",
-  "home.assuranceTitle": "Bảo mật, tốc độ và khả năng khôi phục nằm sát luồng làm việc.",
+  "home.assuranceTitle":
+    "Bảo mật, tốc độ và khả năng khôi phục nằm sát luồng làm việc.",
   "home.assuranceBody":
     "Console giữ dữ liệu nhạy cảm được mã hóa cục bộ, giới hạn các API burst rủi ro và cho operator một đường đi rõ từ setup đến xác minh.",
   "home.assuranceVaultTitle": "Vault credentials cục bộ",
@@ -410,7 +416,8 @@ const es: Record<MessageKey, string> = {
   "home.quickSetupTitle": "Guía de configuración",
   "home.quickSetupDescription": "Sigue el checklist de app y credenciales.",
   "home.quickManagerTitle": "Gestión de tiendas",
-  "home.quickManagerDescription": "Añade tiendas, rota tokens y prueba proxies.",
+  "home.quickManagerDescription":
+    "Añade tiendas, rota tokens y prueba proxies.",
   "home.quickSheetDescription": "Abre pestañas de sheet y revisa filas rápido.",
   "home.quickStatusTitle": "Comprobador de estado",
   "home.quickStatusDescription":
@@ -484,7 +491,8 @@ const es: Record<MessageKey, string> = {
   "setup.createAppOpenApps": "Abre",
   "setup.createAppDevelop": "Elige",
   "setup.createAppCreate": "Click en Create app",
-  "setup.createAppName": "Nombra la app con el dominio de la tienda, por ejemplo:",
+  "setup.createAppName":
+    "Nombra la app con el dominio de la tienda, por ejemplo:",
   "setup.stepConfigureTitle": "Configurar App",
   "setup.tabVersions": "Pestaña Versions",
   "setup.apiVersion": "API version (valor por defecto disponible)",
@@ -587,9 +595,11 @@ const zh: Record<MessageKey, string> = {
   "home.assuranceVaultDescription":
     "Client Secret 和 Access Token 在设备上加密，只在需要时解密到内存。",
   "home.assuranceRateTitle": "API 滥用防护",
-  "home.assuranceRateDescription": "服务端路由按 IP rate limit，generate token 更严格。",
+  "home.assuranceRateDescription":
+    "服务端路由按 IP rate limit，generate token 更严格。",
   "home.assuranceFlowTitle": "店铺上下文连续性",
-  "home.assuranceFlowDescription": "Pinia 在 layout 和页面切换时保持当前店铺状态。",
+  "home.assuranceFlowDescription":
+    "Pinia 在 layout 和页面切换时保持当前店铺状态。",
   "home.metricsEyebrow": "工作区信号",
   "home.metricStoresValue": "多店铺",
   "home.metricStoresLabel": "持久店铺上下文",
@@ -600,20 +610,26 @@ const zh: Record<MessageKey, string> = {
   "home.flowEyebrow": "日常流程",
   "home.flowTitle": "从访问到验证的更短闭环。",
   "home.flowConnectTitle": "连接店铺",
-  "home.flowConnectDescription": "添加店铺凭据、准备 token，并保持 profile 数据就绪。",
+  "home.flowConnectDescription":
+    "添加店铺凭据、准备 token，并保持 profile 数据就绪。",
   "home.flowCheckTitle": "检查表面状态",
-  "home.flowCheckDescription": "在深入订单前确认 storefront 和 endpoint 响应正常。",
+  "home.flowCheckDescription":
+    "在深入订单前确认 storefront 和 endpoint 响应正常。",
   "home.flowDataTitle": "使用源数据",
-  "home.flowDataDescription": "打开 sheet、检查行，然后进入 product、order 或 payment 工作流。",
+  "home.flowDataDescription":
+    "打开 sheet、检查行，然后进入 product、order 或 payment 工作流。",
   "home.faqTitle": "打开工作区前的常见问题。",
   "home.faqFirstQuestion": "应该先打开哪里？",
-  "home.faqFirstAnswer": "准备店铺或凭据时先打开管理。只需要快速健康检查时用状态页。",
+  "home.faqFirstAnswer":
+    "准备店铺或凭据时先打开管理。只需要快速健康检查时用状态页。",
   "home.faqAdminQuestion": "这会替代 Shopify Admin 吗？",
-  "home.faqAdminAnswer": "不会。它把重复的运营检查放在一起，然后带你回到正确的店铺数据。",
+  "home.faqAdminAnswer":
+    "不会。它把重复的运营检查放在一起，然后带你回到正确的店铺数据。",
   "home.faqSheetQuestion": "Sheet 数据在哪里使用？",
   "home.faqSheetAnswer": "当订单或产品工作依赖表格时，Sheet 页可查看标签和行。",
   "home.faqBatchQuestion": "可以批量检查状态吗？",
-  "home.faqBatchAnswer": "可以。Status Checker 专为集中运行多个 storefront 检查而设计。",
+  "home.faqBatchAnswer":
+    "可以。Status Checker 专为集中运行多个 storefront 检查而设计。",
   "home.ctaEyebrow": "工作台就绪",
   "home.ctaTitle": "从管理页开始，再进入你需要的任务。",
   "setup.title": "设置指南",
@@ -701,14 +717,18 @@ const ja: Record<MessageKey, string> = {
   "home.previewSheet": "Sheet 検索",
   "home.workflowsAria": "主要ワークフロー",
   "home.quickSetupTitle": "セットアップガイド",
-  "home.quickSetupDescription": "App 作成と credentials の checklist を進めます。",
+  "home.quickSetupDescription":
+    "App 作成と credentials の checklist を進めます。",
   "home.quickManagerTitle": "ショップ管理",
-  "home.quickManagerDescription": "ストア追加、token ローテーション、proxy テスト。",
+  "home.quickManagerDescription":
+    "ストア追加、token ローテーション、proxy テスト。",
   "home.quickSheetDescription": "Sheet タブを開き、行をすばやく確認します。",
   "home.quickStatusTitle": "ステータスチェッカー",
-  "home.quickStatusDescription": "Shopify storefront の可用性を一括確認します。",
+  "home.quickStatusDescription":
+    "Shopify storefront の可用性を一括確認します。",
   "home.motivationEyebrow": "目的",
-  "home.motivationTitle": "繰り返しの Shopify 運用を落ち着いて、見える形で、速く。",
+  "home.motivationTitle":
+    "繰り返しの Shopify 運用を落ち着いて、見える形で、速く。",
   "home.motivationBody":
     "Spfi は小さいけれど高コストな瞬間のためのものです。ストア切り替え、到達性確認、注文が動く中で正しい sheet データを取り出します。",
   "home.motivationTabsTitle": "タブ移動を少なく",
@@ -801,5 +821,11 @@ export const messages: Record<LocaleCode, Record<MessageKey, string>> = {
 };
 
 export function isLocaleCode(value: string): value is LocaleCode {
-  return value === "en" || value === "vi" || value === "es" || value === "zh" || value === "ja";
+  return (
+    value === "en" ||
+    value === "vi" ||
+    value === "es" ||
+    value === "zh" ||
+    value === "ja"
+  );
 }

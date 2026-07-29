@@ -1,0 +1,46 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "spfi",
+  "version": "2.1.0",
+  "identifier": "me.thuongtruong.spfi",
+  "build": {
+    "devUrl": "http://localhost:3000",
+    "frontendDist": "https://app.example.com",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Spfi - Telescope the Shopify storefront in pipeline from one desk",
+        "url": "https://spfi.netlify.app",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "shortDescription": "Telescope the Shopify storefront in pipeline from one desk",
+    "longDescription": "A compact workspace for connecting shops, rotating tokens, checking public store status, and reading data without jumping between tools.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "debugApplicationIdSuffix": ".debug"
+    }
+  }
+}
