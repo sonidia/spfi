@@ -2,6 +2,8 @@
   "name": "spf",
   "type": "module",
   "private": true,
+  "version": "2.1.0",
+  "description": "Telescope the Shopify storefront in pipeline from one desk",
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",

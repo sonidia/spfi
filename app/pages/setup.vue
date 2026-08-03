@@ -81,7 +81,7 @@
             </div> -->
             <div class="config-row">
               <span class="config-key">{{ t("setup.apiVersion") }}</span>
-              <code class="code-inline highlight">2026-04</code>
+              <code class="code-inline highlight">2026-07</code>
             </div>
           </div>
 
