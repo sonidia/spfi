@@ -42,9 +42,7 @@ onBeforeUnmount(() => {
       <div class="nav-list">
         <NuxtLink to="/setup">{{ t("nav.setup") }}</NuxtLink>
         <NuxtLink to="/manager">{{ t("nav.manager") }}</NuxtLink>
-        <NuxtLink :to="withActiveShop('/profile')">{{ t("nav.profile") }}</NuxtLink>
-        <NuxtLink :to="withActiveShop('/customer')">{{ t("nav.customers") }}</NuxtLink>
-        <NuxtLink :to="withActiveShop('/payment')">{{ t("nav.payment") }}</NuxtLink>
+        <NuxtLink :to="withActiveShop('/store')">{{ t("nav.store") }}</NuxtLink>
         <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
         <NuxtLink to="/status">{{ t("nav.status") }}</NuxtLink>
       </div>

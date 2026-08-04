@@ -1,26 +1,31 @@
 <script setup lang="ts">
-type PaymentTab = "payouts" | "transactions" | "orders" | "products";
+import type { StoreTab } from "~~/types/store";
 
 defineProps<{
-  activeTab: PaymentTab;
+  activeTab: StoreTab;
   transactionsCount: number;
   payoutsCount: number;
   ordersCount: number;
   productsCount: number;
+  customersCount: number;
   activeLabel: string;
 }>();
 
 const emit = defineEmits<{
-  select: [tab: PaymentTab];
+  select: [tab: StoreTab];
 }>();
 
-function selectTab(tab: PaymentTab) {
+function selectTab(tab: StoreTab) {
   emit("select", tab);
 }
 </script>
 
 <template>
-  <div class="table-header store-tabs" role="tablist" aria-label="Store data views">
+  <div
+    class="table-header store-tabs"
+    role="tablist"
+    aria-label="Store data views"
+  >
     <button
       class="tab-btn"
       :class="{ active: activeTab === 'transactions' }"
@@ -69,7 +74,30 @@ function selectTab(tab: PaymentTab) {
       Products
       <span class="tab-count">{{ productsCount }}</span>
     </button>
-    <span class="active-view-label">{{ activeLabel }}</span>
+    <button
+      class="tab-btn"
+      :class="{ active: activeTab === 'customers' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'customers'"
+      @click="selectTab('customers')"
+    >
+      <IconsUsers />
+      Customers
+      <span class="tab-count">{{ customersCount }}</span>
+    </button>
+    <button
+      class="tab-btn"
+      :class="{ active: activeTab === 'profile' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'profile'"
+      @click="selectTab('profile')"
+    >
+      <IconsUser />
+      Profile
+    </button>
+    <!-- <span class="active-view-label">{{ activeLabel }}</span> -->
   </div>
 </template>
 

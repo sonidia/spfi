@@ -342,13 +342,13 @@ async function addShop() {
         const res = await $fetch<ShopifyAccessTokenResponse>(
           "/api/generate-token",
           {
-          method: "POST",
-          body: {
-            storeId: sId,
-            clientId: cId,
-            clientSecret: cSec,
-            sock: sock,
-          },
+            method: "POST",
+            body: {
+              storeId: sId,
+              clientId: cId,
+              clientSecret: cSec,
+              sock: sock,
+            },
           },
         );
 
@@ -412,15 +412,18 @@ async function rotateToken(id: string) {
 
   rotatingIds.value[id] = true;
   try {
-    const res = await $fetch<ShopifyAccessTokenResponse>("/api/generate-token", {
-      method: "POST",
-      body: {
-        storeId: id,
-        clientId: data.clientId,
-        clientSecret: data.clientSecret,
-        sock: data.sock,
+    const res = await $fetch<ShopifyAccessTokenResponse>(
+      "/api/generate-token",
+      {
+        method: "POST",
+        body: {
+          storeId: id,
+          clientId: data.clientId,
+          clientSecret: data.clientSecret,
+          sock: data.sock,
+        },
       },
-    });
+    );
 
     if (res?.access_token) {
       const now = Date.now();
@@ -1278,7 +1281,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   background: transparent;
   color: var(--text-sub);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   padding: 4px 6px;
   border-radius: 6px;
 }

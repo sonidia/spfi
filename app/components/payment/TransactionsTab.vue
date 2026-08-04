@@ -26,7 +26,7 @@
               >
                 {{ isExpanded(payout.id) ? "▾" : "▸" }}
               </button>
-              <NuxtLink :to="`/payment/payout/${payout.id}`" class="link">
+              <NuxtLink :to="`/store/payout/${payout.id}`" class="link">
                 {{ payout.id }}
               </NuxtLink>
             </td>

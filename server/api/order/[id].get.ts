@@ -7,7 +7,7 @@ import type { OrdersResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
   const id = event.context.params?.id;
-  const { storeId, token } = getQuery(event);
+  const { storeId, token, fields } = getQuery(event);
   const sid = String(storeId || "");
   const accessToken = String(token || "");
 
@@ -20,6 +20,7 @@ export default defineEventHandler(async (event) => {
     storeId: sid,
     token: accessToken,
     path: `/orders/${id}.json`,
+    params: typeof fields === "string" && fields ? { fields } : undefined,
     missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

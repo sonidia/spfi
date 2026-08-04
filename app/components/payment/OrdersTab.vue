@@ -1,5 +1,16 @@
 <template>
   <div class="orders-tab">
+    <div class="orders-toolbar">
+      <div>
+        <strong>{{ orderStore.orderCount || orderStore.orders.length }}</strong>
+        <span>total orders</span>
+      </div>
+      <button type="button" @click="isCreateOpen = true">
+        <IconsAdd />
+        Create order
+      </button>
+    </div>
+
     <div v-if="orderStore.isLoading && !orderStore.orders.length" class="empty">
       Loading orders…
     </div>
@@ -24,11 +35,11 @@
           <tr
             v-for="(order, index) in paginatedOrders"
             :key="order.id || index"
-            @click="router.push(`/order/${order.id}`)"
+            @click="router.push(orderLocation(order.id))"
             class="order-row"
           >
             <td>
-              <NuxtLink :to="`/order/${order.id}`" class="order-link">
+              <NuxtLink :to="orderLocation(order.id)" class="order-link">
                 {{ nilVal(order.name, "#" + order.order_number) }}
               </NuxtLink>
             </td>
@@ -178,11 +189,17 @@
         No orders found.
       </div>
     </template>
+    <OrderCreateModal
+      v-if="isCreateOpen"
+      @close="isCreateOpen = false"
+      @created="refreshCount"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import {
   financialBadge,
   fmtDateTime,
@@ -197,6 +214,9 @@ import {
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const router = useRouter();
+const route = useRoute();
+const { storeId, token, isReady } = useActiveShopAuth();
+const isCreateOpen = ref(false);
 const totalPages = computed(() =>
   Math.max(
     1,
@@ -223,4 +243,65 @@ function getTransactionStatus(orderId: number | string | null | undefined) {
   return tx?.payout_status || null;
 }
 
+function orderLocation(orderId: number | string) {
+  return {
+    path: `/order/${orderId}`,
+    query: route.query.shop ? { shop: route.query.shop } : {},
+  };
+}
+
+async function refreshCount() {
+  if (!isReady.value) return;
+  await orderStore.fetchCount(storeId.value, token.value, { status: "any" });
+}
+
+onMounted(refreshCount);
+
+watch(storeId, refreshCount);
+
 </script>
+
+<style scoped>
+.orders-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.orders-toolbar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.orders-toolbar strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.orders-toolbar span {
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.orders-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--green);
+  color: white;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+</style>

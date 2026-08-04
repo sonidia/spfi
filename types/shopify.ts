@@ -147,6 +147,7 @@ export interface ShopifyFulfillment {
 
 export interface ShopifyOrder {
   id: number;
+  admin_graphql_api_id?: string;
   name?: string;
   order_number: number;
   created_at: string;
@@ -168,6 +169,8 @@ export interface ShopifyOrder {
   contact_email?: string | null;
   phone?: string | null;
   note?: string | null;
+  tags?: string;
+  test?: boolean;
   source_name?: string;
   referring_site?: string | null;
   customer?: ShopifyCustomer | null;

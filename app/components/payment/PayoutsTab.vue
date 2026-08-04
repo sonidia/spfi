@@ -70,7 +70,7 @@ function getPayoutProcessedDate(payoutId: number) {
 }
 
 function openPayoutDetail(payoutId: number) {
-  router.push(`/payment/payout/${payoutId}`);
+  router.push(`/store/payout/${payoutId}`);
 }
 </script>
 

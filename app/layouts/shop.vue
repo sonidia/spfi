@@ -59,7 +59,17 @@ const isFetching = computed(() => {
   const path = route.path;
   if (path === "/order" || path.startsWith("/order/"))
     return orderStore.isLoading;
-  if (path.startsWith("/payment")) return paymentStore.isLoading;
+  if (path.startsWith("/store")) {
+    if (route.query.tab === "customers") {
+      return customerStore.isLoading || customerStore.isLoadingDetail;
+    }
+    if (route.query.tab === "profile") {
+      return shopProfileStore.isLoading || productStore.isLoading;
+    }
+    if (route.query.tab === "products") return productStore.isLoading;
+    if (route.query.tab === "orders") return orderStore.isLoading;
+    return paymentStore.isLoading || orderStore.isLoading;
+  }
   if (path === "/customer") {
     return customerStore.isLoading || customerStore.isLoadingDetail;
   }
@@ -80,7 +90,7 @@ watch(
 
     if (
       newPath.startsWith("/order") ||
-      newPath.startsWith("/payment") ||
+      newPath.startsWith("/store") ||
       newPath === "/customer" ||
       newPath === "/product" ||
       newPath === "/profile"
@@ -216,7 +226,7 @@ function fetchCurrent(force = false) {
   if (!token) {
     const msg = "Token expired or missing. Please go to Token page.";
     if (route.path === "/order") orderStore.error = msg;
-    if (route.path.startsWith("/payment")) paymentStore.error = msg;
+    if (route.path.startsWith("/store")) paymentStore.error = msg;
     if (route.path === "/customer") customerStore.error = msg;
     if (route.path === "/profile") shopProfileStore.error = msg;
     return;
@@ -224,7 +234,7 @@ function fetchCurrent(force = false) {
 
   // Clear previous errors
   if (route.path.startsWith("/order")) orderStore.error = null;
-  if (route.path.startsWith("/payment")) paymentStore.error = null;
+  if (route.path.startsWith("/store")) paymentStore.error = null;
   if (route.path === "/customer") customerStore.error = null;
   if (route.path === "/profile") shopProfileStore.error = null;
 
@@ -236,18 +246,25 @@ function fetchCurrent(force = false) {
     if (idMatch && idMatch[1]) {
       orderStore.fetchById(sid, token, idMatch[1], force);
     }
-  } else if (route.path === "/payment") {
-    if (force || !paymentStore.hasFetchedAll) {
-      paymentStore.fetchAll(sid, token, force);
-    }
-    paymentStore.fetchBalanceTransactions(sid, token, force);
-    if (force || !orderStore.hasFetchedAll) {
+  } else if (route.path === "/store") {
+    if (route.query.tab === "customers") {
+      customerStore.fetchAll(sid, token, customerStore.activeQuery);
+    } else if (route.query.tab === "profile") {
+      shopProfileStore.fetchProfile(sid, token);
+      productStore.fetchAll(sid, token);
+    } else if (route.query.tab === "products") {
+      productStore.fetchAll(sid, token);
+    } else if (route.query.tab === "orders") {
       orderStore.fetchAll(sid, token, force);
+      paymentStore.fetchBalanceTransactions(sid, token, force);
+    } else {
+      if (force || !paymentStore.hasFetchedAll) {
+        paymentStore.fetchAll(sid, token, force);
+      }
+      paymentStore.fetchBalanceTransactions(sid, token, force);
     }
-  } else if (route.path === "/payment/transactions") {
-    paymentStore.fetchBalanceTransactions(sid, token, force);
-  } else if (route.path.startsWith("/payment/payout/")) {
-    const idMatch = route.path.match(/\/payment\/payout\/(\d+)/);
+  } else if (route.path.startsWith("/store/payout/")) {
+    const idMatch = route.path.match(/\/store\/payout\/(\d+)/);
     if (idMatch && idMatch[1]) {
       paymentStore.fetchPayoutDetail(sid, token, Number(idMatch[1]), force);
     }
@@ -905,9 +922,10 @@ function deleteStoreOption(id: string) {
 <style scoped>
 .shop-layout-container {
   display: flex;
+  width: 1400px;
+  max-width: none;
   min-height: calc(100vh - 64px - var(--footer-height, 36px));
   max-height: calc(100vh - 64px - var(--footer-height, 36px));
-  max-width: 1400px;
   margin: 0 auto;
   gap: 24px;
   padding: 0 20px;
@@ -915,12 +933,11 @@ function deleteStoreOption(id: string) {
 }
 
 .shop-layout-container.is-single-panel {
-  max-width: 900px;
-  justify-content: center;
+  max-width: none;
 }
 
 .shop-layout-container.is-single-panel .main-content {
-  max-width: 760px;
+  max-width: none;
 }
 
 .page-content {
@@ -931,7 +948,10 @@ function deleteStoreOption(id: string) {
 /* Sidebar Styling */
 .sidebar {
   width: 286px;
-  flex-shrink: 0;
+  flex: 0 0 286px;
+  position: sticky;
+  top: 12px;
+  align-self: flex-start;
   display: flex;
   flex-direction: column;
   margin: 12px 0;
@@ -939,7 +959,8 @@ function deleteStoreOption(id: string) {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.82);
   overflow: hidden;
-  max-height: calc(100vh - 64px - var(--footer-height, 36px));
+  min-height: calc(100vh - 64px - var(--footer-height, 36px) - 12px);
+  max-height: calc(100vh - 64px - var(--footer-height, 36px) - 12px);
 }
 
 .sidebar-overview {
@@ -1317,6 +1338,7 @@ function deleteStoreOption(id: string) {
 
   .sidebar {
     width: 100%;
+    position: static;
     max-height: 230px;
     margin-bottom: 0;
   }

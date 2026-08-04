@@ -4,29 +4,30 @@ import {
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
-import type { OrderListQuery } from "~~/types/shopify-order";
-import { buildOrderListParams } from "~~/server/utils/shopify-order-query";
 
-interface OrderAllBody {
+interface OrderActionBody {
   storeId?: string;
   token?: string;
-  query?: OrderListQuery;
 }
 
 export default defineEventHandler(async (event) => {
-  const body = (await readBody<OrderAllBody>(event)) || {};
+  const id = String(event.context.params?.id || "");
+  const body = (await readBody<OrderActionBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
-
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
+  if (!id || !storeId || !token) {
+    throw createApiErrorFromMessage(
+      "Order ID, Store ID and Access Token are required.",
+      400,
+    );
   }
 
   return callShopifyApi<OrdersResponse>({
     event,
     storeId,
     token,
-    path: "/orders.json",
-    params: buildOrderListParams(body.query),
+    path: `/orders/${id}/open.json`,
+    method: "POST",
+    body: {},
   });
 });

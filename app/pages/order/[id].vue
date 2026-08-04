@@ -3,7 +3,7 @@
     <template #title>
       <div style="display: flex; align-items: center; gap: 10px">
         <NuxtLink
-          to="/order"
+          :to="{ path: '/store', query: { ...route.query, tab: 'orders' } }"
           style="
             background: none;
             border: none;
@@ -47,6 +47,9 @@
           {{ fmtDateTime(currentOrder.created_at) || "—" }} from
           {{ getSource(currentOrder) }}
         </div>
+
+        <OrderActionsPanel :order="currentOrder" @deleted="returnToOrders" />
+        <OrderRiskPanel :order-id="currentOrder.id" />
 
         <div class="grid">
           <!-- Left column -->
@@ -517,6 +520,7 @@ import {
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();
 const route = useRoute();
+const router = useRouter();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const currentOrder = computed(() => {
@@ -525,6 +529,13 @@ const currentOrder = computed(() => {
     orderStore.orders.find((order) => order.id.toString() === orderId) || null
   );
 });
+
+function returnToOrders() {
+  router.replace({
+    path: "/store",
+    query: { ...route.query, tab: "orders" },
+  });
+}
 </script>
 
 <style scoped>
