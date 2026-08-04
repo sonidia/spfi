@@ -13,6 +13,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@lucide/vue": "^1.28.0",
     "axios": "^1.15.2",
     "googleapis": "^171.4.0",
     "https-proxy-agent": "^9.0.0",

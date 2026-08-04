@@ -150,18 +150,18 @@ function selectTab(tab: StoreTab) {
 .tab-btn.active {
   background: var(--green-soft);
   color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.16);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 20%, transparent);
 }
 
 .tab-btn:hover:not(.active) {
   background: var(--surface-soft);
   color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 18%, transparent);
   transform: translateY(-1px);
 }
 
 .tab-btn:focus-visible {
-  outline: 2px solid rgba(31, 122, 77, 0.45);
+  outline: 2px solid color-mix(in srgb, var(--green) 54%, transparent);
   outline-offset: 2px;
 }
 
@@ -180,7 +180,7 @@ function selectTab(tab: StoreTab) {
 }
 
 .tab-btn.active .tab-count {
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--surface-raised);
   color: var(--green);
 }
 

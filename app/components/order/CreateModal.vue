@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ShoppingCart, X } from "@lucide/vue";
 import { ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
@@ -19,6 +20,23 @@ const inventoryBehaviour = ref<OrderCreateOptions["inventory_behaviour"]>(
 const sendReceipt = ref(false);
 const sendFulfillmentReceipt = ref(false);
 const validationError = ref("");
+const inventoryOptions = [
+  {
+    label: "Do not claim inventory",
+    value: "bypass",
+    description: "Create without reserving stock",
+  },
+  {
+    label: "Follow inventory policy",
+    value: "decrement_obeying_policy",
+    description: "Claim stock only when policy allows",
+  },
+  {
+    label: "Ignore inventory policy",
+    value: "decrement_ignoring_policy",
+    description: "Claim stock regardless of policy",
+  },
+];
 
 function addLineItem() {
   lineItems.value.push({ variantId: "", quantity: 1 });
@@ -27,6 +45,17 @@ function addLineItem() {
 function removeLineItem(index: number) {
   if (lineItems.value.length === 1) return;
   lineItems.value.splice(index, 1);
+}
+
+function setInventoryBehaviour(value: unknown) {
+  if (
+    ["bypass", "decrement_obeying_policy", "decrement_ignoring_policy"].includes(
+      String(value),
+    )
+  ) {
+    inventoryBehaviour.value =
+      value as OrderCreateOptions["inventory_behaviour"];
+  }
 }
 
 async function submit() {
@@ -77,7 +106,7 @@ async function submit() {
           <h2 id="create-order-title">Create order</h2>
         </div>
         <button class="icon-button" type="button" aria-label="Close" @click="emit('close')">
-          &times;
+          <X :size="19" />
         </button>
       </header>
 
@@ -117,11 +146,11 @@ async function submit() {
 
         <label class="field">
           <span>Inventory behavior</span>
-          <select v-model="inventoryBehaviour">
-            <option value="bypass">Do not claim inventory</option>
-            <option value="decrement_obeying_policy">Claim when policy allows</option>
-            <option value="decrement_ignoring_policy">Claim ignoring policy</option>
-          </select>
+          <BaseSelect
+            :model-value="inventoryBehaviour"
+            :options="inventoryOptions"
+            @update:model-value="setInventoryBehaviour"
+          />
         </label>
 
         <label class="check-row">
@@ -139,10 +168,19 @@ async function submit() {
       </div>
 
       <footer>
-        <button type="button" class="secondary-button" @click="emit('close')">Cancel</button>
-        <button type="button" class="primary-button" :disabled="orderStore.isMutating" @click="submit">
-          {{ orderStore.isMutating ? "Creating..." : "Create order" }}
-        </button>
+        <BaseButton size="medium" @click="emit('close')">
+          <template #icon><X /></template>
+          Cancel
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          size="medium"
+          :loading="orderStore.isMutating"
+          @click="submit"
+        >
+          <template #icon><ShoppingCart /></template>
+          Create order
+        </BaseButton>
       </footer>
     </section>
   </div>
@@ -191,8 +229,8 @@ h2 { font-size: 18px; color: var(--text); }
 .modal-body { display: grid; gap: 14px; padding: 18px; }
 .field { display: grid; gap: 6px; min-width: 0; }
 .field > span, .section-heading > span { color: var(--text-sub); font-size: 12px; font-weight: 700; }
-input, select { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: var(--surface); color: var(--text); font: inherit; }
-input:focus, select:focus { outline: 2px solid rgba(31, 122, 77, 0.22); border-color: var(--green); }
+input { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: var(--surface-raised); color: var(--text); font: inherit; }
+input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
 .line-items { display: grid; gap: 8px; }
 .section-heading { justify-content: space-between; }
 .line-item-row { align-items: end; gap: 8px; }
@@ -205,10 +243,6 @@ input:focus, select:focus { outline: 2px solid rgba(31, 122, 77, 0.22); border-c
 .check-row { display: flex; align-items: center; gap: 9px; color: var(--text); font-size: 13px; }
 .check-row input { width: 16px; height: 16px; }
 .form-error { padding: 10px 12px; border: 1px solid rgba(180, 49, 43, 0.22); border-radius: 6px; background: var(--red-soft); color: var(--red); font-size: 12px; }
-.primary-button, .secondary-button { min-height: 36px; padding: 0 14px; border-radius: 6px; font: inherit; font-weight: 700; cursor: pointer; }
-.primary-button { border: 0; background: var(--green); color: white; }
-.secondary-button { border: 1px solid var(--border); background: var(--surface); color: var(--text); }
-.primary-button:disabled { opacity: 0.6; cursor: wait; }
 
 @media (max-width: 520px) {
   .line-item-row { align-items: stretch; flex-wrap: wrap; }

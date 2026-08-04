@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import {
+  Archive,
+  ArrowLeft,
+  Ban,
+  Pencil,
+  RotateCcw,
+  Save,
+  Trash2,
+  Undo2,
+  X,
+} from "@lucide/vue";
 import { ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
@@ -17,6 +28,33 @@ const phone = ref("");
 const cancelReason = ref<OrderCancelInput["reason"]>("other");
 const cancelAmount = ref("");
 const notifyCustomer = ref(false);
+const cancelReasonOptions = [
+  {
+    label: "Customer request",
+    value: "customer",
+    description: "The customer asked to cancel",
+  },
+  {
+    label: "Inventory",
+    value: "inventory",
+    description: "Items are no longer available",
+  },
+  {
+    label: "Fraud",
+    value: "fraud",
+    description: "The order appears fraudulent",
+  },
+  {
+    label: "Payment declined",
+    value: "declined",
+    description: "Payment could not be completed",
+  },
+  {
+    label: "Other",
+    value: "other",
+    description: "Another cancellation reason",
+  },
+];
 
 watch(
   () => props.order,
@@ -72,6 +110,16 @@ async function cancelOrder() {
   if (cancelled) mode.value = "idle";
 }
 
+function setCancelReason(value: unknown) {
+  if (
+    ["customer", "inventory", "fraud", "declined", "other"].includes(
+      String(value),
+    )
+  ) {
+    cancelReason.value = value as OrderCancelInput["reason"];
+  }
+}
+
 async function deleteOrder() {
   if (!isReady.value) return;
   if (!window.confirm(`Delete ${props.order.name || `order ${props.order.id}`}?`)) {
@@ -89,31 +137,34 @@ async function deleteOrder() {
 <template>
   <section class="management-panel" aria-labelledby="order-actions-title">
     <header>
-      <div>
-        <span>Order endpoint actions</span>
-        <h2 id="order-actions-title">Manage order</h2>
-      </div>
+      <h2 id="order-actions-title">Manage order</h2>
       <div class="action-row">
-        <button type="button" @click="mode = mode === 'edit' ? 'idle' : 'edit'">
+        <BaseButton @click="mode = mode === 'edit' ? 'idle' : 'edit'">
+          <template #icon><X v-if="mode === 'edit'" /><Pencil v-else /></template>
           {{ mode === "edit" ? "Close editor" : "Edit" }}
-        </button>
-        <button
-          type="button"
+        </BaseButton>
+        <BaseButton
           :disabled="Boolean(order.cancelled_at) || orderStore.isMutating"
           @click="changeOpenState"
         >
+          <template #icon><RotateCcw v-if="order.closed_at" /><Archive v-else /></template>
           {{ order.closed_at ? "Re-open" : "Close" }}
-        </button>
-        <button
-          type="button"
+        </BaseButton>
+        <BaseButton
           :disabled="Boolean(order.cancelled_at) || orderStore.isMutating"
           @click="mode = mode === 'cancel' ? 'idle' : 'cancel'"
         >
+          <template #icon><Ban /></template>
           Cancel
-        </button>
-        <button class="is-danger" type="button" :disabled="orderStore.isMutating" @click="deleteOrder">
+        </BaseButton>
+        <BaseButton
+          variant="danger-ghost"
+          :disabled="orderStore.isMutating"
+          @click="deleteOrder"
+        >
+          <template #icon><Trash2 /></template>
           Delete
-        </button>
+        </BaseButton>
       </div>
     </header>
 
@@ -123,31 +174,45 @@ async function deleteOrder() {
       <label><span>Email</span><input v-model="email" type="email" /></label>
       <label><span>Phone</span><input v-model="phone" type="tel" /></label>
       <div class="editor-actions">
-        <button type="button" @click="mode = 'idle'">Discard</button>
-        <button class="is-primary" type="button" :disabled="orderStore.isMutating" @click="saveOrder">
+        <BaseButton @click="mode = 'idle'">
+          <template #icon><Undo2 /></template>
+          Discard
+        </BaseButton>
+        <BaseButton
+          variant="primary"
+          :loading="orderStore.isMutating"
+          @click="saveOrder"
+        >
+          <template #icon><Save /></template>
           Save changes
-        </button>
+        </BaseButton>
       </div>
     </div>
 
     <div v-else-if="mode === 'cancel'" class="cancel-grid">
       <label>
         <span>Reason</span>
-        <select v-model="cancelReason">
-          <option value="customer">Customer</option>
-          <option value="inventory">Inventory</option>
-          <option value="fraud">Fraud</option>
-          <option value="declined">Declined</option>
-          <option value="other">Other</option>
-        </select>
+        <BaseSelect
+          :model-value="cancelReason"
+          :options="cancelReasonOptions"
+          @update:model-value="setCancelReason"
+        />
       </label>
       <label><span>Refund amount</span><input v-model="cancelAmount" inputmode="decimal" /></label>
       <label class="check-row"><input v-model="notifyCustomer" type="checkbox" /><span>Notify customer</span></label>
       <div class="editor-actions">
-        <button type="button" @click="mode = 'idle'">Back</button>
-        <button class="is-danger-solid" type="button" :disabled="orderStore.isMutating" @click="cancelOrder">
+        <BaseButton @click="mode = 'idle'">
+          <template #icon><ArrowLeft /></template>
+          Back
+        </BaseButton>
+        <BaseButton
+          variant="danger"
+          :loading="orderStore.isMutating"
+          @click="cancelOrder"
+        >
+          <template #icon><Ban /></template>
           Confirm cancellation
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -158,20 +223,15 @@ async function deleteOrder() {
 </template>
 
 <style scoped>
-.management-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.management-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
 header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
 h2 { color: var(--text); font-size: 15px; }
 .action-row, .editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-button { min-height: 32px; padding: 0 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-button:hover { background: var(--surface-soft); }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
-button.is-danger { color: var(--red); }
-button.is-primary { border-color: var(--green); background: var(--green); color: white; }
-button.is-danger-solid { border-color: var(--red); background: var(--red); color: white; }
 .editor-grid, .cancel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }
 label { display: grid; gap: 5px; min-width: 0; }
-input, textarea, select { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface); color: var(--text); font: inherit; }
+input, textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface-raised); color: var(--text); font: inherit; }
+input:focus, textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
 textarea { resize: vertical; }
 .check-row { display: flex; align-items: center; align-self: end; min-height: 38px; gap: 8px; }
 .check-row input { width: 16px; }

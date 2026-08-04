@@ -1,5 +1,14 @@
 <script lang="ts" setup>
 import {
+  Eraser,
+  LockKeyhole,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PlugZap,
+  Search,
+  X,
+} from "@lucide/vue";
+import {
   useSheetService,
   type ProxySheetRow,
 } from "~/composables/useSheetService";
@@ -33,11 +42,22 @@ const router = useRouter();
 const { loading: globalLoading } = useLoading();
 const isLayoutActive = ref(true);
 const hasSkippedInitialActivation = ref(false);
+const isSidebarCollapsed = ref(false);
 
 onMounted(() => {
+  isSidebarCollapsed.value =
+    localStorage.getItem("spf-sidebar-collapsed") === "true";
   formStore.loadKnownStores();
   if (credentialVault.isUnlocked) syncShopFromRoute(true);
 });
+
+function toggleSidebar() {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+  localStorage.setItem(
+    "spf-sidebar-collapsed",
+    String(isSidebarCollapsed.value),
+  );
+}
 
 onActivated(() => {
   isLayoutActive.value = true;
@@ -566,13 +586,38 @@ function deleteStoreOption(id: string) {
 <template>
   <div class="shop-layout-container" :class="{ 'is-single-panel': noStores }">
     <!-- Sidebar Navigation -->
-    <aside v-if="!noStores" class="sidebar">
+    <aside
+      v-if="!noStores"
+      class="sidebar"
+      :class="{ 'is-collapsed': isSidebarCollapsed }"
+    >
       <div class="sidebar-overview">
-        <div>
+        <div v-if="!isSidebarCollapsed">
           <span>Workspace</span>
           <strong>Connected stores</strong>
         </div>
-        <span class="store-count">{{ formStore.knownStores.length }}</span>
+        <div class="sidebar-overview-actions">
+          <span v-if="!isSidebarCollapsed" class="store-count">
+            {{ formStore.knownStores.length }}
+          </span>
+          <BaseButton
+            class="sidebar-toggle"
+            variant="ghost"
+            icon-only
+            :aria-label="
+              isSidebarCollapsed
+                ? 'Expand store sidebar'
+                : 'Collapse store sidebar'
+            "
+            :title="isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+            @click="toggleSidebar"
+          >
+            <template #icon>
+              <PanelLeftOpen v-if="isSidebarCollapsed" />
+              <PanelLeftClose v-else />
+            </template>
+          </BaseButton>
+        </div>
       </div>
       <div class="sidebar-header">
         <button
@@ -582,20 +627,8 @@ function deleteStoreOption(id: string) {
         >
           <IconsAdd />
         </button>
-        <div class="search-container">
-          <svg
-            class="search-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-              clip-rule="evenodd"
-            />
-          </svg>
+        <div v-if="!isSidebarCollapsed" class="search-container">
+          <Search class="search-icon" :size="14" aria-hidden="true" />
           <input
             v-model="searchQuery"
             type="text"
@@ -620,15 +653,16 @@ function deleteStoreOption(id: string) {
             :class="{
               active: formStore.storeId === id,
             }"
+            :title="isSidebarCollapsed ? getStoreDomain(id) || id : undefined"
           >
             <div class="sidebar-item-label" @click="onSelectStore(id)">
               <span class="store-mark">{{ getStoreInitials(id) }}</span>
-              <span class="store-copy">
+              <span v-if="!isSidebarCollapsed" class="store-copy">
                 <strong>{{ getStoreDomain(id) || id }}</strong>
                 <small>{{ id }}</small>
               </span>
             </div>
-            <div class="sidebar-item-action-wrapper">
+            <div v-if="!isSidebarCollapsed" class="sidebar-item-action-wrapper">
               <div @click.stop class="sidebar-item-actions">
                 <BasePopover align="right">
                   <template #trigger="{ isOpen }">
@@ -682,14 +716,14 @@ function deleteStoreOption(id: string) {
         </div>
 
         <div class="shop-bar-right">
-          <button
+          <BaseButton
             class="btn-lock"
-            type="button"
             title="Lock local credentials"
             @click="credentialVault.lock"
           >
+            <template #icon><LockKeyhole /></template>
             Lock
-          </button>
+          </BaseButton>
           <button
             v-if="formStore.storeId"
             class="btn-fetch"
@@ -795,7 +829,15 @@ function deleteStoreOption(id: string) {
                 Bulking
               </button>
             </div>
-            <button class="btn-ghost" @click="isAddModalOpen = false">✕</button>
+            <button
+              class="btn-ghost"
+              type="button"
+              title="Close"
+              aria-label="Close"
+              @click="isAddModalOpen = false"
+            >
+              <X :size="18" />
+            </button>
           </div>
         </div>
 
@@ -901,9 +943,11 @@ function deleteStoreOption(id: string) {
             @click="clearInputs"
             :disabled="isFindingShop"
           >
+            <Eraser :size="15" />
             Clear
           </button>
           <button class="btn-outline" @click="isAddModalOpen = false">
+            <X :size="15" />
             Cancel
           </button>
           <button
@@ -911,6 +955,7 @@ function deleteStoreOption(id: string) {
             :disabled="isFindingShop"
             @click="addShop"
           >
+            <PlugZap :size="15" />
             {{ isFindingShop ? "Processing…" : "Add Connect" }}
           </button>
         </div>
@@ -922,7 +967,7 @@ function deleteStoreOption(id: string) {
 <style scoped>
 .shop-layout-container {
   display: flex;
-  width: 1400px;
+  width: 1440px;
   max-width: none;
   min-height: calc(100vh - 64px - var(--footer-height, 36px));
   max-height: calc(100vh - 64px - var(--footer-height, 36px));
@@ -957,10 +1002,18 @@ function deleteStoreOption(id: string) {
   margin: 12px 0;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--surface-overlay);
   overflow: hidden;
   min-height: calc(100vh - 64px - var(--footer-height, 36px) - 12px);
   max-height: calc(100vh - 64px - var(--footer-height, 36px) - 12px);
+  transition:
+    width 0.18s ease,
+    flex-basis 0.18s ease;
+}
+
+.sidebar.is-collapsed {
+  width: 64px;
+  flex-basis: 64px;
 }
 
 .sidebar-overview {
@@ -998,6 +1051,40 @@ function deleteStoreOption(id: string) {
   background: var(--green-soft);
   color: var(--green);
   font-size: 12px;
+}
+
+.sidebar-overview-actions {
+  display: flex !important;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 5px !important;
+}
+
+.sidebar-toggle {
+  color: var(--text-sub);
+}
+
+.sidebar.is-collapsed .sidebar-overview {
+  justify-content: center;
+  padding: 12px 8px 8px;
+}
+
+.sidebar.is-collapsed .sidebar-header {
+  justify-content: center;
+  padding: 6px 8px 10px;
+}
+
+.sidebar.is-collapsed .sidebar-content {
+  padding-inline: 6px;
+}
+
+.sidebar.is-collapsed .sidebar-item,
+.sidebar.is-collapsed .sidebar-item-label {
+  justify-content: center;
+}
+
+.sidebar.is-collapsed .sidebar-item {
+  padding-inline: 5px;
 }
 
 .sidebar-header {
@@ -1159,7 +1246,7 @@ function deleteStoreOption(id: string) {
 }
 
 .sidebar-item.active .store-mark {
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--surface-raised);
 }
 
 .store-copy {
@@ -1235,7 +1322,7 @@ function deleteStoreOption(id: string) {
   height: 30px;
   padding: 0 12px;
   background: var(--text-primary);
-  color: white;
+  color: var(--bg);
   border: none;
   border-radius: 8px;
   font-size: 13px;
@@ -1245,16 +1332,10 @@ function deleteStoreOption(id: string) {
 }
 
 .btn-lock {
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
+  min-height: 30px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.74);
   color: var(--text-sub);
-  font: inherit;
   font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .btn-lock:hover {
@@ -1338,9 +1419,19 @@ function deleteStoreOption(id: string) {
 
   .sidebar {
     width: 100%;
+    flex-basis: auto;
     position: static;
     max-height: 230px;
     margin-bottom: 0;
+  }
+
+  .sidebar.is-collapsed {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .sidebar.is-collapsed .sidebar-overview {
+    justify-content: flex-end;
   }
 
   .page-content {
@@ -1443,6 +1534,8 @@ function deleteStoreOption(id: string) {
   font-size: 18px;
   cursor: pointer;
   color: var(--text-muted);
+  display: inline-grid;
+  place-items: center;
 }
 .field {
   margin-bottom: 16px;
@@ -1472,7 +1565,7 @@ function deleteStoreOption(id: string) {
 .btn-primary {
   padding: 8px 16px;
   background: var(--blue);
-  color: white;
+  color: var(--bg);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -1486,6 +1579,13 @@ function deleteStoreOption(id: string) {
   color: var(--text);
   font-weight: 600;
   cursor: pointer;
+}
+.btn-primary,
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .alert {
   padding: 10px 12px;

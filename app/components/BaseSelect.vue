@@ -1,25 +1,31 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { Check, ChevronDown } from "@lucide/vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "vue";
 
 type SelectValue = string | number | boolean | Record<string, unknown> | null;
 
 interface Option {
   label: string;
   value: SelectValue;
+  description?: string;
+  disabled?: boolean;
 }
 
-const props = withDefaults(defineProps<{
-  modelValue?: SelectValue;
-  options?: Option[];
-  placeholder?: string;
-  disabled?: boolean;
-  className?: string;
-}>(), {
-  options: () => [],
-  placeholder: "Select an option",
-  disabled: false,
-  className: "",
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue?: SelectValue;
+    options?: Option[];
+    placeholder?: string;
+    disabled?: boolean;
+    className?: string;
+  }>(),
+  {
+    options: () => [],
+    placeholder: "Select an option",
+    disabled: false,
+    className: "",
+  },
+);
 
 const emit = defineEmits<{
   "update:modelValue": [value: SelectValue];
@@ -27,71 +33,170 @@ const emit = defineEmits<{
 }>();
 
 const isOpen = ref(false);
+const activeIndex = ref(-1);
 const selectRef = ref<HTMLElement | null>(null);
+const listboxId = `${useId()}-listbox`;
 
-const selectedOption = computed(() => {
-  return props.options.find((opt) => opt.value === props.modelValue);
-});
+const selectedIndex = computed(() =>
+  props.options.findIndex((option) => option.value === props.modelValue),
+);
+const selectedOption = computed(() => props.options[selectedIndex.value]);
 
-const toggle = () => {
+function nextEnabledIndex(start: number, direction: 1 | -1) {
+  if (!props.options.length) return -1;
+
+  let index = start;
+  for (let count = 0; count < props.options.length; count += 1) {
+    index = (index + direction + props.options.length) % props.options.length;
+    if (!props.options[index]?.disabled) return index;
+  }
+
+  return -1;
+}
+
+function open() {
   if (props.disabled) return;
-  isOpen.value = !isOpen.value;
-};
+  isOpen.value = true;
+  activeIndex.value =
+    selectedIndex.value >= 0
+      ? selectedIndex.value
+      : nextEnabledIndex(-1, 1);
+}
 
-const close = () => {
+function close() {
   isOpen.value = false;
-};
+}
 
-const selectOption = (option: Option) => {
+function toggle() {
+  if (isOpen.value) close();
+  else open();
+}
+
+function selectOption(option: Option) {
+  if (option.disabled) return;
   emit("update:modelValue", option.value);
   emit("change", option.value);
   close();
-};
+}
 
-const getOptionKey = (option: Option) =>
-  typeof option.value === "object"
+function getOptionKey(option: Option) {
+  return typeof option.value === "object"
     ? JSON.stringify(option.value)
     : String(option.value);
+}
 
-const handleClickOutside = (event: MouseEvent) => {
-  if (selectRef.value && !selectRef.value.contains(event.target as Node)) {
-    close();
+function handleKeydown(event: KeyboardEvent) {
+  if (props.disabled) return;
+
+  if (!isOpen.value && ["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+    event.preventDefault();
+    open();
+    return;
   }
-};
 
-onMounted(() => {
-  document.addEventListener("mousedown", handleClickOutside);
+  if (!isOpen.value) return;
+
+  if (event.key === "Escape" || event.key === "Tab") {
+    close();
+    return;
+  }
+
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    activeIndex.value = nextEnabledIndex(
+      activeIndex.value,
+      event.key === "ArrowDown" ? 1 : -1,
+    );
+    return;
+  }
+
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    activeIndex.value = nextEnabledIndex(
+      event.key === "Home" ? -1 : 0,
+      event.key === "Home" ? 1 : -1,
+    );
+    return;
+  }
+
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    const option = props.options[activeIndex.value];
+    if (option) selectOption(option);
+  }
+}
+
+function handleClickOutside(event: MouseEvent) {
+  if (selectRef.value && !selectRef.value.contains(event.target as Node)) close();
+}
+
+watch([isOpen, activeIndex], async ([openState]) => {
+  if (!openState) return;
+  await nextTick();
+  selectRef.value
+    ?.querySelector<HTMLElement>(`[data-option-index="${activeIndex.value}"]`)
+    ?.scrollIntoView({ block: "nearest" });
 });
 
-onUnmounted(() => {
-  document.removeEventListener("mousedown", handleClickOutside);
-});
+onMounted(() => document.addEventListener("mousedown", handleClickOutside));
+onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside));
 </script>
 
 <template>
-  <div class="custom-select" :class="[{ 'is-open': isOpen, 'is-disabled': disabled }, className]" ref="selectRef">
-    <div class="select-trigger" @click="toggle">
-      <span v-if="selectedOption" class="selected-label">{{ selectedOption.label }}</span>
-      <span v-else class="placeholder">{{ placeholder }}</span>
-      <div class="chevron">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M5 8l5 5 5-5" />
-        </svg>
-      </div>
-    </div>
+  <div
+    ref="selectRef"
+    class="custom-select"
+    :class="[{ 'is-open': isOpen, 'is-disabled': disabled }, className]"
+    @keydown="handleKeydown"
+  >
+    <button
+      class="select-trigger"
+      type="button"
+      role="combobox"
+      :aria-controls="listboxId"
+      :aria-expanded="isOpen"
+      :aria-activedescendant="
+        isOpen && activeIndex >= 0
+          ? `${listboxId}-option-${activeIndex}`
+          : undefined
+      "
+      aria-haspopup="listbox"
+      :disabled="disabled"
+      @click="toggle"
+    >
+      <span class="trigger-copy">
+        <span v-if="selectedOption" class="selected-label">{{ selectedOption.label }}</span>
+        <span v-else class="placeholder">{{ placeholder }}</span>
+        <small v-if="selectedOption?.description">{{ selectedOption.description }}</small>
+      </span>
+      <ChevronDown class="chevron" :size="15" aria-hidden="true" />
+    </button>
 
     <Transition name="dropdown">
-      <div v-if="isOpen" class="select-dropdown">
-        <div 
-          v-for="option in options" 
-          :key="getOptionKey(option)" 
-          class="select-option" 
-          :class="{ 'is-selected': option.value === modelValue }"
+      <div v-if="isOpen" :id="listboxId" class="select-dropdown" role="listbox">
+        <button
+          v-for="(option, index) in options"
+          :key="getOptionKey(option)"
+          class="select-option"
+          type="button"
+          role="option"
+          :id="`${listboxId}-option-${index}`"
+          :data-option-index="index"
+          :class="{
+            'is-active': index === activeIndex,
+            'is-selected': option.value === modelValue,
+          }"
+          :aria-selected="option.value === modelValue"
+          :disabled="option.disabled"
+          @mouseenter="activeIndex = index"
           @click="selectOption(option)"
         >
-          {{ option.label }}
-          <span v-if="option.value === modelValue" class="check-icon">✓</span>
-        </div>
+          <span>
+            <strong>{{ option.label }}</strong>
+            <small v-if="option.description">{{ option.description }}</small>
+          </span>
+          <Check v-if="option.value === modelValue" :size="15" aria-hidden="true" />
+        </button>
       </div>
     </Transition>
   </div>
@@ -100,51 +205,76 @@ onUnmounted(() => {
 <style scoped>
 .custom-select {
   position: relative;
-  min-width: 150px;
+  width: 100%;
+  min-width: 0;
+  color: var(--text);
   font-family: inherit;
   font-size: 13px;
 }
 
 .select-trigger {
+  width: 100%;
+  min-height: 38px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border, #e5e5e5);
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
   border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.custom-select:hover .select-trigger {
-  border-color: var(--blue, #005bd3);
-}
-
-.is-open .select-trigger {
-  border-color: var(--blue, #005bd3);
-  box-shadow: 0 0 0 1px var(--blue, #005bd3);
-}
-
-.is-disabled .select-trigger {
+.select-trigger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--green) 48%, var(--border));
   background: var(--surface-soft);
+}
+
+.select-trigger:focus-visible,
+.is-open .select-trigger {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+
+.select-trigger:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
-  opacity: 0.7;
 }
 
-.placeholder {
-  color: var(--text-muted, #8d8d8d);
+.trigger-copy,
+.select-option > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
 }
 
-.selected-label {
-  color: var(--text-primary, #1a1a1a);
-  font-weight: 500;
+.selected-label,
+.select-option strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.placeholder,
+.trigger-copy small,
+.select-option small {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .chevron {
-  transition: transform 0.2s ease;
-  color: var(--text-secondary, #6d6d6d);
+  flex: 0 0 auto;
+  color: var(--text-sub);
+  transition: transform 0.15s ease;
 }
 
 .is-open .chevron {
@@ -153,54 +283,61 @@ onUnmounted(() => {
 
 .select-dropdown {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   z-index: 1001;
-  background: var(--surface);
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 8px;
-  color: var(--text);
-  box-shadow: var(--shadow-soft, 0 4px 20px rgba(0, 0, 0, 0.12));
-  max-height: 250px;
+  max-height: 260px;
   overflow-y: auto;
-  padding: 4px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-soft);
 }
 
 .select-option {
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
+  width: 100%;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: background 0.15s;
-  color: var(--text-primary, #1a1a1a);
+  gap: 10px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.select-option:hover {
+.select-option.is-active {
   background: var(--surface-soft);
 }
 
 .select-option.is-selected {
-  background: var(--blue-soft);
-  color: var(--blue, #005bd3);
-  font-weight: 500;
+  color: var(--green);
 }
 
-.check-icon {
-  font-size: 14px;
+.select-option.is-selected strong {
+  color: currentColor;
 }
 
-/* Transitions */
+.select-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .dropdown-enter-active,
 .dropdown-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 .dropdown-enter-from,
 .dropdown-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(-4px);
 }
 </style>

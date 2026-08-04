@@ -262,29 +262,18 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   align-items: center;
   gap: 18px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 8px;
   background:
     linear-gradient(
       135deg,
-      rgba(223, 244, 232, 0.74),
-      rgba(226, 238, 249, 0.78)
+      color-mix(in srgb, var(--green-soft) 74%, var(--surface)),
+      color-mix(in srgb, var(--blue-soft) 78%, var(--surface))
     ),
     var(--surface);
   padding: 26px;
-  box-shadow: 0 18px 50px rgba(20, 34, 27, 0.08);
+  box-shadow: var(--shadow-soft);
   overflow: hidden;
   position: relative;
-}
-
-.profile-hero::after {
-  content: "";
-  position: absolute;
-  width: 180px;
-  height: 180px;
-  right: -72px;
-  top: -94px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.44);
 }
 
 .profile-identity {
@@ -300,14 +289,14 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.76);
-  border-radius: 17px;
-  background: linear-gradient(145deg, #1f7a4d, #275c91);
-  color: white;
+  border: 1px solid color-mix(in srgb, var(--surface-raised) 76%, var(--border));
+  border-radius: 8px;
+  background: linear-gradient(145deg, var(--green), var(--blue));
+  color: var(--bg);
   font-size: 17px;
   font-weight: 900;
   letter-spacing: 0.04em;
-  box-shadow: 0 10px 24px rgba(31, 122, 77, 0.2);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--green) 20%, transparent);
 }
 
 .profile-hero-copy {
@@ -336,7 +325,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   gap: 5px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
   color: var(--text-sub);
   font-size: 10px;
   font-weight: 800;
@@ -389,9 +378,9 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   align-items: center;
   gap: 6px;
   padding: 0 11px;
-  border: 1px solid rgba(31, 122, 77, 0.2);
+  border: 1px solid color-mix(in srgb, var(--green) 24%, var(--border));
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
   color: var(--green);
   font-size: 12px;
   font-weight: 800;
@@ -400,7 +389,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 .profile-action.primary {
   border-color: var(--green);
   background: var(--green);
-  color: white;
+  color: var(--bg);
 }
 
 .profile-action svg {
@@ -418,9 +407,9 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   display: grid;
   gap: 2px;
   min-width: 0;
-  border: 1px solid rgba(31, 122, 77, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid color-mix(in srgb, var(--green) 18%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
   padding: 12px 14px;
   backdrop-filter: blur(8px);
 }

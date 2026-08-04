@@ -48,12 +48,11 @@
           {{ getSource(currentOrder) }}
         </div>
 
-        <OrderActionsPanel :order="currentOrder" @deleted="returnToOrders" />
-        <OrderRiskPanel :order-id="currentOrder.id" />
-
         <div class="grid">
           <!-- Left column -->
           <div class="left-col">
+            <OrderActionsPanel :order="currentOrder" @deleted="returnToOrders" />
+
             <!-- Fulfillments -->
             <template
               v-if="
@@ -360,6 +359,8 @@
 
           <!-- Sidebar -->
           <div class="sidebar">
+            <OrderRiskPanel :order-id="currentOrder.id" />
+
             <!-- Notes (only if there is a note) -->
             <div v-if="nilVal(currentOrder.note)" class="card">
               <div class="card-header">

@@ -407,15 +407,19 @@ function resolveToken(sid: string): string | null {
   gap: 3px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 30px rgba(20, 34, 27, 0.055);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-soft);
 }
 
 .summary-card.is-balance {
-  border-color: rgba(31, 122, 77, 0.2);
+  border-color: color-mix(in srgb, var(--green) 24%, var(--border));
   background:
-    linear-gradient(135deg, rgba(223, 244, 232, 0.78), rgba(255, 255, 255, 0.94));
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--green-soft) 80%, var(--surface-raised)),
+      var(--surface-raised)
+    );
 }
 
 .summary-card span,
@@ -562,7 +566,7 @@ function resolveToken(sid: string): string | null {
   align-items: center;
   justify-content: center;
   background: var(--blue);
-  color: white !important;
+  color: var(--bg) !important;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: -0.3px;
@@ -669,18 +673,18 @@ function resolveToken(sid: string): string | null {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: var(--green);
   border: none;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: white;
+  color: var(--bg);
   cursor: pointer;
   transition: all 0.2s;
 }
 :deep(.btn-add-track:hover) {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--green) 30%, transparent);
 }
 :deep(.btn-add-track:disabled) {
   background: var(--surface-soft);
