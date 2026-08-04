@@ -653,13 +653,15 @@ function deleteStoreOption(id: string) {
     <main class="main-content">
       <div class="shop-bar">
         <div class="shop-bar-left">
-          <div class="title-container">
-            <slot name="title" />
-            <IconsArrowRight v-if="formStore.storeId" />
-            <h3 v-if="formStore.storeId">
-              {{ getStoreDomain(formStore.storeId) || formStore.storeId }}
-            </h3>
-          </div>
+          <slot name="shop-bar-left">
+            <div class="title-container">
+              <slot name="title" />
+              <IconsArrowRight v-if="formStore.storeId" />
+              <h3 v-if="formStore.storeId">
+                {{ getStoreDomain(formStore.storeId) || formStore.storeId }}
+              </h3>
+            </div>
+          </slot>
         </div>
 
         <div class="shop-bar-right">

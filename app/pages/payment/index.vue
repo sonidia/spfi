@@ -1,13 +1,19 @@
 <template>
   <NuxtLayout name="shop">
-    <template #title>
-      <div class="breadcrumb">
-        <span class="page-title">Payment</span>
-      </div>
+    <template #shop-bar-left>
+      <PaymentViewTabs
+        :active-tab="activeTab"
+        :transactions-count="transactionsCount"
+        :payouts-count="payoutsCount"
+        :orders-count="ordersCount"
+        :products-count="productsCount"
+        :active-label="activeTabLabel"
+        @select="setActiveTab"
+      />
     </template>
 
     <section class="page">
-      <!-- ════════════════ LOADING STATE -->
+      <!-- LOADING STATE -->
       <ShopEmptyState
         v-if="paymentStore.isLoading && !hasPaymentData"
         title="Loading payment data"
@@ -19,7 +25,7 @@
         </template>
       </ShopEmptyState>
 
-      <!-- ════════════════ EMPTY / NOT FETCHED -->
+      <!-- EMPTY / NOT FETCHED -->
       <ShopEmptyState
         v-else-if="
           !paymentStore.isLoading &&
@@ -58,28 +64,13 @@
         </template>
       </ShopEmptyState>
 
-      <!-- ════════════════ SCREEN 1: CONTENT -->
+      <!-- CONTENT -->
       <div v-else class="screen">
-        <div class="payment-heading">
-          <div>
-            <span class="payment-kicker">Financial workspace</span>
-            <h1>Payments overview</h1>
-            <p>Balance, settlement activity, orders, and products in one view.</p>
-          </div>
-          <span
-            class="sync-status"
-            :class="{ 'is-syncing': paymentStore.isLoading }"
-          >
-            <i />
-            {{ paymentStore.isLoading ? "Syncing data" : "Data ready" }}
-          </span>
-        </div>
-
         <div v-if="paymentStore.error" class="payment-alert" role="alert">
           {{ paymentStore.error }}
         </div>
 
-        <section class="finance-summary" aria-label="Payment summary">
+        <section class="finance-summary" aria-label="Store summary">
           <article class="summary-card is-balance">
             <span>Available balance</span>
             <strong>{{ formattedBalance }}</strong>
@@ -102,76 +93,18 @@
           </article>
         </section>
 
-        <!-- Main Card -->
         <div class="card data-card">
-          <div class="table-header" role="tablist" aria-label="Payment data views">
-            <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'transactions' }"
-              type="button"
-              role="tab"
-              :aria-selected="activeTab === 'transactions'"
-              @click="setActiveTab('transactions')"
-            >
-              <IconsDate />
-              Transactions
-              <span class="tab-count">{{ transactionsCount }}</span>
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'payouts' }"
-              type="button"
-              role="tab"
-              :aria-selected="activeTab === 'payouts'"
-              @click="setActiveTab('payouts')"
-            >
-              <IconsRefresh />
-              Payouts
-              <span class="tab-count">{{ payoutsCount }}</span>
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'orders' }"
-              type="button"
-              role="tab"
-              :aria-selected="activeTab === 'orders'"
-              @click="setActiveTab('orders')"
-            >
-              <IconsCopy />
-              Orders
-              <span class="tab-count">{{ ordersCount }}</span>
-            </button>
-            <button
-              class="tab-btn"
-              :class="{ active: activeTab === 'products' }"
-              type="button"
-              role="tab"
-              :aria-selected="activeTab === 'products'"
-              @click="setActiveTab('products')"
-            >
-              <IconsBulking />
-              Products
-              <span class="tab-count">{{ productsCount }}</span>
-            </button>
-            <span class="active-view-label">{{ activeTabLabel }}</span>
-          </div>
-
-          <!-- PAYOUTS VIEW -->
           <PaymentPayoutsTab
             v-if="activeTab === 'payouts'"
             :filter="payoutsFilter"
           />
 
-          <!-- TRANSACTIONS VIEW -->
           <PaymentTransactionsTab v-else-if="activeTab === 'transactions'" />
 
-          <!-- ORDERS VIEW -->
           <PaymentOrdersTab v-else-if="activeTab === 'orders'" />
 
-          <!-- PRODUCTS VIEW -->
           <PaymentProductsTab v-else-if="activeTab === 'products'" />
         </div>
-
       </div>
     </section>
   </NuxtLayout>
@@ -188,6 +121,8 @@ import { useProductStore } from "~/stores/product";
 
 definePageMeta({ layout: false });
 
+type PaymentTab = "payouts" | "transactions" | "orders" | "products";
+
 const formStore = useFormStore();
 const credentialVault = useCredentialVaultStore();
 const paymentStore = usePaymentStore();
@@ -197,12 +132,10 @@ const router = useRouter();
 const route = useRoute();
 
 const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
-const activeTab = ref<"payouts" | "transactions" | "orders" | "products">(
-  "transactions",
-);
+const activeTab = ref<PaymentTab>("transactions");
 const isPageActive = ref(true);
 
-function setActiveTab(tab: "payouts" | "transactions" | "orders" | "products") {
+function setActiveTab(tab: PaymentTab) {
   activeTab.value = tab;
   if (!route.query.shop) {
     const cookieShop = useLocalStorage("active_store_id", "").state.value;
@@ -304,10 +237,8 @@ watch(
 
     if (formStore.storeId) {
       const token = resolveToken(formStore.storeId);
-      if (token) {
-        if (activeTab.value === "products") {
-          productStore.fetchAll(formStore.storeId, token);
-        }
+      if (token && activeTab.value === "products") {
+        productStore.fetchAll(formStore.storeId, token);
       }
     }
   },
@@ -318,24 +249,19 @@ watch(activeTab, (newTab) => {
 
   if (newTab === "orders" && formStore.storeId) {
     const token = resolveToken(formStore.storeId);
-    if (token) {
-      if (!orderStore.orders.length || orderStore.error) {
-        orderStore.fetchAll(formStore.storeId, token);
-      }
+    if (token && (!orderStore.orders.length || orderStore.error)) {
+      orderStore.fetchAll(formStore.storeId, token);
     }
   }
   if (newTab === "products" && formStore.storeId) {
     const token = resolveToken(formStore.storeId);
-    if (token) {
-      if (!productStore.products.length || productStore.error) {
-        productStore.fetchAll(formStore.storeId, token);
-      }
+    if (token && (!productStore.products.length || productStore.error)) {
+      productStore.fetchAll(formStore.storeId, token);
     }
   }
 });
 
 function resolveToken(sid: string): string | null {
-  // Use raw document.cookie fallback if outside Nuxt context, but we are client side anyway
   const data = credentialVault.getStoreData(sid);
   const now = Date.now();
   if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
@@ -349,67 +275,6 @@ function resolveToken(sid: string): string | null {
 .screen {
   display: block;
   animation: fadeIn 0.18s ease;
-}
-
-.payment-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-.payment-kicker {
-  color: var(--green);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.payment-heading h1 {
-  margin: 4px 0 3px;
-  color: var(--text);
-  font-size: clamp(1.45rem, 3vw, 2rem);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-}
-
-.payment-heading p {
-  color: var(--text-sub);
-  font-size: 13px;
-}
-
-.sync-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
-  border: 1px solid rgba(31, 122, 77, 0.18);
-  border-radius: 999px;
-  background: var(--green-soft);
-  color: var(--green);
-  font-size: 11px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.sync-status i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.sync-status.is-syncing i {
-  animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.3;
-    transform: scale(0.75);
-  }
 }
 
 .payment-alert {
@@ -472,46 +337,6 @@ function resolveToken(sid: string): string | null {
   }
 }
 
-/* ─── PAGE HEADER ─── */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.breadcrumb-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.15s;
-  color: var(--text-primary);
-}
-.breadcrumb-back:hover {
-  background: var(--surface-soft);
-}
-.page-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.page-date {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-/* ─── CARD ─── */
 .card {
   background: var(--surface);
   border-radius: 14px;
@@ -525,141 +350,6 @@ function resolveToken(sid: string): string | null {
   box-shadow: 0 16px 44px rgba(20, 34, 27, 0.075);
 }
 
-/* ─── OVERVIEW ─── */
-.overview-card {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-.overview-left {
-  padding: 20px 24px;
-  border-right: 1px solid var(--border);
-}
-.overview-right {
-  padding: 20px 24px;
-}
-.overview-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-.overview-amount {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: var(--text-primary);
-}
-.overview-currency {
-  font-size: 28px;
-  font-weight: 300;
-  color: var(--text-secondary);
-  margin-left: 4px;
-}
-.overview-provider {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 6px;
-}
-.overview-meta {
-  display: flex;
-  gap: 40px;
-  margin-top: 16px;
-}
-.meta-item label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: block;
-  margin-bottom: 2px;
-  font-weight: 400;
-}
-.meta-item span {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-.text-muted {
-  color: var(--text-muted) !important;
-}
-
-/* ─── TABLE HEADER ─── */
-.table-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--surface), var(--surface-low));
-}
-.tab-btn {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-family: var(--font);
-  transition:
-    background 0.16s ease,
-    box-shadow 0.16s ease,
-    color 0.16s ease,
-    transform 0.16s ease;
-  line-height: 1.4;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.tab-btn svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-}
-.tab-btn.active {
-  background: var(--green-soft);
-  color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.16);
-}
-.tab-btn:hover:not(.active) {
-  background: var(--surface-soft);
-  color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
-  transform: translateY(-1px);
-}
-
-.tab-btn:focus-visible {
-  outline: 2px solid rgba(31, 122, 77, 0.45);
-  outline-offset: 2px;
-}
-.tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  padding: 1px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  border-radius: 999px;
-  background: var(--surface-soft);
-  color: var(--text-secondary);
-}
-.tab-btn.active .tab-count {
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--green);
-}
-
-.active-view-label {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* ─── BADGE ─── */
 :deep(.badge) {
   display: inline-flex;
   align-items: center;
@@ -703,7 +393,6 @@ function resolveToken(sid: string): string | null {
   color: var(--text-sub);
 }
 
-/* ─── TABLE ─── */
 :deep(table) {
   width: 100%;
   border-collapse: collapse;
@@ -794,7 +483,6 @@ function resolveToken(sid: string): string | null {
   margin-left: 2px;
 }
 
-/* ─── ORDERS TABLE ─── */
 :deep(.orders-table) {
   width: 100%;
   border-collapse: collapse;
@@ -900,7 +588,6 @@ function resolveToken(sid: string): string | null {
   opacity: 0.7;
 }
 
-/* ─── EMPTY ─── */
 :deep(.empty) {
   text-align: center;
   padding: 32px;
@@ -908,54 +595,15 @@ function resolveToken(sid: string): string | null {
   font-size: 13px;
 }
 
-/* ─── RESPONSIVE ─── */
 @media (max-width: 600px) {
-  .payment-heading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .finance-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .active-view-label {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .overview-card {
-    grid-template-columns: 1fr;
-  }
-  .overview-left {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-  :deep(.tx-meta-grid) {
-    grid-template-columns: 1fr;
-  }
-  :deep(.tx-meta-col:first-child) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-  .overview-meta {
-    flex-direction: column;
-    gap: 12px;
   }
 }
 
 @media (max-width: 420px) {
   .finance-summary {
     grid-template-columns: 1fr;
-  }
-
-  .table-header {
-    align-items: stretch;
-  }
-
-  .tab-btn {
-    justify-content: space-between;
-    width: calc(50% - 3px);
   }
 }
 </style>
