@@ -9,8 +9,9 @@ const switcherRef = ref<HTMLElement | null>(null);
 const currentLocale = computed(() => locale.value);
 const currentOption = computed(
   () =>
-    availableLocales.value.find((option) => option.code === currentLocale.value) ||
-    availableLocales.value[0],
+    availableLocales.value.find(
+      (option) => option.code === currentLocale.value,
+    ) || availableLocales.value[0],
 );
 
 function closeMenu() {
@@ -59,8 +60,8 @@ onBeforeUnmount(() => {
       aria-haspopup="listbox"
       @click="toggleMenu"
     >
-      <span class="locale-code">{{ currentOption.shortLabel }}</span>
-      <span class="locale-name">{{ currentOption.nativeLabel }}</span>
+      <span class="locale-code">{{ currentOption?.shortLabel }}</span>
+      <span class="locale-name">{{ currentOption?.nativeLabel }}</span>
       <span class="locale-caret" aria-hidden="true" />
     </button>
 
@@ -112,7 +113,7 @@ onBeforeUnmount(() => {
   font: inherit;
   font-size: 12px;
   font-weight: 800;
-  padding: 0 10px;
+  padding: 0 10px 0 4px;
   box-shadow: var(--shadow-soft);
   transition:
     border-color 0.16s ease,

@@ -174,7 +174,7 @@ const route = useRoute();
 
 const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
 const activeTab = ref<StoreTab>(
-  isStoreTab(route.query.tab) ? route.query.tab : "transactions",
+  isStoreTab(route.query.tab) ? route.query.tab : "profile",
 );
 const isPageActive = ref(true);
 
@@ -213,7 +213,9 @@ const currentBalance = computed(() => {
   return b;
 });
 
-const transactionsCount = computed(() => paymentStore.balanceTransactions.length);
+const transactionsCount = computed(
+  () => paymentStore.balanceTransactions.length,
+);
 const payoutsCount = computed(() => paymentStore.payouts.length);
 const ordersCount = computed(() => orderStore.orders.length);
 const productsCount = computed(() => productStore.products.length);
@@ -414,12 +416,11 @@ function resolveToken(sid: string): string | null {
 
 .summary-card.is-balance {
   border-color: color-mix(in srgb, var(--green) 24%, var(--border));
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--green-soft) 80%, var(--surface-raised)),
-      var(--surface-raised)
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--green-soft) 80%, var(--surface-raised)),
+    var(--surface-raised)
+  );
 }
 
 .summary-card span,

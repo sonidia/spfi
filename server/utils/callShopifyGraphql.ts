@@ -30,6 +30,7 @@ interface CallShopifyGraphqlOptions<TVariables> {
   variables?: TVariables;
   operationName?: string;
   timeoutMs?: number;
+  retryTransport?: boolean;
 }
 
 interface ShopifyGraphqlRequest<TVariables> {
@@ -51,6 +52,7 @@ export async function callShopifyGraphql<
   variables,
   operationName,
   timeoutMs = DEFAULT_GRAPHQL_TIMEOUT_MS,
+  retryTransport = true,
 }: CallShopifyGraphqlOptions<TVariables>): Promise<TData> {
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
@@ -102,6 +104,9 @@ export async function callShopifyGraphql<
       envelope = response.data;
     } catch (error) {
       lastTransportError = error;
+      if (!retryTransport) {
+        throw createApiError(error, "Shopify GraphQL request failed.");
+      }
       continue;
     }
 

@@ -52,6 +52,9 @@
           <!-- Left column -->
           <div class="left-col">
             <OrderActionsPanel :order="currentOrder" @deleted="returnToOrders" />
+            <OrderFinancialActions :order="currentOrder" />
+            <OrderLineItemEditor :order="currentOrder" />
+            <OrderFulfillmentPanel :order="currentOrder" />
 
             <!-- Fulfillments -->
             <template
@@ -62,7 +65,7 @@
             >
               <div
                 v-for="(f, fi) in currentOrder.fulfillments"
-                :key="fi"
+                :key="f.id || fi"
                 class="card"
               >
                 <div class="card-header">
@@ -104,6 +107,10 @@
                     </span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 8px">
+                    <OrderFulfillmentCancelButton
+                      :order-id="currentOrder.id"
+                      :fulfillment="f"
+                    />
                     <span
                       v-if="nilVal(f.name, '')"
                       style="font-size: 13px; color: var(--text-sub)"
@@ -493,8 +500,9 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false });
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
 import {
   addressSame,
@@ -522,6 +530,7 @@ import {
 const orderStore = useOrderStore();
 const route = useRoute();
 const router = useRouter();
+const { storeId, token, isReady } = useActiveShopAuth();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const currentOrder = computed(() => {
@@ -530,6 +539,20 @@ const currentOrder = computed(() => {
     orderStore.orders.find((order) => order.id.toString() === orderId) || null
   );
 });
+
+watch(
+  [() => route.params.id, isReady],
+  ([orderId, ready]) => {
+    if (!ready || !orderId) return;
+    void orderStore.fetchById(
+      storeId.value,
+      token.value,
+      String(orderId),
+      true,
+    );
+  },
+  { immediate: true },
+);
 
 function returnToOrders() {
   router.replace({
@@ -836,6 +859,7 @@ function returnToOrders() {
   background: var(--surface-soft);
 }
 .kebab {
+  display: none;
   background: none;
   border: none;
   cursor: pointer;

@@ -28,6 +28,17 @@ function selectTab(tab: StoreTab) {
   >
     <button
       class="tab-btn"
+      :class="{ active: activeTab === 'profile' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'profile'"
+      @click="selectTab('profile')"
+    >
+      <IconsUser />
+      Profile
+    </button>
+    <button
+      class="tab-btn"
       :class="{ active: activeTab === 'transactions' }"
       type="button"
       role="tab"
@@ -85,17 +96,6 @@ function selectTab(tab: StoreTab) {
       <IconsUsers />
       Customers
       <span class="tab-count">{{ customersCount }}</span>
-    </button>
-    <button
-      class="tab-btn"
-      :class="{ active: activeTab === 'profile' }"
-      type="button"
-      role="tab"
-      :aria-selected="activeTab === 'profile'"
-      @click="selectTab('profile')"
-    >
-      <IconsUser />
-      Profile
     </button>
     <!-- <span class="active-view-label">{{ activeLabel }}</span> -->
   </div>

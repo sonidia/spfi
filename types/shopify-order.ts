@@ -92,3 +92,86 @@ export interface OrderMutationResponse {
   order?: ShopifyOrder;
   success?: boolean;
 }
+
+export interface OrderCaptureInput {
+  parentTransactionId: string | number;
+  amount: string;
+  currency?: string;
+  finalCapture?: boolean;
+}
+
+export type RefundLineItemRestockType =
+  | "CANCEL"
+  | "NO_RESTOCK"
+  | "RETURN";
+
+export interface OrderRefundLineItemInput {
+  lineItemId: string | number;
+  quantity: number;
+  restockType?: RefundLineItemRestockType;
+  locationId?: string | number;
+}
+
+export interface OrderRefundInput {
+  amount: string;
+  parentTransactionId: string | number;
+  gateway: string;
+  currency?: string;
+  lineItems: OrderRefundLineItemInput[];
+  note?: string;
+  notify?: boolean;
+  discrepancyReason?: "CUSTOMER" | "DAMAGE" | "OTHER" | "RESTOCK";
+  idempotencyKey?: string;
+}
+
+export interface CalculatedOrderLineItem {
+  id: string;
+  title: string;
+  sku?: string | null;
+  quantity: number;
+  editableQuantity: number;
+  restockable: boolean;
+}
+
+export interface OrderEditSessionResponse {
+  calculatedOrderId: string;
+  lineItems: CalculatedOrderLineItem[];
+}
+
+export interface OrderEditLineChange {
+  calculatedLineItemId: string;
+  quantity: number;
+  restock?: boolean;
+}
+
+export interface OrderEditCommitInput {
+  calculatedOrderId: string;
+  changes: OrderEditLineChange[];
+  notifyCustomer?: boolean;
+  staffNote?: string;
+}
+
+export interface OrderEditCommitResponse {
+  orderId: string;
+  successMessages: string[];
+}
+
+export interface OrderFulfillmentLineItemInput {
+  id: number;
+  quantity: number;
+}
+
+export interface OrderFulfillmentGroupInput {
+  fulfillment_order_id: number;
+  fulfillment_order_line_items: OrderFulfillmentLineItemInput[];
+}
+
+export interface OrderFulfillmentInput {
+  notify_customer?: boolean;
+  tracking_info?: {
+    number?: string;
+    company?: string;
+    url?: string;
+  };
+  line_items_by_fulfillment_order: OrderFulfillmentGroupInput[];
+}

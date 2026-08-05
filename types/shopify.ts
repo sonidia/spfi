@@ -121,6 +121,7 @@ export interface ShopifyCustomer {
 
 export interface ShopifyLineItem {
   id: number;
+  admin_graphql_api_id?: string;
   name?: string;
   title?: string;
   variant_title?: string | null;
@@ -145,18 +146,34 @@ export interface ShopifyFulfillment {
   line_items?: ShopifyLineItem[];
 }
 
+export interface ShopifyRefundLineItem {
+  id?: number;
+  line_item_id: number;
+  quantity: number;
+  restock_type?: string;
+}
+
+export interface ShopifyRefund {
+  id: number;
+  created_at?: string;
+  note?: string | null;
+  refund_line_items?: ShopifyRefundLineItem[];
+}
+
 export interface ShopifyOrder {
   id: number;
   admin_graphql_api_id?: string;
   name?: string;
   order_number: number;
   created_at: string;
+  updated_at?: string;
   closed_at?: string | null;
   cancelled_at?: string | null;
   financial_status: string;
   fulfillment_status: string | null;
   total_price: string;
   current_total_price?: string;
+  total_outstanding?: string;
   subtotal_price?: string;
   current_subtotal_price?: string;
   total_tax?: string;
@@ -179,6 +196,45 @@ export interface ShopifyOrder {
   shipping_lines?: Array<{ title?: string }>;
   line_items: ShopifyLineItem[];
   fulfillments?: ShopifyFulfillment[];
+  refunds?: ShopifyRefund[];
+}
+
+export interface ShopifyOrderTransaction {
+  id: number;
+  order_id?: number;
+  kind: string;
+  gateway?: string;
+  status: string;
+  message?: string | null;
+  created_at: string;
+  test?: boolean;
+  authorization?: string | null;
+  amount: string;
+  currency: string;
+  parent_id?: number | null;
+  payment_details?: {
+    credit_card_company?: string | null;
+    credit_card_number?: string | null;
+    credit_card_name?: string | null;
+    credit_card_wallet?: string | null;
+    avs_result_code?: string | null;
+    cvv_result_code?: string | null;
+  } | null;
+  receipt?: Record<string, unknown> | null;
+}
+
+export interface ShopifyOrderEvent {
+  id: number;
+  subject_id: number;
+  subject_type: string;
+  verb: string;
+  created_at: string;
+  author?: string | null;
+  description?: string | null;
+  message?: string | null;
+  body?: string | null;
+  arguments?: string[];
+  path?: string | null;
 }
 
 export interface ShopifyVariant {
@@ -304,6 +360,9 @@ export interface ShopifyFulfillmentOrderLineItem {
   id: number;
   quantity: number;
   fulfillable_quantity?: number;
+  line_item_id?: number;
+  inventory_item_id?: number;
+  variant_id?: number | null;
 }
 
 export interface ShopifyFulfillmentOrder {
@@ -404,6 +463,14 @@ export interface ShopProfileResponse {
 
 export interface BalanceTransactionsResponse {
   transactions: ShopifyBalanceTransaction[];
+}
+
+export interface OrderTransactionsResponse {
+  transactions: ShopifyOrderTransaction[];
+}
+
+export interface OrderEventsResponse {
+  events: ShopifyOrderEvent[];
 }
 
 export interface PaymentsOverviewResponse {

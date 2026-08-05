@@ -45,6 +45,7 @@ interface CallShopifyApiOptions<TBody = unknown> {
   useAdminDomain?: boolean;
   missingProxyMessage?: string;
   timeoutMs?: number;
+  retryTransport?: boolean;
 }
 
 interface SocksProxyAgentInternals {
@@ -389,6 +390,7 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
   useAdminDomain = true,
   missingProxyMessage = "Missing sock proxy for this store. Please update it in Manager page.",
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  retryTransport = true,
 }: CallShopifyApiOptions<TBody>): Promise<TResponse> {
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
@@ -440,6 +442,9 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
       return response.data;
     } catch (error) {
       lastError = error;
+      if (!retryTransport) {
+        throwShopifyApiError(error);
+      }
     }
   }
 

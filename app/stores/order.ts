@@ -3,10 +3,14 @@ import { ref } from "vue";
 import { useOrderApi } from "~/composables/useOrderApi";
 import type { ShopifyOrder } from "~~/types/shopify";
 import type {
+  OrderCaptureInput,
   OrderCancelInput,
   OrderCountQuery,
   OrderCreateOptions,
+  OrderEditCommitInput,
+  OrderFulfillmentInput,
   OrderListQuery,
+  OrderRefundInput,
   RiskAssessmentLevel,
   ShopifyOrderPayload,
   ShopifyOrderRiskSummary,
@@ -253,6 +257,95 @@ export const useOrderStore = defineStore("order", () => {
     }, "Failed to delete the order.");
   }
 
+  async function capturePayment(
+    storeId: string,
+    token: string,
+    id: string | number,
+    input: OrderCaptureInput,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.capture({ storeId, token }, id, input),
+      "Failed to capture the order payment.",
+    );
+  }
+
+  async function markOrderAsPaid(
+    storeId: string,
+    token: string,
+    id: string | number,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.markAsPaid({ storeId, token }, id),
+      "Failed to mark the order as paid.",
+    );
+  }
+
+  async function refundOrder(
+    storeId: string,
+    token: string,
+    id: string | number,
+    input: OrderRefundInput,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.refund({ storeId, token }, id, input),
+      "Failed to refund the order.",
+    );
+  }
+
+  async function commitOrderEdit(
+    storeId: string,
+    token: string,
+    id: string | number,
+    input: OrderEditCommitInput,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.commitEdit({ storeId, token }, id, input),
+      "Failed to edit the order items.",
+    );
+  }
+
+  async function fulfillOrder(
+    storeId: string,
+    token: string,
+    id: string | number,
+    input: OrderFulfillmentInput,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.fulfill({ storeId, token }, id, input),
+      "Failed to fulfill the selected items.",
+    );
+  }
+
+  async function cancelFulfillment(
+    storeId: string,
+    token: string,
+    orderId: string | number,
+    fulfillmentId: string | number,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      orderId,
+      () => orderApi.cancelFulfillment({ storeId, token }, fulfillmentId),
+      "Failed to cancel the fulfillment.",
+    );
+  }
+
   async function fetchRiskAssessments(
     storeId: string,
     token: string,
@@ -316,6 +409,7 @@ export const useOrderStore = defineStore("order", () => {
     operation: () => Promise<T>,
     fallback: string,
   ): Promise<T | null> {
+    if (isMutating.value) return null;
     isMutating.value = true;
     mutationError.value = null;
     try {
@@ -328,6 +422,32 @@ export const useOrderStore = defineStore("order", () => {
     } finally {
       isMutating.value = false;
     }
+  }
+
+  async function runOrderMutationAndRefresh(
+    storeId: string,
+    token: string,
+    id: string | number,
+    operation: () => Promise<unknown>,
+    fallback: string,
+  ) {
+    return runMutation(storeId, async () => {
+      await operation();
+      try {
+        const response = await orderApi.get({ storeId, token }, id);
+        if (response.order) upsertOrder(response.order);
+        return response.order || null;
+      } catch (refreshError) {
+        const refreshMessage = getAppErrorMessage(
+          refreshError,
+          "The refreshed order could not be loaded.",
+        );
+        mutationError.value = `The action succeeded, but refresh failed: ${refreshMessage}`;
+        return (
+          orders.value.find((order) => String(order.id) === String(id)) || null
+        );
+      }
+    }, fallback);
   }
 
   async function runRiskOperation<T>(
@@ -390,6 +510,12 @@ export const useOrderStore = defineStore("order", () => {
     closeOrder,
     openOrder,
     deleteOrder,
+    capturePayment,
+    markOrderAsPaid,
+    refundOrder,
+    commitOrderEdit,
+    fulfillOrder,
+    cancelFulfillment,
     fetchRiskAssessments,
     createRiskAssessment,
     hydrate,

@@ -18,6 +18,7 @@ Assessment API instead.
 | Cancel | `POST /api/order/:id/cancel` | `POST /orders/:id/cancel.json` |
 | Close | `POST /api/order/:id/close` | `POST /orders/:id/close.json` |
 | Re-open | `POST /api/order/:id/open` | `POST /orders/:id/open.json` |
+| Timeline | `GET /api/order/:id/events` | `GET /orders/:id/events.json` |
 
 List and count filters are allow-listed in
 `server/utils/shopify-order-query.ts`. The list limit is clamped to Shopify's
@@ -38,9 +39,56 @@ Reading orders requires `read_orders`; mutations require `write_orders`.
 Orders older than 60 days additionally require approved `read_all_orders`
 access. `orderRiskAssessmentCreate` requires an offline access token.
 
+## Payments and refunds
+
+| Capability | Internal endpoint | Shopify GraphQL operation |
+| --- | --- | --- |
+| Capture authorized funds | `POST /api/order/:id/capture` | `orderCapture` |
+| Record an offline payment | `POST /api/order/:id/mark-paid` | `orderMarkAsPaid` |
+| Partial line-item refund | `POST /api/order/:id/refund` | `refundCreate` |
+
+Capture accepts the authorization transaction, amount, currency, and final
+capture flag. Refunds require explicit line item quantities and a successful
+sale/capture parent transaction. The UI keeps a refund idempotency key across a
+failed retry; `refundCreate` requires the `@idempotent` directive in API
+versions 2026-04 and later.
+
+## Order editing
+
+| Capability | Internal endpoint | Shopify GraphQL operation |
+| --- | --- | --- |
+| Start edit session | `POST /api/order/:id/edit/begin` | `orderEditBegin` |
+| Stage quantity/removal and commit | `POST /api/order/:id/edit/commit` | `orderEditSetQuantity`, `orderEditCommit` |
+
+The editor uses Shopify-calculated line item IDs returned by `orderEditBegin`.
+This avoids ambiguous mapping from REST line item IDs. It enforces non-negative
+integer quantities and does not let the UI reduce below already-uneditable
+(typically fulfilled) units. Order editing requires `write_order_edits`, and
+Shopify doesn't allow editing archived orders or fulfilled quantities.
+
+## Fulfillment operations
+
+| Capability | Internal endpoint | Shopify operation |
+| --- | --- | --- |
+| Read fulfillment orders | `GET /api/order/:id/fulfillment_orders` | REST fulfillment orders |
+| Full or partial fulfillment | `POST /api/order/:id/fulfill` | REST `POST /fulfillments.json` |
+| Cancel fulfillment | `POST /api/fulfillments/:id/cancel` | GraphQL `fulfillmentCancel` |
+
+Partial fulfillment requests are validated against the order's current open
+fulfillment orders and fulfillable quantities. The server no longer falls back
+to the legacy order fulfillment endpoint after a modern fulfillment error,
+which prevents an invalid partial request from accidentally fulfilling every
+open item.
+
 References:
 
 - https://shopify.dev/docs/api/admin-rest/latest/resources/order
 - https://shopify.dev/docs/api/admin-rest/latest/resources/order-risk
 - https://shopify.dev/docs/api/admin-graphql/latest/objects/OrderRiskSummary
 - https://shopify.dev/docs/api/admin-graphql/latest/mutations/orderRiskAssessmentCreate
+- https://shopify.dev/docs/api/admin-graphql/latest/mutations/orderCapture
+- https://shopify.dev/docs/api/admin-graphql/latest/mutations/orderMarkAsPaid
+- https://shopify.dev/docs/api/admin-graphql/latest/mutations/refundCreate
+- https://shopify.dev/docs/apps/build/orders-fulfillment/order-management-apps/edit-orders
+- https://shopify.dev/docs/api/admin-graphql/latest/mutations/fulfillmentCancel
+- https://shopify.dev/docs/api/admin-rest/latest/resources/event
