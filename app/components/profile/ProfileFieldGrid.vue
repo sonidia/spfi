@@ -1,17 +1,25 @@
 <script setup lang="ts">
+import type { Component } from "vue";
 import type { ProfileFieldRow } from "~~/utils/shop-profile";
 
 defineProps<{
   title: string;
   rows: ProfileFieldRow[];
+  icon?: Component;
 }>();
 </script>
 
 <template>
   <section class="profile-card">
     <div class="profile-card-head">
-      <h2>{{ title }}</h2>
-      <span class="field-count">{{ rows.length }}</span>
+      <div class="profile-card-title">
+        <component :is="icon" v-if="icon" aria-hidden="true" />
+        <h2>{{ title }}</h2>
+      </div>
+      <div class="profile-card-actions">
+        <slot name="actions" />
+        <span class="field-count">{{ rows.length }}</span>
+      </div>
     </div>
 
     <div v-if="rows.length" class="field-grid">
@@ -50,11 +58,30 @@ defineProps<{
   border-bottom: 1px solid var(--border);
 }
 
-.profile-card-head h2 {
+.profile-card-title,
+.profile-card-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card-title h2 {
   margin: 0;
   color: var(--text-primary);
   font-size: 15px;
   font-weight: 700;
+}
+
+.profile-card-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+
+.profile-card-actions {
+  flex: 0 0 auto;
 }
 
 .field-count {
@@ -124,6 +151,16 @@ defineProps<{
 }
 
 @media (max-width: 720px) {
+  .profile-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profile-card-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }

@@ -84,7 +84,11 @@ const isFetching = computed(() => {
       return customerStore.isLoading || customerStore.isLoadingDetail;
     }
     if (route.query.tab === "profile") {
-      return shopProfileStore.isLoading;
+      return (
+        shopProfileStore.isLoading ||
+        paymentStore.isLoading ||
+        orderStore.isLoading
+      );
     }
     if (route.query.tab === "products") return productStore.isLoading;
     if (route.query.tab === "orders") return orderStore.isLoading;
@@ -271,6 +275,13 @@ function fetchCurrent(force = false) {
       customerStore.fetchAll(sid, token, customerStore.activeQuery);
     } else if (route.query.tab === "profile") {
       shopProfileStore.fetchProfile(sid, token);
+      if (force || !paymentStore.hasFetchedAll) {
+        paymentStore.fetchAll(sid, token, force);
+      }
+      paymentStore.fetchBalanceTransactions(sid, token, force);
+      if (force || !orderStore.hasFetchedAll) {
+        orderStore.fetchAll(sid, token, force);
+      }
     } else if (route.query.tab === "products") {
       productStore.fetchAll(sid, token);
     } else if (route.query.tab === "orders") {
@@ -752,113 +763,71 @@ function deleteStoreOption(id: string) {
       </div>
     </main>
 
-    <!-- ── Add Store Modal ── -->
+    <!-- Add Store Modal -->
     <div
       v-if="isAddModalOpen"
-      class="modal-backdrop"
+      class="modal-backdrop add-store-backdrop"
       @click.self="isAddModalOpen = false"
     >
-      <div class="modal-card">
-        <div
-          class="modal-head"
-          style="
-            align-items: flex-start;
-            justify-content: space-between;
-            display: flex;
-          "
-        >
-          <div>
-            <h3 class="modal-title">Connect New Store</h3>
+      <div
+        class="modal-card add-store-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-store-modal-title"
+      >
+        <div class="modal-head add-store-modal-head">
+          <div class="add-store-title-block">
+            <h3 id="add-store-modal-title" class="modal-title">
+              Connect New Store
+            </h3>
           </div>
-          <div style="display: flex; gap: 8px; align-items: center">
-            <div
-              class="mode-toggle"
-              style="
-                display: flex;
-                background: var(--bg);
-                border-radius: 8px;
-                padding: 4px;
-                border: 1px solid var(--border);
-              "
-            >
+          <div class="add-store-head-actions">
+            <div class="mode-toggle add-store-mode-toggle" aria-label="Add store mode">
               <button
                 class="toggle-btn"
+                type="button"
                 :class="{ active: addMode === 'single' }"
                 @click="addMode = 'single'"
-                style="
-                  padding: 6px 12px;
-                  background: transparent;
-                  border: none;
-                  font-size: 13px;
-                  font-weight: 500;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  transition: all 0.2s;
-                "
-                :style="
-                  addMode === 'single'
-                    ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
-                    : 'color: var(--text-sub);'
-                "
               >
+                <IconsCheck />
                 Single
               </button>
               <button
                 class="toggle-btn"
+                type="button"
                 :class="{ active: addMode === 'bulking' }"
                 @click="addMode = 'bulking'"
-                style="
-                  padding: 6px 12px;
-                  background: transparent;
-                  border: none;
-                  font-size: 13px;
-                  font-weight: 500;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  transition: all 0.2s;
-                "
-                :style="
-                  addMode === 'bulking'
-                    ? 'background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow);'
-                    : 'color: var(--text-sub);'
-                "
               >
+                <IconsBulking />
                 Bulking
               </button>
             </div>
             <button
-              class="btn-ghost"
+              class="btn-ghost add-store-close"
               type="button"
               title="Close"
               aria-label="Close"
               @click="isAddModalOpen = false"
             >
-              <X :size="18" />
+              <X :size="16" />
             </button>
           </div>
         </div>
 
-        <div class="modal-body">
-          <div class="field field-full">
-            <label class="field-label">Domain</label>
-            <input
-              v-if="addMode === 'single'"
-              v-model="newDomain"
-              class="inp"
-              placeholder="Your store domains (e.g. myshop.store)"
-              @keyup.enter="addShop"
-            />
-            <textarea
-              v-else
-              v-model="newDomain"
-              placeholder="Your store domains (one per line, e.g. myshop.store)"
-              class="inp"
-              rows="6"
-            ></textarea>
-          </div>
-          <template v-if="addMode === 'single'">
-            <div class="field field-full">
-              <label class="field-label">Sock/Proxy URL</label>
+        <div class="modal-body add-store-modal-body">
+          <div v-if="addMode === 'single'" class="add-store-form">
+            <div class="field field-50">
+              <label class="field-label">Shop domain/URL</label>
+              <input
+                v-model="newDomain"
+                class="inp domain_inp"
+                type="text"
+                placeholder="Your store domain (e.g., myshop.store)"
+                @keyup.enter="addShop"
+              />
+            </div>
+            <div class="field field-50">
+              <label class="field-label">Sock/Proxy</label>
               <input
                 v-model="newSock"
                 type="text"
@@ -866,94 +835,111 @@ function deleteStoreOption(id: string) {
                 placeholder="IP:Port:User:Pass"
               />
             </div>
-            <div class="field-row">
-              <div class="field field-50">
-                <label class="field-label">Store ID</label>
-                <input
-                  v-model="newStoreId"
-                  type="text"
-                  class="inp"
-                  placeholder="mystore"
-                  @paste="handlePaste"
-                />
-              </div>
+            <div class="field field-33">
+              <label class="field-label">Store ID</label>
+              <input
+                v-model="newStoreId"
+                type="text"
+                class="inp"
+                placeholder="e.g. mystore"
+                @paste="handlePaste"
+              />
             </div>
-            <div class="field-row">
-              <div class="field field-50">
-                <label class="field-label">Client ID</label>
-                <input
-                  v-model="newClientId"
-                  type="text"
-                  class="inp"
-                  @paste="handlePaste"
-                />
-              </div>
-              <div class="field field-50">
-                <label class="field-label">Client Secret</label>
-                <input
-                  v-model="newClientSecret"
-                  type="password"
-                  class="inp"
-                  @paste="handlePaste"
-                />
-              </div>
+            <div class="field field-33">
+              <label class="field-label">Client ID</label>
+              <input
+                v-model="newClientId"
+                type="text"
+                class="inp"
+                placeholder="Client ID"
+                @paste="handlePaste"
+              />
             </div>
-          </template>
+            <div class="field field-33">
+              <label class="field-label">Client Secret</label>
+              <input
+                v-model="newClientSecret"
+                type="password"
+                class="inp"
+                placeholder="Client Secret"
+                @paste="handlePaste"
+              />
+            </div>
+          </div>
 
-          <!-- Step Progress -->
-          <div
-            v-if="
-              isFindingShop ||
-              findShopSteps.some(
-                (s) => s.status !== 'pending' && s.status !== 'done',
-              )
-            "
-            class="step-progress"
-          >
+          <div v-else class="add-store-form">
+            <div class="field field-full">
+              <label class="field-label">Shop domains</label>
+              <textarea
+                v-model="newDomain"
+                placeholder="Your store domains (one per line, e.g. myshop.store)"
+                class="inp domain_inp"
+                rows="12"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="add-store-status">
             <div
-              v-for="step in findShopSteps"
-              :key="step.id"
-              class="step-item"
-              :class="'status-' + step.status"
+              v-if="
+                isFindingShop ||
+                findShopSteps.some(
+                  (s) => s.status !== 'pending' && s.status !== 'done',
+                )
+              "
+              class="step-progress"
             >
-              <div class="step-icon">
-                <span v-if="step.status === 'active'" class="spinner-sm" />
-                <span v-else-if="step.status === 'done'">✓</span>
-                <span v-else-if="step.status === 'error'">✕</span>
-                <span v-else>○</span>
+              <div
+                v-for="step in findShopSteps"
+                :key="step.id"
+                class="step-item"
+                :class="'status-' + step.status"
+              >
+                <div class="step-icon">
+                  <span v-if="step.status === 'active'" class="spinner-sm" />
+                  <span v-else-if="step.status === 'done'"><IconsCheck /></span>
+                  <span v-else-if="step.status === 'error'"><X :size="12" /></span>
+                  <span v-else>-</span>
+                </div>
+                <span class="step-label">{{ step.label }}</span>
               </div>
-              <span class="step-label">{{ step.label }}</span>
             </div>
-          </div>
 
-          <div v-if="genError" class="alert alert-err modal-alert">
-            {{ genError }}
-          </div>
-          <div v-if="genSuccess" class="alert alert-ok modal-alert">
-            {{ genSuccess }}
+            <div v-if="genError" class="alert alert-err modal-alert">
+              {{ genError }}
+            </div>
+            <div v-if="genSuccess" class="alert alert-ok modal-alert">
+              {{ genSuccess }}
+            </div>
           </div>
         </div>
 
-        <div class="modal-actions">
+        <div class="modal-actions add-store-modal-actions">
           <button
             class="btn-ghost"
-            @click="clearInputs"
+            type="button"
             :disabled="isFindingShop"
+            @click="clearInputs"
           >
             <Eraser :size="15" />
             Clear
           </button>
-          <button class="btn-outline" @click="isAddModalOpen = false">
+          <button
+            class="btn-outline"
+            type="button"
+            @click="isAddModalOpen = false"
+          >
             <X :size="15" />
             Cancel
           </button>
           <button
             class="btn-primary"
+            type="button"
             :disabled="isFindingShop"
             @click="addShop"
           >
             <PlugZap :size="15" />
-            {{ isFindingShop ? "Processing…" : "Add Connect" }}
+            {{ isFindingShop ? "Processing..." : "Add connect" }}
           </button>
         </div>
       </div>
@@ -1601,5 +1587,237 @@ function deleteStoreOption(id: string) {
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.add-store-backdrop {
+  z-index: 2550;
+  padding: 20px;
+  background: rgba(20, 34, 27, 0.46);
+  backdrop-filter: blur(3px);
+}
+
+.add-store-modal {
+  width: min(760px, 100%);
+  max-width: 760px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.add-store-modal-head {
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.add-store-title-block {
+  min-width: 0;
+}
+
+.add-store-title-block .modal-title {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.add-store-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.add-store-mode-toggle {
+  display: inline-flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.add-store-mode-toggle .toggle-btn {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.add-store-mode-toggle .toggle-btn.active {
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-soft);
+}
+
+.add-store-mode-toggle .toggle-btn :deep(svg) {
+  width: 14px;
+  height: 14px;
+}
+
+.add-store-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-sub);
+}
+
+.add-store-close:hover {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+}
+
+.add-store-modal-body {
+  padding: 0;
+}
+
+.add-store-form {
+  display: grid;
+  grid-template-columns: repeat(60, 1fr);
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.add-store-form .field {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.add-store-form .field-50 {
+  grid-column: span 30;
+}
+
+.add-store-form .field-33 {
+  grid-column: span 20;
+}
+
+.add-store-form .field-full {
+  grid-column: span 60;
+}
+
+.add-store-form .field-label {
+  margin-bottom: 4px;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.add-store-form .inp {
+  min-height: 38px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.add-store-form .inp:focus {
+  border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green-soft) 68%, transparent);
+}
+
+.add-store-form textarea.inp {
+  min-height: 220px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.add-store-status {
+  display: grid;
+  gap: 12px;
+  padding: 0 18px 16px;
+}
+
+.add-store-modal .step-progress {
+  margin: 0;
+  padding: 12px 16px;
+}
+
+.add-store-modal .modal-alert {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.add-store-modal-actions {
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--surface-low);
+}
+
+.add-store-modal-actions .btn-ghost,
+.add-store-modal-actions .btn-outline,
+.add-store-modal-actions .btn-primary {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.add-store-modal-actions .btn-ghost {
+  padding: 0 10px;
+}
+
+.add-store-modal-actions .btn-primary:disabled,
+.add-store-modal-actions .btn-ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .add-store-backdrop {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .add-store-modal {
+    max-height: calc(100vh - 24px);
+  }
+
+  .add-store-modal-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .add-store-head-actions {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+
+  .add-store-form {
+    grid-template-columns: 1fr;
+  }
+
+  .add-store-form .field-50,
+  .add-store-form .field-33,
+  .add-store-form .field-full {
+    grid-column: auto;
+  }
+
+  .add-store-modal-actions {
+    flex-direction: column-reverse;
+  }
 }
 </style>

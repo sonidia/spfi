@@ -160,7 +160,7 @@ async function createFulfillment() {
   <section v-if="canFulfill" class="fulfillment-panel" aria-labelledby="fulfillment-title">
     <header>
       <div>
-        <h2 id="fulfillment-title">Fulfillment</h2>
+        <div class="panel-title"><PackageCheck aria-hidden="true" /><h2 id="fulfillment-title">Fulfillment</h2></div>
         <p>Select exact quantities to prevent accidental full fulfillment.</p>
       </div>
       <BaseButton :disabled="orderStore.isMutating" @click="togglePanel">
@@ -231,6 +231,8 @@ async function createFulfillment() {
 <style scoped>
 .fulfillment-panel { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
+.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
+.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
 h2 { color: var(--text); font-size: 15px; }
 header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
 .fulfillment-body { border-top: 1px solid var(--border); background: var(--surface-soft); }

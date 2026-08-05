@@ -127,7 +127,7 @@ async function commitEdit() {
   <section class="line-editor" aria-labelledby="line-editor-title">
     <header>
       <div>
-        <h2 id="line-editor-title">Order items</h2>
+        <div class="panel-title"><ListRestart aria-hidden="true" /><h2 id="line-editor-title">Order items</h2></div>
         <p>Change quantities or set a quantity to zero to remove an unfulfilled item.</p>
       </div>
       <BaseButton
@@ -210,6 +210,8 @@ async function commitEdit() {
 <style scoped>
 .line-editor { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
+.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
+.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
 h2 { color: var(--text); font-size: 15px; }
 header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
 .editor-body { border-top: 1px solid var(--border); background: var(--surface-soft); }

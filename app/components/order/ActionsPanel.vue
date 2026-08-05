@@ -137,7 +137,7 @@ async function deleteOrder() {
 <template>
   <section class="management-panel" aria-labelledby="order-actions-title">
     <header>
-      <h2 id="order-actions-title">Manage order</h2>
+      <div class="panel-title"><Pencil aria-hidden="true" /><h2 id="order-actions-title">Manage order</h2></div>
       <div class="action-row">
         <BaseButton @click="mode = mode === 'edit' ? 'idle' : 'edit'">
           <template #icon><X v-if="mode === 'edit'" /><Pencil v-else /></template>
@@ -232,6 +232,8 @@ async function deleteOrder() {
 .management-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
 header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
+.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
+.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
 h2 { color: var(--text); font-size: 15px; }
 .action-row, .editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .editor-grid, .cancel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; padding: 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }

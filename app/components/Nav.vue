@@ -90,7 +90,7 @@ onBeforeUnmount(() => {
 .topbar-title {
   color: var(--text);
   font-weight: 800;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   margin-left: 8px;
   text-shadow: 1px 1px 2px rgba(31, 122, 77, 0.2);
 }

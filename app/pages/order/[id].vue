@@ -1,21 +1,14 @@
 <template>
   <NuxtLayout name="shop">
     <template #title>
-      <div style="display: flex; align-items: center; gap: 10px">
+      <div class="order-title-row">
         <NuxtLink
           :to="{ path: '/store', query: { ...route.query, tab: 'orders' } }"
-          style="
-            background: none;
-            border: none;
-            color: var(--text-link);
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-          "
+          class="order-back-link"
+          aria-label="Back to orders"
+          title="Back to orders"
         >
-          ←
+          <ArrowLeft :size="16" aria-hidden="true" />
         </NuxtLink>
         <span class="page-title">{{
           nilVal(
@@ -354,13 +347,8 @@
             </div>
 
             <!-- Timeline -->
-            <div class="card" style="margin-top: 16px">
-              <div class="card-header">
-                <span class="card-title">Timeline</span>
-              </div>
-              <div style="padding: 0 16px 16px">
-                <OrderTransactions :order="currentOrder" />
-              </div>
+            <div class="card timeline-card">
+              <OrderTransactions :order="currentOrder" />
             </div>
           </div>
 
@@ -371,7 +359,7 @@
             <!-- Notes (only if there is a note) -->
             <div v-if="nilVal(currentOrder.note)" class="card">
               <div class="card-header">
-                <span class="card-title">Notes</span>
+                <div class="card-title-row"><FileText class="card-title-icon" aria-hidden="true" /><span class="card-title">Notes</span></div>
                 <button class="icon-btn" v-html="ICONS.edit"></button>
               </div>
               <div class="sidebar-body">
@@ -382,7 +370,7 @@
             <!-- Customer -->
             <div class="card">
               <div class="card-header">
-                <span class="card-title">Customer</span>
+                <div class="card-title-row"><User class="card-title-icon" aria-hidden="true" /><span class="card-title">Customer</span></div>
                 <button class="icon-btn" v-html="ICONS.dots"></button>
               </div>
               <div class="sidebar-body">
@@ -464,7 +452,7 @@
             <!-- Conversion summary -->
             <div class="card">
               <div class="card-header">
-                <span class="card-title">Conversion summary</span>
+                <div class="card-title-row"><Activity class="card-title-icon" aria-hidden="true" /><span class="card-title">Conversion summary</span></div>
               </div>
               <div class="sidebar-body">
                 <div
@@ -500,6 +488,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false });
+import { Activity, ArrowLeft, FileText, User } from "@lucide/vue";
 import { computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
@@ -563,12 +552,47 @@ function returnToOrders() {
 </script>
 
 <style scoped>
+.order-title-row,
 .page-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 6px;
   flex-wrap: wrap;
+}
+
+.page-header {
+  margin-bottom: 6px;
+}
+
+.order-back-link {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--green) 18%, var(--border));
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-sub);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.order-back-link:hover {
+  border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+  background: var(--green-soft);
+  color: var(--green);
+  transform: translateX(-1px);
+}
+
+.order-back-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
 }
 .page-title {
   font-size: 1.2rem;
@@ -655,6 +679,20 @@ function returnToOrders() {
   align-items: center;
   gap: 8px;
 }
+.card-title-row {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+
 .card-title {
   font-weight: 600;
   font-size: 14px;

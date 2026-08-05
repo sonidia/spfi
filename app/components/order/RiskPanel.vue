@@ -116,7 +116,7 @@ watch([() => props.orderId, isReady], ([, ready]) => {
 <template>
   <section class="risk-panel" aria-labelledby="risk-panel-title">
     <header>
-      <h2 id="risk-panel-title">Order risk</h2>
+      <div class="panel-title"><ShieldAlert aria-hidden="true" /><h2 id="risk-panel-title">Order risk</h2></div>
       <BaseButton
         variant="ghost"
         icon-only
@@ -228,6 +228,8 @@ watch([() => props.orderId, isReady], ([, ready]) => {
 .risk-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
 header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
+.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
+.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
 h2 { color: var(--text); font-size: 15px; }
 .is-rotated { transform: rotate(45deg); }
 .risk-overview { display: grid; gap: 12px; padding: 15px 16px; }

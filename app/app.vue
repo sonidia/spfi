@@ -358,4 +358,89 @@ html[data-theme="dark"] .scope-box::after {
     rgba(33, 50, 40, 1) 100%
   );
 }
+
+.popover-content .popover-menu {
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+}
+
+.popover-content .popover-actions {
+  min-width: 160px;
+}
+
+.popover-content .popover-item {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.popover-content .popover-item:hover {
+  background: var(--surface-soft);
+}
+
+.popover-content .popover-item.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.popover-content .popover-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+.popover-content .text-danger {
+  color: var(--red, var(--badge-cancelled-text)) !important;
+}
+
+.popover-content .fulfillment-popover {
+  min-width: 220px;
+  padding: 12px;
+}
+
+.popover-content .popover-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.popover-content .popover-line.border-top {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.popover-content .popover-lbl {
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+.popover-content .popover-val {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
 </style>

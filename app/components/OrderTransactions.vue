@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RefreshCw } from "@lucide/vue";
+import { Clock, RefreshCw } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderApi } from "~/composables/useOrderApi";
@@ -125,39 +125,46 @@ function eventDotType(verb: string) {
 
 <template>
   <div class="timeline-wrap">
-    <div class="timeline-toolbar">
-      <span>Shopify events can take a few seconds to appear.</span>
+    <div class="timeline-section-head">
+      <div class="timeline-title">
+        <Clock aria-hidden="true" />
+        <span>Timeline</span>
+      </div>
       <BaseButton icon-only aria-label="Refresh timeline" :loading="isLoading" @click="loadEvents">
         <template #icon><RefreshCw /></template>
       </BaseButton>
     </div>
 
-    <div v-if="isLoading && !events.length" class="timeline-state">Loading timeline…</div>
-    <div v-else-if="error" class="timeline-state is-error" role="alert">{{ error }}</div>
-    <div v-else-if="!groupedEvents.length" class="timeline-state">
-      No Shopify events are available for this order.
-    </div>
+    <div class="timeline-body">
+      <div v-if="isLoading && !events.length" class="timeline-state">Loading timeline...</div>
+      <div v-else-if="error" class="timeline-state is-error" role="alert">{{ error }}</div>
+      <div v-else-if="!groupedEvents.length" class="timeline-state">
+        No Shopify events are available for this order.
+      </div>
 
-    <div v-for="group in groupedEvents" :key="group.date">
-      <div class="date-label">{{ group.date }}</div>
-      <div v-for="event in group.items" :key="event.id" class="event-row">
-        <div class="dot-col"><div :class="['dot', event.dotType]" /></div>
-        <div class="event-content">
-          <div class="event-row-inner">
-            <div class="event-text">{{ event.text }}</div>
-            <div class="event-time">{{ event.time }}</div>
+      <div v-for="group in groupedEvents" :key="group.date">
+        <div class="date-label">{{ group.date }}</div>
+        <div v-for="event in group.items" :key="event.id" class="event-row">
+          <div class="dot-col"><div :class="['dot', event.dotType]" /></div>
+          <div class="event-content">
+            <div class="event-row-inner">
+              <div class="event-text">{{ event.text }}</div>
+              <div class="event-time">{{ event.time }}</div>
+            </div>
+            <div v-if="event.author" class="event-author">by {{ event.author }}</div>
+            <div v-if="event.body" class="detail-box">{{ event.body }}</div>
           </div>
-          <div v-if="event.author" class="event-author">by {{ event.author }}</div>
-          <div v-if="event.body" class="detail-box">{{ event.body }}</div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
 <style scoped>
-.timeline-wrap { padding: 8px 0; color: var(--text); font-size: 14px; }
-.timeline-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 8px; color: var(--text-sub); font-size: 11px; }
+.timeline-wrap { color: var(--text); font-size: 14px; }
+.timeline-section-head { min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+.timeline-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; font-weight: 600; }
+.timeline-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
+.timeline-body { padding: 0 16px 16px; }
 .timeline-state { padding: 18px 0; color: var(--text-sub); font-size: 12px; }
 .timeline-state.is-error { color: var(--red); }
 .date-label { margin: 20px 0 7px 28px; color: var(--text-sub); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }

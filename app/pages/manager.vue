@@ -16,6 +16,7 @@ definePageMeta({ layout: false });
 
 const formStore = useFormStore();
 const credentialVault = useCredentialVaultStore();
+const route = useRoute();
 
 // ── Local state ───────────────────────────────────────────────────────────────
 const newStoreId = ref("");
@@ -110,7 +111,24 @@ const { readProxySheetRows, normalizeSpreadsheetId, buildRangeFromSheetName } =
 // ── Load stores on mount ──────────────────────────────────────────────────────
 onMounted(() => {
   formStore.loadKnownStores();
+  openEditModalFromRoute();
 });
+
+watch(
+  () => route.query.edit,
+  () => openEditModalFromRoute(),
+);
+
+function getRouteEditStoreId() {
+  const edit = route.query.edit;
+  return Array.isArray(edit) ? edit[0] || "" : String(edit || "");
+}
+
+function openEditModalFromRoute() {
+  const editStoreId = getRouteEditStoreId();
+  if (!editStoreId || !formStore.knownStores.includes(editStoreId)) return;
+  openEditModal(editStoreId);
+}
 
 // ── Per-store cookie data ─────────────────────────────────────────────────────
 interface StoreInfo {

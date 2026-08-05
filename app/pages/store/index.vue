@@ -95,32 +95,6 @@
           {{ paymentStore.error }}
         </div>
 
-        <section
-          v-if="showsStoreSummary"
-          class="finance-summary"
-          aria-label="Store summary"
-        >
-          <article class="summary-card is-balance">
-            <span>Available balance</span>
-            <strong>{{ formattedBalance }}</strong>
-            <small>{{ currentBalance?.currency || "Store currency" }}</small>
-          </article>
-          <article class="summary-card">
-            <span>Transactions</span>
-            <strong>{{ transactionsCount }}</strong>
-            <small>Balance activity</small>
-          </article>
-          <article class="summary-card">
-            <span>Payouts</span>
-            <strong>{{ payoutsCount }}</strong>
-            <small>Settlement records</small>
-          </article>
-          <article class="summary-card">
-            <span>Orders</span>
-            <strong>{{ ordersCount }}</strong>
-            <small>Connected sales</small>
-          </article>
-        </section>
 
         <div v-if="showsStoreSummary" class="card data-card">
           <PaymentPayoutsTab
@@ -201,6 +175,21 @@ async function refreshCurrentStore() {
   }
 }
 
+function loadProfileTabData(storeId: string, token: string) {
+  if (!profileStore.hasFetchedProfile || profileStore.error) {
+    profileStore.fetchProfile(storeId, token);
+  }
+  if (!paymentStore.hasFetchedAll || paymentStore.error) {
+    paymentStore.fetchAll(storeId, token);
+  }
+  if (!paymentStore.hasFetchedBalanceTransactions || paymentStore.error) {
+    paymentStore.fetchBalanceTransactions(storeId, token);
+  }
+  if (!orderStore.hasFetchedAll || orderStore.error) {
+    orderStore.fetchAll(storeId, token);
+  }
+}
+
 const currentBalance = computed(() => {
   const b = paymentStore.balance;
   if (!b) return null;
@@ -229,13 +218,7 @@ const hasPaymentData = computed(
     ordersCount.value > 0 ||
     productsCount.value > 0,
 );
-const formattedBalance = computed(() => {
-  const amount = Number(currentBalance.value?.amount || 0);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currentBalance.value?.currency || "USD",
-  }).format(amount);
-});
+
 const activeTabLabel = computed(
   () =>
     ({
@@ -300,7 +283,7 @@ watch(
         );
       }
       if (token && activeTab.value === "profile") {
-        profileStore.fetchProfile(formStore.storeId, token);
+        loadProfileTabData(formStore.storeId, token);
       }
     }
   },
@@ -344,8 +327,8 @@ watch(
     }
     if (newTab === "profile" && formStore.storeId) {
       const token = resolveToken(formStore.storeId);
-      if (token && (!profileStore.hasFetchedProfile || profileStore.error)) {
-        profileStore.fetchProfile(formStore.storeId, token);
+      if (token) {
+        loadProfileTabData(formStore.storeId, token);
       }
     }
   },
@@ -387,46 +370,6 @@ function resolveToken(sid: string): string | null {
   font-weight: 700;
 }
 
-.finance-summary {
-  display: grid;
-  grid-template-columns: 1.45fr repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.summary-card {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-soft);
-}
-
-.summary-card.is-balance {
-  border-color: color-mix(in srgb, var(--green) 24%, var(--border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--green-soft) 80%, var(--surface-raised)),
-    var(--surface-raised)
-  );
-}
-
-.summary-card span,
-.summary-card small {
-  color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.summary-card strong {
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font-size: clamp(1.25rem, 2.6vw, 1.7rem);
-  line-height: 1.2;
-}
 
 @keyframes fadeIn {
   from {
@@ -697,15 +640,5 @@ function resolveToken(sid: string): string | null {
   font-size: 13px;
 }
 
-@media (max-width: 600px) {
-  .finance-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
-@media (max-width: 420px) {
-  .finance-summary {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

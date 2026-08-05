@@ -60,9 +60,13 @@
                 Open storefront
                 <IconsArrowRight />
               </a>
-              <NuxtLink class="profile-action" to="/manager">
+              <button
+                class="profile-action"
+                type="button"
+                @click="openCredentialModal"
+              >
                 Manage credentials
-              </NuxtLink>
+              </button>
             </div>
           </div>
         </div>
@@ -79,6 +83,29 @@
             }}</strong>
           </div>
         </div>
+
+        <section class="finance-summary" aria-label="Store finance summary">
+          <article class="summary-card is-balance">
+            <span>Available balance</span>
+            <strong>{{ formattedBalance }}</strong>
+            <small>{{ currentBalance?.currency || "Store currency" }}</small>
+          </article>
+          <article class="summary-card">
+            <span>Transactions</span>
+            <strong>{{ transactionsCount }}</strong>
+            <small>Balance activity</small>
+          </article>
+          <article class="summary-card">
+            <span>Payouts</span>
+            <strong>{{ payoutsCount }}</strong>
+            <small>Settlement records</small>
+          </article>
+          <article class="summary-card">
+            <span>Orders</span>
+            <strong>{{ ordersCount }}</strong>
+            <small>Connected sales</small>
+          </article>
+        </section>
       </section>
 
       <div v-if="profileStore.error" class="alert alert-err">
@@ -86,17 +113,142 @@
       </div>
 
       <div class="profile-detail-grid">
-        <ProfileFieldGrid title="Access & security" :rows="connectionRows" />
-        <ProfileFieldGrid title="Shop information" :rows="shopRows" />
+        <ProfileFieldGrid
+          title="Access & security"
+          :icon="KeyRound"
+          :rows="connectionRows"
+        >
+          <template #actions>
+            <button
+              v-if="formStore.storeId"
+              class="profile-card-action"
+              type="button"
+              @click="openCredentialModal"
+            >
+              <Pencil aria-hidden="true" />
+              Edit credentials
+            </button>
+          </template>
+        </ProfileFieldGrid>
+        <ProfileFieldGrid
+          title="Shop information"
+          :icon="Store"
+          :rows="shopRows"
+        />
+      </div>
+      <div
+        v-if="showCredentialModal"
+        class="credential-modal-backdrop"
+        @click.self="closeCredentialModal"
+      >
+        <div
+          class="credential-modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="credential-modal-title"
+        >
+          <div class="credential-modal-head">
+            <div class="credential-modal-title-block">
+              <h3 id="credential-modal-title">Edit credentials</h3>
+            </div>
+            <button
+              class="credential-close"
+              type="button"
+              title="Close"
+              aria-label="Close"
+              @click="closeCredentialModal"
+            >
+              <X aria-hidden="true" />
+            </button>
+          </div>
+
+          <div class="credential-modal-body">
+            <div class="credential-form">
+              <div class="credential-field is-half">
+                <label>Domain</label>
+                <input
+                  v-model="editDomain"
+                  class="credential-input"
+                  type="text"
+                  placeholder="myshop.store"
+                />
+              </div>
+              <div class="credential-field is-half">
+                <label>Sock/Proxy</label>
+                <input
+                  v-model="editSock"
+                  class="credential-input"
+                  type="text"
+                  placeholder="IP:Port:User:Pass"
+                />
+              </div>
+              <div class="credential-field is-third">
+                <label>Store ID</label>
+                <input
+                  class="credential-input"
+                  :value="formStore.storeId"
+                  type="text"
+                  disabled
+                />
+              </div>
+              <div class="credential-field is-third">
+                <label>Client ID</label>
+                <input
+                  v-model="editClientId"
+                  class="credential-input"
+                  type="text"
+                  placeholder="Client ID"
+                />
+              </div>
+              <div class="credential-field is-third">
+                <label>Client Secret</label>
+                <input
+                  v-model="editClientSecret"
+                  class="credential-input"
+                  type="text"
+                  placeholder="Client Secret"
+                />
+              </div>
+            </div>
+
+            <div
+              v-if="editError"
+              class="alert alert-err credential-modal-alert"
+            >
+              {{ editError }}
+            </div>
+          </div>
+
+          <div class="credential-modal-actions">
+            <button
+              class="profile-action"
+              type="button"
+              @click="closeCredentialModal"
+            >
+              Cancel
+            </button>
+            <button
+              class="profile-action primary"
+              type="button"
+              @click="saveCredentialEdits"
+            >
+              <IconsCheck />
+              Save
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { KeyRound, Pencil, Store, X } from "@lucide/vue";
+import { computed, ref } from "vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
+import { useOrderStore } from "~/stores/order";
+import { usePaymentStore } from "~/stores/payment";
 import { useShopProfileStore } from "~/stores/shopProfile";
 import type { StoreLocalData } from "~~/types/shopify";
 import {
@@ -108,6 +260,8 @@ import {
 const formStore = useFormStore();
 const credentialVault = useCredentialVaultStore();
 const profileStore = useShopProfileStore();
+const paymentStore = usePaymentStore();
+const orderStore = useOrderStore();
 
 const shop = computed(() => profileStore.shop);
 const noStores = computed(() => formStore.knownStores.length === 0);
@@ -139,6 +293,74 @@ const tokenStatus = computed(() => {
   return "Valid";
 });
 
+const currentBalance = computed(() => {
+  const balance = paymentStore.balance;
+  if (!balance) return null;
+  if (Array.isArray(balance)) return balance[0] ?? null;
+  return balance;
+});
+
+const transactionsCount = computed(
+  () => paymentStore.balanceTransactions.length,
+);
+const payoutsCount = computed(() => paymentStore.payouts.length);
+const ordersCount = computed(() => orderStore.orders.length);
+const formattedBalance = computed(() => {
+  const amount = Number(currentBalance.value?.amount || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currentBalance.value?.currency || "USD",
+  }).format(amount);
+});
+const showCredentialModal = ref(false);
+const editDomain = ref("");
+const editSock = ref("");
+const editClientId = ref("");
+const editClientSecret = ref("");
+const editError = ref("");
+
+function openCredentialModal() {
+  if (!formStore.storeId) return;
+
+  const data = credentialVault.getStoreData(formStore.storeId);
+  editDomain.value = data.domain || "";
+  editSock.value = data.sock || "";
+  editClientId.value = data.clientId || "";
+  editClientSecret.value = data.clientSecret || "";
+  editError.value = "";
+  showCredentialModal.value = true;
+}
+
+function closeCredentialModal() {
+  showCredentialModal.value = false;
+  editError.value = "";
+}
+
+async function saveCredentialEdits() {
+  const storeId = formStore.storeId;
+  if (!storeId) return;
+
+  if (!editClientId.value.trim() || !editClientSecret.value.trim()) {
+    editError.value = "Client ID and Client Secret cannot be empty.";
+    return;
+  }
+
+  const previous = credentialVault.getStoreData(storeId);
+
+  try {
+    await credentialVault.saveStoreData(storeId, {
+      ...previous,
+      domain: editDomain.value.trim(),
+      sock: editSock.value.trim(),
+      clientId: editClientId.value.trim(),
+      clientSecret: editClientSecret.value.trim(),
+    });
+    closeCredentialModal();
+  } catch (error) {
+    editError.value =
+      error instanceof Error ? error.message : "Unable to save credentials.";
+  }
+}
 const shopTitle = computed(() => {
   return (
     shop.value?.name ||
@@ -326,8 +548,11 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
   color: var(--green);
+  cursor: pointer;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 800;
+  text-decoration: none;
 }
 
 .profile-action.primary {
@@ -346,6 +571,48 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   display: grid;
   grid-template-columns: repeat(2, minmax(96px, 1fr));
   gap: 10px;
+}
+
+.finance-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.45fr repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.summary-card {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--green) 10%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+
+.summary-card.is-balance {
+  border-color: color-mix(in srgb, var(--green) 28%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--green-soft) 82%, var(--surface-raised)),
+    var(--surface-raised)
+  );
+}
+
+.summary-card span,
+.summary-card small {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.summary-card strong {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: clamp(1.18rem, 2.4vw, 1.55rem);
+  line-height: 1.2;
 }
 
 .metric-item {
@@ -385,6 +652,33 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   overflow-wrap: anywhere;
 }
 
+.profile-card-action {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--green) 26%, var(--border));
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--green);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.profile-card-action:hover {
+  background: var(--green-soft);
+}
+
+.profile-card-action :deep(svg) {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+}
+
 .alert {
   border-radius: 8px;
   padding: 11px 13px;
@@ -397,13 +691,164 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   color: var(--red);
 }
 
+.credential-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 34, 27, 0.46);
+  backdrop-filter: blur(3px);
+}
+
+.credential-modal-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.credential-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.credential-modal-title-block {
+  min-width: 0;
+}
+
+.credential-modal-title-block h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.credential-modal-title-block p {
+  margin: 1px 0 0;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.credential-close {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
+.credential-close:hover {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+}
+
+.credential-close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.credential-modal-body {
+  overflow-y: auto;
+}
+
+.credential-form {
+  display: grid;
+  grid-template-columns: repeat(60, 1fr);
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.credential-field {
+  min-width: 0;
+}
+
+.credential-field.is-half {
+  grid-column: span 30;
+}
+
+.credential-field.is-third {
+  grid-column: span 20;
+}
+
+.credential-field label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.credential-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.credential-input:focus {
+  border-color: color-mix(in srgb, var(--green) 45%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green-soft) 68%, transparent);
+}
+
+.credential-input:disabled {
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  cursor: not-allowed;
+}
+
+.credential-modal-alert {
+  margin: 0 18px 16px;
+  white-space: pre-wrap;
+}
+
+.credential-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-low);
+}
+
+.credential-modal-actions .profile-action {
+  min-height: 32px;
+}
 @media (max-width: 900px) {
   .profile-hero {
     grid-template-columns: 1fr;
   }
 
   .profile-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finance-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .profile-detail-grid {
@@ -412,7 +857,8 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 }
 
 @media (max-width: 640px) {
-  .profile-metrics {
+  .profile-metrics,
+  .finance-summary {
     grid-template-columns: 1fr;
   }
 
@@ -431,6 +877,25 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 
   .profile-action {
     justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .credential-modal-backdrop {
+    padding: 12px;
+  }
+
+  .credential-form {
+    grid-template-columns: 1fr;
+  }
+
+  .credential-field.is-half,
+  .credential-field.is-third {
+    grid-column: auto;
+  }
+
+  .credential-modal-actions {
+    flex-direction: column-reverse;
   }
 }
 </style>
