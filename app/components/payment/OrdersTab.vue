@@ -218,10 +218,7 @@ const route = useRoute();
 const { storeId, token, isReady } = useActiveShopAuth();
 const isCreateOpen = ref(false);
 const totalPages = computed(() =>
-  Math.max(
-    1,
-    Math.ceil(orderStore.orders.length / orderStore.pageSize),
-  ),
+  Math.max(1, Math.ceil(orderStore.orders.length / orderStore.pageSize)),
 );
 const paginatedOrders = computed(() => {
   const page = Math.min(orderStore.currentPage, totalPages.value);
@@ -258,7 +255,6 @@ async function refreshCount() {
 onMounted(refreshCount);
 
 watch(storeId, refreshCount);
-
 </script>
 
 <style scoped>

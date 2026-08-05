@@ -3,11 +3,6 @@
     <template #shop-bar-left>
       <StoreViewTabs
         :active-tab="activeTab"
-        :transactions-count="transactionsCount"
-        :payouts-count="payoutsCount"
-        :orders-count="ordersCount"
-        :products-count="productsCount"
-        :customers-count="customersCount"
         :active-label="activeTabLabel"
         @select="setActiveTab"
       />
@@ -306,7 +301,6 @@ watch(
       }
       if (token && activeTab.value === "profile") {
         profileStore.fetchProfile(formStore.storeId, token);
-        productStore.fetchAll(formStore.storeId, token);
       }
     }
   },
@@ -352,9 +346,6 @@ watch(
       const token = resolveToken(formStore.storeId);
       if (token && (!profileStore.hasFetchedProfile || profileStore.error)) {
         profileStore.fetchProfile(formStore.storeId, token);
-      }
-      if (token && (!productStore.hasFetchedAll || productStore.error)) {
-        productStore.fetchAll(formStore.storeId, token);
       }
     }
   },

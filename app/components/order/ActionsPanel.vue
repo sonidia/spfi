@@ -169,8 +169,14 @@ async function deleteOrder() {
     </header>
 
     <div v-if="mode === 'edit'" class="editor-grid">
-      <label><span>Note</span><textarea v-model="note" rows="3" /></label>
-      <label><span>Tags</span><input v-model="tags" /></label>
+      <label>
+        <span>Note</span>
+        <textarea v-model="note" class="editor-textarea" rows="3" />
+      </label>
+      <label>
+        <span>Tags</span>
+        <textarea v-model="tags" class="editor-textarea" rows="3" />
+      </label>
       <label><span>Email</span><input v-model="email" type="email" /></label>
       <label><span>Phone</span><input v-model="phone" type="tel" /></label>
       <div class="editor-actions">
@@ -228,11 +234,12 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
 h2 { color: var(--text); font-size: 15px; }
 .action-row, .editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.editor-grid, .cancel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }
+.editor-grid, .cancel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; padding: 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }
 label { display: grid; gap: 5px; min-width: 0; }
 input, textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface-raised); color: var(--text); font: inherit; }
+input { height: 38px; }
 input:focus, textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
-textarea { resize: vertical; }
+textarea { min-height: 80px; resize: vertical; }
 .check-row { display: flex; align-items: center; align-self: end; min-height: 38px; gap: 8px; }
 .check-row input { width: 16px; }
 .editor-actions { grid-column: 1 / -1; }

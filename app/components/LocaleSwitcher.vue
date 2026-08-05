@@ -14,6 +14,10 @@ const currentOption = computed(
     ) || availableLocales.value[0],
 );
 
+function getFlagUrl(flagCode?: string) {
+  return `https://flagsapi.com/${flagCode || "US"}/flat/24.png`;
+}
+
 function closeMenu() {
   isOpen.value = false;
 }
@@ -60,7 +64,14 @@ onBeforeUnmount(() => {
       aria-haspopup="listbox"
       @click="toggleMenu"
     >
-      <span class="locale-code">{{ currentOption?.shortLabel }}</span>
+      <span class="locale-code" aria-hidden="true">
+        <img
+          :src="getFlagUrl(currentOption?.flagCode)"
+          alt=""
+          width="24"
+          height="24"
+        />
+      </span>
       <span class="locale-name">{{ currentOption?.nativeLabel }}</span>
       <span class="locale-caret" aria-hidden="true" />
     </button>
@@ -77,7 +88,14 @@ onBeforeUnmount(() => {
           :aria-selected="option.code === currentLocale"
           @click="selectLocale(option.code)"
         >
-          <span class="locale-option-code">{{ option.shortLabel }}</span>
+          <span class="locale-option-code" aria-hidden="true">
+            <img
+              :src="getFlagUrl(option.flagCode)"
+              alt=""
+              width="24"
+              height="24"
+            />
+          </span>
           <span class="locale-option-copy">
             <strong>{{ option.nativeLabel }}</strong>
             <small>{{ option.label }}</small>
@@ -131,13 +149,18 @@ onBeforeUnmount(() => {
 .locale-option-code {
   display: inline-grid;
   width: 28px;
-  height: 22px;
+  height: 24px;
   place-items: center;
-  border-radius: 6px;
-  background: var(--green-soft);
-  color: var(--green);
-  font-size: 10px;
-  font-weight: 900;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.locale-code img,
+.locale-option-code img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .locale-name {

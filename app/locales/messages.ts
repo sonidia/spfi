@@ -7,17 +7,43 @@ export const localeOptions: Array<{
   label: string;
   nativeLabel: string;
   shortLabel: string;
+  flagCode: string;
 }> = [
-  { code: "en", label: "English", nativeLabel: "English", shortLabel: "EN" },
+  {
+    code: "en",
+    label: "English",
+    nativeLabel: "English",
+    shortLabel: "EN",
+    flagCode: "US",
+  },
   {
     code: "vi",
     label: "Vietnamese",
     nativeLabel: "Tiếng Việt",
     shortLabel: "VI",
+    flagCode: "VN",
   },
-  { code: "es", label: "Spanish", nativeLabel: "Español", shortLabel: "ES" },
-  { code: "zh", label: "Chinese", nativeLabel: "中文", shortLabel: "ZH" },
-  { code: "ja", label: "Japanese", nativeLabel: "日本語", shortLabel: "JA" },
+  {
+    code: "es",
+    label: "Spanish",
+    nativeLabel: "Español",
+    shortLabel: "ES",
+    flagCode: "ES",
+  },
+  {
+    code: "zh",
+    label: "Chinese",
+    nativeLabel: "中文",
+    shortLabel: "ZH",
+    flagCode: "CN",
+  },
+  {
+    code: "ja",
+    label: "Japanese",
+    nativeLabel: "日本語",
+    shortLabel: "JA",
+    flagCode: "JP",
+  },
 ];
 
 const en = {

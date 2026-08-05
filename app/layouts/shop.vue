@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
   Eraser,
   LockKeyhole,
-  PanelLeftClose,
-  PanelLeftOpen,
   PlugZap,
   Search,
   X,
@@ -84,7 +84,7 @@ const isFetching = computed(() => {
       return customerStore.isLoading || customerStore.isLoadingDetail;
     }
     if (route.query.tab === "profile") {
-      return shopProfileStore.isLoading || productStore.isLoading;
+      return shopProfileStore.isLoading;
     }
     if (route.query.tab === "products") return productStore.isLoading;
     if (route.query.tab === "orders") return orderStore.isLoading;
@@ -271,7 +271,6 @@ function fetchCurrent(force = false) {
       customerStore.fetchAll(sid, token, customerStore.activeQuery);
     } else if (route.query.tab === "profile") {
       shopProfileStore.fetchProfile(sid, token);
-      productStore.fetchAll(sid, token);
     } else if (route.query.tab === "products") {
       productStore.fetchAll(sid, token);
     } else if (route.query.tab === "orders") {
@@ -592,14 +591,19 @@ function deleteStoreOption(id: string) {
       :class="{ 'is-collapsed': isSidebarCollapsed }"
     >
       <div class="sidebar-overview">
-        <div v-if="!isSidebarCollapsed">
-          <span>Workspace</span>
-          <strong>Connected stores</strong>
-        </div>
-        <div class="sidebar-overview-actions">
-          <span v-if="!isSidebarCollapsed" class="store-count">
+        <div v-if="!isSidebarCollapsed" class="search-container">
+          <Search class="search-icon" :size="14" aria-hidden="true" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search stores..."
+            class="sidebar-search"
+          />
+          <span class="store-count" aria-label="Connected stores">
             {{ formStore.knownStores.length }}
           </span>
+        </div>
+        <div class="sidebar-overview-actions">
           <BaseButton
             class="sidebar-toggle"
             variant="ghost"
@@ -613,28 +617,10 @@ function deleteStoreOption(id: string) {
             @click="toggleSidebar"
           >
             <template #icon>
-              <PanelLeftOpen v-if="isSidebarCollapsed" />
-              <PanelLeftClose v-else />
+              <ArrowRightToLine v-if="isSidebarCollapsed" />
+              <ArrowLeftToLine v-else />
             </template>
           </BaseButton>
-        </div>
-      </div>
-      <div class="sidebar-header">
-        <button
-          class="btn-sidebar-add"
-          title="Add new store"
-          @click="isAddModalOpen = true"
-        >
-          <IconsAdd />
-        </button>
-        <div v-if="!isSidebarCollapsed" class="search-container">
-          <Search class="search-icon" :size="14" aria-hidden="true" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search stores..."
-            class="sidebar-search"
-          />
         </div>
       </div>
 
@@ -724,28 +710,39 @@ function deleteStoreOption(id: string) {
             <template #icon><LockKeyhole /></template>
             Lock
           </BaseButton>
-          <button
+          <BaseButton
             v-if="formStore.storeId"
             class="btn-fetch"
+            title="Refresh data for current store"
             :disabled="isFetching"
             @click="fetchCurrent(true)"
           >
-            <svg
-              v-if="isFetching"
-              class="spin"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-            >
-              <path
-                d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-              />
-            </svg>
-            <IconsRefresh v-else />
+            <template #icon>
+              <svg
+                v-if="isFetching"
+                class="spin"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <path
+                  d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+                />
+              </svg>
+              <IconsRefresh v-else />
+            </template>
             {{ isFetching ? "Loading…" : "Refresh" }}
+          </BaseButton>
+          <button
+            class="btn-sidebar-add"
+            title="Add new store"
+            @click="isAddModalOpen = true"
+          >
+            <IconsAdd />
+            <span>Add store</span>
           </button>
         </div>
       </div>
@@ -969,10 +966,10 @@ function deleteStoreOption(id: string) {
   display: flex;
   width: 1440px;
   max-width: none;
-  min-height: calc(100vh - 64px - var(--footer-height, 36px));
-  max-height: calc(100vh - 64px - var(--footer-height, 36px));
+  min-height: calc(100vh - 64px);
+  max-height: calc(100vh - 64px);
   margin: 0 auto;
-  gap: 24px;
+  gap: 16px;
   padding: 0 20px;
   overflow: hidden !important;
 }
@@ -986,7 +983,7 @@ function deleteStoreOption(id: string) {
 }
 
 .page-content {
-  max-height: calc(100vh - 64px - var(--footer-height, 36px)) !important;
+  max-height: calc(100vh - 64px) !important;
   overflow-y: auto !important;
 }
 
@@ -1001,11 +998,11 @@ function deleteStoreOption(id: string) {
   flex-direction: column;
   margin: 12px 0;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 10px;
   background: var(--surface-overlay);
   overflow: hidden;
-  min-height: calc(100vh - 64px - var(--footer-height, 36px) - 12px);
-  max-height: calc(100vh - 64px - var(--footer-height, 36px) - 12px);
+  min-height: calc(100vh - 64px - 12px);
+  max-height: calc(100vh - 64px - 12px);
   transition:
     width 0.18s ease,
     flex-basis 0.18s ease;
@@ -1020,37 +1017,8 @@ function deleteStoreOption(id: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 14px 10px;
-}
-
-.sidebar-overview > div {
-  display: grid;
-  gap: 1px;
-}
-
-.sidebar-overview span {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.sidebar-overview strong {
-  color: var(--text);
-  font-size: 14px;
-}
-
-.sidebar-overview .store-count {
-  min-width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: var(--green-soft);
-  color: var(--green);
-  font-size: 12px;
+  gap: 6px;
+  padding: 12px 10px 10px;
 }
 
 .sidebar-overview-actions {
@@ -1062,16 +1030,12 @@ function deleteStoreOption(id: string) {
 
 .sidebar-toggle {
   color: var(--text-sub);
+  background: gray;
 }
 
 .sidebar.is-collapsed .sidebar-overview {
   justify-content: center;
   padding: 12px 8px 8px;
-}
-
-.sidebar.is-collapsed .sidebar-header {
-  justify-content: center;
-  padding: 6px 8px 10px;
 }
 
 .sidebar.is-collapsed .sidebar-content {
@@ -1081,18 +1045,6 @@ function deleteStoreOption(id: string) {
 .sidebar.is-collapsed .sidebar-item,
 .sidebar.is-collapsed .sidebar-item-label {
   justify-content: center;
-}
-
-.sidebar.is-collapsed .sidebar-item {
-  padding-inline: 5px;
-}
-
-.sidebar-header {
-  padding: 6px 10px 10px;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  border-bottom: 1px solid var(--border);
 }
 
 .search-container {
@@ -1114,7 +1066,7 @@ function deleteStoreOption(id: string) {
   flex: 1;
   min-width: 0;
   height: 32px;
-  padding: 0 8px 0 30px;
+  padding: 0 44px 0 30px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1127,6 +1079,24 @@ function deleteStoreOption(id: string) {
 
 .sidebar-search:focus {
   background: var(--surface);
+}
+
+.search-container .store-count {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  min-width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .btn-manage {
@@ -1204,7 +1174,7 @@ function deleteStoreOption(id: string) {
   align-items: center;
   justify-content: space-between;
   min-height: 48px;
-  padding: 5px 8px;
+  padding: 4px 8px;
   gap: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1312,39 +1282,21 @@ function deleteStoreOption(id: string) {
 .shop-bar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
+.btn-lock,
 .btn-fetch {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  background: var(--text-primary);
-  color: var(--bg);
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: filter 0.2s;
-}
-
-.btn-lock {
   min-height: 30px;
   border-radius: 8px;
   color: var(--text-sub);
-  font-size: 12px;
+  font-size: 13px;
+  transition: all 0.2s;
 }
 
 .btn-lock:hover {
   border-color: rgba(31, 122, 77, 0.35);
   color: var(--green);
-}
-
-.btn-fetch:hover:not(:disabled) {
-  filter: brightness(1.2);
 }
 
 .btn-fetch:disabled {
@@ -1459,16 +1411,21 @@ function deleteStoreOption(id: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  background: var(--bg);
+  height: 29.5px;
+  background: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-primary);
+  border-radius: 8px;
+  color: var(--bg);
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
-  font-size: 0.8em;
+  font-size: 13px;
+  font-family: inherit;
   padding: 0 8px;
+}
+
+.sidebar.is-collapsed .btn-sidebar-add {
+  width: 32px;
 }
 
 .btn-sidebar-add span {
@@ -1476,8 +1433,7 @@ function deleteStoreOption(id: string) {
 }
 
 .btn-sidebar-add:hover {
-  background: var(--surface);
-  color: var(--blue);
+  filter: brightness(1.3);
 }
 
 .btn-sidebar-add:disabled {

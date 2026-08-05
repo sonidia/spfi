@@ -3,11 +3,6 @@ import type { StoreTab } from "~~/types/store";
 
 defineProps<{
   activeTab: StoreTab;
-  transactionsCount: number;
-  payoutsCount: number;
-  ordersCount: number;
-  productsCount: number;
-  customersCount: number;
   activeLabel: string;
 }>();
 
@@ -47,7 +42,6 @@ function selectTab(tab: StoreTab) {
     >
       <IconsDate />
       Transactions
-      <span class="tab-count">{{ transactionsCount }}</span>
     </button>
     <button
       class="tab-btn"
@@ -59,7 +53,6 @@ function selectTab(tab: StoreTab) {
     >
       <IconsRefresh />
       Payouts
-      <span class="tab-count">{{ payoutsCount }}</span>
     </button>
     <button
       class="tab-btn"
@@ -71,7 +64,6 @@ function selectTab(tab: StoreTab) {
     >
       <IconsCopy />
       Orders
-      <span class="tab-count">{{ ordersCount }}</span>
     </button>
     <button
       class="tab-btn"
@@ -83,7 +75,6 @@ function selectTab(tab: StoreTab) {
     >
       <IconsBulking />
       Products
-      <span class="tab-count">{{ productsCount }}</span>
     </button>
     <button
       class="tab-btn"
@@ -95,7 +86,6 @@ function selectTab(tab: StoreTab) {
     >
       <IconsUsers />
       Customers
-      <span class="tab-count">{{ customersCount }}</span>
     </button>
     <!-- <span class="active-view-label">{{ activeLabel }}</span> -->
   </div>
@@ -120,7 +110,7 @@ function selectTab(tab: StoreTab) {
 }
 
 .tab-btn {
-  min-height: 34px;
+  min-height: 30px;
   padding: 0 12px;
   border-radius: 6px;
   font-size: 13px;
@@ -163,25 +153,6 @@ function selectTab(tab: StoreTab) {
 .tab-btn:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--green) 54%, transparent);
   outline-offset: 2px;
-}
-
-.tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  padding: 1px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  border-radius: 999px;
-  background: var(--surface-soft);
-  color: var(--text-secondary);
-}
-
-.tab-btn.active .tab-count {
-  background: var(--surface-raised);
-  color: var(--green);
 }
 
 .active-view-label {

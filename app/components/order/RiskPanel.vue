@@ -158,32 +158,34 @@ watch([() => props.orderId, isReady], ([, ready]) => {
       </div>
     </div>
 
-    <div v-if="risk?.assessments.length" class="assessment-list">
-      <article
-        v-for="(assessment, index) in risk.assessments"
-        :key="`${assessment.provider?.title}-${index}`"
-      >
-        <div>
-          <span
-            class="risk-level"
-            :class="`is-${assessment.riskLevel.toLowerCase()}`"
-          >
-            {{ assessment.riskLevel }}
-          </span>
-          <strong>{{ assessment.provider?.title || "Shopify" }}</strong>
-        </div>
-        <ul v-if="assessment.facts.length">
-          <li
-            v-for="fact in assessment.facts"
-            :key="`${fact.description}-${fact.sentiment}`"
-          >
-            {{ fact.description }}
-            <span>{{ fact.sentiment }}</span>
-          </li>
-        </ul>
-      </article>
-    </div>
-    <div v-else class="risk-empty">No assessment details yet.</div>
+    <template v-if="!isComposerOpen">
+      <div v-if="risk?.assessments.length" class="assessment-list">
+        <article
+          v-for="(assessment, index) in risk.assessments"
+          :key="`${assessment.provider?.title}-${index}`"
+        >
+          <div>
+            <span
+              class="risk-level"
+              :class="`is-${assessment.riskLevel.toLowerCase()}`"
+            >
+              {{ assessment.riskLevel }}
+            </span>
+            <strong>{{ assessment.provider?.title || "Shopify" }}</strong>
+          </div>
+          <ul v-if="assessment.facts.length">
+            <li
+              v-for="fact in assessment.facts"
+              :key="`${fact.description}-${fact.sentiment}`"
+            >
+              {{ fact.description }}
+              <span>{{ fact.sentiment }}</span>
+            </li>
+          </ul>
+        </article>
+      </div>
+      <div v-else class="risk-empty">No assessment details yet.</div>
+    </template>
 
     <div v-if="orderStore.riskError" class="risk-error" role="alert">
       {{ orderStore.riskError }}

@@ -72,7 +72,7 @@ defineProps<{
 
 .field-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .field-item {
@@ -84,27 +84,21 @@ defineProps<{
   border-bottom: 1px solid var(--border);
 }
 
-.field-item:nth-child(2n) {
-  border-right: none;
-}
-
 .field-item.is-wide {
   grid-column: 1 / -1;
-  border-right: none;
 }
 
 .field-label {
   color: var(--text-sub);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  text-transform: uppercase;
 }
 
 .field-value {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 

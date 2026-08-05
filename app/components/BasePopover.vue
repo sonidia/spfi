@@ -2,8 +2,8 @@
 import { onMounted, onUnmounted, ref } from "vue";
 
 interface BasePopoverProps {
-  align?: "left" | "right";
-  position?: "top" | "bottom";
+  align?: "left" | "right" | "top" | "bottom";
+  position?: "top" | "bottom" | "left" | "right";
 }
 
 withDefaults(defineProps<BasePopoverProps>(), {
@@ -90,6 +90,16 @@ defineExpose({ close, toggle });
   transform-origin: bottom;
 }
 
+.pos-left {
+  right: calc(100% + 8px);
+  transform-origin: right;
+}
+
+.pos-right {
+  left: calc(100% + 8px);
+  transform-origin: left;
+}
+
 .align-right {
   right: 0;
 }
@@ -98,10 +108,20 @@ defineExpose({ close, toggle });
   left: 0;
 }
 
+.align-bottom {
+  bottom: 0;
+}
+
+.align-top {
+  top: 0;
+}
+
 /* Transitions */
 .popover-enter-active,
 .popover-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .popover-enter-from,

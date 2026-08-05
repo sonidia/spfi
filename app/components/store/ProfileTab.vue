@@ -1,121 +1,95 @@
 <template>
   <section class="profile-page">
-      <ShopEmptyState
-        v-if="!formStore.storeId"
-        :title="profileEmptyState.title"
-        :description="profileEmptyState.description"
-      >
-        <template #icon>
-          <IconsHero v-if="noStores" />
-          <IconsCheck v-else />
-        </template>
-        <template #actions>
-          <NuxtLink
-            v-if="noStores"
-            to="/manager"
-            class="shop-empty-action primary"
-          >
-            <IconsAdd />
-            Add store
-          </NuxtLink>
-          <span v-else class="shop-empty-hint">
-            Pick a store from the left sidebar.
-          </span>
-        </template>
-      </ShopEmptyState>
+    <ShopEmptyState
+      v-if="!formStore.storeId"
+      :title="profileEmptyState.title"
+      :description="profileEmptyState.description"
+    >
+      <template #icon>
+        <IconsHero v-if="noStores" />
+        <IconsCheck v-else />
+      </template>
+      <template #actions>
+        <NuxtLink
+          v-if="noStores"
+          to="/manager"
+          class="shop-empty-action primary"
+        >
+          <IconsAdd />
+          Add store
+        </NuxtLink>
+        <span v-else class="shop-empty-hint">
+          Pick a store from the left sidebar.
+        </span>
+      </template>
+    </ShopEmptyState>
 
-      <ShopEmptyState
-        v-else-if="profileStore.isLoading && !shop"
-        title="Loading profile"
-        description="Fetching shop information from Shopify."
-        loading
-      >
-        <template #icon>
-          <IconsSync />
-        </template>
-      </ShopEmptyState>
+    <ShopEmptyState
+      v-else-if="profileStore.isLoading && !shop"
+      title="Loading profile"
+      description="Fetching shop information from Shopify."
+      loading
+    >
+      <template #icon>
+        <IconsSync />
+      </template>
+    </ShopEmptyState>
 
-      <div v-else class="profile-stack">
-        <section class="profile-hero">
-          <div class="profile-identity">
-            <div class="profile-avatar" aria-hidden="true">
-              {{ shopInitials }}
+    <div v-else class="profile-stack">
+      <section class="profile-hero">
+        <div class="profile-identity">
+          <div class="profile-hero-copy">
+            <div class="hero-kicker-row">
+              <h2>{{ shopTitle }}</h2>
+              <span
+                class="connection-pill"
+                :class="`is-${tokenStatus.toLowerCase()}`"
+              >
+                <i />
+                {{ tokenStatus }} token
+              </span>
             </div>
-            <div class="profile-hero-copy">
-              <div class="hero-kicker-row">
-                <span class="hero-kicker">Shop profile</span>
-                <span
-                  class="connection-pill"
-                  :class="`is-${tokenStatus.toLowerCase()}`"
-                >
-                  <i />
-                  {{ tokenStatus }} token
-                </span>
-              </div>
-              <h1>{{ shopTitle }}</h1>
-              <p>{{ shopDomain }}</p>
-              <div class="profile-actions">
-                <a
-                  v-if="shopUrl"
-                  class="profile-action primary"
-                  :href="shopUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open storefront
-                  <IconsArrowRight />
-                </a>
-                <NuxtLink class="profile-action" to="/manager">
-                  Manage credentials
-                </NuxtLink>
-              </div>
+            <div class="profile-actions">
+              <a
+                v-if="shopUrl"
+                class="profile-action primary"
+                :href="shopUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open storefront
+                <IconsArrowRight />
+              </a>
+              <NuxtLink class="profile-action" to="/manager">
+                Manage credentials
+              </NuxtLink>
             </div>
-          </div>
-
-          <div class="profile-metrics">
-            <div class="metric-item">
-              <span>Products</span>
-              <strong>{{ products.length }}</strong>
-            </div>
-            <div class="metric-item">
-              <span>Currency</span>
-              <strong>{{ shop?.currency || "-" }}</strong>
-            </div>
-            <div class="metric-item">
-              <span>Plan</span>
-              <strong>{{
-                shop?.plan_display_name || shop?.plan_name || "-"
-              }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <div v-if="profileStore.error" class="alert alert-err">
-          {{ profileStore.error }}
-        </div>
-
-        <div class="profile-detail-grid">
-          <div class="profile-detail-column">
-            <div class="section-label">
-              <span>Connection</span>
-              <small>AES-GCM protected locally</small>
-            </div>
-            <ProfileFieldGrid title="Access & security" :rows="connectionRows" />
-          </div>
-          <div class="profile-detail-column">
-            <div class="section-label">
-              <span>Store details</span>
-              <small>Synced from Shopify</small>
-            </div>
-            <ProfileFieldGrid title="Shop information" :rows="shopRows" />
           </div>
         </div>
-        <ProfileProductsTable
-          :products="products"
-          :loading="productStore.isLoading"
-          :error="productStore.error"
-        />
+
+        <div class="profile-metrics">
+          <div class="metric-item">
+            <span>Currency</span>
+            <strong>{{ shop?.currency || "-" }}</strong>
+          </div>
+          <div class="metric-item">
+            <span>Plan</span>
+            <strong>{{
+              shop?.plan_display_name || shop?.plan_name || "-"
+            }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <div v-if="profileStore.error" class="alert alert-err">
+        {{ profileStore.error }}
       </div>
+
+      <div class="profile-detail-grid">
+        <ProfileFieldGrid title="Access & security" :rows="connectionRows" />
+        <ProfileFieldGrid title="Shop information" :rows="shopRows" />
+      </div>
+    </div>
   </section>
 </template>
 
@@ -123,37 +97,32 @@
 import { computed } from "vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
-import { useProductStore } from "~/stores/product";
 import { useShopProfileStore } from "~/stores/shopProfile";
 import type { StoreLocalData } from "~~/types/shopify";
 import {
   buildShopProfileRows,
   formatProfileTimestamp,
-  maskSensitiveValue,
   type ProfileFieldRow,
 } from "~~/utils/shop-profile";
 
 const formStore = useFormStore();
 const credentialVault = useCredentialVaultStore();
-const productStore = useProductStore();
 const profileStore = useShopProfileStore();
 
 const shop = computed(() => profileStore.shop);
-const products = computed(() => productStore.products);
 const noStores = computed(() => formStore.knownStores.length === 0);
 const profileEmptyState = computed(() => {
   if (noStores.value) {
     return {
       title: "No stores connected yet",
       description:
-        "Connect a Shopify store first, then its profile and products will appear here.",
+        "Connect a Shopify store first, then its profile details will appear here.",
     };
   }
 
   return {
     title: "Select a shop",
-    description:
-      "Choose a store from the sidebar to view its profile and products.",
+    description: "Choose a store from the sidebar to view its profile details.",
   };
 });
 
@@ -191,10 +160,12 @@ const shopDomain = computed(() => {
 
 const shopInitials = computed(() => {
   const words = shopTitle.value.trim().split(/\s+/).filter(Boolean);
-  return words
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join("") || "SP";
+  return (
+    words
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join("") || "SP"
+  );
 });
 
 const shopUrl = computed(() => {
@@ -217,32 +188,29 @@ const connectionRows = computed<ProfileFieldRow[]>(() => [
   {
     key: "tokenStatus",
     label: "Token status",
-    value: tokenStatus.value,
-  },
-  {
-    key: "tokenExpires",
-    label: "Token expires",
-    value: formatProfileTimestamp(currentStoreData.value.expiresTime),
+    value: `${tokenStatus.value} - ${formatProfileTimestamp(currentStoreData.value.expiresTime)}`,
   },
   {
     key: "clientId",
     label: "Client ID",
-    value: maskSensitiveValue(currentStoreData.value.clientId),
+    // value: maskSensitiveValue(currentStoreData.value.clientId),
+    value: currentStoreData.value.clientId || "-",
   },
   {
     key: "clientSecret",
     label: "Client secret",
-    value: maskSensitiveValue(currentStoreData.value.clientSecret),
+    // value: maskSensitiveValue(currentStoreData.value.clientSecret),
+    value: currentStoreData.value.clientSecret || "-",
   },
   {
     key: "proxy",
     label: "Proxy",
-    value: maskSensitiveValue(currentStoreData.value.sock, 6),
+    // value: maskSensitiveValue(currentStoreData.value.sock, 6),
+    value: currentStoreData.value.sock || "-",
   },
 ]);
 
 const shopRows = computed(() => buildShopProfileRows(shop.value));
-
 </script>
 
 <style scoped>
@@ -259,7 +227,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 .profile-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 18px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -270,7 +238,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
       color-mix(in srgb, var(--blue-soft) 78%, var(--surface))
     ),
     var(--surface);
-  padding: 26px;
+  padding: 22px;
   box-shadow: var(--shadow-soft);
   overflow: hidden;
   position: relative;
@@ -283,35 +251,11 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   gap: 16px;
 }
 
-.profile-avatar {
-  width: 58px;
-  height: 58px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--surface-raised) 76%, var(--border));
-  border-radius: 8px;
-  background: linear-gradient(145deg, var(--green), var(--blue));
-  color: var(--bg);
-  font-size: 17px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--green) 20%, transparent);
-}
-
 .profile-hero-copy {
   min-width: 0;
   display: grid;
   gap: 5px;
 }
-
-.hero-kicker {
-  color: var(--green);
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
 .hero-kicker-row {
   display: flex;
   align-items: center;
@@ -378,7 +322,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   align-items: center;
   gap: 6px;
   padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--green) 24%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--green) 4%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
   color: var(--green);
@@ -390,6 +334,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   border-color: var(--green);
   background: var(--green);
   color: var(--bg);
+  min-height: 32px;
 }
 
 .profile-action svg {
@@ -399,7 +344,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 
 .profile-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(96px, 1fr));
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
   gap: 10px;
 }
 
@@ -410,13 +355,13 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   border: 1px solid color-mix(in srgb, var(--green) 18%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
-  padding: 12px 14px;
+  padding: 8px 14px;
   backdrop-filter: blur(8px);
 }
 
 .profile-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-row: 2;
   gap: 16px;
   align-items: start;
 }
@@ -427,31 +372,9 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   gap: 8px;
 }
 
-.section-label {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 2px;
-}
-
-.section-label span {
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.section-label small {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
-}
-
 .metric-item span {
   color: var(--text-sub);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -508,12 +431,6 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 
   .profile-action {
     justify-content: center;
-  }
-
-  .section-label {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 2px;
   }
 }
 </style>

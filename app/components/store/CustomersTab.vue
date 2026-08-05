@@ -1,203 +1,194 @@
 <template>
   <div class="customer-page">
-      <div class="page-toolbar">
-        <div>
-          <div class="page-meta">
-            {{ customers.length }} customer{{
-              customers.length === 1 ? "" : "s"
-            }}
-          </div>
-          <div v-if="activeQuery" class="search-summary">
-            Results for “{{ activeQuery }}”
-          </div>
+    <div class="page-toolbar">
+      <div>
+        <div class="page-meta">
+          {{ customers.length }} customer{{ customers.length === 1 ? "" : "s" }}
         </div>
-
-        <label class="customer-search">
-          <span class="sr-only">Search customers</span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <circle cx="8.5" cy="8.5" r="5.5" />
-            <path d="m12.5 12.5 4 4" stroke-linecap="round" />
-          </svg>
-          <input
-            v-model="searchQuery"
-            type="search"
-            placeholder="Name, email, phone, tag…"
-          />
-        </label>
-      </div>
-
-      <div v-if="isLoading && !customers.length" class="state-message">
-        Loading customers…
-      </div>
-      <div
-        v-else-if="error && !customers.length"
-        class="state-message is-error"
-      >
-        {{ error }}
-      </div>
-      <template v-else>
-        <div v-if="error" class="inline-error">{{ error }}</div>
-
-        <div class="card table-card">
-          <div class="table-scroll">
-            <table class="customers-table">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>Location</th>
-                  <th>Orders</th>
-                  <th>Total spent</th>
-                  <th>Marketing</th>
-                  <th>Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="customer in customers"
-                  :key="customer.id"
-                  class="customer-row"
-                  :class="{
-                    'is-selected': customer.id === selectedCustomer?.id,
-                  }"
-                  @click="customer.id && selectCustomer(customer.id)"
-                >
-                  <td>
-                    <div class="customer-cell">
-                      <span class="avatar">{{ getInitials(customer) }}</span>
-                      <span>
-                        <strong>{{ getCustomerName(customer) }}</strong>
-                        <small>{{
-                          customer.email || customer.phone || "No contact"
-                        }}</small>
-                      </span>
-                    </div>
-                  </td>
-                  <td>{{ getCustomerLocation(customer) }}</td>
-                  <td>{{ customer.orders_count ?? 0 }}</td>
-                  <td>{{ formatTotalSpent(customer) }}</td>
-                  <td>
-                    <span
-                      class="status-pill"
-                      :class="{
-                        'is-subscribed':
-                          customer.email_marketing_consent?.state ===
-                          'subscribed',
-                      }"
-                    >
-                      {{
-                        customer.email_marketing_consent?.state === "subscribed"
-                          ? "Subscribed"
-                          : "Not subscribed"
-                      }}
-                    </span>
-                  </td>
-                  <td>{{ formatDate(customer.updated_at) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div v-if="!customers.length" class="empty-state">
-            No customers found.
-          </div>
+        <div v-if="activeQuery" class="search-summary">
+          Results for “{{ activeQuery }}”
         </div>
+      </div>
 
-        <section
-          v-if="selectedCustomer || isLoadingDetail"
-          class="card detail-card"
-          aria-live="polite"
+      <label class="customer-search">
+        <span class="sr-only">Search customers</span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
         >
-          <div v-if="isLoadingDetail" class="state-message">
-            Loading customer detail and orders…
-          </div>
-          <template v-else-if="selectedCustomer">
-            <header class="detail-header">
-              <div class="customer-cell">
-                <span class="avatar is-large">
-                  {{ getInitials(selectedCustomer) }}
-                </span>
-                <span>
-                  <span class="detail-kicker">Customer detail</span>
-                  <h2>{{ getCustomerName(selectedCustomer) }}</h2>
-                </span>
-              </div>
-              <button
-                type="button"
-                class="close-button"
-                aria-label="Close customer detail"
-                @click="clearSelection"
+          <circle cx="8.5" cy="8.5" r="5.5" />
+          <path d="m12.5 12.5 4 4" stroke-linecap="round" />
+        </svg>
+        <input
+          v-model="searchQuery"
+          type="search"
+          placeholder="Name, email, phone, tag…"
+        />
+      </label>
+    </div>
+
+    <div v-if="isLoading && !customers.length" class="state-message">
+      Loading customers…
+    </div>
+    <div v-else-if="error && !customers.length" class="state-message is-error">
+      {{ error }}
+    </div>
+    <template v-else>
+      <div v-if="error" class="inline-error">{{ error }}</div>
+
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table class="customers-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Location</th>
+                <th>Orders</th>
+                <th>Total spent</th>
+                <th>Marketing</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="customer in customers"
+                :key="customer.id"
+                class="customer-row"
+                :class="{
+                  'is-selected': customer.id === selectedCustomer?.id,
+                }"
+                @click="customer.id && selectCustomer(customer.id)"
               >
-                ×
-              </button>
-            </header>
-
-            <div class="detail-grid">
-              <div>
-                <span>Contact</span>
-                <strong>{{ selectedCustomer.email || "—" }}</strong>
-                <small>{{ selectedCustomer.phone || "No phone" }}</small>
-              </div>
-              <div>
-                <span>Default address</span>
-                <strong>{{ getCustomerLocation(selectedCustomer) }}</strong>
-                <small>{{
-                  selectedCustomer.default_address?.address1 || "No address"
-                }}</small>
-              </div>
-              <div>
-                <span>Customer since</span>
-                <strong>{{ formatDate(selectedCustomer.created_at) }}</strong>
-                <small>{{ selectedCustomer.state || "Unknown state" }}</small>
-              </div>
-              <div>
-                <span>Lifetime value</span>
-                <strong>{{ formatTotalSpent(selectedCustomer) }}</strong>
-                <small>
-                  {{ selectedCustomer.orders_count ?? 0 }} total orders
-                </small>
-              </div>
-            </div>
-
-            <div class="orders-section">
-              <div class="section-heading">
-                <h3>Orders</h3>
-                <span>{{ selectedCustomerOrders.length }} loaded</span>
-              </div>
-              <div v-if="selectedCustomerOrders.length" class="orders-list">
-                <NuxtLink
-                  v-for="order in selectedCustomerOrders"
-                  :key="order.id"
-                  class="order-item"
-                  :to="{
-                    path: `/order/${order.id}`,
-                    query: { shop: formStore.storeId },
-                  }"
-                >
-                  <span>
-                    <strong>{{
-                      order.name || `#${order.order_number}`
-                    }}</strong>
-                    <small>{{ formatDate(order.created_at) }}</small>
+                <td>
+                  <div class="customer-cell">
+                    <span class="avatar">{{ getInitials(customer) }}</span>
+                    <span>
+                      <strong>{{ getCustomerName(customer) }}</strong>
+                      <small>{{
+                        customer.email || customer.phone || "No contact"
+                      }}</small>
+                    </span>
+                  </div>
+                </td>
+                <td>{{ getCustomerLocation(customer) }}</td>
+                <td>{{ customer.orders_count ?? 0 }}</td>
+                <td>{{ formatTotalSpent(customer) }}</td>
+                <td>
+                  <span
+                    class="status-pill"
+                    :class="{
+                      'is-subscribed':
+                        customer.email_marketing_consent?.state ===
+                        'subscribed',
+                    }"
+                  >
+                    {{
+                      customer.email_marketing_consent?.state === "subscribed"
+                        ? "Subscribed"
+                        : "Not subscribed"
+                    }}
                   </span>
-                  <span class="order-total">
-                    {{ formatOrderTotal(order.total_price, order.currency) }}
-                  </span>
-                </NuxtLink>
-              </div>
-              <div v-else class="empty-orders">
-                This customer has no orders.
-              </div>
+                </td>
+                <td>{{ formatDate(customer.updated_at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="!customers.length" class="empty-state">
+          No customers found.
+        </div>
+      </div>
+
+      <section
+        v-if="selectedCustomer || isLoadingDetail"
+        class="card detail-card"
+        aria-live="polite"
+      >
+        <div v-if="isLoadingDetail" class="state-message">
+          Loading customer detail and orders…
+        </div>
+        <template v-else-if="selectedCustomer">
+          <header class="detail-header">
+            <div class="customer-cell">
+              <span class="avatar is-large">
+                {{ getInitials(selectedCustomer) }}
+              </span>
+              <span>
+                <span class="detail-kicker">Customer detail</span>
+                <h2>{{ getCustomerName(selectedCustomer) }}</h2>
+              </span>
             </div>
-          </template>
-        </section>
-      </template>
+            <button
+              type="button"
+              class="close-button"
+              aria-label="Close customer detail"
+              @click="clearSelection"
+            >
+              ×
+            </button>
+          </header>
+
+          <div class="detail-grid">
+            <div>
+              <span>Contact</span>
+              <strong>{{ selectedCustomer.email || "—" }}</strong>
+              <small>{{ selectedCustomer.phone || "No phone" }}</small>
+            </div>
+            <div>
+              <span>Default address</span>
+              <strong>{{ getCustomerLocation(selectedCustomer) }}</strong>
+              <small>{{
+                selectedCustomer.default_address?.address1 || "No address"
+              }}</small>
+            </div>
+            <div>
+              <span>Customer since</span>
+              <strong>{{ formatDate(selectedCustomer.created_at) }}</strong>
+              <small>{{ selectedCustomer.state || "Unknown state" }}</small>
+            </div>
+            <div>
+              <span>Lifetime value</span>
+              <strong>{{ formatTotalSpent(selectedCustomer) }}</strong>
+              <small>
+                {{ selectedCustomer.orders_count ?? 0 }} total orders
+              </small>
+            </div>
+          </div>
+
+          <div class="orders-section">
+            <div class="section-heading">
+              <h3>Orders</h3>
+              <span>{{ selectedCustomerOrders.length }} loaded</span>
+            </div>
+            <div v-if="selectedCustomerOrders.length" class="orders-list">
+              <NuxtLink
+                v-for="order in selectedCustomerOrders"
+                :key="order.id"
+                class="order-item"
+                :to="{
+                  path: `/order/${order.id}`,
+                  query: { shop: formStore.storeId },
+                }"
+              >
+                <span>
+                  <strong>{{ order.name || `#${order.order_number}` }}</strong>
+                  <small>{{ formatDate(order.created_at) }}</small>
+                </span>
+                <span class="order-total">
+                  {{ formatOrderTotal(order.total_price, order.currency) }}
+                </span>
+              </NuxtLink>
+            </div>
+            <div v-else class="empty-orders">This customer has no orders.</div>
+          </div>
+        </template>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -325,12 +316,12 @@ function formatOrderTotal(value: string, currency = "USD") {
 
 .customer-search {
   display: flex;
-  width: min(360px, 100%);
+  width: min(330px, 100%);
   align-items: center;
   gap: 8px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 11px;
+  padding: 6px 11px;
   background: var(--surface);
   color: var(--text-sub);
 }

@@ -29,7 +29,7 @@ const { t } = useLocalization();
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--text);
+  color: rgb(255, 153, 0);
   cursor: pointer;
   font: inherit;
   padding: 0;
