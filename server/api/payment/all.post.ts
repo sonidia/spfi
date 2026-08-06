@@ -3,8 +3,9 @@ import {
   callShopifyApi,
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
+import { groupTransactionsByPayout } from "~~/server/utils/shopify-payment-query";
 import type {
-  BalanceTransactionsResponse,
   PaymentsOverviewResponse,
   ShopifyBalance,
   ShopifyBalanceTransaction,
@@ -20,10 +21,6 @@ interface BalanceResponse {
   balance?: ShopifyBalance | ShopifyBalance[];
 }
 
-interface PayoutsResponse {
-  payouts?: ShopifyPayout[];
-}
-
 export default defineEventHandler(async (event) => {
   const body = (await readBody<PaymentAllBody>(event)) || {};
   const storeId = String(body.storeId || "");
@@ -33,44 +30,33 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
   }
 
-  const [balanceRes, payoutsRes] = await Promise.all([
+  const [balanceRes, payouts, balanceTransactions] = await Promise.all([
     callShopifyApi<BalanceResponse>({
       event,
       storeId,
       token,
       path: "/shopify_payments/balance.json",
     }),
-    callShopifyApi<PayoutsResponse>({
+    callShopifyPaginatedApi<ShopifyPayout>({
       event,
       storeId,
       token,
       path: "/shopify_payments/payouts.json",
+      resourceKey: "payouts",
+    }),
+    callShopifyPaginatedApi<ShopifyBalanceTransaction>({
+      event,
+      storeId,
+      token,
+      path: "/shopify_payments/balance/transactions.json",
+      resourceKey: "transactions",
     }),
   ]);
-
-  const payouts = payoutsRes.payouts ?? [];
-  const txResults = await Promise.all(
-    payouts.map(async (payout) => {
-      const response = await callShopifyApi<BalanceTransactionsResponse>({
-        event,
-        storeId,
-        token,
-        path: "/shopify_payments/balance/transactions.json",
-        params: { payout_id: payout.id },
-      });
-
-      return { payoutId: payout.id, transactions: response.transactions ?? [] };
-    }),
-  );
-
-  const transactionsByPayout: Record<string, ShopifyBalanceTransaction[]> = {};
-  for (const { payoutId, transactions } of txResults) {
-    transactionsByPayout[String(payoutId)] = transactions;
-  }
 
   return {
     balance: balanceRes.balance ?? null,
     payouts,
-    transactionsByPayout,
+    balanceTransactions,
+    transactionsByPayout: groupTransactionsByPayout(balanceTransactions),
   } satisfies PaymentsOverviewResponse;
 });

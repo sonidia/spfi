@@ -209,9 +209,21 @@ export interface ShopifyOrderTransaction {
   created_at: string;
   test?: boolean;
   authorization?: string | null;
+  authorization_expires_at?: string | null;
   amount: string;
   currency: string;
   parent_id?: number | null;
+  processed_at?: string;
+  location_id?: number | null;
+  user_id?: number | null;
+  device_id?: number | null;
+  source_name?: string | null;
+  error_code?: string | null;
+  payment_id?: string | null;
+  manual_payment_gateway?: boolean;
+  admin_graphql_api_id?: string;
+  extended_authorization_attributes?: Record<string, unknown> | null;
+  total_unsettled_set?: ShopifyMoneySet | null;
   payment_details?: {
     credit_card_company?: string | null;
     credit_card_number?: string | null;
@@ -469,6 +481,14 @@ export interface OrderTransactionsResponse {
   transactions: ShopifyOrderTransaction[];
 }
 
+export interface OrderTransactionResponse {
+  transaction: ShopifyOrderTransaction;
+}
+
+export interface OrderTransactionCountResponse {
+  count: number;
+}
+
 export interface OrderEventsResponse {
   events: ShopifyOrderEvent[];
 }
@@ -476,6 +496,7 @@ export interface OrderEventsResponse {
 export interface PaymentsOverviewResponse {
   balance: ShopifyBalance | ShopifyBalance[] | null;
   payouts: ShopifyPayout[];
+  balanceTransactions: ShopifyBalanceTransaction[];
   transactionsByPayout: Record<string, ShopifyBalanceTransaction[]>;
 }
 

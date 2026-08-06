@@ -1,5 +1,10 @@
 ﻿import axios, { type AxiosRequestConfig } from "axios";
 import { createError, getCookie, parseCookies, type H3Event } from "h3";
+import type {
+  AxiosResponse,
+  AxiosResponseHeaders,
+  RawAxiosResponseHeaders,
+} from "axios";
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { useAppConfig } from "#imports";
 import { StoreStatusInputError } from "./status-checker-errors";
@@ -34,7 +39,7 @@ export interface StandardApiError {
   };
 }
 
-interface CallShopifyApiOptions<TBody = unknown> {
+export interface CallShopifyApiOptions<TBody = unknown> {
   event: H3Event;
   storeId: string;
   token?: string;
@@ -48,6 +53,12 @@ interface CallShopifyApiOptions<TBody = unknown> {
   retryTransport?: boolean;
 }
 
+export interface ShopifyApiResponse<TResponse> {
+  data: TResponse;
+  headers: AxiosResponseHeaders | RawAxiosResponseHeaders;
+  status: number;
+}
+
 interface SocksProxyAgentInternals {
   proxyUrl?: string;
   shouldLookup?: boolean;
@@ -55,6 +66,9 @@ interface SocksProxyAgentInternals {
 
 const SHOPIFY_JSON_CONTENT_TYPE = "application/json";
 const DEFAULT_TIMEOUT_MS = 15000;
+const MAX_RATE_LIMIT_RETRIES = 4;
+const DEFAULT_RATE_LIMIT_DELAY_MS = 500;
+const MAX_RATE_LIMIT_DELAY_MS = 10000;
 const INVISIBLE_OR_CONTROL_CHARS =
   /[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g;
 const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -379,7 +393,14 @@ export function maskProxyUrl(proxyUrl: string): string {
   return proxyUrl.replace(/\/\/([^:/@]+):([^@]+)@/, "//****:****@");
 }
 
-export async function callShopifyApi<TResponse, TBody = unknown>({
+export async function callShopifyApi<TResponse, TBody = unknown>(
+  options: CallShopifyApiOptions<TBody>,
+): Promise<TResponse> {
+  const response = await callShopifyApiWithResponse<TResponse, TBody>(options);
+  return response.data;
+}
+
+export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   event,
   storeId,
   token,
@@ -391,7 +412,7 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
   missingProxyMessage = "Missing sock proxy for this store. Please update it in Manager page.",
   timeoutMs = DEFAULT_TIMEOUT_MS,
   retryTransport = true,
-}: CallShopifyApiOptions<TBody>): Promise<TResponse> {
+}: CallShopifyApiOptions<TBody>): Promise<ShopifyApiResponse<TResponse>> {
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
   }
@@ -435,13 +456,20 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
         proxy: false,
         timeout: timeoutMs,
       };
-      const response = await axios.request<TResponse, { data: TResponse }, TBody>(
+      const response = await requestWithRateLimitRetry<TResponse, TBody>(
         requestConfig,
       );
 
-      return response.data;
+      return {
+        data: response.data,
+        headers: response.headers,
+        status: response.status,
+      };
     } catch (error) {
       lastError = error;
+      if (axios.isAxiosError(error) && error.response) {
+        throwShopifyApiError(error);
+      }
       if (!retryTransport) {
         throwShopifyApiError(error);
       }
@@ -449,6 +477,45 @@ export async function callShopifyApi<TResponse, TBody = unknown>({
   }
 
   throwShopifyApiError(lastError);
+}
+
+async function requestWithRateLimitRetry<TResponse, TBody>(
+  requestConfig: AxiosRequestConfig<TBody>,
+): Promise<AxiosResponse<TResponse>> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await axios.request<
+        TResponse,
+        AxiosResponse<TResponse>,
+        TBody
+      >(requestConfig);
+    } catch (error) {
+      if (
+        !axios.isAxiosError(error) ||
+        error.response?.status !== 429 ||
+        attempt >= MAX_RATE_LIMIT_RETRIES
+      ) {
+        throw error;
+      }
+
+      await wait(getRetryDelayMs(error.response.headers["retry-after"]));
+    }
+  }
+}
+
+function getRetryDelayMs(retryAfter: unknown) {
+  const seconds = Number(Array.isArray(retryAfter) ? retryAfter[0] : retryAfter);
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return DEFAULT_RATE_LIMIT_DELAY_MS;
+  }
+  return Math.min(
+    MAX_RATE_LIMIT_DELAY_MS,
+    Math.max(DEFAULT_RATE_LIMIT_DELAY_MS, Math.ceil(seconds * 1000)),
+  );
+}
+
+function wait(delayMs: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, delayMs));
 }
 
 export function resolveShopifyProxyVariants(sock: string): string[] {

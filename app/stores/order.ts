@@ -10,11 +10,13 @@ import type {
   OrderEditCommitInput,
   OrderFulfillmentInput,
   OrderListQuery,
+  OrderManualPaymentInput,
   OrderRefundInput,
   RiskAssessmentLevel,
   ShopifyOrderPayload,
   ShopifyOrderRiskSummary,
   ShopifyRiskFact,
+  OrderVoidInput,
 } from "~~/types/shopify-order";
 import { getAppErrorMessage } from "~~/utils/error";
 
@@ -286,6 +288,36 @@ export const useOrderStore = defineStore("order", () => {
     );
   }
 
+  async function voidOrderTransaction(
+    storeId: string,
+    token: string,
+    id: string | number,
+    input: OrderVoidInput,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.voidTransaction({ storeId, token }, id, input),
+      "Failed to void the authorization.",
+    );
+  }
+
+  async function createManualPayment(
+    storeId: string,
+    token: string,
+    id: string | number,
+    input: OrderManualPaymentInput,
+  ) {
+    return runOrderMutationAndRefresh(
+      storeId,
+      token,
+      id,
+      () => orderApi.createManualPayment({ storeId, token }, id, input),
+      "Failed to record the manual payment.",
+    );
+  }
+
   async function refundOrder(
     storeId: string,
     token: string,
@@ -512,6 +544,8 @@ export const useOrderStore = defineStore("order", () => {
     deleteOrder,
     capturePayment,
     markOrderAsPaid,
+    voidOrderTransaction,
+    createManualPayment,
     refundOrder,
     commitOrderEdit,
     fulfillOrder,

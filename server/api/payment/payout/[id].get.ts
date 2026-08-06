@@ -3,10 +3,11 @@ import {
   callShopifyApi,
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import type {
-  BalanceTransactionsResponse,
   PayoutDetailResponse,
   ShopifyPayout,
+  ShopifyBalanceTransaction,
 } from "~~/types/shopify";
 
 interface PayoutResponse {
@@ -23,24 +24,25 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("storeId, token and payout id are required.", 400);
   }
 
-  const [payoutRes, txRes] = await Promise.all([
+  const [payoutRes, transactions] = await Promise.all([
     callShopifyApi<PayoutResponse>({
       event,
       storeId,
       token,
       path: `/shopify_payments/payouts/${payoutId}.json`,
     }),
-    callShopifyApi<BalanceTransactionsResponse>({
+    callShopifyPaginatedApi<ShopifyBalanceTransaction>({
       event,
       storeId,
       token,
       path: "/shopify_payments/balance/transactions.json",
+      resourceKey: "transactions",
       params: { payout_id: payoutId },
     }),
   ]);
 
   return {
     payout: payoutRes.payout ?? null,
-    transactions: txRes.transactions ?? [],
+    transactions,
   } satisfies PayoutDetailResponse;
 });

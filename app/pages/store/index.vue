@@ -97,10 +97,7 @@
 
 
         <div v-if="showsStoreSummary" class="card data-card">
-          <PaymentPayoutsTab
-            v-if="activeTab === 'payouts'"
-            :filter="payoutsFilter"
-          />
+          <PaymentPayoutsTab v-if="activeTab === 'payouts'" />
 
           <PaymentTransactionsTab v-else-if="activeTab === 'transactions'" />
 
@@ -141,7 +138,6 @@ const profileStore = useShopProfileStore();
 const router = useRouter();
 const route = useRoute();
 
-const payoutsFilter = ref<"all" | "paid" | "in_transit">("all");
 const activeTab = ref<StoreTab>(
   isStoreTab(route.query.tab) ? route.query.tab : "profile",
 );
@@ -168,10 +164,7 @@ async function refreshCurrentStore() {
   const token = resolveToken(formStore.storeId);
 
   if (token) {
-    await Promise.all([
-      paymentStore.fetchAll(formStore.storeId, token, true),
-      paymentStore.fetchBalanceTransactions(formStore.storeId, token, true),
-    ]);
+    await paymentStore.fetchAll(formStore.storeId, token, true);
   }
 }
 
@@ -181,8 +174,10 @@ function loadProfileTabData(storeId: string, token: string) {
   }
   if (!paymentStore.hasFetchedAll || paymentStore.error) {
     paymentStore.fetchAll(storeId, token);
-  }
-  if (!paymentStore.hasFetchedBalanceTransactions || paymentStore.error) {
+  } else if (
+    !paymentStore.hasFetchedBalanceTransactions ||
+    paymentStore.error
+  ) {
     paymentStore.fetchBalanceTransactions(storeId, token);
   }
   if (!orderStore.hasFetchedAll || orderStore.error) {
@@ -298,8 +293,10 @@ watch(
       const token = resolveToken(formStore.storeId);
       if (token && (!paymentStore.hasFetchedAll || paymentStore.error)) {
         paymentStore.fetchAll(formStore.storeId, token);
-      }
-      if (token) {
+      } else if (
+        token &&
+        (!paymentStore.hasFetchedBalanceTransactions || paymentStore.error)
+      ) {
         paymentStore.fetchBalanceTransactions(formStore.storeId, token);
       }
     }

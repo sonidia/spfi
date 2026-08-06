@@ -3,8 +3,7 @@ import {
   callShopifyApi,
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
-import { buildOrderTransactionListParams } from "~~/server/utils/shopify-order-transaction-query";
-import type { OrderTransactionsResponse } from "~~/types/shopify";
+import type { OrderTransactionCountResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
   const orderId = getRouterParam(event, "id");
@@ -15,16 +14,17 @@ export default defineEventHandler(async (event) => {
   if (!orderId) {
     throw createApiErrorFromMessage("Order ID is required.", 400);
   }
-
   if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
+    throw createApiErrorFromMessage(
+      "Store ID and Access Token are required.",
+      400,
+    );
   }
 
-  return callShopifyApi<OrderTransactionsResponse>({
+  return callShopifyApi<OrderTransactionCountResponse>({
     event,
     storeId,
     token,
-    path: `/orders/${orderId}/transactions.json`,
-    params: buildOrderTransactionListParams(query),
+    path: `/orders/${orderId}/transactions/count.json`,
   });
 });

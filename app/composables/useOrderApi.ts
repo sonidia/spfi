@@ -1,5 +1,7 @@
 import type {
   OrderEventsResponse,
+  OrderTransactionCountResponse,
+  OrderTransactionResponse,
   OrderTransactionsResponse,
   OrdersResponse,
   ShopifyFulfillmentOrder,
@@ -15,8 +17,12 @@ import type {
   OrderEditSessionResponse,
   OrderFulfillmentInput,
   OrderListQuery,
+  OrderManualPaymentInput,
   OrderRefundInput,
   OrderRiskAssessmentsResponse,
+  OrderTransactionDetailQuery,
+  OrderTransactionListQuery,
+  OrderVoidInput,
   RiskAssessmentLevel,
   ShopifyOrderPayload,
   ShopifyOrderRiskAssessment,
@@ -103,10 +109,33 @@ export function useOrderApi() {
     });
   }
 
-  function getTransactions(auth: OrderAuth, id: string | number) {
+  function getTransactions(
+    auth: OrderAuth,
+    id: string | number,
+    query: OrderTransactionListQuery = {},
+  ) {
     return $fetch<OrderTransactionsResponse>(`/api/order/${id}/transactions`, {
-      params: auth,
+      params: { ...auth, ...query },
     });
+  }
+
+  function getTransaction(
+    auth: OrderAuth,
+    orderId: string | number,
+    transactionId: string | number,
+    query: OrderTransactionDetailQuery = {},
+  ) {
+    return $fetch<OrderTransactionResponse>(
+      `/api/order/${orderId}/transactions/${transactionId}`,
+      { params: { ...auth, ...query } },
+    );
+  }
+
+  function countTransactions(auth: OrderAuth, id: string | number) {
+    return $fetch<OrderTransactionCountResponse>(
+      `/api/order/${id}/transactions/count`,
+      { params: auth },
+    );
   }
 
   function getEvents(auth: OrderAuth, id: string | number) {
@@ -130,6 +159,28 @@ export function useOrderApi() {
     return $fetch<{ order: Record<string, unknown> | null }>(
       `/api/order/${id}/mark-paid`,
       { method: "POST", body: auth },
+    );
+  }
+
+  function voidTransaction(
+    auth: OrderAuth,
+    id: string | number,
+    input: OrderVoidInput,
+  ) {
+    return $fetch<{ transaction: Record<string, unknown> | null }>(
+      `/api/order/${id}/void`,
+      { method: "POST", body: { ...auth, ...input } },
+    );
+  }
+
+  function createManualPayment(
+    auth: OrderAuth,
+    id: string | number,
+    input: OrderManualPaymentInput,
+  ) {
+    return $fetch<{ order: Record<string, unknown> | null }>(
+      `/api/order/${id}/manual-payment`,
+      { method: "POST", body: { ...auth, ...input } },
     );
   }
 
@@ -223,9 +274,13 @@ export function useOrderApi() {
     close,
     open,
     getTransactions,
+    getTransaction,
+    countTransactions,
     getEvents,
     capture,
     markAsPaid,
+    voidTransaction,
+    createManualPayment,
     refund,
     beginEdit,
     commitEdit,

@@ -1,372 +1,379 @@
+<script setup lang="ts">
+import { computed, ref, watch } from "vue";
+import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useOrderStore } from "~/stores/order";
+import { usePaymentStore } from "~/stores/payment";
+import type { Transaction } from "~/stores/payment";
+import type {
+  ShopifyBalancePayoutStatus,
+  ShopifyBalanceTransactionFilters,
+} from "~~/types/shopify-payment";
+import { capitalize, fmtDate } from "~~/helpers";
+
+const paymentStore = usePaymentStore();
+const orderStore = useOrderStore();
+const { storeId, token, isReady } = useActiveShopAuth();
+
+const payoutStatus = ref<"" | ShopifyBalancePayoutStatus>("");
+const testMode = ref<"" | "live" | "test">("");
+const sinceId = ref("");
+const lastId = ref("");
+const currentPage = ref(1);
+const pageSize = ref(20);
+
+const sortedTransactions = computed(() =>
+  [...paymentStore.visibleBalanceTransactions].sort(
+    (left, right) =>
+      new Date(right.processed_at).getTime() -
+      new Date(left.processed_at).getTime(),
+  ),
+);
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(sortedTransactions.value.length / pageSize.value)),
+);
+const paginatedTransactions = computed(() => {
+  const safePage = Math.min(currentPage.value, totalPages.value);
+  const start = (safePage - 1) * pageSize.value;
+  return sortedTransactions.value.slice(start, start + pageSize.value);
+});
+
+watch(totalPages, (count) => {
+  if (currentPage.value > count) currentPage.value = count;
+});
+
+async function applyFilters() {
+  if (!isReady.value) return;
+  const filters: ShopifyBalanceTransactionFilters = {
+    ...(payoutStatus.value
+      ? { payout_status: payoutStatus.value }
+      : {}),
+    ...(testMode.value ? { test: testMode.value === "test" } : {}),
+    ...(sinceId.value ? { since_id: sinceId.value } : {}),
+    ...(lastId.value ? { last_id: lastId.value } : {}),
+  };
+  currentPage.value = 1;
+  await paymentStore.fetchBalanceTransactions(
+    storeId.value,
+    token.value,
+    true,
+    filters,
+  );
+}
+
+async function showPending() {
+  payoutStatus.value = "pending";
+  await applyFilters();
+}
+
+async function resetFilters() {
+  payoutStatus.value = "";
+  testMode.value = "";
+  sinceId.value = "";
+  lastId.value = "";
+  await applyFilters();
+}
+
+function getPayoutDate(payoutId: number | null) {
+  if (!payoutId) return "—";
+  const payout = paymentStore.payouts.find((item) => item.id === payoutId);
+  return payout ? fmtDate(payout.date) : "—";
+}
+
+function getOrderName(transaction: Transaction) {
+  if (!transaction.source_order_id) return null;
+  const order = orderStore.orders.find(
+    (item) => item.id === transaction.source_order_id,
+  );
+  return order?.name || `#${transaction.source_order_id}`;
+}
+
+function getCustomerName(transaction: Transaction) {
+  if (!transaction.source_order_id) return "—";
+  const customer = orderStore.orders.find(
+    (item) => item.id === transaction.source_order_id,
+  )?.customer;
+  if (!customer) return "—";
+  return (
+    `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "—"
+  );
+}
+
+function payoutBadge(status: string) {
+  if (status === "paid") return "badge-deposited";
+  if (status === "in_transit") return "badge-in-transit";
+  return "badge-pending";
+}
+
+function formatMoney(amount: string, currency: string) {
+  const numericAmount = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(numericAmount);
+  } catch {
+    return `${numericAmount.toFixed(2)} ${currency}`;
+  }
+}
+
+function updatePageSize(size: number) {
+  pageSize.value = size;
+  currentPage.value = 1;
+}
+</script>
+
 <template>
   <div class="transactions-tab">
+    <form class="filter-toolbar" @submit.prevent="applyFilters">
+      <label>
+        <span>Payout status</span>
+        <select v-model="payoutStatus">
+          <option value="">All statuses</option>
+          <option value="pending">Pending / not paid out</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="in_transit">In transit</option>
+          <option value="paid">Paid</option>
+          <option value="failed">Failed</option>
+          <option value="canceled">Canceled</option>
+        </select>
+      </label>
+      <label>
+        <span>Mode</span>
+        <select v-model="testMode">
+          <option value="">Live and test</option>
+          <option value="live">Live only</option>
+          <option value="test">Test only</option>
+        </select>
+      </label>
+      <label>
+        <span>After transaction ID</span>
+        <input v-model.trim="sinceId" inputmode="numeric" placeholder="since_id" />
+      </label>
+      <label>
+        <span>Before transaction ID</span>
+        <input v-model.trim="lastId" inputmode="numeric" placeholder="last_id" />
+      </label>
+      <div class="filter-actions">
+        <button type="button" class="pending" @click="showPending">
+          Show pending
+        </button>
+        <button type="button" class="secondary" @click="resetFilters">
+          Reset
+        </button>
+        <button type="submit" :disabled="paymentStore.isLoading">
+          {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
+        </button>
+      </div>
+    </form>
+
     <table>
       <thead>
         <tr>
           <th>Processed at</th>
           <th>Payout date</th>
           <th>Payout status</th>
-          <th>Latest order</th>
-          <th>Latest customer</th>
+          <th>Order</th>
+          <th>Customer</th>
           <th>Type</th>
-          <th>Payment</th>
+          <th>Mode</th>
           <th class="right">Amount</th>
           <th class="right">Fee</th>
           <th class="right">Net</th>
         </tr>
       </thead>
       <tbody>
-        <template v-for="payout in sortedPayouts" :key="payout.id">
-          <tr class="payout-row" @click="togglePayout(payout.id)">
-            <td class="td-date payout-cell">
-              <button
-                class="expand-btn"
-                type="button"
-                @click.stop="togglePayout(payout.id)"
-              >
-                {{ isExpanded(payout.id) ? "▾" : "▸" }}
-              </button>
-              <NuxtLink :to="`/store/payout/${payout.id}`" class="link">
-                {{ payout.id }}
-              </NuxtLink>
-            </td>
-            <td class="td-date">
-              <span>
-                {{ fmtDate(payout.date) }}
-              </span>
-            </td>
-            <td>
-              <span
-                class="badge"
-                :class="
-                  payout.status === 'paid'
-                    ? 'badge-deposited'
-                    : payout.status === 'in_transit'
-                      ? 'badge-in-transit'
-                      : 'badge-pending'
-                "
-              >
-                {{
-                  payout.status === "paid"
-                    ? "Deposited"
-                    : capitalize(payout.status)
-                }}
-              </span>
-            </td>
-            <td class="td-order">
-              <template v-if="!isExpanded(payout.id)">
-                <NuxtLink
-                  v-if="getLatestOrderNumber(payout.id)"
-                  class="link"
-                  :to="`/order/${getLatestOrderNumber(payout.id)}`"
-                >
-                  #{{ getLatestOrderNumber(payout.id) }}
-                </NuxtLink>
-                <span v-else>—</span>
-              </template>
-              <span v-else>—</span>
-            </td>
-            <td class="td-customer">
-              <template v-if="!isExpanded(payout.id)">
-                {{ getLatestCustomerName(payout.id) }}
-              </template>
-              <span v-else>—</span>
-            </td>
-            <td class="td-type">Payout</td>
-            <td>
-              <span class="payment-method">
-                <template
-                  v-if="
-                    !isExpanded(payout.id) &&
-                    getLatestTransactionForPayout(payout.id)?.type === 'charge'
-                  "
-                >
-                  <span class="card-brand">Visa</span>
-                </template>
-                <span v-else>—</span>
-              </span>
-            </td>
-            <td class="right td-amount">
-              ${{ getPayoutAmount(payout).toFixed(2) }}
-            </td>
-            <td class="right td-fee">
-              <template v-if="getPayoutFee(payout)">
-                -${{ getPayoutFee(payout).toFixed(2) }}
-              </template>
-              <template v-else>—</template>
-            </td>
-            <td class="right td-net" style="font-weight: 700">
-              ${{ Math.abs(parseFloat(payout.amount)).toFixed(2) }}
-            </td>
-          </tr>
-          <tr
-            v-for="tx in getChildTransactions(payout.id)"
-            v-show="isExpanded(payout.id)"
-            :key="tx.id"
-            class="child-row"
-          >
-            <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
-            <td class="td-date">
-              <span v-if="tx.payout_id">
-                {{ getPayoutDateById(tx.payout_id) }}
-              </span>
-              <span v-else>—</span>
-            </td>
-            <td>
-              <span
-                class="badge"
-                :class="
-                  tx.payout_status === 'paid'
-                    ? 'badge-deposited'
-                    : tx.payout_status === 'in_transit'
-                      ? 'badge-in-transit'
-                      : 'badge-pending'
-                "
-              >
-                {{
-                  tx.payout_status === "paid"
-                    ? "Deposited"
-                    : capitalize(tx.payout_status)
-                }}
-              </span>
-            </td>
-            <td class="td-order">
-              <NuxtLink
-                v-if="getOrderNumber(tx)"
-                class="link"
-                :to="`/order/${getOrderNumber(tx)}`"
-              >
-                #{{ getOrderNumber(tx) }}
-              </NuxtLink>
-              <span v-else>—</span>
-            </td>
-            <td class="td-customer">{{ getCustomerName(tx) }}</td>
-            <td class="td-type">{{ capitalize(tx.type) }}</td>
-            <td>
-              <span class="payment-method">
-                <span class="card-brand" v-if="tx.type === 'charge'">Visa</span>
-                <span v-else>—</span>
-              </span>
-            </td>
-            <td class="right td-amount">
-              ${{ Math.abs(parseFloat(tx.amount)).toFixed(2) }}
-            </td>
-            <td class="right td-fee">
-              <template v-if="parseFloat(tx.fee)">
-                -${{ parseFloat(tx.fee).toFixed(2) }}
-              </template>
-              <template v-else>—</template>
-            </td>
-            <td class="right td-net" style="font-weight: 700">
-              ${{ Math.abs(parseFloat(tx.net)).toFixed(2) }}
-            </td>
-          </tr>
-        </template>
+        <tr v-for="transaction in paginatedTransactions" :key="transaction.id">
+          <td class="td-date">{{ fmtDate(transaction.processed_at) }}</td>
+          <td class="td-date">{{ getPayoutDate(transaction.payout_id) }}</td>
+          <td>
+            <span class="badge" :class="payoutBadge(transaction.payout_status)">
+              {{
+                transaction.payout_status === "paid"
+                  ? "Deposited"
+                  : capitalize(transaction.payout_status)
+              }}
+            </span>
+          </td>
+          <td class="td-order">
+            <NuxtLink
+              v-if="transaction.source_order_id"
+              class="link"
+              :to="`/order/${transaction.source_order_id}`"
+            >
+              {{ getOrderName(transaction) }}
+            </NuxtLink>
+            <span v-else>—</span>
+          </td>
+          <td class="td-customer">{{ getCustomerName(transaction) }}</td>
+          <td class="td-type">{{ capitalize(transaction.type) }}</td>
+          <td>
+            <span v-if="transaction.test" class="mode-badge">Test</span>
+            <span v-else>Live</span>
+          </td>
+          <td class="right td-amount">
+            {{ formatMoney(transaction.amount, transaction.currency) }}
+          </td>
+          <td class="right td-fee">
+            {{ formatMoney(transaction.fee, transaction.currency) }}
+          </td>
+          <td class="right td-net">
+            {{ formatMoney(transaction.net, transaction.currency) }}
+          </td>
+        </tr>
       </tbody>
     </table>
-    <div v-if="sortedPayouts.length === 0" class="empty">
-      No balance transactions found.
-    </div>
+
+    <PaginationControls
+      v-if="sortedTransactions.length"
+      :page="currentPage"
+      :page-size="pageSize"
+      :total-items="sortedTransactions.length"
+      item-label="transactions"
+      @update:page="currentPage = $event"
+      @update:page-size="updatePageSize"
+    />
+    <div v-else class="empty">No balance transactions found.</div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { useOrderStore } from "~/stores/order";
-import type { Payout, Transaction } from "~/stores/payment";
-import { capitalize, fmtDate } from "~~/helpers";
-
-const paymentStore = usePaymentStore();
-const orderStore = useOrderStore();
-
-const sortedPayouts = computed(() =>
-  [...paymentStore.payouts].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-  ),
-);
-
-const expandedPayouts = ref<Record<number, boolean>>({});
-
-watch(
-  () => paymentStore.payouts,
-  (payouts) => {
-    payouts.forEach((payout) => {
-      if (expandedPayouts.value[payout.id] === undefined) {
-        expandedPayouts.value[payout.id] = false;
-      }
-    });
-  },
-  { immediate: true },
-);
-
-function togglePayout(payoutId: number) {
-  expandedPayouts.value[payoutId] = !expandedPayouts.value[payoutId];
-}
-
-function isExpanded(payoutId: number) {
-  return expandedPayouts.value[payoutId] ?? false;
-}
-
-function getPayoutDateById(payoutId: number | null) {
-  if (!payoutId) return "—";
-  const payout = paymentStore.payouts.find((p) => p.id === payoutId);
-  return payout ? fmtDate(payout.date) : "—";
-}
-
-function getPayoutAmount(payout: Payout) {
-  const amount = payout?.summary?.charges_gross_amount;
-  return Math.abs(parseFloat(amount ?? payout.amount ?? "0"));
-}
-
-function getPayoutFee(payout: Payout) {
-  const fee = payout?.summary?.charges_fee_amount;
-  return Math.abs(parseFloat(fee ?? "0"));
-}
-
-function getChildTransactions(payoutId: number) {
-  return (paymentStore.transactionsByPayout[String(payoutId)] || []).filter(
-    (tx) => tx.type !== "payout",
-  );
-}
-
-function getLatestTransactionForPayout(payoutId: number) {
-  const transactions = getChildTransactions(payoutId).filter(
-    (tx) => tx.source_order_id,
-  );
-  if (!transactions.length) return null;
-  return transactions.sort(
-    (a, b) =>
-      new Date(b.processed_at).getTime() - new Date(a.processed_at).getTime(),
-  )[0];
-}
-
-function getLatestOrderNumber(payoutId: number) {
-  const tx = getLatestTransactionForPayout(payoutId);
-  return tx ? getOrderNumber(tx) : null;
-}
-
-function getLatestCustomerName(payoutId: number) {
-  const tx = getLatestTransactionForPayout(payoutId);
-  if (!tx) return "—";
-  return getCustomerName(tx);
-}
-
-function getOrderNumber(tx: Transaction) {
-  if (!tx.source_order_id) return null;
-  // Note: orderMap was empty in index.vue, keeping logic same
-  const orderMap: Record<number, string> = {};
-  return orderMap[tx.source_order_id] || tx.source_order_id;
-}
-
-function getCustomerName(tx: Transaction) {
-  if (!tx.source_order_id) return "—";
-  const order = orderStore.orders.find((o) => o.id === tx.source_order_id);
-  if (order && order.customer) {
-    return (
-      `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim() ||
-      "—"
-    );
-  }
-  return "—";
-}
-</script>
-
 <style scoped>
+.filter-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.filter-toolbar label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filter-toolbar label span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.filter-toolbar input,
+.filter-toolbar select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.filter-actions button {
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 11px;
+  background: var(--green);
+  color: white;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-actions button.secondary,
+.filter-actions button.pending {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-sub);
+}
+
+.filter-actions button.pending {
+  border-color: color-mix(in srgb, var(--amber) 35%, var(--border));
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.filter-actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .td-date {
   color: var(--text-secondary);
   white-space: nowrap;
 }
+
 .td-order a,
 .link {
   color: var(--blue);
   font-weight: 500;
   text-decoration: none;
 }
+
 .td-customer {
   color: var(--text-primary);
   white-space: nowrap;
 }
+
 .td-order a:hover,
 .link:hover {
   text-decoration: underline;
 }
+
 .td-type {
   color: var(--text-primary);
 }
-.payout-row {
-  background: var(--surface-soft);
-}
-.payout-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.expand-btn {
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.payout-label {
-  display: flex;
-  flex-direction: column;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.payout-id {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-.child-row td {
-  background: var(--surface);
-}
-.child-row .td-date {
-  color: var(--text-secondary);
-}
-.payment-method {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.card-brand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--blue);
-  color: white !important;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  padding: 2px 5px;
-  border-radius: 3px;
-  text-transform: uppercase;
-}
-.td-amount {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-.td-fee {
-  color: var(--red);
-  font-weight: 500;
-}
+
+.td-amount,
 .td-net {
   color: var(--text-primary);
   font-weight: 600;
 }
-.chevron-sm {
-  color: var(--text-muted);
-  font-weight: 400;
-  font-size: 12px;
-  margin-left: 2px;
+
+.td-fee {
+  color: var(--red);
+  font-weight: 500;
 }
-td {
-  text-align: center;
+
+.mode-badge {
+  display: inline-flex;
+  border-radius: 20px;
+  padding: 2px 8px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 1050px) {
+  .filter-toolbar {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
+  .filter-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .filter-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-actions {
+    grid-column: auto;
+    flex-wrap: wrap;
+  }
 }
 </style>

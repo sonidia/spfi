@@ -100,6 +100,28 @@ export interface OrderCaptureInput {
   finalCapture?: boolean;
 }
 
+export interface OrderVoidInput {
+  parentTransactionId: string | number;
+}
+
+export interface OrderManualPaymentInput {
+  amount: string;
+  currency: string;
+  paymentMethodName?: string;
+  processedAt?: string;
+}
+
+export interface OrderTransactionListQuery {
+  fields?: string;
+  in_shop_currency?: boolean;
+  since_id?: string | number;
+}
+
+export type OrderTransactionDetailQuery = Pick<
+  OrderTransactionListQuery,
+  "fields" | "in_shop_currency"
+>;
+
 export type RefundLineItemRestockType =
   | "CANCEL"
   | "NO_RESTOCK"
