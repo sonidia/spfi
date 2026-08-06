@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderApi } from "~/composables/useOrderApi";
+import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import { useToastStore } from "~/stores/toast";
@@ -9,7 +10,7 @@ import type {
   ShopifyOrder,
 } from "~~/types/shopify";
 import type {
-  TrackingNumberRequest,
+  TrackingNumberProxyRequest,
   TrackingNumberResponse,
 } from "~~/types/tracking";
 import { getAppErrorMessage } from "~~/utils/error";
@@ -20,6 +21,7 @@ const TRACKING_CARRIER = "fedex";
 
 export function useAutomaticTracking() {
   const appConfig = useAppConfig();
+  const credentialVault = useCredentialVaultStore();
   const orderApi = useOrderApi();
   const orderStore = useOrderStore();
   const paymentStore = usePaymentStore();
@@ -53,6 +55,16 @@ export function useAutomaticTracking() {
 
     if (orderStore.isMutating) {
       toast.warning("Another order update is already in progress.");
+      return;
+    }
+
+    if (
+      !credentialVault.trackingSettings.baseUrl ||
+      !credentialVault.trackingSettings.apiKey
+    ) {
+      toast.warning(
+        "Tracktaco is not configured. Add the endpoint and API key in Settings.",
+      );
       return;
     }
 
@@ -116,11 +128,15 @@ export function useAutomaticTracking() {
 
   async function requestTrackingNumber(order: ShopifyOrder) {
     const to = Date.now();
-    const body: TrackingNumberRequest = {
+    const body: TrackingNumberProxyRequest = {
       state: resolveTrackingState(order),
       from: to - TRACKING_LOOKBACK_MS,
       to,
       carrier: TRACKING_CARRIER,
+      provider: {
+        baseUrl: credentialVault.trackingSettings.baseUrl,
+        apiKey: credentialVault.trackingSettings.apiKey,
+      },
     };
     const response = await $fetch<TrackingNumberResponse>(
       "/api/tracktaco/get-trackingnr",

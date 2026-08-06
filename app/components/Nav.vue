@@ -45,6 +45,7 @@ onBeforeUnmount(() => {
         <NuxtLink :to="withActiveShop('/store')">{{ t("nav.store") }}</NuxtLink>
         <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
         <NuxtLink to="/status">{{ t("nav.status") }}</NuxtLink>
+        <NuxtLink to="/settings">{{ t("nav.settings") }}</NuxtLink>
       </div>
       <div class="topbar-controls">
         <LocaleSwitcher />

@@ -1,8 +1,17 @@
 import { createError, defineEventHandler, readBody } from "h3";
 import type {
+  TrackingNumberProxyRequest,
   TrackingNumberRequest,
   TrackingNumberResponse,
 } from "~~/types/tracking";
+import { resolvePublicHttpsEndpoint } from "../../utils/publicHttpsEndpoint";
+
+type TrackingNumberProxyBody = Partial<TrackingNumberRequest> & {
+  provider?: Partial<TrackingNumberProxyRequest["provider"]>;
+};
+
+const MAX_ENDPOINT_LENGTH = 2_048;
+const MAX_API_KEY_LENGTH = 4_096;
 
 interface TracktacoError {
   statusCode?: number;
@@ -19,18 +28,49 @@ interface TracktacoError {
 }
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig();
-  const baseUrl = String(config.public.tracktacoBaseUrl || "").trim();
-  const apiKey = String(config.tracktacoApiKey || "").trim();
-  const body = (await readBody<Partial<TrackingNumberRequest>>(event)) || {};
+  const body = (await readBody<TrackingNumberProxyBody>(event)) || {};
+  const apiKey = String(body.provider?.apiKey || "").trim();
+  const baseUrl = String(body.provider?.baseUrl || "").trim();
 
-  assertTrackingConfig(baseUrl, apiKey);
+  if (!baseUrl || !apiKey) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Tracking provider is not configured.",
+      message: "Add the Tracktaco endpoint and API key in Settings.",
+    });
+  }
+
+  if (
+    baseUrl.length > MAX_ENDPOINT_LENGTH ||
+    apiKey.length > MAX_API_KEY_LENGTH
+  ) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Tracking provider configuration is invalid.",
+    });
+  }
+
+  let endpoint: string;
+  try {
+    endpoint = await resolvePublicHttpsEndpoint(baseUrl);
+  } catch (error) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Tracking provider URL is invalid.",
+      message:
+        error instanceof Error
+          ? error.message
+          : "The tracking API endpoint is invalid.",
+    });
+  }
+
   const request = normalizeTrackingRequest(body);
 
   try {
-    const response = await $fetch<Record<string, unknown>>(baseUrl, {
+    const response = await $fetch<Record<string, unknown>>(endpoint, {
       method: "POST",
       timeout: 15_000,
+      redirect: "error",
       headers: {
         "x-api-key": apiKey,
         "content-type": "application/json",
@@ -71,29 +111,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
-
-function assertTrackingConfig(baseUrl: string, apiKey: string) {
-  if (!baseUrl || !apiKey) {
-    throw createError({
-      statusCode: 503,
-      statusMessage: "Tracking provider is not configured.",
-      message:
-        "NUXT_TRACKTACO_API_KEY and NUXT_PUBLIC_TRACKTACO_BASE_URL are required.",
-    });
-  }
-
-  try {
-    const url = new URL(baseUrl);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      throw new Error("Unsupported protocol");
-    }
-  } catch {
-    throw createError({
-      statusCode: 500,
-      statusMessage: "Tracking provider URL is invalid.",
-    });
-  }
-}
 
 function normalizeTrackingRequest(
   body: Partial<TrackingNumberRequest>,

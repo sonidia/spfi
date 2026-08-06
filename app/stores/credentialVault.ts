@@ -8,12 +8,16 @@ import {
 } from "~/utils/credentialCrypto";
 import type {
   CredentialVaultMetadata,
+  EncryptedPayload,
   StoreCredentials,
   StoreLocalData,
 } from "~~/types/shopify";
+import type { TrackingProviderSettings } from "~~/types/tracking";
 
 const VAULT_STORAGE_KEY = "shopify_credential_vault";
 const KNOWN_STORES_KEY = "shopify_known_stores";
+const TRACKING_SETTINGS_STORAGE_KEY = "spf_tracking_provider_settings";
+const TRACKING_SETTINGS_AAD = "settings:tracktaco";
 const VAULT_VERIFIER = "spf-credential-vault-v1";
 const STORE_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -69,6 +73,22 @@ function publicStoreData(data: StoreLocalData): StoreLocalData {
   };
 }
 
+function emptyTrackingSettings(): TrackingProviderSettings {
+  return {
+    baseUrl: "",
+    apiKey: "",
+  };
+}
+
+function normalizeTrackingSettings(
+  value: Partial<TrackingProviderSettings> | null | undefined,
+): TrackingProviderSettings {
+  return {
+    baseUrl: String(value?.baseUrl || "").trim(),
+    apiKey: String(value?.apiKey || "").trim(),
+  };
+}
+
 export const useCredentialVaultStore = defineStore("credentialVault", () => {
   const isInitialized = ref(false);
   const isUnlocked = ref(false);
@@ -76,6 +96,9 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
   const error = ref<string | null>(null);
   const vaultExists = ref(false);
   const credentialsByStore = ref<Record<string, StoreCredentials>>({});
+  const trackingSettings = ref<TrackingProviderSettings>(
+    emptyTrackingSettings(),
+  );
   let encryptionKey: CryptoKey | null = null;
 
   const hasVault = computed(() => vaultExists.value);
@@ -207,6 +230,27 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
         }
       }
 
+      const storedTrackingSettings = readJson<EncryptedPayload>(
+        TRACKING_SETTINGS_STORAGE_KEY,
+      );
+      trackingSettings.value = emptyTrackingSettings();
+
+      if (storedTrackingSettings) {
+        try {
+          trackingSettings.value = normalizeTrackingSettings(
+            await decryptJson<TrackingProviderSettings>(
+              key,
+              storedTrackingSettings,
+              TRACKING_SETTINGS_AAD,
+            ),
+          );
+        } catch {
+          console.warn(
+            "Saved tracking settings could not be decrypted and were not loaded.",
+          );
+        }
+      }
+
       return true;
     } catch {
       lock();
@@ -221,6 +265,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
   function lock() {
     encryptionKey = null;
     credentialsByStore.value = {};
+    trackingSettings.value = emptyTrackingSettings();
     isUnlocked.value = false;
   }
 
@@ -245,11 +290,36 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
     }
   }
 
+  async function saveTrackingSettings(settings: TrackingProviderSettings) {
+    const key = requireKey();
+    const normalized = normalizeTrackingSettings(settings);
+    const encryptedSettings = await encryptJson(
+      key,
+      normalized,
+      TRACKING_SETTINGS_AAD,
+    );
+
+    localStorage.setItem(
+      TRACKING_SETTINGS_STORAGE_KEY,
+      JSON.stringify(encryptedSettings),
+    );
+    trackingSettings.value = normalized;
+  }
+
+  function removeTrackingSettings() {
+    requireKey();
+    trackingSettings.value = emptyTrackingSettings();
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TRACKING_SETTINGS_STORAGE_KEY);
+    }
+  }
+
   return {
     isInitialized,
     isUnlocked,
     isBusy,
     error,
+    trackingSettings,
     hasVault,
     needsSetup,
     initialize,
@@ -260,5 +330,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
     saveStoreData,
     patchStoreData,
     removeStoreData,
+    saveTrackingSettings,
+    removeTrackingSettings,
   };
 });

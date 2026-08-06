@@ -33,6 +33,7 @@
 | `/payment` | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
 | `/sheet`   | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
 | `/status`  | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
+| `/settings` | Settings       | Stores the Tracktaco endpoint and API key in the encrypted browser credential vault.                             |
 
 ## 🧰 Tech Stack
 
@@ -74,8 +75,10 @@ Required local inputs:
 - npm 10 or newer.
 - A Google service account JSON file for Sheets features.
 - Shopify store credentials for authenticated store operations.
-- Tracktaco credentials for automatic FedEx tracking:
-  `NUXT_TRACKTACO_API_KEY` and `NUXT_PUBLIC_TRACKTACO_BASE_URL`.
+
+Automatic FedEx tracking is configured from `/settings`. The Tracktaco endpoint
+and API key are encrypted with the browser credential-vault PIN and stored only
+in that browser; no Tracktaco `.env` values are required.
 
 ## 🏭 Production
 
@@ -110,10 +113,6 @@ Make sure the Google service account file exists before starting the stack:
 ```text
 server/service_account.json
 ```
-
-Copy `.env.example` to `.env` and provide the Tracktaco values when the
-automatic tracking action is required. Docker Compose passes both values to the
-Nuxt server.
 
 Build and start the containers:
 

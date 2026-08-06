@@ -11,8 +11,6 @@ services:
       NODE_ENV: production
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
-      NUXT_TRACKTACO_API_KEY: "${NUXT_TRACKTACO_API_KEY:-}"
-      NUXT_PUBLIC_TRACKTACO_BASE_URL: "${NUXT_PUBLIC_TRACKTACO_BASE_URL:-}"
     expose:
       - "3000"
     volumes:
