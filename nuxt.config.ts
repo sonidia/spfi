@@ -24,6 +24,12 @@ export default defineNuxtConfig({
       include: ["@vue/devtools-core", "@vue/devtools-kit"],
     },
   },
+  runtimeConfig: {
+    tracktacoApiKey: "",
+    public: {
+      tracktacoBaseUrl: "",
+    },
+  },
   // Auto-import utils
   imports: {
     dirs: ["utils/**"],

@@ -89,89 +89,112 @@
               </span>
             </td>
             <td>
-              <div
-                v-if="order.fulfillments?.[0]?.shipment_status"
-                class="delivery-cell"
-              >
-                <BasePopover align="right" position="top">
-                  <template #trigger>
-                    <div class="delivery-status-trigger">
-                      <span
-                        class="badge"
-                        :class="
-                          order.fulfillments[0].shipment_status === 'delivered'
-                            ? 'badge-paid'
-                            : 'badge-pending'
-                        "
-                      >
-                        {{
-                          getShipmentLabel(
-                            order.fulfillments[0].shipment_status,
-                          )
-                        }}
-                      </span>
-                      <span class="hover-arrow">
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          style="margin-top: 2px"
+              <div class="delivery-actions">
+                <div
+                  v-if="order.fulfillments?.[0]?.shipment_status"
+                  class="delivery-cell"
+                >
+                  <BasePopover align="right" position="top">
+                    <template #trigger>
+                      <div class="delivery-status-trigger">
+                        <span
+                          class="badge"
+                          :class="
+                            order.fulfillments[0].shipment_status === 'delivered'
+                              ? 'badge-paid'
+                              : 'badge-pending'
+                          "
                         >
-                          <path
-                            d="M7 15l5-5-5-5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                  </template>
-                  <template #default>
-                    <div class="fulfillment-popover" @click.stop>
-                      <div class="popover-line">
-                        <span class="popover-lbl">ID:</span>
-                        <span class="popover-val">{{
-                          order.fulfillments[0].id
-                        }}</span>
-                      </div>
-                      <div class="popover-line">
-                        <span class="popover-lbl">Company:</span>
-                        <span class="popover-val">{{
-                          order.fulfillments[0].tracking_company || "—"
-                        }}</span>
-                      </div>
-                      <div class="popover-line">
-                        <span class="popover-lbl">Tracking:</span>
-                        <span class="popover-val">
-                          <a
-                            v-if="order.fulfillments[0].tracking_url"
-                            :href="order.fulfillments[0].tracking_url"
-                            target="_blank"
-                            class="order-link"
+                          {{
+                            getShipmentLabel(
+                              order.fulfillments[0].shipment_status,
+                            )
+                          }}
+                        </span>
+                        <span class="hover-arrow">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            style="margin-top: 2px"
                           >
-                            {{ order.fulfillments[0].tracking_number }}
-                          </a>
-                          <span v-else>{{
-                            order.fulfillments[0].tracking_number || "—"
-                          }}</span>
+                            <path
+                              d="M7 15l5-5-5-5"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            />
+                          </svg>
                         </span>
                       </div>
-                      <div class="popover-line border-top">
-                        <span class="popover-lbl">Created:</span>
-                        <span class="popover-val">{{
-                          fmtDateTime(order.fulfillments[0].created_at)
-                        }}</span>
+                    </template>
+                    <template #default>
+                      <div class="fulfillment-popover" @click.stop>
+                        <div class="popover-line">
+                          <span class="popover-lbl">ID:</span>
+                          <span class="popover-val">{{
+                            order.fulfillments[0].id
+                          }}</span>
+                        </div>
+                        <div class="popover-line">
+                          <span class="popover-lbl">Company:</span>
+                          <span class="popover-val">{{
+                            order.fulfillments[0].tracking_company || "—"
+                          }}</span>
+                        </div>
+                        <div class="popover-line">
+                          <span class="popover-lbl">Tracking:</span>
+                          <span class="popover-val">
+                            <a
+                              v-if="order.fulfillments[0].tracking_url"
+                              :href="order.fulfillments[0].tracking_url"
+                              target="_blank"
+                              class="order-link"
+                            >
+                              {{ order.fulfillments[0].tracking_number }}
+                            </a>
+                            <span v-else>{{
+                              order.fulfillments[0].tracking_number || "—"
+                            }}</span>
+                          </span>
+                        </div>
+                        <div class="popover-line border-top">
+                          <span class="popover-lbl">Created:</span>
+                          <span class="popover-val">{{
+                            fmtDateTime(order.fulfillments[0].created_at)
+                          }}</span>
+                        </div>
                       </div>
-                    </div>
-                  </template>
-                </BasePopover>
+                    </template>
+                  </BasePopover>
+                </div>
+                <button
+                  v-if="canAddTracking(order)"
+                  type="button"
+                  class="btn-add-track"
+                  :class="{
+                    'is-loading': processingOrderId === order.id,
+                  }"
+                  :disabled="processingOrderId !== null"
+                  :aria-busy="processingOrderId === order.id"
+                  @click.stop="addTracking(order)"
+                >
+                  <IconsAdd />
+                  {{
+                    processingOrderId === order.id ? "Adding..." : "Add track"
+                  }}
+                </button>
+                <span
+                  v-if="
+                    !order.fulfillments?.[0]?.shipment_status &&
+                    !canAddTracking(order)
+                  "
+                >
+                  —
+                </span>
               </div>
-              <span v-else-if="!order.fulfillments?.[0]?.shipment_status"
-                >—</span
-              >
             </td>
           </tr>
         </tbody>
@@ -200,6 +223,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useAutomaticTracking } from "~/composables/useAutomaticTracking";
 import {
   financialBadge,
   fmtDateTime,
@@ -216,6 +240,8 @@ const paymentStore = usePaymentStore();
 const router = useRouter();
 const route = useRoute();
 const { storeId, token, isReady } = useActiveShopAuth();
+const { processingOrderId, canAddTracking, addTracking } =
+  useAutomaticTracking();
 const isCreateOpen = ref(false);
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(orderStore.orders.length / orderStore.pageSize)),
@@ -299,5 +325,12 @@ watch(storeId, refreshCount);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.delivery-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 </style>

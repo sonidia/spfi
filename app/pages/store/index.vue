@@ -629,8 +629,8 @@ function resolveToken(sid: string): string | null {
   box-shadow: none;
 }
 :deep(.btn-add-track.is-loading) {
-  filter: blur(1px);
   opacity: 0.7;
+  cursor: wait;
 }
 
 :deep(.empty) {

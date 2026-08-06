@@ -74,6 +74,8 @@ Required local inputs:
 - npm 10 or newer.
 - A Google service account JSON file for Sheets features.
 - Shopify store credentials for authenticated store operations.
+- Tracktaco credentials for automatic FedEx tracking:
+  `NUXT_TRACKTACO_API_KEY` and `NUXT_PUBLIC_TRACKTACO_BASE_URL`.
 
 ## 🏭 Production
 
@@ -108,6 +110,10 @@ Make sure the Google service account file exists before starting the stack:
 ```text
 server/service_account.json
 ```
+
+Copy `.env.example` to `.env` and provide the Tracktaco values when the
+automatic tracking action is required. Docker Compose passes both values to the
+Nuxt server.
 
 Build and start the containers:
 
