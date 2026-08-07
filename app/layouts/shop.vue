@@ -3,7 +3,6 @@ import {
   ArrowLeftToLine,
   ArrowRightToLine,
   Eraser,
-  LockKeyhole,
   PlugZap,
   Search,
   X,
@@ -48,7 +47,7 @@ onMounted(() => {
   isSidebarCollapsed.value =
     localStorage.getItem("spf-sidebar-collapsed") === "true";
   formStore.loadKnownStores();
-  if (credentialVault.isUnlocked) syncShopFromRoute(true);
+  syncShopFromRoute(true);
 });
 
 function toggleSidebar() {
@@ -144,15 +143,6 @@ watch(
     if (!isLayoutActive.value) return;
 
     syncShopFromRoute(true);
-  },
-);
-
-watch(
-  () => credentialVault.isUnlocked,
-  (unlocked) => {
-    if (unlocked && isLayoutActive.value) {
-      syncShopFromRoute(true);
-    }
   },
 );
 
@@ -714,14 +704,6 @@ function deleteStoreOption(id: string) {
 
         <div class="shop-bar-right">
           <BaseButton
-            class="btn-lock"
-            title="Lock local credentials"
-            @click="credentialVault.lock"
-          >
-            <template #icon><LockKeyhole /></template>
-            Lock
-          </BaseButton>
-          <BaseButton
             v-if="formStore.storeId"
             class="btn-fetch"
             title="Refresh data for current store"
@@ -1271,18 +1253,12 @@ function deleteStoreOption(id: string) {
   gap: 8px;
 }
 
-.btn-lock,
 .btn-fetch {
   min-height: 30px;
   border-radius: 8px;
   color: var(--text-sub);
   font-size: 13px;
   transition: all 0.2s;
-}
-
-.btn-lock:hover {
-  border-color: rgba(31, 122, 77, 0.35);
-  color: var(--green);
 }
 
 .btn-fetch:disabled {

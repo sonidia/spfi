@@ -162,7 +162,6 @@ export function useTokenRotation() {
   async function checkAndRotate() {
     if (typeof window === "undefined") return;
     if (!isDocumentVisible()) return;
-    if (!credentialVault.isUnlocked) return;
 
     if (formStore.knownStores.length === 0) {
       formStore.loadKnownStores();
@@ -205,14 +204,12 @@ export function useTokenRotation() {
   }
 
   onMounted(() => {
+    credentialVault.initialize();
     stopKnownStoresWatch = watch(
-      [() => formStore.knownStores.join("|"), () => credentialVault.isUnlocked],
-      ([, unlocked]) => {
-        if (unlocked) scheduleNextCheck(0);
-        else clearScheduledRotation();
-      },
+      () => formStore.knownStores.join("|"),
+      () => scheduleNextCheck(0),
     );
-    if (credentialVault.isUnlocked) scheduleNextCheck(0);
+    scheduleNextCheck(0);
 
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", handleVisibilityChange);

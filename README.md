@@ -33,7 +33,7 @@
 | `/payment` | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
 | `/sheet`   | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
 | `/status`  | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
-| `/settings` | Settings       | Stores the Tracktaco endpoint and API key in the encrypted browser credential vault.                             |
+| `/settings` | Settings       | Stores the Tracktaco endpoint and API key in browser-local storage without a password lock.                      |
 
 ## 🧰 Tech Stack
 
@@ -77,8 +77,8 @@ Required local inputs:
 - Shopify store credentials for authenticated store operations.
 
 Automatic FedEx tracking is configured from `/settings`. The Tracktaco endpoint
-and API key are encrypted with the browser credential-vault PIN and stored only
-in that browser; no Tracktaco `.env` values are required.
+and API key are saved in browser-local storage; no PIN/password unlock or
+Tracktaco `.env` values are required.
 
 ## 🏭 Production
 

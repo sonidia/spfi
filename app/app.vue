@@ -1,14 +1,17 @@
 <script lang="ts" setup>
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
+import { useCredentialVaultStore } from "./stores/credentialVault";
 
 const { loading } = useLoading();
+const credentialVault = useCredentialVaultStore();
+
+onMounted(() => credentialVault.initialize());
 useTokenRotation();
 </script>
 
 <template>
   <main class="app-root">
-    <CredentialUnlock />
     <ClientOnly>
       <LoadingOverlay :visible="loading" />
     </ClientOnly>

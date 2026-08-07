@@ -38,12 +38,10 @@ const hasChanges = computed(
 
 watch(
   () => [
-    credentialVault.isUnlocked,
     credentialVault.trackingSettings.baseUrl,
     credentialVault.trackingSettings.apiKey,
   ],
-  ([isUnlocked]) => {
-    if (!isUnlocked) return;
+  () => {
     endpoint.value = credentialVault.trackingSettings.baseUrl;
     apiKey.value = credentialVault.trackingSettings.apiKey;
     formError.value = "";
