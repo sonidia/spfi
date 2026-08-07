@@ -5,13 +5,15 @@ import {
   requireShopifyPayload,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
-import type { ProductsResponse } from "~~/types/shopify";
-import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
+import type {
+  ProductVariantsResponse,
+  ShopifyVariantInput,
+} from "~~/types/shopify-product";
 
-interface ProductUpdateBody {
+interface ProductVariantCreateBody {
   storeId?: string;
   token?: string;
-  product?: ShopifyProductUpdateInput;
+  variant?: ShopifyVariantInput;
 }
 
 export default defineEventHandler(async (event) => {
@@ -19,26 +21,23 @@ export default defineEventHandler(async (event) => {
     event.context.params?.id,
     "Product",
   );
-  const body = (await readBody<ProductUpdateBody>(event)) || {};
+  const body = (await readBody<ProductVariantCreateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const product = requireShopifyPayload<ShopifyProductUpdateInput>(
-    body.product,
-    "Product",
+  const variant = requireShopifyPayload<ShopifyVariantInput>(
+    body.variant,
+    "Variant",
   );
-  const requestBody = {
-    product: {
-      ...product,
-      id: Number(productId),
-    },
-  };
 
-  return callShopifyApi<ProductsResponse, typeof requestBody>({
+  return callShopifyApi<
+    ProductVariantsResponse,
+    { variant: ShopifyVariantInput }
+  >({
     event,
     storeId,
     token,
-    method: "PUT",
-    path: `/products/${productId}.json`,
-    body: requestBody,
+    method: "POST",
+    path: `/products/${productId}/variants.json`,
+    body: { variant },
     missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

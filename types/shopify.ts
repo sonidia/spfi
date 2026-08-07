@@ -273,20 +273,41 @@ export interface ShopifyOrderEvent {
 
 export interface ShopifyVariant {
   id: number;
+  product_id?: number;
   title?: string;
   price?: string;
+  compare_at_price?: string | null;
   sku?: string | null;
+  barcode?: string | null;
+  position?: number;
+  option1?: string | null;
+  option2?: string | null;
+  option3?: string | null;
+  image_id?: number | null;
+  taxable?: boolean;
+  requires_shipping?: boolean;
+  weight?: number;
+  weight_unit?: string;
   inventory_item_id?: number;
   inventory_management?: string | null;
   inventory_policy?: string;
   inventory_quantity?: number;
+  admin_graphql_api_id?: string;
 }
 
 export interface ShopifyProductImage {
   id?: number;
   src: string;
   alt?: string | null;
+  position?: number;
+  product_id?: number;
+  variant_ids?: number[];
+  width?: number;
+  height?: number;
+  admin_graphql_api_id?: string;
 }
+
+export type ShopifyProductStatus = "active" | "archived" | "draft";
 
 export interface ShopifyProductInput {
   title: string;
@@ -294,14 +315,17 @@ export interface ShopifyProductInput {
   vendor?: string;
   product_type?: string;
   tags?: string;
+  status?: ShopifyProductStatus;
+  published?: boolean;
 }
 
 export interface ShopifyProduct extends ShopifyProductInput {
   id: number;
-  status: string;
+  status: ShopifyProductStatus;
   variants: ShopifyVariant[];
   image?: ShopifyProductImage | null;
   images?: ShopifyProductImage[];
+  published_at?: string | null;
   updated_at?: string;
 }
 

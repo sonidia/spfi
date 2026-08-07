@@ -1,29 +1,25 @@
-import { defineEventHandler, readBody } from "h3";
+import { defineEventHandler, getQuery } from "h3";
 import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
-  requireShopifyCredentials,
+  getShopifyQueryCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
-
-interface ProductDeleteBody {
-  storeId?: string;
-  token?: string;
-}
+import { buildProductDetailParams } from "~~/server/utils/shopify-product-query";
+import type { ProductResponse } from "~~/types/shopify-product";
 
 export default defineEventHandler(async (event) => {
   const productId = requireShopifyResourceId(
     event.context.params?.id,
     "Product",
   );
-  const body = (await readBody<ProductDeleteBody>(event)) || {};
-  const { storeId, token } = requireShopifyCredentials(body);
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
-  return callShopifyApi<Record<string, never>>({
+  return callShopifyApi<ProductResponse>({
     event,
     storeId,
     token,
-    method: "DELETE",
     path: `/products/${productId}.json`,
+    params: buildProductDetailParams(getQuery(event)),
     missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

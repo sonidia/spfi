@@ -4,10 +4,13 @@ import {
   requireShopifyCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
+import { buildProductVariantListParams } from "~~/server/utils/shopify-product-query";
+import type { ProductVariantsResponse } from "~~/types/shopify-product";
 
-interface ProductDeleteBody {
+interface ProductVariantListBody extends Record<string, unknown> {
   storeId?: string;
   token?: string;
+  query?: Record<string, unknown>;
 }
 
 export default defineEventHandler(async (event) => {
@@ -15,15 +18,15 @@ export default defineEventHandler(async (event) => {
     event.context.params?.id,
     "Product",
   );
-  const body = (await readBody<ProductDeleteBody>(event)) || {};
+  const body = (await readBody<ProductVariantListBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 
-  return callShopifyApi<Record<string, never>>({
+  return callShopifyApi<ProductVariantsResponse>({
     event,
     storeId,
     token,
-    method: "DELETE",
-    path: `/products/${productId}.json`,
+    path: `/products/${productId}/variants.json`,
+    params: buildProductVariantListParams(body.query || body),
     missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

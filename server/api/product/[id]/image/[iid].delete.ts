@@ -5,7 +5,7 @@ import {
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
 
-interface ProductDeleteBody {
+interface ProductImageDeleteBody {
   storeId?: string;
   token?: string;
 }
@@ -15,7 +15,11 @@ export default defineEventHandler(async (event) => {
     event.context.params?.id,
     "Product",
   );
-  const body = (await readBody<ProductDeleteBody>(event)) || {};
+  const imageId = requireShopifyResourceId(
+    event.context.params?.iid,
+    "Image",
+  );
+  const body = (await readBody<ProductImageDeleteBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 
   return callShopifyApi<Record<string, never>>({
@@ -23,7 +27,7 @@ export default defineEventHandler(async (event) => {
     storeId,
     token,
     method: "DELETE",
-    path: `/products/${productId}.json`,
+    path: `/products/${productId}/images/${imageId}.json`,
     missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

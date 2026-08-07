@@ -316,6 +316,24 @@
           </div>
           <div class="field-row">
             <div class="field">
+              <label class="field-label">Status</label>
+              <select v-model="newProduct.status" class="inp">
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <label class="field checkbox-field">
+              <input
+                v-model="newProduct.published"
+                type="checkbox"
+                :disabled="newProduct.status !== 'active'"
+              />
+              Published to Online Store
+            </label>
+          </div>
+          <div class="field-row">
+            <div class="field">
               <label class="field-label">Vendor</label>
               <input
                 v-model="newProduct.vendor"
@@ -388,6 +406,24 @@
           </div>
           <div class="field-row">
             <div class="field">
+              <label class="field-label">Status</label>
+              <select v-model="editProduct.status" class="inp">
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <label class="field checkbox-field">
+              <input
+                v-model="editProduct.published"
+                type="checkbox"
+                :disabled="editProduct.status !== 'active'"
+              />
+              Published to Online Store
+            </label>
+          </div>
+          <div class="field-row">
+            <div class="field">
               <label class="field-label">Vendor</label>
               <input v-model="editProduct.vendor" type="text" class="inp" />
             </div>
@@ -438,6 +474,8 @@ import { useProductStore } from "~/stores/product";
 import type {
   ShopifyLocation,
   ShopifyProduct,
+  ShopifyProductInput,
+  ShopifyProductStatus,
 } from "~~/types/shopify";
 
 definePageMeta({ layout: false });
@@ -534,12 +572,14 @@ const trackedVariantCount = computed(
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 
-const newProduct = ref({
+const newProduct = ref<ShopifyProductInput>({
   title: "",
   body_html: "",
   vendor: "",
   product_type: "",
   tags: "",
+  status: "active",
+  published: true,
 });
 
 const editProduct = ref({
@@ -549,6 +589,8 @@ const editProduct = ref({
   vendor: "",
   product_type: "",
   tags: "",
+  status: "active" as ShopifyProductStatus,
+  published: true,
 });
 
 const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`;
@@ -646,6 +688,8 @@ async function createProduct() {
 
   const success = await productStore.createProduct(sid, token, {
     ...newProduct.value,
+    published:
+      newProduct.value.status === "active" && newProduct.value.published,
   });
   if (success) {
     showCreateModal.value = false;
@@ -655,6 +699,8 @@ async function createProduct() {
       vendor: "",
       product_type: "",
       tags: "",
+      status: "active",
+      published: true,
     };
   }
 }
@@ -667,6 +713,8 @@ function openEditModal(prod: ShopifyProduct) {
     vendor: prod.vendor || "",
     product_type: prod.product_type || "",
     tags: prod.tags || "",
+    status: prod.status || "draft",
+    published: Boolean(prod.published_at),
   };
   showEditModal.value = true;
 }
@@ -687,6 +735,9 @@ async function saveEditProduct() {
       vendor: editProduct.value.vendor,
       product_type: editProduct.value.product_type,
       tags: editProduct.value.tags,
+      status: editProduct.value.status,
+      published:
+        editProduct.value.status === "active" && editProduct.value.published,
     },
   );
   if (success) {
@@ -1147,6 +1198,21 @@ async function removeProduct(prodId: number) {
 .field-row .field {
   flex: 1;
   margin-bottom: 0;
+}
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 26px;
+  cursor: pointer;
+}
+.checkbox-field input {
+  width: 16px;
+  height: 16px;
+}
+.checkbox-field:has(input:disabled) {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 .field-label {
   display: block;

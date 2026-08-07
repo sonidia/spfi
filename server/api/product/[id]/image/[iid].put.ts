@@ -5,13 +5,15 @@ import {
   requireShopifyPayload,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
-import type { ProductsResponse } from "~~/types/shopify";
-import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
+import type {
+  ProductImagesResponse,
+  ShopifyProductImageInput,
+} from "~~/types/shopify-product";
 
-interface ProductUpdateBody {
+interface ProductImageUpdateBody {
   storeId?: string;
   token?: string;
-  product?: ShopifyProductUpdateInput;
+  image?: ShopifyProductImageInput;
 }
 
 export default defineEventHandler(async (event) => {
@@ -19,25 +21,29 @@ export default defineEventHandler(async (event) => {
     event.context.params?.id,
     "Product",
   );
-  const body = (await readBody<ProductUpdateBody>(event)) || {};
+  const imageId = requireShopifyResourceId(
+    event.context.params?.iid,
+    "Image",
+  );
+  const body = (await readBody<ProductImageUpdateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const product = requireShopifyPayload<ShopifyProductUpdateInput>(
-    body.product,
-    "Product",
+  const image = requireShopifyPayload<ShopifyProductImageInput>(
+    body.image,
+    "Image",
   );
   const requestBody = {
-    product: {
-      ...product,
-      id: Number(productId),
+    image: {
+      ...image,
+      id: Number(imageId),
     },
   };
 
-  return callShopifyApi<ProductsResponse, typeof requestBody>({
+  return callShopifyApi<ProductImagesResponse, typeof requestBody>({
     event,
     storeId,
     token,
     method: "PUT",
-    path: `/products/${productId}.json`,
+    path: `/products/${productId}/images/${imageId}.json`,
     body: requestBody,
     missingProxyMessage: "Missing sock proxy for this store.",
   });
