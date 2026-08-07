@@ -1,5 +1,11 @@
 ﻿import axios, { type AxiosRequestConfig } from "axios";
-import { createError, getCookie, parseCookies, type H3Event } from "h3";
+import {
+  createError,
+  getCookie,
+  parseCookies,
+  setResponseHeader,
+  type H3Event,
+} from "h3";
 import type {
   AxiosResponse,
   AxiosResponseHeaders,
@@ -8,6 +14,12 @@ import type {
 import { SocksProxyAgent } from "socks-proxy-agent";
 import { useAppConfig } from "#imports";
 import { StoreStatusInputError } from "./status-checker-errors";
+import {
+  blockShopifyThrottle,
+  buildShopifyThrottleKey,
+  parseRetryAfterMs,
+  waitForShopifyThrottle,
+} from "./shopify-throttle";
 type ShopifyApiMethod = "GET" | "POST" | "PUT" | "DELETE";
 type ShopifyQueryParams = Record<string, unknown>;
 type ApiErrorDetails = Record<string, unknown> | unknown[];
@@ -66,9 +78,6 @@ interface SocksProxyAgentInternals {
 
 const SHOPIFY_JSON_CONTENT_TYPE = "application/json";
 const DEFAULT_TIMEOUT_MS = 15000;
-const MAX_RATE_LIMIT_RETRIES = 4;
-const DEFAULT_RATE_LIMIT_DELAY_MS = 500;
-const MAX_RATE_LIMIT_DELAY_MS = 10000;
 const INVISIBLE_OR_CONTROL_CHARS =
   /[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g;
 const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -436,6 +445,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
     : resolveStoreDomain(storeId, storeCookie?.domain);
   const baseURL = `https://${domain}/${appConfig.apiBase}`;
   const proxyVariants = resolveShopifyProxyVariants(sock);
+  const throttleKey = buildShopifyThrottleKey("rest", domain, accessToken);
 
   let lastError: unknown;
 
@@ -458,7 +468,9 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
       };
       const response = await requestWithRateLimitRetry<TResponse, TBody>(
         requestConfig,
+        throttleKey,
       );
+      forwardShopifyResponseHeaders(event, response.headers);
 
       return {
         data: response.data,
@@ -481,8 +493,11 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
 
 async function requestWithRateLimitRetry<TResponse, TBody>(
   requestConfig: AxiosRequestConfig<TBody>,
+  throttleKey: string,
 ): Promise<AxiosResponse<TResponse>> {
-  for (let attempt = 0; ; attempt += 1) {
+  while (true) {
+    await waitForShopifyThrottle(throttleKey);
+
     try {
       return await axios.request<
         TResponse,
@@ -492,30 +507,50 @@ async function requestWithRateLimitRetry<TResponse, TBody>(
     } catch (error) {
       if (
         !axios.isAxiosError(error) ||
-        error.response?.status !== 429 ||
-        attempt >= MAX_RATE_LIMIT_RETRIES
+        error.response?.status !== 429
       ) {
         throw error;
       }
 
-      await wait(getRetryDelayMs(error.response.headers["retry-after"]));
+      const retryDelayMs = parseRetryAfterMs(
+        getAxiosResponseHeader(error.response.headers, "retry-after"),
+      );
+
+      // A resource throttle can also return 429, but without a retry window.
+      // In that case surface Shopify's error instead of retrying indefinitely.
+      if (retryDelayMs === null) {
+        throw error;
+      }
+
+      blockShopifyThrottle(throttleKey, retryDelayMs);
     }
   }
 }
 
-function getRetryDelayMs(retryAfter: unknown) {
-  const seconds = Number(Array.isArray(retryAfter) ? retryAfter[0] : retryAfter);
-  if (!Number.isFinite(seconds) || seconds < 0) {
-    return DEFAULT_RATE_LIMIT_DELAY_MS;
+function forwardShopifyResponseHeaders(
+  event: H3Event,
+  headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
+) {
+  for (const headerName of [
+    "x-shopify-shop-api-call-limit",
+    "x-shopify-api-version",
+  ]) {
+    const value = getAxiosResponseHeader(headers, headerName);
+    if (value !== undefined && value !== null && String(value).trim()) {
+      setResponseHeader(event, headerName, String(value));
+    }
   }
-  return Math.min(
-    MAX_RATE_LIMIT_DELAY_MS,
-    Math.max(DEFAULT_RATE_LIMIT_DELAY_MS, Math.ceil(seconds * 1000)),
-  );
 }
 
-function wait(delayMs: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+function getAxiosResponseHeader(
+  headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
+  name: string,
+) {
+  if (typeof headers.get === "function") {
+    return headers.get(name);
+  }
+
+  return headers[name];
 }
 
 export function resolveShopifyProxyVariants(sock: string): string[] {

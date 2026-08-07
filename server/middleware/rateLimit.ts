@@ -1,8 +1,7 @@
 import type { H3Event } from "h3";
+import { useRuntimeConfig } from "#imports";
 
 const WINDOW_MS = 60_000;
-const API_LIMIT = 100;
-const TOKEN_LIMIT = 10;
 const CLEANUP_INTERVAL_MS = 5 * WINDOW_MS;
 
 interface RateLimitEntry {
@@ -65,23 +64,29 @@ export default defineEventHandler((event) => {
   const pathname = getRequestURL(event).pathname;
   if (!pathname.startsWith("/api/")) return;
 
+  const config = useRuntimeConfig(event);
+  const apiLimit = readConfiguredLimit(config.apiRateLimitPerMinute);
+  const tokenLimit = readConfiguredLimit(config.tokenRateLimitPerMinute);
+  const isTokenRequest = pathname === "/api/generate-token";
+  if (apiLimit === 0 && (!isTokenRequest || tokenLimit === 0)) return;
+
   const now = Date.now();
   cleanupExpiredEntries(now);
 
   const ip = resolveClientIp(event);
-  const generalResult = consume(state.api, ip, API_LIMIT, now);
-  const result =
-    pathname === "/api/generate-token"
-      ? consume(state.token, ip, TOKEN_LIMIT, now)
-      : generalResult;
-
-  const rejectedResult = !generalResult.allowed
-    ? generalResult
-    : !result.allowed
+  const results = [
+    ...(apiLimit > 0 ? [consume(state.api, ip, apiLimit, now)] : []),
+    ...(isTokenRequest && tokenLimit > 0
+      ? [consume(state.token, ip, tokenLimit, now)]
+      : []),
+  ];
+  const rejectedResult = results.find((result) => !result.allowed) || null;
+  const headerResult = results.reduce((mostConstrained, result) =>
+    result.remaining / result.limit <
+    mostConstrained.remaining / mostConstrained.limit
       ? result
-      : null;
-  const headerResult =
-    result.limit < generalResult.limit ? result : generalResult;
+      : mostConstrained,
+  );
 
   setResponseHeader(event, "X-RateLimit-Limit", headerResult.limit);
   setResponseHeader(event, "X-RateLimit-Remaining", headerResult.remaining);
@@ -105,3 +110,8 @@ export default defineEventHandler((event) => {
     message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
   });
 });
+
+function readConfiguredLimit(value: unknown) {
+  const limit = Number(value);
+  return Number.isSafeInteger(limit) && limit > 0 ? limit : 0;
+}

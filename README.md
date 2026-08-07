@@ -76,6 +76,20 @@ Required local inputs:
 - A Google service account JSON file for Sheets features.
 - Shopify store credentials for authenticated store operations.
 
+Shopify Admin requests are throttled from Shopify's own response metadata, not
+from a hard-coded store plan. REST requests honor `Retry-After` and share the
+upstream bucket state per app/store; GraphQL retries use
+`extensions.cost.throttleStatus.currentlyAvailable` and `restoreRate`.
+
+The optional local per-IP limits are disabled by default so they don't reduce
+Shopify throughput. A deployment that exposes the server publicly can enable
+them without changing source code:
+
+```text
+NUXT_API_RATE_LIMIT_PER_MINUTE=600
+NUXT_TOKEN_RATE_LIMIT_PER_MINUTE=30
+```
+
 Automatic FedEx tracking is configured from `/settings`. The Tracktaco endpoint
 and API key are saved in browser-local storage; no PIN/password unlock or
 Tracktaco `.env` values are required.

@@ -36,7 +36,7 @@
       </label>
     </div>
 
-    <CustomerManagementPanel />
+    <StoreCustomerManagementPanel />
 
     <div v-if="isLoading && !customers.length" class="state-message">
       Loading customers…

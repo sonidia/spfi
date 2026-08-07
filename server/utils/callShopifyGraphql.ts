@@ -1,5 +1,9 @@
-import axios, { type AxiosRequestConfig } from "axios";
-import type { H3Event } from "h3";
+import axios, {
+  type AxiosRequestConfig,
+  type AxiosResponseHeaders,
+  type RawAxiosResponseHeaders,
+} from "axios";
+import { setResponseHeader, type H3Event } from "h3";
 import { useAppConfig } from "#imports";
 import {
   createApiError,
@@ -9,6 +13,16 @@ import {
   resolveStoreAdminDomain,
   resolveStoreCookieData,
 } from "./callShopifyApi";
+import {
+  blockShopifyThrottle,
+  buildShopifyThrottleKey,
+  getGraphqlThrottleDelayMs,
+  getGraphqlThrottleStatus,
+  isGraphqlThrottled,
+  parseRetryAfterMs,
+  waitForShopifyThrottle,
+  type ShopifyGraphqlExtensions,
+} from "./shopify-throttle";
 
 interface ShopifyGraphqlError {
   message: string;
@@ -19,7 +33,7 @@ interface ShopifyGraphqlError {
 interface ShopifyGraphqlEnvelope<TData> {
   data?: TData;
   errors?: ShopifyGraphqlError[];
-  extensions?: Record<string, unknown>;
+  extensions?: ShopifyGraphqlExtensions;
 }
 
 interface CallShopifyGraphqlOptions<TVariables> {
@@ -75,6 +89,11 @@ export async function callShopifyGraphql<
 
   const domain = resolveStoreAdminDomain(storeId, storeCookie?.domain);
   const endpoint = `https://${domain}/${appConfig.apiBase}/graphql.json`;
+  const throttleKey = buildShopifyThrottleKey(
+    "graphql",
+    domain,
+    accessToken,
+  );
   const requestBody: ShopifyGraphqlRequest<TVariables> = {
     query,
     ...(variables ? { variables } : {}),
@@ -83,32 +102,70 @@ export async function callShopifyGraphql<
   let lastTransportError: unknown;
 
   for (const proxyUrl of resolveShopifyProxyVariants(sock)) {
-    let envelope: ShopifyGraphqlEnvelope<TData>;
+    const agent = createProxyAgent(proxyUrl);
+    const config: AxiosRequestConfig<ShopifyGraphqlRequest<TVariables>> = {
+      url: endpoint,
+      method: "POST",
+      data: requestBody,
+      headers: {
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json",
+      },
+      httpAgent: agent,
+      httpsAgent: agent,
+      proxy: false,
+      timeout: timeoutMs,
+    };
+    let envelope: ShopifyGraphqlEnvelope<TData> | null = null;
 
-    try {
-      const agent = createProxyAgent(proxyUrl);
-      const config: AxiosRequestConfig<ShopifyGraphqlRequest<TVariables>> = {
-        url: endpoint,
-        method: "POST",
-        data: requestBody,
-        headers: {
-          "X-Shopify-Access-Token": accessToken,
-          "Content-Type": "application/json",
-        },
-        httpAgent: agent,
-        httpsAgent: agent,
-        proxy: false,
-        timeout: timeoutMs,
-      };
-      const response = await axios.request<ShopifyGraphqlEnvelope<TData>>(config);
-      envelope = response.data;
-    } catch (error) {
-      lastTransportError = error;
-      if (!retryTransport) {
-        throw createApiError(error, "Shopify GraphQL request failed.");
+    while (true) {
+      await waitForShopifyThrottle(throttleKey);
+
+      try {
+        const response = await axios.request<ShopifyGraphqlEnvelope<TData>>(
+          config,
+        );
+        envelope = response.data;
+        forwardGraphqlThrottleHeaders(
+          event,
+          response.headers,
+          envelope.extensions,
+        );
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 429) {
+          const retryDelayMs = parseRetryAfterMs(
+            getAxiosResponseHeader(error.response.headers, "retry-after"),
+          );
+          if (retryDelayMs !== null) {
+            blockShopifyThrottle(throttleKey, retryDelayMs);
+            continue;
+          }
+        }
+
+        if (axios.isAxiosError(error) && error.response) {
+          throw createApiError(error, "Shopify GraphQL request failed.");
+        }
+
+        lastTransportError = error;
+        if (!retryTransport) {
+          throw createApiError(error, "Shopify GraphQL request failed.");
+        }
+        break;
       }
-      continue;
+
+      if (isGraphqlThrottled(envelope.errors)) {
+        blockShopifyThrottle(
+          throttleKey,
+          getGraphqlThrottleDelayMs(envelope.extensions),
+        );
+        envelope = null;
+        continue;
+      }
+
+      break;
     }
+
+    if (!envelope) continue;
 
     if (envelope.errors?.length) {
       throw createApiErrorFromMessage(
@@ -128,6 +185,41 @@ export async function callShopifyGraphql<
   }
 
   throw createApiError(lastTransportError, "Shopify GraphQL request failed.");
+}
+
+function forwardGraphqlThrottleHeaders(
+  event: H3Event,
+  headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
+  extensions?: ShopifyGraphqlExtensions,
+) {
+  const apiVersion = getAxiosResponseHeader(headers, "x-shopify-api-version");
+  if (apiVersion !== undefined && apiVersion !== null) {
+    setResponseHeader(event, "x-shopify-api-version", String(apiVersion));
+  }
+
+  const status = getGraphqlThrottleStatus(extensions);
+  if (!status) return;
+
+  const responseHeaders = {
+    "x-shopify-graphql-maximum-available": status.maximumAvailable,
+    "x-shopify-graphql-currently-available": status.currentlyAvailable,
+    "x-shopify-graphql-restore-rate": status.restoreRate,
+  };
+
+  for (const [name, value] of Object.entries(responseHeaders)) {
+    if (value !== null) setResponseHeader(event, name, String(value));
+  }
+}
+
+function getAxiosResponseHeader(
+  headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
+  name: string,
+) {
+  if (typeof headers.get === "function") {
+    return headers.get(name);
+  }
+
+  return headers[name];
 }
 
 export function toShopifyGid(resource: string, id: string | number) {

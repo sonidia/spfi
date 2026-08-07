@@ -2,6 +2,12 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   modules: ["@pinia/nuxt"],
+  runtimeConfig: {
+    // Disabled by default so Shopify's app/store-specific throttle remains the
+    // source of truth. Deployments can opt in through matching NUXT_* env vars.
+    apiRateLimitPerMinute: 0,
+    tokenRateLimitPerMinute: 0,
+  },
   nitro: {
     externals: {
       external: ["papaparse"],

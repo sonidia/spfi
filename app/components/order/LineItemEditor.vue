@@ -123,6 +123,35 @@ function normalizeQuantity(lineItem: CalculatedOrderLineItem) {
   quantities.value[lineItem.id] = value;
 }
 
+function currentQuantity(lineItem: CalculatedOrderLineItem) {
+  return Number(quantities.value[lineItem.id] ?? lineItem.quantity);
+}
+
+function removeEditableQuantity(lineItem: CalculatedOrderLineItem) {
+  quantities.value[lineItem.id] = minimumQuantity(lineItem);
+}
+
+function restoreRemovedLine(lineItem: CalculatedOrderLineItem) {
+  quantities.value[lineItem.id] = Math.max(
+    1,
+    minimumQuantity(lineItem),
+    Number(originalQuantities.value[lineItem.id] ?? lineItem.quantity),
+  );
+}
+
+function resetLine(lineItem: CalculatedOrderLineItem) {
+  quantities.value[lineItem.id] = Number(
+    originalQuantities.value[lineItem.id] ?? lineItem.quantity,
+  );
+}
+
+function hasLineChange(lineItem: CalculatedOrderLineItem) {
+  return (
+    currentQuantity(lineItem) !==
+    Number(originalQuantities.value[lineItem.id] ?? lineItem.quantity)
+  );
+}
+
 function restoreOriginals() {
   quantities.value = { ...originalQuantities.value };
   customItems.value = [];
@@ -216,7 +245,7 @@ async function commitEdit() {
           <strong>{{ lineItem.title }}</strong>
           <small v-if="lineItem.sku">SKU {{ lineItem.sku }}</small>
           <small>
-            <template v-if="lineItem.quantity === 0">
+            <template v-if="currentQuantity(lineItem) === 0">
               Removed; set a positive quantity to restore
             </template>
             <template v-else>
@@ -227,19 +256,47 @@ async function commitEdit() {
             </template>
           </small>
         </div>
-        <label>
-          <span>New quantity</span>
-          <input
-            v-model.number="quantities[lineItem.id]"
-            type="number"
-            :min="minimumQuantity(lineItem)"
-            step="1"
-            :disabled="
-              lineItem.editableQuantity <= 0 && lineItem.quantity > 0
-            "
-            @change="normalizeQuantity(lineItem)"
-          />
-        </label>
+        <div class="item-controls">
+          <label>
+            <span>New quantity</span>
+            <input
+              v-model.number="quantities[lineItem.id]"
+              type="number"
+              :min="minimumQuantity(lineItem)"
+              step="1"
+              :disabled="
+                lineItem.editableQuantity <= 0 && lineItem.quantity > 0
+              "
+              @change="normalizeQuantity(lineItem)"
+            />
+          </label>
+          <div class="line-actions">
+            <BaseButton
+              v-if="currentQuantity(lineItem) === 0"
+              variant="ghost"
+              @click="restoreRemovedLine(lineItem)"
+            >
+              <template #icon><ListRestart /></template>
+              Restore
+            </BaseButton>
+            <BaseButton
+              v-else-if="currentQuantity(lineItem) > minimumQuantity(lineItem)"
+              variant="danger-ghost"
+              :disabled="lineItem.editableQuantity <= 0"
+              @click="removeEditableQuantity(lineItem)"
+            >
+              <template #icon><Trash2 /></template>
+              {{ minimumQuantity(lineItem) > 0 ? "Remove editable" : "Remove" }}
+            </BaseButton>
+            <BaseButton
+              v-if="hasLineChange(lineItem)"
+              variant="ghost"
+              @click="resetLine(lineItem)"
+            >
+              Undo
+            </BaseButton>
+          </div>
+        </div>
       </div>
 
       <div class="custom-item-section">
@@ -363,6 +420,8 @@ header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
 .item-copy strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .item-copy small { color: var(--text-sub); font-size: 11px; }
 .item-row label { display: grid; flex: 0 0 110px; gap: 4px; }
+.item-controls { display: flex; align-items: flex-end; justify-content: flex-end; gap: 8px; }
+.line-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
 input { width: 100%; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; background: var(--surface-raised); color: var(--text); font: inherit; }
 input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
@@ -389,6 +448,10 @@ input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px c
 
 @media (max-width: 760px) {
   header { align-items: flex-start; flex-direction: column; }
+  .item-row { align-items: stretch; flex-direction: column; }
+  .item-controls { align-items: stretch; flex-direction: column; }
+  .item-controls label { width: 100%; flex-basis: auto; }
+  .line-actions { justify-content: flex-start; }
   .custom-item-grid { grid-template-columns: 1fr; }
   .edit-options { grid-template-columns: 1fr; }
   .staff-note { grid-column: auto; }
