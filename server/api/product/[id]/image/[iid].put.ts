@@ -4,6 +4,7 @@ import {
   requireShopifyCredentials,
   requireShopifyPayload,
   requireShopifyResourceId,
+  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
 import type {
   ProductImagesResponse,
@@ -34,7 +35,7 @@ export default defineEventHandler(async (event) => {
   const requestBody = {
     image: {
       ...image,
-      id: Number(imageId),
+      id: requireShopifySafeResourceNumber(imageId, "Image"),
     },
   };
 

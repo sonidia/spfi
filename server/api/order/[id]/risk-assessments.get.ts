@@ -1,9 +1,13 @@
-import { defineEventHandler, getQuery } from "h3";
+import { defineEventHandler } from "h3";
 import {
   callShopifyGraphql,
   toShopifyGid,
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import {
+  getShopifyQueryCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 import type {
   OrderRiskAssessmentsResponse,
   ShopifyOrderRiskSummary,
@@ -34,16 +38,8 @@ interface OrderRiskQueryData {
 }
 
 export default defineEventHandler(async (event) => {
-  const id = String(event.context.params?.id || "");
-  const query = getQuery(event);
-  const storeId = String(query.storeId || "");
-  const token = String(query.token || "");
-  if (!id || !storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Order ID, Store ID and Access Token are required.",
-      400,
-    );
-  }
+  const id = requireShopifyResourceId(event.context.params?.id, "Order");
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
   const orderId = toShopifyGid("Order", id);
   const data = await callShopifyGraphql<OrderRiskQueryData>({

@@ -5,7 +5,11 @@ import {
   toShopifyGid,
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
-import type { OrderEditSessionResponse } from "~~/types/shopify-order";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
+import type {
+  CalculatedOrderLineItem,
+  OrderEditSessionResponse,
+} from "~~/types/shopify-order";
 
 interface BeginEditBody {
   storeId?: string;
@@ -17,22 +21,24 @@ interface BeginEditData {
     calculatedOrder: {
       id: string;
       lineItems: {
-        nodes: Array<{
-          id: string;
-          title: string;
-          sku?: string | null;
-          quantity: number;
-          editableQuantity: number;
-          restockable: boolean;
-        }>;
+        nodes: CalculatedOrderLineItem[];
+        pageInfo: {
+          hasNextPage: boolean;
+        };
       };
+    } | null;
+    orderEditSession: {
+      id: string;
     } | null;
     userErrors: Array<{ field?: string[] | null; message: string }>;
   };
 }
 
 export default defineEventHandler(async (event): Promise<OrderEditSessionResponse> => {
-  const orderId = String(event.context.params?.id || "");
+  const orderId = requireShopifyResourceId(
+    event.context.params?.id,
+    "Order",
+  );
   const body = (await readBody<BeginEditBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
@@ -56,9 +62,18 @@ export default defineEventHandler(async (event): Promise<OrderEditSessionRespons
           calculatedOrder {
             id
             lineItems(first: 250) {
-              nodes { id title sku quantity editableQuantity restockable }
+              nodes {
+                id
+                title
+                sku
+                quantity
+                editableQuantity
+                restockable
+              }
+              pageInfo { hasNextPage }
             }
           }
+          orderEditSession { id }
           userErrors { field message }
         }
       }
@@ -72,7 +87,8 @@ export default defineEventHandler(async (event): Promise<OrderEditSessionRespons
   );
 
   const calculatedOrder = data.orderEditBegin.calculatedOrder;
-  if (!calculatedOrder) {
+  const orderEditSession = data.orderEditBegin.orderEditSession;
+  if (!calculatedOrder || !orderEditSession) {
     throw createApiErrorFromMessage(
       "Shopify did not return an editable order session.",
       422,
@@ -80,7 +96,9 @@ export default defineEventHandler(async (event): Promise<OrderEditSessionRespons
   }
 
   return {
+    orderEditSessionId: orderEditSession.id,
     calculatedOrderId: calculatedOrder.id,
     lineItems: calculatedOrder.lineItems.nodes,
+    hasMoreLineItems: calculatedOrder.lineItems.pageInfo.hasNextPage,
   };
 });

@@ -39,6 +39,19 @@ interface OrderAuth {
 }
 
 export function useOrderApi() {
+  function queryOptions(
+    auth: OrderAuth,
+    query: object = {},
+  ) {
+    return {
+      params: {
+        storeId: auth.storeId,
+        ...(query as Record<string, unknown>),
+      },
+      headers: { "x-shopify-access-token": auth.token },
+    };
+  }
+
   function list(auth: OrderAuth, query: OrderListQuery = {}) {
     return $fetch<OrdersResponse>("/api/order/all", {
       method: "POST",
@@ -48,7 +61,7 @@ export function useOrderApi() {
 
   function get(auth: OrderAuth, id: string | number, fields?: string) {
     return $fetch<OrdersResponse>(`/api/order/${id}`, {
-      params: { ...auth, ...(fields ? { fields } : {}) },
+      ...queryOptions(auth, fields ? { fields } : {}),
     });
   }
 
@@ -84,7 +97,7 @@ export function useOrderApi() {
   function remove(auth: OrderAuth, id: string | number) {
     return $fetch<{ success: true }>(`/api/order/${id}`, {
       method: "DELETE",
-      params: auth,
+      ...queryOptions(auth),
     });
   }
 
@@ -119,7 +132,7 @@ export function useOrderApi() {
     query: OrderTransactionListQuery = {},
   ) {
     return $fetch<OrderTransactionsResponse>(`/api/order/${id}/transactions`, {
-      params: { ...auth, ...query },
+      ...queryOptions(auth, query),
     });
   }
 
@@ -131,20 +144,20 @@ export function useOrderApi() {
   ) {
     return $fetch<OrderTransactionResponse>(
       `/api/order/${orderId}/transactions/${transactionId}`,
-      { params: { ...auth, ...query } },
+      queryOptions(auth, query),
     );
   }
 
   function countTransactions(auth: OrderAuth, id: string | number) {
     return $fetch<OrderTransactionCountResponse>(
       `/api/order/${id}/transactions/count`,
-      { params: auth },
+      queryOptions(auth),
     );
   }
 
   function getEvents(auth: OrderAuth, id: string | number) {
     return $fetch<OrderEventsResponse>(`/api/order/${id}/events`, {
-      params: auth,
+      ...queryOptions(auth),
     });
   }
 
@@ -205,7 +218,7 @@ export function useOrderApi() {
     query: OrderRefundListQuery = {},
   ) {
     return $fetch<OrderRefundsResponse>(`/api/order/${id}/refunds`, {
-      params: { ...auth, ...query },
+      ...queryOptions(auth, query),
     });
   }
 
@@ -230,7 +243,7 @@ export function useOrderApi() {
   function getFulfillmentOrders(auth: OrderAuth, id: string | number) {
     return $fetch<{ fulfillment_orders?: ShopifyFulfillmentOrder[] }>(
       `/api/order/${id}/fulfillment_orders`,
-      { params: auth },
+      queryOptions(auth),
     );
   }
 
@@ -241,7 +254,7 @@ export function useOrderApi() {
   ) {
     return $fetch<OrderFulfillmentsResponse>(
       `/api/order/${id}/fulfillments`,
-      { params: { ...auth, ...query } },
+      queryOptions(auth, query),
     );
   }
 
@@ -269,7 +282,7 @@ export function useOrderApi() {
   function getRiskAssessments(auth: OrderAuth, id: string | number) {
     return $fetch<OrderRiskAssessmentsResponse>(
       `/api/order/${id}/risk-assessments`,
-      { params: auth },
+      queryOptions(auth),
     );
   }
 

@@ -184,8 +184,10 @@ export interface CalculatedOrderLineItem {
 }
 
 export interface OrderEditSessionResponse {
+  orderEditSessionId: string;
   calculatedOrderId: string;
   lineItems: CalculatedOrderLineItem[];
+  hasMoreLineItems: boolean;
 }
 
 export interface OrderEditLineChange {
@@ -205,7 +207,7 @@ export interface OrderEditCustomItemInput {
 }
 
 export interface OrderEditCommitInput {
-  calculatedOrderId: string;
+  orderEditSessionId: string;
   changes?: OrderEditLineChange[];
   customItems?: OrderEditCustomItemInput[];
   notifyCustomer?: boolean;

@@ -4,7 +4,9 @@ import {
   requireShopifyCredentials,
   requireShopifyPayload,
   requireShopifyResourceId,
+  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
+import { assertVariantBelongsToProduct } from "~~/server/utils/shopify-product-ownership";
 import type {
   ProductVariantsResponse,
   ShopifyVariantInput,
@@ -17,13 +19,23 @@ interface ProductVariantUpdateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  requireShopifyResourceId(event.context.params?.id, "Product");
+  const productId = requireShopifyResourceId(
+    event.context.params?.id,
+    "Product",
+  );
   const variantId = requireShopifyResourceId(
     event.context.params?.vid,
     "Variant",
   );
   const body = (await readBody<ProductVariantUpdateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
+  await assertVariantBelongsToProduct({
+    event,
+    storeId,
+    token,
+    productId,
+    variantId,
+  });
   const variant = requireShopifyPayload<ShopifyVariantInput>(
     body.variant,
     "Variant",
@@ -31,7 +43,7 @@ export default defineEventHandler(async (event) => {
   const requestBody = {
     variant: {
       ...variant,
-      id: Number(variantId),
+      id: requireShopifySafeResourceNumber(variantId, "Variant"),
     },
   };
 

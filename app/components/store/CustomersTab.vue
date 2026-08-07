@@ -3,7 +3,12 @@
     <div class="page-toolbar">
       <div>
         <div class="page-meta">
-          {{ customers.length }} customer{{ customers.length === 1 ? "" : "s" }}
+          <template v-if="activeQuery">
+            {{ customers.length }} matching customer{{ customers.length === 1 ? "" : "s" }}
+          </template>
+          <template v-else>
+            {{ totalCount }} customer{{ totalCount === 1 ? "" : "s" }}
+          </template>
         </div>
         <div v-if="activeQuery" class="search-summary">
           Results for “{{ activeQuery }}”
@@ -30,6 +35,8 @@
         />
       </label>
     </div>
+
+    <CustomerManagementPanel />
 
     <div v-if="isLoading && !customers.length" class="state-message">
       Loading customers…
@@ -204,6 +211,7 @@ const {
   selectedCustomer,
   selectedCustomerOrders,
   activeQuery,
+  totalCount,
   searchQuery,
   isLoading,
   isLoadingDetail,

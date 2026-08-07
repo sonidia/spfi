@@ -3,7 +3,7 @@ import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
   requireShopifyCredentials,
   requireShopifyInteger,
-  requireShopifyResourceId,
+  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
 import type {
   ShopifyInventoryLevelResponse,
@@ -23,14 +23,13 @@ export default defineEventHandler(async (event) => {
   const body = (await readBody<InventorySetBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
   const requestBody: ShopifyInventorySetInput = {
-    location_id: Number(
-      requireShopifyResourceId(body.location_id, "Location"),
+    location_id: requireShopifySafeResourceNumber(
+      body.location_id,
+      "Location",
     ),
-    inventory_item_id: Number(
-      requireShopifyResourceId(
-        body.inventory_item_id,
-        "Inventory item",
-      ),
+    inventory_item_id: requireShopifySafeResourceNumber(
+      body.inventory_item_id,
+      "Inventory item",
     ),
     available: requireShopifyInteger(body.available, "available"),
     ...(typeof body.disconnect_if_necessary === "boolean"

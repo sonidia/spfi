@@ -1,11 +1,11 @@
 import { defineEventHandler, readBody } from "h3";
-import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import {
   requireShopifyCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
 import { buildProductVariantListParams } from "~~/server/utils/shopify-product-query";
-import type { ProductVariantsResponse } from "~~/types/shopify-product";
+import type { ShopifyVariant } from "~~/types/shopify";
 
 interface ProductVariantListBody extends Record<string, unknown> {
   storeId?: string;
@@ -21,12 +21,15 @@ export default defineEventHandler(async (event) => {
   const body = (await readBody<ProductVariantListBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 
-  return callShopifyApi<ProductVariantsResponse>({
+  const variants = await callShopifyPaginatedApi<ShopifyVariant>({
     event,
     storeId,
     token,
     path: `/products/${productId}/variants.json`,
+    resourceKey: "variants",
     params: buildProductVariantListParams(body.query || body),
     missingProxyMessage: "Missing sock proxy for this store.",
   });
+
+  return { variants };
 });

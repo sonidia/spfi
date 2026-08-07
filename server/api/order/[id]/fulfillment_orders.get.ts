@@ -1,8 +1,9 @@
-import { defineEventHandler, getQuery } from "h3";
+import { defineEventHandler } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+  getShopifyQueryCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 import type { ShopifyFulfillmentOrder } from "~~/types/shopify";
 
 interface FulfillmentOrdersResponse {
@@ -10,14 +11,8 @@ interface FulfillmentOrdersResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  const id = event.context.params?.id;
-  const query = getQuery(event);
-  const storeId = String(query.storeId || "");
-  const token = String(query.token || "");
-
-  if (!id || !storeId || !token) {
-    throw createApiErrorFromMessage("Order ID, Store ID and Access Token are required in query params.", 400);
-  }
+  const id = requireShopifyResourceId(event.context.params?.id, "Order");
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
   return callShopifyApi<FulfillmentOrdersResponse>({
     event,

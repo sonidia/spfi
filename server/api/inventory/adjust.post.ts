@@ -3,7 +3,7 @@ import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
   requireShopifyCredentials,
   requireShopifyInteger,
-  requireShopifyResourceId,
+  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
 import type {
   ShopifyInventoryAdjustInput,
@@ -22,14 +22,13 @@ export default defineEventHandler(async (event) => {
   const body = (await readBody<InventoryAdjustBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
   const requestBody: ShopifyInventoryAdjustInput = {
-    location_id: Number(
-      requireShopifyResourceId(body.location_id, "Location"),
+    location_id: requireShopifySafeResourceNumber(
+      body.location_id,
+      "Location",
     ),
-    inventory_item_id: Number(
-      requireShopifyResourceId(
-        body.inventory_item_id,
-        "Inventory item",
-      ),
+    inventory_item_id: requireShopifySafeResourceNumber(
+      body.inventory_item_id,
+      "Inventory item",
     ),
     available_adjustment: requireShopifyInteger(
       body.available_adjustment,

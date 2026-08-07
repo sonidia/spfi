@@ -286,6 +286,11 @@
               </div>
             </div>
           </div>
+
+          <ProductOperationsPanel
+            :product="selectedProduct"
+            @refreshed="refreshProducts"
+          />
         </aside>
         </div>
       </div>
@@ -753,6 +758,13 @@ async function removeProduct(prodId: number) {
   if (!sid || !token) return;
 
   await productStore.deleteProduct(sid, token, prodId);
+}
+
+async function refreshProducts() {
+  const sid = formStore.storeId;
+  const token = sid ? credentialVault.getStoreData(sid).accessToken : null;
+  if (!sid || !token) return;
+  await productStore.fetchAll(sid, token, 250);
 }
 </script>
 

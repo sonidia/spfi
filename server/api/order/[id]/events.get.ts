@@ -1,22 +1,19 @@
-import { defineEventHandler, getQuery, getRouterParam } from "h3";
+import { defineEventHandler, getRouterParam } from "h3";
 import {
   callShopifyApi,
-  createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
+import {
+  getShopifyQueryCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 import type { OrderEventsResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
-  const orderId = getRouterParam(event, "id");
-  const query = getQuery(event);
-  const storeId = String(query.storeId || "");
-  const token = String(query.token || "");
-
-  if (!orderId || !storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Order ID, Store ID and Access Token are required.",
-      400,
-    );
-  }
+  const orderId = requireShopifyResourceId(
+    getRouterParam(event, "id"),
+    "Order",
+  );
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
   return callShopifyApi<OrderEventsResponse>({
     event,

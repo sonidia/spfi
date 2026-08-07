@@ -5,6 +5,7 @@ import {
   requireCustomerPayload,
   requireCustomerResourceId,
 } from "~~/server/utils/shopify-customer-request";
+import { requireShopifySafeResourceNumber } from "~~/server/utils/shopify-admin-request";
 import type {
   CustomerResponse,
   ShopifyCustomerInput,
@@ -30,7 +31,7 @@ export default defineEventHandler(async (event) => {
   const requestBody = {
     customer: {
       ...customer,
-      id: Number(customerId),
+      id: requireShopifySafeResourceNumber(customerId, "Customer"),
     },
   };
 

@@ -6,9 +6,11 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import {
+  assertOrderEditSessionExists,
   stageOrderEditCustomItems,
   stageOrderEditLineChanges,
 } from "~~/server/utils/shopify-order-edit";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 import type {
   OrderEditCommitInput,
   OrderEditCommitResponse,
@@ -28,30 +30,36 @@ interface CommitEditData {
 }
 
 export default defineEventHandler(async (event): Promise<OrderEditCommitResponse> => {
-  const orderId = String(event.context.params?.id || "");
+  requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<CommitEditBody>(event)) || ({} as CommitEditBody);
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
-  const calculatedOrderId = String(body.calculatedOrderId || "").trim();
+  const orderEditSessionId = String(body.orderEditSessionId || "").trim();
   const changes = Array.isArray(body.changes) ? body.changes : [];
   const customItems = Array.isArray(body.customItems) ? body.customItems : [];
 
-  if (!orderId || !storeId || !token || !calculatedOrderId) {
+  if (
+    !storeId ||
+    !token ||
+    !orderEditSessionId
+  ) {
     throw createApiErrorFromMessage(
-      "Order ID, Store ID, Access Token and calculated order ID are required.",
+      "Store ID, Access Token and order edit session ID are required.",
       400,
     );
   }
   if (!changes.length && !customItems.length) {
     throw createApiErrorFromMessage("No order item changes were provided.", 400);
   }
-  const calculatedId = toShopifyGid("CalculatedOrder", calculatedOrderId);
+  const sessionId = toShopifyGid("OrderEditSession", orderEditSessionId);
   const editContext = {
     event,
     storeId,
     token,
-    calculatedOrderId: calculatedId,
+    orderEditSessionId: sessionId,
   };
+
+  await assertOrderEditSessionExists(editContext);
 
   await stageOrderEditLineChanges(editContext, changes);
   await stageOrderEditCustomItems(editContext, customItems);
@@ -83,7 +91,7 @@ export default defineEventHandler(async (event): Promise<OrderEditCommitResponse
       }
     `,
     variables: {
-      id: calculatedId,
+      id: sessionId,
       notifyCustomer: Boolean(body.notifyCustomer),
       ...(body.staffNote?.trim() ? { staffNote: body.staffNote.trim() } : {}),
     },

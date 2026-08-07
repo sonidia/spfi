@@ -47,6 +47,7 @@
             <OrderActionsPanel :order="currentOrder" @deleted="returnToOrders" />
             <OrderFinancialActions :order="currentOrder" />
             <OrderLineItemEditor :order="currentOrder" />
+            <OrderHistoryPanel :order="currentOrder" />
             <OrderFulfillmentPanel :order="currentOrder" />
 
             <!-- Fulfillments -->

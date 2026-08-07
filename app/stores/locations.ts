@@ -21,7 +21,7 @@ function normalizeInventoryItemIds(ids: Array<number | string | null | undefined
         .map((id) => String(id || "").trim())
         .filter((id) => /^\d+$/.test(id)),
     ),
-  ).slice(0, 50);
+  );
 }
 
 export const useLocationStore = defineStore("locations", () => {
@@ -32,6 +32,7 @@ export const useLocationStore = defineStore("locations", () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const storeCache = ref<Record<string, LocationCacheEntry>>({});
+  let requestSequence = 0;
 
   async function fetchAll(
     storeId: string,
@@ -52,6 +53,7 @@ export const useLocationStore = defineStore("locations", () => {
 
     isLoading.value = true;
     error.value = null;
+    const requestId = ++requestSequence;
 
     try {
       const response = await $fetch<LocationsResponse>("/api/location/all", {
@@ -60,20 +62,27 @@ export const useLocationStore = defineStore("locations", () => {
         headers: { "x-shopify-access-token": token },
       });
 
-      locations.value = response.locations || [];
+      if (requestId !== requestSequence) return;
+
+      const nextLocations = response.locations || [];
+      locations.value = nextLocations;
       inventoryLevels.value = [];
       activeInventoryItemIdsKey.value = "";
       hasFetchedAll.value = true;
       storeCache.value[storeId] = {
-        locations: [...locations.value],
+        locations: [...nextLocations],
         inventoryLevels: [],
         inventoryItemIdsKey: "",
         hasFetchedAll: true,
       };
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to fetch locations.");
+      if (requestId === requestSequence) {
+        error.value = getAppErrorMessage(err, "Failed to fetch locations.");
+      }
     } finally {
-      isLoading.value = false;
+      if (requestId === requestSequence) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -108,6 +117,7 @@ export const useLocationStore = defineStore("locations", () => {
 
     isLoading.value = true;
     error.value = null;
+    const requestId = ++requestSequence;
 
     try {
       const response = await $fetch<LocationsResponse>("/api/location/all", {
@@ -120,23 +130,31 @@ export const useLocationStore = defineStore("locations", () => {
         headers: { "x-shopify-access-token": token },
       });
 
-      locations.value = response.locations || [];
-      inventoryLevels.value = response.inventory_levels || [];
+      if (requestId !== requestSequence) return;
+
+      const nextLocations = response.locations || [];
+      const nextInventoryLevels = response.inventory_levels || [];
+      locations.value = nextLocations;
+      inventoryLevels.value = nextInventoryLevels;
       activeInventoryItemIdsKey.value = inventoryItemIdsKey;
       hasFetchedAll.value = true;
       storeCache.value[storeId] = {
-        locations: [...locations.value],
-        inventoryLevels: [...inventoryLevels.value],
+        locations: [...nextLocations],
+        inventoryLevels: [...nextInventoryLevels],
         inventoryItemIdsKey,
         hasFetchedAll: true,
       };
     } catch (err) {
-      error.value = getAppErrorMessage(
-        err,
-        "Failed to fetch inventory locations.",
-      );
+      if (requestId === requestSequence) {
+        error.value = getAppErrorMessage(
+          err,
+          "Failed to fetch inventory locations.",
+        );
+      }
     } finally {
-      isLoading.value = false;
+      if (requestId === requestSequence) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -153,6 +171,7 @@ export const useLocationStore = defineStore("locations", () => {
   }
 
   function $reset() {
+    requestSequence += 1;
     locations.value = [];
     inventoryLevels.value = [];
     activeInventoryItemIdsKey.value = "";

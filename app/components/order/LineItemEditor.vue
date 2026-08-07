@@ -170,7 +170,7 @@ async function commitEdit() {
     token.value,
     props.order.id,
     {
-      calculatedOrderId: session.value.calculatedOrderId,
+      orderEditSessionId: session.value.orderEditSessionId,
       changes: changes.value,
       customItems: customItems.value,
       notifyCustomer: notifyCustomer.value,
@@ -206,6 +206,11 @@ async function commitEdit() {
     </div>
 
     <div v-if="isOpen && session" class="editor-body">
+      <div v-if="session.hasMoreLineItems" class="panel-note">
+        This order has more than 250 original lines. Shopify only exposes the
+        first 250 lines when an edit session begins, so additional lines are
+        not available in this editor.
+      </div>
       <div v-for="lineItem in session.lineItems" :key="lineItem.id" class="item-row">
         <div class="item-copy">
           <strong>{{ lineItem.title }}</strong>

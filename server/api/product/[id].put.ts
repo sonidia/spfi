@@ -4,6 +4,7 @@ import {
   requireShopifyCredentials,
   requireShopifyPayload,
   requireShopifyResourceId,
+  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
 import type { ProductsResponse } from "~~/types/shopify";
 import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
@@ -28,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const requestBody = {
     product: {
       ...product,
-      id: Number(productId),
+      id: requireShopifySafeResourceNumber(productId, "Product"),
     },
   };
 

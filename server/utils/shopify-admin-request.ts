@@ -57,6 +57,23 @@ export function requireShopifyResourceId(
   return id;
 }
 
+export function requireShopifySafeResourceNumber(
+  value: unknown,
+  resourceName: string,
+) {
+  const id = requireShopifyResourceId(value, resourceName);
+  const numberValue = Number(id);
+
+  if (!Number.isSafeInteger(numberValue)) {
+    throw createApiErrorFromMessage(
+      `${resourceName} ID exceeds JavaScript's safe integer range.`,
+      400,
+    );
+  }
+
+  return numberValue;
+}
+
 export function requireShopifyPayload<T extends object>(
   value: unknown,
   payloadName: string,

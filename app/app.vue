@@ -9,7 +9,9 @@ useTokenRotation();
 <template>
   <main class="app-root">
     <CredentialUnlock />
-    <LoadingOverlay :visible="loading" />
+    <ClientOnly>
+      <LoadingOverlay :visible="loading" />
+    </ClientOnly>
     <BaseToast />
     <Nav />
     <NuxtLayout>

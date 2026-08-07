@@ -1,9 +1,8 @@
 import { defineEventHandler, getHeader, getQuery } from "h3";
+import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
-import {
+  chunkInventoryItemIds,
   getFirstQueryValue,
   normalizeInventoryItemIds,
   normalizeLocationLimit,
@@ -28,34 +27,41 @@ export default defineEventHandler(async (event) => {
   const inventoryItemIds = normalizeInventoryItemIds(
     query.inventory_item_ids || query.inventoryItemIds,
   );
-  const locationsRequest = callShopifyApi<LocationsResponse>({
+  const locationsRequest = callShopifyPaginatedApi<
+    NonNullable<LocationsResponse["locations"]>[number]
+  >({
     event,
     storeId,
     token,
     path: "/locations.json",
+    resourceKey: "locations",
     params: { limit },
   });
 
   if (inventoryItemIds.length === 0) {
-    return locationsRequest;
+    return { locations: await locationsRequest };
   }
 
-  const [locationsResponse, inventoryLevelsResponse] = await Promise.all([
+  const [locations, inventoryLevelPages] = await Promise.all([
     locationsRequest,
-    callShopifyApi<InventoryLevelsResponse>({
-      event,
-      storeId,
-      token,
-      path: "/inventory_levels.json",
-      params: {
-        inventory_item_ids: inventoryItemIds.join(","),
-        limit: 250,
-      },
-    }),
+    Promise.all(
+      chunkInventoryItemIds(inventoryItemIds).map((ids) =>
+        callShopifyPaginatedApi<
+          NonNullable<InventoryLevelsResponse["inventory_levels"]>[number]
+        >({
+          event,
+          storeId,
+          token,
+          path: "/inventory_levels.json",
+          resourceKey: "inventory_levels",
+          params: { inventory_item_ids: ids.join(",") },
+        }),
+      ),
+    ),
   ]);
 
   return {
-    ...locationsResponse,
-    inventory_levels: inventoryLevelsResponse.inventory_levels || [],
+    locations,
+    inventory_levels: inventoryLevelPages.flat(),
   };
 });

@@ -14,7 +14,7 @@ interface OrderEditContext {
   event: H3Event;
   storeId: string;
   token: string;
-  calculatedOrderId: string;
+  orderEditSessionId: string;
 }
 
 interface OrderEditMutationPayload {
@@ -66,7 +66,7 @@ export async function stageOrderEditLineChanges(
         }
       `,
       variables: {
-        id: context.calculatedOrderId,
+        id: context.orderEditSessionId,
         lineItemId: change.calculatedLineItemId,
         quantity: change.quantity,
         restock: change.restock,
@@ -86,7 +86,7 @@ export async function stageOrderEditCustomItems(
 ) {
   for (const customItem of normalizeCustomItems(customItems)) {
     const variables = {
-      id: context.calculatedOrderId,
+      id: context.orderEditSessionId,
       title: customItem.title,
       price: {
         amount: customItem.price,
@@ -137,6 +137,32 @@ export async function stageOrderEditCustomItems(
     assertNoGraphqlUserErrors(
       data.orderEditAddCustomItem.userErrors,
       "Failed to stage a custom order item.",
+    );
+  }
+}
+
+export async function assertOrderEditSessionExists(context: OrderEditContext) {
+  const data = await callShopifyGraphql<
+    { orderEditSession: { id: string } | null },
+    { id: string }
+  >({
+    event: context.event,
+    storeId: context.storeId,
+    token: context.token,
+    operationName: "CheckOrderEditSession",
+    retryTransport: false,
+    query: `
+      query CheckOrderEditSession($id: ID!) {
+        orderEditSession(id: $id) { id }
+      }
+    `,
+    variables: { id: context.orderEditSessionId },
+  });
+
+  if (!data.orderEditSession) {
+    throw createApiErrorFromMessage(
+      "The order edit session is missing, expired, or already committed.",
+      409,
     );
   }
 }

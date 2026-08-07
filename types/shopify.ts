@@ -72,6 +72,7 @@ export interface ShopifyAddress {
   address1?: string | null;
   address2?: string | null;
   city?: string | null;
+  phone?: string | null;
   province?: string | null;
   province_code?: string | null;
   zip?: string | null;

@@ -322,7 +322,7 @@ export async function fetchShopifyPaymentsAccount(
   }
 
   const [bankAccounts, payouts] = await Promise.all([
-    collectConnection(async (after) => {
+    collectConnection<ShopifyPaymentsBankAccount>(async (after) => {
       const data = await callShopifyGraphql<
         BankAccountsData,
         { first: number; after: string | null }
@@ -332,9 +332,12 @@ export async function fetchShopifyPaymentsAccount(
         operationName: "ShopifyPaymentsBankAccounts",
         variables: { first: CONNECTION_PAGE_SIZE, after },
       });
-      return data.shopifyPaymentsAccount?.bankAccounts ?? emptyConnection();
+      return (
+        data.shopifyPaymentsAccount?.bankAccounts ??
+        emptyConnection<ShopifyPaymentsBankAccount>()
+      );
     }),
-    collectConnection(async (after) => {
+    collectConnection<ShopifyPaymentsPayoutMetadata>(async (after) => {
       const data = await callShopifyGraphql<
         PayoutsData,
         { first: number; after: string | null }
@@ -344,7 +347,10 @@ export async function fetchShopifyPaymentsAccount(
         operationName: "ShopifyPaymentsPayoutMetadata",
         variables: { first: CONNECTION_PAGE_SIZE, after },
       });
-      return data.shopifyPaymentsAccount?.payouts ?? emptyConnection();
+      return (
+        data.shopifyPaymentsAccount?.payouts ??
+        emptyConnection<ShopifyPaymentsPayoutMetadata>()
+      );
     }),
   ]);
 
@@ -362,30 +368,33 @@ export async function fetchShopifyPaymentsBalanceTransactions(
   filters: ShopifyPaymentsBalanceTransactionSearchFilters = {},
 ) {
   const searchQuery = buildBalanceTransactionSearchQuery(filters);
-  const nodes = await collectConnection(async (after) => {
-    const data = await callShopifyGraphql<
-      BalanceTransactionsData,
-      {
-        first: number;
-        after: string | null;
-        query: string | null;
-        hideTransfers: boolean;
-      }
-    >({
-      ...context,
-      query: BALANCE_TRANSACTIONS_QUERY,
-      operationName: "ShopifyPaymentsBalanceTransactions",
-      variables: {
-        first: CONNECTION_PAGE_SIZE,
-        after,
-        query: searchQuery || null,
-        hideTransfers: filters.hide_transfers === true,
-      },
-    });
-    return (
-      data.shopifyPaymentsAccount?.balanceTransactions ?? emptyConnection()
-    );
-  });
+  const nodes = await collectConnection<GraphqlBalanceTransaction>(
+    async (after) => {
+      const data = await callShopifyGraphql<
+        BalanceTransactionsData,
+        {
+          first: number;
+          after: string | null;
+          query: string | null;
+          hideTransfers: boolean;
+        }
+      >({
+        ...context,
+        query: BALANCE_TRANSACTIONS_QUERY,
+        operationName: "ShopifyPaymentsBalanceTransactions",
+        variables: {
+          first: CONNECTION_PAGE_SIZE,
+          after,
+          query: searchQuery || null,
+          hideTransfers: filters.hide_transfers === true,
+        },
+      });
+      return (
+        data.shopifyPaymentsAccount?.balanceTransactions ??
+        emptyConnection<GraphqlBalanceTransaction>()
+      );
+    },
+  );
 
   const mapped = nodes.map(mapBalanceTransaction);
   if (typeof filters.test !== "boolean") return mapped;
