@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { Clock, Filter, RotateCcw } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import type { Transaction } from "~/stores/payment";
@@ -13,6 +15,7 @@ import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 const paymentStore = usePaymentStore();
 const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
+const feedback = useStoreFeedback();
 
 const transactionType = ref("");
 const payoutStatus = ref("");
@@ -30,6 +33,26 @@ const sinceId = ref("");
 const lastId = ref("");
 const currentPage = ref(1);
 const pageSize = ref(20);
+const payoutStatusOptions = [
+  { label: "All statuses", value: "" },
+  { label: "Pending / not paid out", value: "pending" },
+  { label: "Scheduled", value: "scheduled" },
+  { label: "In transit", value: "in_transit" },
+  { label: "Paid", value: "paid" },
+  { label: "Failed", value: "failed" },
+  { label: "Canceled", value: "canceled" },
+  { label: "Action required", value: "action_required" },
+];
+const taxExemptOptions = [
+  { label: "All", value: "" },
+  { label: "Exempt", value: "yes" },
+  { label: "Not exempt", value: "no" },
+];
+const testModeOptions = [
+  { label: "Live and test", value: "" },
+  { label: "Live only", value: "live" },
+  { label: "Test only", value: "test" },
+];
 
 const sortedTransactions = computed(() =>
   [...paymentStore.visibleBalanceTransactions].sort(
@@ -51,8 +74,23 @@ watch(totalPages, (count) => {
   if (currentPage.value > count) currentPage.value = count;
 });
 
-async function applyFilters() {
-  if (!isReady.value) return;
+function setPayoutStatus(value: unknown) {
+  payoutStatus.value = typeof value === "string" ? value : "";
+}
+
+function setTaxExempt(value: unknown) {
+  taxExempt.value = value === "yes" || value === "no" ? value : "";
+}
+
+function setTestMode(value: unknown) {
+  testMode.value = value === "live" || value === "test" ? value : "";
+}
+
+async function applyFilters(successMessage = "Transaction filters applied.") {
+  if (!isReady.value) {
+    feedback.warning("Select a store with valid credentials before filtering.");
+    return;
+  }
   const filters: ShopifyPaymentsBalanceTransactionSearchFilters = {
     ...(transactionType.value
       ? { transaction_type: transactionType.value }
@@ -91,11 +129,17 @@ async function applyFilters() {
     token.value,
     filters,
   );
+  feedback.requestResult({
+    errorMessage: paymentStore.error,
+    warningMessage: paymentStore.graphqlWarning,
+    successMessage,
+    fallbackError: "Failed to apply transaction filters.",
+  });
 }
 
 async function showPending() {
   payoutStatus.value = "pending";
-  await applyFilters();
+  await applyFilters("Pending transactions shown.");
 }
 
 async function resetFilters() {
@@ -113,7 +157,7 @@ async function resetFilters() {
   testMode.value = "";
   sinceId.value = "";
   lastId.value = "";
-  await applyFilters();
+  await applyFilters("Transaction filters reset.");
 }
 
 function getPayoutDate(payoutId: number | null) {
@@ -168,7 +212,7 @@ function updatePageSize(size: number) {
 
 <template>
   <div class="transactions-tab">
-    <form class="filter-toolbar" @submit.prevent="applyFilters">
+    <form class="filter-toolbar" @submit.prevent="applyFilters()">
       <label>
         <span>Transaction type</span>
         <input
@@ -178,16 +222,12 @@ function updatePageSize(size: number) {
       </label>
       <label>
         <span>Payout status</span>
-        <select v-model="payoutStatus">
-          <option value="">All statuses</option>
-          <option value="pending">Pending / not paid out</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="in_transit">In transit</option>
-          <option value="paid">Paid</option>
-          <option value="failed">Failed</option>
-          <option value="canceled">Canceled</option>
-          <option value="action_required">Action required</option>
-        </select>
+        <BaseSelect
+          class-name="filter-select"
+          :model-value="payoutStatus"
+          :options="payoutStatusOptions"
+          @update:model-value="setPayoutStatus"
+        />
       </label>
       <label>
         <span>Payout date</span>
@@ -232,42 +272,58 @@ function updatePageSize(size: number) {
       </label>
       <label>
         <span>Tax reporting</span>
-        <select v-model="taxExempt">
-          <option value="">All</option>
-          <option value="yes">Exempt</option>
-          <option value="no">Not exempt</option>
-        </select>
+        <BaseSelect
+          class-name="filter-select"
+          :model-value="taxExempt"
+          :options="taxExemptOptions"
+          @update:model-value="setTaxExempt"
+        />
       </label>
       <label>
         <span>Mode</span>
-        <select v-model="testMode">
-          <option value="">Live and test</option>
-          <option value="live">Live only</option>
-          <option value="test">Test only</option>
-        </select>
+        <BaseSelect
+          class-name="filter-select"
+          :model-value="testMode"
+          :options="testModeOptions"
+          @update:model-value="setTestMode"
+        />
       </label>
       <label>
         <span>After transaction ID</span>
         <input v-model.trim="sinceId" inputmode="numeric" placeholder="since_id" />
       </label>
-      <label class="checkbox-filter">
-        <input v-model="hideTransfers" type="checkbox" />
-        <span>Hide transfers</span>
-      </label>
+      <BaseCheckbox v-model="hideTransfers" label="Hide transfers" />
       <label>
         <span>Before transaction ID</span>
         <input v-model.trim="lastId" inputmode="numeric" placeholder="last_id" />
       </label>
       <div class="filter-actions">
-        <button type="button" class="pending" @click="showPending">
+        <BaseButton
+          type="button"
+          class="filter-action-pending"
+          @click="showPending"
+        >
+          <template #icon>
+            <Clock />
+          </template>
           Show pending
-        </button>
-        <button type="button" class="secondary" @click="resetFilters">
+        </BaseButton>
+        <BaseButton type="button" @click="resetFilters">
+          <template #icon>
+            <RotateCcw />
+          </template>
           Reset
-        </button>
-        <button type="submit" :disabled="paymentStore.isLoading">
+        </BaseButton>
+        <BaseButton
+          type="submit"
+          variant="primary"
+          :loading="paymentStore.isLoading"
+        >
+          <template #icon>
+            <Filter />
+          </template>
           {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
-        </button>
+        </BaseButton>
       </div>
     </form>
 
@@ -398,8 +454,7 @@ function updatePageSize(size: number) {
   font-weight: 700;
 }
 
-.filter-toolbar input,
-.filter-toolbar select {
+.filter-toolbar input {
   min-width: 0;
   height: 34px;
   border: 1px solid var(--border);
@@ -411,6 +466,18 @@ function updatePageSize(size: number) {
   font-size: 12px;
 }
 
+.filter-toolbar :deep(.select-trigger) {
+  min-height: 34px;
+  padding: 0 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.filter-toolbar :deep(.selected-label) {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .filter-actions {
   display: flex;
   gap: 6px;
@@ -418,47 +485,10 @@ function updatePageSize(size: number) {
   justify-content: flex-end;
 }
 
-.filter-actions button {
-  height: 34px;
-  border: 0;
-  border-radius: 6px;
-  padding: 0 11px;
-  background: var(--green);
-  color: white;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.filter-actions button.secondary,
-.filter-actions button.pending {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-sub);
-}
-
-.filter-actions button.pending {
+.filter-action-pending {
   border-color: color-mix(in srgb, var(--amber) 35%, var(--border));
   background: var(--amber-soft);
   color: var(--amber);
-}
-
-.filter-actions button:disabled {
-  opacity: 0.55;
-  cursor: wait;
-}
-
-.checkbox-filter {
-  display: flex !important;
-  align-items: center;
-  min-height: 34px;
-}
-
-.checkbox-filter input {
-  width: 16px;
-  height: 16px;
 }
 
 .td-type strong,

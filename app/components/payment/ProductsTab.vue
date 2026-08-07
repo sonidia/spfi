@@ -11,8 +11,8 @@
         <div class="products-tab-meta">
           {{ productStore.products.length }} product{{ productStore.products.length !== 1 ? "s" : "" }}
         </div>
-        <button class="btn-primary-sm" @click="showCreateModal = true">
-          <span v-html="ICONS_PLUS"></span>
+        <button class="btn-primary-sm" type="button" @click="showCreateModal = true">
+          <Plus />
           Add product
         </button>
       </div>
@@ -95,14 +95,18 @@
                     <div class="popover-menu popover-actions">
                       <button
                         class="popover-item"
+                        type="button"
                         @click.stop="openEditModal(prod); close()"
                       >
+                        <Pencil />
                         Edit
                       </button>
                       <button
                         class="popover-item text-danger"
+                        type="button"
                         @click.stop="removeProduct(prod.id); close()"
                       >
+                        <Trash2 />
                         Delete
                       </button>
                     </div>
@@ -123,7 +127,15 @@
       <div class="modal-card">
         <div class="modal-head">
           <h3 class="modal-title">Create Product</h3>
-          <button class="btn-close" @click="showCreateModal = false">✕</button>
+          <button
+            class="btn-close"
+            type="button"
+            aria-label="Close create product"
+            title="Close"
+            @click="showCreateModal = false"
+          >
+            <X />
+          </button>
         </div>
         <div class="modal-body">
           <div class="field">
@@ -150,8 +162,17 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn-outline" @click="showCreateModal = false">Cancel</button>
-          <button class="btn-primary" @click="createProduct" :disabled="productStore.isLoading">
+          <button class="btn-outline" type="button" @click="showCreateModal = false">
+            <X />
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            type="button"
+            @click="createProduct"
+            :disabled="productStore.isLoading"
+          >
+            <Plus />
             {{ productStore.isLoading ? "Creating..." : "Create Product" }}
           </button>
         </div>
@@ -163,7 +184,15 @@
       <div class="modal-card">
         <div class="modal-head">
           <h3 class="modal-title">Edit Product</h3>
-          <button class="btn-close" @click="showEditModal = false">✕</button>
+          <button
+            class="btn-close"
+            type="button"
+            aria-label="Close edit product"
+            title="Close"
+            @click="showEditModal = false"
+          >
+            <X />
+          </button>
         </div>
         <div class="modal-body">
           <div class="field">
@@ -190,8 +219,17 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn-outline" @click="showEditModal = false">Cancel</button>
-          <button class="btn-primary" @click="saveEditProduct" :disabled="productStore.isLoading">
+          <button class="btn-outline" type="button" @click="showEditModal = false">
+            <X />
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            type="button"
+            @click="saveEditProduct"
+            :disabled="productStore.isLoading"
+          >
+            <Save />
             {{ productStore.isLoading ? "Saving..." : "Save Changes" }}
           </button>
         </div>
@@ -201,7 +239,9 @@
 </template>
 
 <script setup lang="ts">
+import { Pencil, Plus, Save, Trash2, X } from "@lucide/vue";
 import { ref } from "vue";
+import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
@@ -210,6 +250,7 @@ import type { ShopifyProduct } from "~~/types/shopify";
 const productStore = useProductStore();
 const formStore = useFormStore();
 const credentialVault = useCredentialVaultStore();
+const feedback = useStoreFeedback();
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -231,8 +272,6 @@ const editProduct = ref({
   tags: "",
 });
 
-const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`;
-
 function resolveToken(sid: string): string | null {
   const data = credentialVault.getStoreData(sid);
   const now = Date.now();
@@ -246,13 +285,16 @@ async function createProduct() {
   const sid = formStore.storeId;
   const token = sid ? resolveToken(sid) : null;
   if (!sid || !token) {
-    alert("Store ID or Access Token is missing.");
+    feedback.error("Store ID or Access Token is missing.");
     return;
   }
   const success = await productStore.createProduct(sid, token, { ...newProduct.value });
   if (success) {
     showCreateModal.value = false;
     newProduct.value = { title: "", body_html: "", vendor: "", product_type: "", tags: "" };
+    feedback.success("Product created.");
+  } else {
+    feedback.error(productStore.error, "Create failed.");
   }
 }
 
@@ -271,7 +313,10 @@ function openEditModal(prod: ShopifyProduct) {
 async function saveEditProduct() {
   const sid = formStore.storeId;
   const token = sid ? resolveToken(sid) : null;
-  if (!sid || !token || !editProduct.value.id) return;
+  if (!sid || !token || !editProduct.value.id) {
+    feedback.error("Store ID or Access Token is missing.");
+    return;
+  }
   const success = await productStore.updateProduct(sid, token, editProduct.value.id, {
     title: editProduct.value.title,
     body_html: editProduct.value.body_html,
@@ -279,15 +324,28 @@ async function saveEditProduct() {
     product_type: editProduct.value.product_type,
     tags: editProduct.value.tags,
   });
-  if (success) showEditModal.value = false;
+  if (success) {
+    showEditModal.value = false;
+    feedback.success("Product saved.");
+  } else {
+    feedback.error(productStore.error, "Update failed.");
+  }
 }
 
 async function removeProduct(prodId: number) {
   if (!confirm("Are you sure you want to delete this product?")) return;
   const sid = formStore.storeId;
   const token = sid ? resolveToken(sid) : null;
-  if (!sid || !token) return;
-  await productStore.deleteProduct(sid, token, prodId);
+  if (!sid || !token) {
+    feedback.error("Store ID or Access Token is missing.");
+    return;
+  }
+  const success = await productStore.deleteProduct(sid, token, prodId);
+  if (success) {
+    feedback.success("Product deleted.");
+  } else {
+    feedback.error(productStore.error, "Delete failed.");
+  }
 }
 </script>
 
@@ -408,7 +466,9 @@ async function removeProduct(prodId: number) {
   padding: 4px;
 }
 .popover-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   padding: 8px 12px;
@@ -419,6 +479,11 @@ async function removeProduct(prodId: number) {
   border-radius: 4px;
   color: var(--text-primary);
   font-family: inherit;
+}
+.popover-item svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
 }
 .popover-item:hover {
   background: var(--surface-soft);
@@ -439,6 +504,11 @@ async function removeProduct(prodId: number) {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+}
+.btn-primary-sm svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
 }
 .btn-primary-sm:hover {
   opacity: 0.85;
@@ -477,11 +547,22 @@ async function removeProduct(prodId: number) {
   font-weight: 600;
 }
 .btn-close {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
   background: none;
   border: none;
-  font-size: 18px;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
+}
+.btn-close:hover {
+  background: var(--surface-soft);
+}
+.btn-close svg {
+  width: 16px;
+  height: 16px;
 }
 .modal-body {
   padding: 20px;
@@ -527,6 +608,9 @@ async function removeProduct(prodId: number) {
   gap: 12px;
 }
 .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 8px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -540,6 +624,9 @@ async function removeProduct(prodId: number) {
   background: var(--surface-soft);
 }
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 8px 16px;
   background: var(--green);
   color: white;
@@ -548,6 +635,12 @@ async function removeProduct(prodId: number) {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+}
+.btn-outline svg,
+.btn-primary svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
 }
 .btn-primary:hover {
   opacity: 0.85;

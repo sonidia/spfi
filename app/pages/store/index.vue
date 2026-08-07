@@ -127,19 +127,29 @@
 import { computed, onActivated, onDeactivated, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useStoreTabData } from "~/composables/useStoreTabData";
+import { useCustomerStore } from "~/stores/customers";
 import { useFormStore } from "~/stores/form";
+import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
+import { useProductStore } from "~/stores/product";
+import { useShopProfileStore } from "~/stores/shopProfile";
 import { resolveStoreTab, type StoreTab } from "~~/types/store";
 
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
+const customerStore = useCustomerStore();
+const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
+const productStore = useProductStore();
+const profileStore = useShopProfileStore();
 const router = useRouter();
 const route = useRoute();
 const { token: activeToken } = useActiveShopAuth();
 const { loadStoreTabData } = useStoreTabData();
+const feedback = useStoreFeedback();
 
 const activeTab = computed<StoreTab>(() => resolveStoreTab(route.query.tab));
 const isPageActive = ref(true);
@@ -157,7 +167,17 @@ function setActiveTab(tab: StoreTab) {
 }
 
 async function refreshCurrentStore() {
+  if (!formStore.storeId) {
+    feedback.warning("Select a store before refreshing payment data.");
+    return;
+  }
+
   await loadStoreTabData(activeTab.value, formStore.storeId, true);
+  feedback.requestResult({
+    errorMessage: paymentStore.error,
+    successMessage: "Payment data refreshed.",
+    fallbackError: "Failed to refresh payment data.",
+  });
 }
 
 const balances = computed(() => {
@@ -185,6 +205,15 @@ const hasPaymentData = computed(
     payoutsCount.value > 0 ||
     (activeTab.value === "disputes" && paymentStore.hasFetchedDisputes),
 );
+const activeTabError = computed(() => {
+  if (["transactions", "payouts", "disputes"].includes(activeTab.value)) {
+    return paymentStore.error;
+  }
+  if (activeTab.value === "orders") return orderStore.error;
+  if (activeTab.value === "products") return productStore.error;
+  if (activeTab.value === "customers") return customerStore.error;
+  return profileStore.error;
+});
 
 const activeTabLabel = computed(
   () =>
@@ -241,6 +270,10 @@ watch(
   },
   { immediate: true, flush: "post" },
 );
+
+watch([activeTabError, activeTab], ([message]) => {
+  if (message) feedback.error(message, "Store data could not load.");
+});
 </script>
 
 <style scoped>

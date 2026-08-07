@@ -52,7 +52,10 @@
       </div>
       <div v-else class="screen">
         <div class="page-header" style="justify-content: flex-end">
-          <button class="btn btn-secondary">Export</button>
+          <button class="btn btn-secondary" type="button" @click="exportTransactions">
+            <Download />
+            Export
+          </button>
         </div>
 
         <!-- Overview Card -->
@@ -252,8 +255,10 @@
 </template>
 
 <script setup lang="ts">
+import { Download } from "@lucide/vue";
 import { computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
+import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
@@ -266,6 +271,7 @@ const route = useRoute();
 const formStore = useFormStore();
 const paymentStore = usePaymentStore();
 const credentialVault = useCredentialVaultStore();
+const feedback = useStoreFeedback();
 
 const payoutId = Number(route.params.id);
 
@@ -376,6 +382,43 @@ function getOrderName(tx: Transaction) {
   return `#${tx.source_order_id}`;
 }
 
+function exportTransactions() {
+  if (!currentPayout.value) {
+    feedback.warning("Payout details are not ready to export.");
+    return;
+  }
+
+  const rows = currentPayoutTransactions.value.map((transaction) => [
+    transaction.id,
+    transaction.processed_at,
+    getOrderName(transaction) || "",
+    transaction.type,
+    transaction.currency,
+    transaction.amount,
+    transaction.fee,
+    transaction.net,
+  ]);
+  const csv = [
+    ["id", "processed_at", "order", "type", "currency", "amount", "fee", "net"],
+    ...rows,
+  ]
+    .map((row) => row.map(formatCsvCell).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `payout-${currentPayout.value.id}-transactions.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  feedback.success("Payout transactions exported.");
+}
+
+function formatCsvCell(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 function formatMoney(amount: string, currency: string) {
   const numericAmount = Number(amount || 0);
   try {
@@ -464,6 +507,11 @@ function formatMoney(amount: string, currency: string) {
   cursor: pointer;
   border: none;
   transition: all 0.15s;
+}
+.btn svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
 }
 .btn-secondary {
   background: var(--surface, #fff);

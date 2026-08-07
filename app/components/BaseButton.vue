@@ -5,6 +5,7 @@ withDefaults(
   defineProps<{
     variant?: "secondary" | "primary" | "danger" | "danger-ghost" | "ghost";
     size?: "small" | "medium";
+    type?: "button" | "submit" | "reset";
     loading?: boolean;
     iconOnly?: boolean;
     disabled?: boolean;
@@ -12,6 +13,7 @@ withDefaults(
   {
     variant: "secondary",
     size: "small",
+    type: "button",
     loading: false,
     iconOnly: false,
     disabled: false,
@@ -21,7 +23,7 @@ withDefaults(
 
 <template>
   <button
-    type="button"
+    :type="type"
     class="base-button"
     :class="[`is-${variant}`, `is-${size}`, { 'is-icon-only': iconOnly }]"
     :disabled="loading || disabled"

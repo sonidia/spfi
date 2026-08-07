@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { Filter, RotateCcw } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { usePaymentStore } from "~/stores/payment";
 import type {
   ShopifyPayoutFilters,
@@ -12,6 +14,7 @@ import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 const paymentStore = usePaymentStore();
 const router = useRouter();
 const { storeId, token, isReady } = useActiveShopAuth();
+const feedback = useStoreFeedback();
 
 const status = ref<"" | ShopifyPayoutStatus>("");
 const date = ref("");
@@ -21,6 +24,14 @@ const sinceId = ref("");
 const lastId = ref("");
 const currentPage = ref(1);
 const pageSize = ref(20);
+const statusOptions = [
+  { label: "All statuses", value: "" },
+  { label: "Scheduled", value: "scheduled" },
+  { label: "In transit", value: "in_transit" },
+  { label: "Paid", value: "paid" },
+  { label: "Failed", value: "failed" },
+  { label: "Canceled", value: "canceled" },
+];
 
 const sortedPayouts = computed(() =>
   [...paymentStore.visiblePayouts].sort(
@@ -41,8 +52,19 @@ watch(totalPages, (count) => {
   if (currentPage.value > count) currentPage.value = count;
 });
 
-async function applyFilters() {
-  if (!isReady.value) return;
+function setStatus(value: unknown) {
+  status.value =
+    typeof value === "string" &&
+    ["", "scheduled", "in_transit", "paid", "failed", "canceled"].includes(value)
+      ? (value as "" | ShopifyPayoutStatus)
+      : "";
+}
+
+async function applyFilters(successMessage = "Payout filters applied.") {
+  if (!isReady.value) {
+    feedback.warning("Select a store with valid credentials before filtering.");
+    return;
+  }
   const filters: ShopifyPayoutFilters = {
     ...(status.value ? { status: status.value } : {}),
     ...(date.value ? { date: date.value } : {}),
@@ -53,6 +75,11 @@ async function applyFilters() {
   };
   currentPage.value = 1;
   await paymentStore.fetchPayouts(storeId.value, token.value, filters);
+  feedback.requestResult({
+    errorMessage: paymentStore.error,
+    successMessage,
+    fallbackError: "Failed to apply payout filters.",
+  });
 }
 
 async function resetFilters() {
@@ -62,7 +89,7 @@ async function resetFilters() {
   dateMax.value = "";
   sinceId.value = "";
   lastId.value = "";
-  await applyFilters();
+  await applyFilters("Payout filters reset.");
 }
 
 function getPayoutProcessedDate(payoutId: number) {
@@ -110,17 +137,15 @@ function updatePageSize(size: number) {
   <div class="payouts-tab">
     <PaymentAccountSummary />
 
-    <form class="filter-toolbar" @submit.prevent="applyFilters">
+    <form class="filter-toolbar" @submit.prevent="applyFilters()">
       <label>
         <span>Status</span>
-        <select v-model="status">
-          <option value="">All statuses</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="in_transit">In transit</option>
-          <option value="paid">Paid</option>
-          <option value="failed">Failed</option>
-          <option value="canceled">Canceled</option>
-        </select>
+        <BaseSelect
+          class-name="filter-select"
+          :model-value="status"
+          :options="statusOptions"
+          @update:model-value="setStatus"
+        />
       </label>
       <label>
         <span>Exact date</span>
@@ -143,12 +168,22 @@ function updatePageSize(size: number) {
         <input v-model.trim="lastId" inputmode="numeric" placeholder="last_id" />
       </label>
       <div class="filter-actions">
-        <button type="button" class="secondary" @click="resetFilters">
+        <BaseButton type="button" @click="resetFilters">
+          <template #icon>
+            <RotateCcw />
+          </template>
           Reset
-        </button>
-        <button type="submit" :disabled="paymentStore.isLoading">
+        </BaseButton>
+        <BaseButton
+          type="submit"
+          variant="primary"
+          :loading="paymentStore.isLoading"
+        >
+          <template #icon>
+            <Filter />
+          </template>
           {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
-        </button>
+        </BaseButton>
       </div>
     </form>
 
@@ -233,8 +268,7 @@ function updatePageSize(size: number) {
   font-weight: 700;
 }
 
-.filter-toolbar input,
-.filter-toolbar select {
+.filter-toolbar input {
   min-width: 0;
   height: 34px;
   border: 1px solid var(--border);
@@ -246,34 +280,21 @@ function updatePageSize(size: number) {
   font-size: 12px;
 }
 
+.filter-toolbar :deep(.select-trigger) {
+  min-height: 34px;
+  padding: 0 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.filter-toolbar :deep(.selected-label) {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .filter-actions {
   display: flex;
   gap: 6px;
-}
-
-.filter-actions button {
-  height: 34px;
-  border: 0;
-  border-radius: 6px;
-  padding: 0 11px;
-  background: var(--green);
-  color: white;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.filter-actions button.secondary {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-sub);
-}
-
-.filter-actions button:disabled {
-  opacity: 0.55;
-  cursor: wait;
 }
 
 .td-date {
