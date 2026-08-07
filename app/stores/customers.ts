@@ -39,6 +39,7 @@ export const useCustomerStore = defineStore("customers", () => {
   const isLoadingDetail = ref(false);
   const isMutating = ref(false);
   const error = ref<string | null>(null);
+  const activeStoreId = ref("");
   const storeCache = ref<Record<string, CustomerStoreCache>>({});
   let listRequestSequence = 0;
   let detailRequestSequence = 0;
@@ -55,6 +56,7 @@ export const useCustomerStore = defineStore("customers", () => {
       return false;
     }
 
+    activateStore(storeId);
     isLoading.value = true;
     error.value = null;
     const requestId = ++listRequestSequence;
@@ -100,12 +102,17 @@ export const useCustomerStore = defineStore("customers", () => {
     }
   }
 
+  function activateStore(storeId: string) {
+    if (activeStoreId.value !== storeId) hydrate(storeId);
+  }
+
   async function fetchById(storeId: string, token: string, id: string | number) {
     if (!storeId || !token || !id) {
       error.value = "Customer ID, Store ID and Access Token are required.";
       return false;
     }
 
+    activateStore(storeId);
     isLoadingDetail.value = true;
     error.value = null;
     const requestId = ++detailRequestSequence;
@@ -365,9 +372,11 @@ export const useCustomerStore = defineStore("customers", () => {
   }
 
   function hydrate(storeId: string): boolean {
+    activeStoreId.value = storeId;
     const cached = storeCache.value[storeId];
 
     if (!cached) {
+      $reset();
       return false;
     }
 
@@ -417,6 +426,7 @@ export const useCustomerStore = defineStore("customers", () => {
     isLoadingDetail,
     isMutating,
     error,
+    activeStoreId,
     fetchAll,
     fetchById,
     createCustomer,

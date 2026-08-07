@@ -126,36 +126,27 @@
 <script setup lang="ts">
 import { computed, onActivated, onDeactivated, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useCredentialVaultStore } from "~/stores/credentialVault";
-import { useCustomerStore } from "~/stores/customers";
+import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useFormStore } from "~/stores/form";
-import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
-import { useProductStore } from "~/stores/product";
-import { useShopProfileStore } from "~/stores/shopProfile";
-import { isStoreTab, type StoreTab } from "~~/types/store";
+import { resolveStoreTab, type StoreTab } from "~~/types/store";
 
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
-const credentialVault = useCredentialVaultStore();
-const customerStore = useCustomerStore();
 const paymentStore = usePaymentStore();
-const orderStore = useOrderStore();
-const productStore = useProductStore();
-const profileStore = useShopProfileStore();
 const router = useRouter();
 const route = useRoute();
+const { token: activeToken } = useActiveShopAuth();
+const { loadStoreTabData } = useStoreTabData();
 
-const activeTab = ref<StoreTab>(
-  isStoreTab(route.query.tab) ? route.query.tab : "profile",
-);
+const activeTab = computed<StoreTab>(() => resolveStoreTab(route.query.tab));
 const isPageActive = ref(true);
 
 function setActiveTab(tab: StoreTab) {
-  activeTab.value = tab;
   const cookieShop = useLocalStorage("active_store_id", "").state.value;
-  router.replace({
+  void router.replace({
     path: "/store",
     query: {
       ...route.query,
@@ -166,32 +157,7 @@ function setActiveTab(tab: StoreTab) {
 }
 
 async function refreshCurrentStore() {
-  if (!formStore.storeId) {
-    return;
-  }
-
-  const token = resolveToken(formStore.storeId);
-
-  if (token) {
-    await paymentStore.fetchAll(formStore.storeId, token, true);
-  }
-}
-
-function loadProfileTabData(storeId: string, token: string) {
-  if (!profileStore.hasFetchedProfile || profileStore.error) {
-    profileStore.fetchProfile(storeId, token);
-  }
-  if (!paymentStore.hasFetchedAll || paymentStore.error) {
-    paymentStore.fetchAll(storeId, token);
-  } else if (
-    !paymentStore.hasFetchedBalanceTransactions ||
-    paymentStore.error
-  ) {
-    paymentStore.fetchBalanceTransactions(storeId, token);
-  }
-  if (!orderStore.hasFetchedAll || orderStore.error) {
-    orderStore.fetchAll(storeId, token);
-  }
+  await loadStoreTabData(activeTab.value, formStore.storeId, true);
 }
 
 const balances = computed(() => {
@@ -204,9 +170,6 @@ const transactionsCount = computed(
   () => paymentStore.balanceTransactions.length,
 );
 const payoutsCount = computed(() => paymentStore.payouts.length);
-const ordersCount = computed(() => orderStore.orders.length);
-const productsCount = computed(() => productStore.products.length);
-const customersCount = computed(() => customerStore.customers.length);
 const isPaymentTab = computed(() =>
   ["transactions", "payouts", "disputes"].includes(activeTab.value),
 );
@@ -220,9 +183,7 @@ const hasPaymentData = computed(
     balances.value.length > 0 ||
     transactionsCount.value > 0 ||
     payoutsCount.value > 0 ||
-    (activeTab.value === "disputes" && paymentStore.hasFetchedDisputes) ||
-    ordersCount.value > 0 ||
-    productsCount.value > 0,
+    (activeTab.value === "disputes" && paymentStore.hasFetchedDisputes),
 );
 
 const activeTabLabel = computed(
@@ -273,108 +234,13 @@ onDeactivated(() => {
 });
 
 watch(
-  () => formStore.storeId,
-  () => {
-    if (!isPageActive.value) return;
-
-    if (formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (token && activeTab.value === "products") {
-        productStore.fetchAll(formStore.storeId, token);
-      }
-      if (token && activeTab.value === "customers") {
-        customerStore.fetchAll(
-          formStore.storeId,
-          token,
-          customerStore.activeQuery,
-        );
-      }
-      if (token && activeTab.value === "profile") {
-        loadProfileTabData(formStore.storeId, token);
-      }
-    }
+  [() => formStore.storeId, activeTab, activeToken, isPageActive],
+  async ([storeId, tab, , pageActive]) => {
+    if (!pageActive || !storeId) return;
+    await loadStoreTabData(tab, storeId);
   },
+  { immediate: true, flush: "post" },
 );
-
-watch(
-  activeTab,
-  async (newTab) => {
-    if (!isPageActive.value) return;
-
-    let paymentRequest: Promise<void> | null = null;
-    if (isPaymentTab.value && formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (token && (!paymentStore.hasFetchedAll || paymentStore.error)) {
-        paymentRequest = paymentStore.fetchAll(formStore.storeId, token);
-      } else if (
-        token &&
-        (!paymentStore.hasFetchedBalanceTransactions || paymentStore.error)
-      ) {
-        paymentRequest = paymentStore.fetchBalanceTransactions(
-          formStore.storeId,
-          token,
-        );
-      }
-    }
-    if (newTab === "orders" && formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (token && (!orderStore.orders.length || orderStore.error)) {
-        orderStore.fetchAll(formStore.storeId, token);
-      }
-    }
-    if (newTab === "disputes" && formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (paymentRequest) await paymentRequest;
-      if (activeTab.value !== "disputes") return;
-      if (
-        token &&
-        (!paymentStore.hasFetchedDisputes || paymentStore.error)
-      ) {
-        await paymentStore.fetchDisputes(formStore.storeId, token);
-      }
-    }
-    if (newTab === "products" && formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (token && (!productStore.products.length || productStore.error)) {
-        productStore.fetchAll(formStore.storeId, token);
-      }
-    }
-    if (newTab === "customers" && formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (token && (!customerStore.hasFetchedAll || customerStore.error)) {
-        customerStore.fetchAll(
-          formStore.storeId,
-          token,
-          customerStore.activeQuery,
-        );
-      }
-    }
-    if (newTab === "profile" && formStore.storeId) {
-      const token = resolveToken(formStore.storeId);
-      if (token) {
-        loadProfileTabData(formStore.storeId, token);
-      }
-    }
-  },
-  { immediate: true },
-);
-
-watch(
-  () => route.query.tab,
-  (tab) => {
-    const nextTab = isStoreTab(tab) ? tab : "transactions";
-    if (nextTab !== activeTab.value) activeTab.value = nextTab;
-  },
-);
-
-function resolveToken(sid: string): string | null {
-  const data = credentialVault.getStoreData(sid);
-  const now = Date.now();
-  if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
-    return data.accessToken;
-  }
-  return null;
-}
 </script>
 
 <style scoped>

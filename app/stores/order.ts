@@ -33,6 +33,7 @@ export const useOrderStore = defineStore("order", () => {
   const mutationError = ref<string | null>(null);
   const riskError = ref<string | null>(null);
   const activeStoreId = ref("");
+  let storeScopeVersion = 0;
   const currentPage = ref(1);
   const pageSize = ref(20);
   const storeCache = ref<
@@ -76,6 +77,7 @@ export const useOrderStore = defineStore("order", () => {
     }
 
     activateStore(storeId);
+    const requestScope = storeScopeVersion;
     if (!force && hasFetchedAll.value) return;
 
     isLoading.value = true;
@@ -83,6 +85,7 @@ export const useOrderStore = defineStore("order", () => {
 
     try {
       const response = await orderApi.list({ storeId, token }, query);
+      if (!isActiveRequest(storeId, requestScope)) return;
 
       storeCache.value[storeId] = {
         orders: response.orders || (response.order ? [response.order] : []),
@@ -91,17 +94,15 @@ export const useOrderStore = defineStore("order", () => {
         currentPage: force ? 1 : currentPage.value,
         pageSize: pageSize.value,
       };
-      if (activeStoreId.value === storeId) {
-        orders.value = [...storeCache.value[storeId].orders];
-        hasFetchedAll.value = true;
-        if (force) currentPage.value = 1;
-      }
+      orders.value = [...storeCache.value[storeId].orders];
+      hasFetchedAll.value = true;
+      if (force) currentPage.value = 1;
     } catch (err) {
-      if (activeStoreId.value === storeId) {
+      if (isActiveRequest(storeId, requestScope)) {
         error.value = getAppErrorMessage(err, "Failed to fetch order data.");
       }
     } finally {
-      if (activeStoreId.value === storeId) {
+      if (isActiveRequest(storeId, requestScope)) {
         isLoading.value = false;
       }
     }
@@ -117,13 +118,14 @@ export const useOrderStore = defineStore("order", () => {
     if (!storeId || !token || !id) return;
 
     activateStore(storeId);
+    const requestScope = storeScopeVersion;
     isLoading.value = true;
     error.value = null;
 
     try {
       const response = await orderApi.get({ storeId, token }, id);
 
-      if (response.order && activeStoreId.value === storeId) {
+      if (response.order && isActiveRequest(storeId, requestScope)) {
         const index = orders.value.findIndex(
           (order) => order.id?.toString() === id,
         );
@@ -135,11 +137,11 @@ export const useOrderStore = defineStore("order", () => {
         rememberStore(storeId);
       }
     } catch (err) {
-      if (activeStoreId.value === storeId) {
+      if (isActiveRequest(storeId, requestScope)) {
         error.value = getAppErrorMessage(err, "Failed to fetch order detail.");
       }
     } finally {
-      if (activeStoreId.value === storeId) {
+      if (isActiveRequest(storeId, requestScope)) {
         isLoading.value = false;
       }
     }
@@ -147,6 +149,7 @@ export const useOrderStore = defineStore("order", () => {
 
   function hydrate(storeId: string): boolean {
     activeStoreId.value = storeId;
+    storeScopeVersion += 1;
     const cached = storeCache.value[storeId];
     if (!cached) {
       $reset();
@@ -159,6 +162,12 @@ export const useOrderStore = defineStore("order", () => {
     pageSize.value = cached.pageSize;
     error.value = null;
     return true;
+  }
+
+  function isActiveRequest(storeId: string, requestScope: number) {
+    return (
+      activeStoreId.value === storeId && storeScopeVersion === requestScope
+    );
   }
 
   function setPage(page: number) {
@@ -177,18 +186,24 @@ export const useOrderStore = defineStore("order", () => {
     token: string,
     query: OrderCountQuery = { status: "any" },
   ) {
+    if (!storeId || !token) return null;
+
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     try {
       const response = await orderApi.count({ storeId, token }, query);
-      if (activeStoreId.value === storeId) {
+      if (isActiveRequest(storeId, requestScope)) {
         orderCount.value = response.count;
         rememberStore(storeId);
       }
       return response.count;
     } catch (err) {
-      mutationError.value = getAppErrorMessage(
-        err,
-        "Failed to fetch the order count.",
-      );
+      if (isActiveRequest(storeId, requestScope)) {
+        mutationError.value = getAppErrorMessage(
+          err,
+          "Failed to fetch the order count.",
+        );
+      }
       return null;
     }
   }

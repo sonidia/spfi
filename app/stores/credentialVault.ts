@@ -106,6 +106,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
   const isUnlocked = ref(true);
   const isBusy = ref(false);
   const error = ref<string | null>(null);
+  const storeDataRevision = ref(0);
   const trackingSettings = ref<TrackingProviderSettings>(
     emptyTrackingSettings(),
   );
@@ -127,11 +128,13 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
 
   function getPublicStoreData(storeId: string): StoreLocalData {
     ensureInitialized();
+    void storeDataRevision.value;
     return readStoredShop(storeId);
   }
 
   function getStoreData(storeId: string): StoreLocalData {
     ensureInitialized();
+    void storeDataRevision.value;
     return readStoredShop(storeId);
   }
 
@@ -148,6 +151,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
   async function saveStoreData(storeId: string, data: StoreLocalData) {
     ensureInitialized();
     writeStoredShop(storeId, data);
+    storeDataRevision.value += 1;
   }
 
   async function patchStoreData(
@@ -159,6 +163,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
       ...readStoredShop(storeId),
       ...patch,
     });
+    storeDataRevision.value += 1;
   }
 
   function removeStoreData(storeId: string) {
@@ -167,6 +172,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
       localStorage.removeItem(storeId);
       const remainingStores = readKnownStores().filter((id) => id !== storeId);
       localStorage.setItem(KNOWN_STORES_KEY, JSON.stringify(remainingStores));
+      storeDataRevision.value += 1;
     }
   }
 

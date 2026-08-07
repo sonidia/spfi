@@ -1,4 +1,4 @@
-﻿import { defineStore } from "pinia";
+import { defineStore } from "pinia";
 import { ref } from "vue";
 import type {
   PaymentsOverviewResponse,
@@ -47,6 +47,8 @@ export const usePaymentStore = defineStore("payment", () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const graphqlWarning = ref<string | null>(null);
+  const activeStoreId = ref("");
+  let storeScopeVersion = 0;
 
   const storeCache = ref<
     Record<
@@ -72,6 +74,7 @@ export const usePaymentStore = defineStore("payment", () => {
   >({});
 
   function rememberStore(storeId: string) {
+    if (activeStoreId.value !== storeId) return;
     storeCache.value[storeId] = {
       balance: balance.value,
       payouts: [...payouts.value],
@@ -97,6 +100,8 @@ export const usePaymentStore = defineStore("payment", () => {
       return;
     }
 
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     if (!force && hasFetchedAll.value) return;
 
     isLoading.value = true;
@@ -122,6 +127,8 @@ export const usePaymentStore = defineStore("payment", () => {
             },
           ),
         ]);
+
+      if (!isActiveRequest(storeId, requestScope)) return;
 
       if (overviewResult.status === "rejected") throw overviewResult.reason;
       const response = overviewResult.value;
@@ -175,10 +182,22 @@ export const usePaymentStore = defineStore("payment", () => {
       hasFetchedBalanceTransactions.value = true;
       rememberStore(storeId);
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to fetch payment data.");
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(err, "Failed to fetch payment data.");
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
+  }
+
+  function activateStore(storeId: string) {
+    if (activeStoreId.value !== storeId) hydrate(storeId);
+  }
+
+  function isActiveRequest(storeId: string, requestScope: number) {
+    return (
+      activeStoreId.value === storeId && storeScopeVersion === requestScope
+    );
   }
 
   async function fetchPaymentsAccount(
@@ -190,6 +209,8 @@ export const usePaymentStore = defineStore("payment", () => {
       error.value = "Store ID and Access Token are required.";
       return;
     }
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     if (!force && paymentsAccount.value) return;
 
     try {
@@ -200,14 +221,17 @@ export const usePaymentStore = defineStore("payment", () => {
           body: { storeId, token },
         },
       );
+      if (!isActiveRequest(storeId, requestScope)) return;
       applyPaymentsAccountResponse(response);
       graphqlWarning.value = null;
       rememberStore(storeId);
     } catch (err) {
-      graphqlWarning.value = getAppErrorMessage(
-        err,
-        "Shopify Payments account details are unavailable.",
-      );
+      if (isActiveRequest(storeId, requestScope)) {
+        graphqlWarning.value = getAppErrorMessage(
+          err,
+          "Shopify Payments account details are unavailable.",
+        );
+      }
     }
   }
 
@@ -221,6 +245,8 @@ export const usePaymentStore = defineStore("payment", () => {
       return;
     }
 
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     isLoading.value = true;
     error.value = null;
 
@@ -233,6 +259,7 @@ export const usePaymentStore = defineStore("payment", () => {
             body: { storeId, token, filters },
           },
         );
+      if (!isActiveRequest(storeId, requestScope)) return;
       visibleBalanceTransactions.value = response.transactions || [];
       if (!hasActiveFilters(filters)) {
         balanceTransactions.value = [...visibleBalanceTransactions.value];
@@ -244,12 +271,14 @@ export const usePaymentStore = defineStore("payment", () => {
       graphqlWarning.value = null;
       rememberStore(storeId);
     } catch (err) {
-      error.value = getAppErrorMessage(
-        err,
-        "Failed to load Shopify Payments transactions.",
-      );
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(
+          err,
+          "Failed to load Shopify Payments transactions.",
+        );
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
   }
 
@@ -263,6 +292,8 @@ export const usePaymentStore = defineStore("payment", () => {
       return;
     }
 
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     isLoading.value = true;
     error.value = null;
 
@@ -274,6 +305,7 @@ export const usePaymentStore = defineStore("payment", () => {
           body: { storeId, token, filters },
         },
       );
+      if (!isActiveRequest(storeId, requestScope)) return;
       visibleDisputes.value = response.disputes || [];
       if (!hasActiveFilters(filters)) {
         disputes.value = [...visibleDisputes.value];
@@ -281,12 +313,14 @@ export const usePaymentStore = defineStore("payment", () => {
       hasFetchedDisputes.value = true;
       rememberStore(storeId);
     } catch (err) {
-      error.value = getAppErrorMessage(
-        err,
-        "Failed to load Shopify Payments disputes.",
-      );
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(
+          err,
+          "Failed to load Shopify Payments disputes.",
+        );
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
   }
 
@@ -301,6 +335,8 @@ export const usePaymentStore = defineStore("payment", () => {
       return;
     }
 
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     if (!force && hasFetchedBalanceTransactions.value) return;
 
     isLoading.value = true;
@@ -314,6 +350,7 @@ export const usePaymentStore = defineStore("payment", () => {
           body: { storeId, token, filters },
         },
       );
+      if (!isActiveRequest(storeId, requestScope)) return;
       const transactions = (res.transactions || []).filter(
         (transaction) => transaction.type !== "payout",
       );
@@ -325,9 +362,11 @@ export const usePaymentStore = defineStore("payment", () => {
       hasFetchedBalanceTransactions.value = true;
       rememberStore(storeId);
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to load transactions");
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(err, "Failed to load transactions");
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
   }
 
@@ -341,6 +380,8 @@ export const usePaymentStore = defineStore("payment", () => {
       return;
     }
 
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     isLoading.value = true;
     error.value = null;
 
@@ -352,15 +393,18 @@ export const usePaymentStore = defineStore("payment", () => {
           body: { storeId, token, filters },
         },
       );
+      if (!isActiveRequest(storeId, requestScope)) return;
       visiblePayouts.value = response.payouts || [];
       if (!hasActiveFilters(filters)) {
         payouts.value = [...visiblePayouts.value];
       }
       rememberStore(storeId);
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to load payouts.");
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(err, "Failed to load payouts.");
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
   }
 
@@ -374,6 +418,13 @@ export const usePaymentStore = defineStore("payment", () => {
     payoutId: number,
     force = false,
   ) {
+    if (!storeId || !token) {
+      error.value = "Store ID and Access Token are required.";
+      return;
+    }
+
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     if (
       !force &&
       payoutDetails.value[String(payoutId)] &&
@@ -392,6 +443,8 @@ export const usePaymentStore = defineStore("payment", () => {
           params: { storeId, token },
         },
       );
+
+      if (!isActiveRequest(storeId, requestScope)) return;
 
       if (response.payout) {
         payoutDetails.value[String(payoutId)] = response.payout;
@@ -425,15 +478,22 @@ export const usePaymentStore = defineStore("payment", () => {
 
       rememberStore(storeId);
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to fetch payout detail.");
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(err, "Failed to fetch payout detail.");
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
   }
 
   function hydrate(storeId: string): boolean {
+    activeStoreId.value = storeId;
+    storeScopeVersion += 1;
     const cached = storeCache.value[storeId];
-    if (!cached) return false;
+    if (!cached) {
+      $reset();
+      return false;
+    }
     balance.value = cached.balance;
     payouts.value = [...cached.payouts];
     visiblePayouts.value = [
@@ -531,6 +591,7 @@ export const usePaymentStore = defineStore("payment", () => {
     isLoading,
     error,
     graphqlWarning,
+    activeStoreId,
     fetchAll,
     fetchPayouts,
     fetchBalanceTransactions,

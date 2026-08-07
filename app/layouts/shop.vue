@@ -11,15 +11,16 @@ import {
   useSheetService,
   type ProxySheetRow,
 } from "~/composables/useSheetService";
+import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
+import { resolveStoreTab } from "~~/types/store";
 import { getAppErrorMessage } from "~~/utils/error";
 import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 import { useLoading } from "../composables/useLoading";
 import { useCustomerStore } from "../stores/customers";
 import { useFormStore } from "../stores/form";
-import { useLocationStore } from "../stores/locations";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
 import { useProductStore } from "../stores/product";
@@ -30,13 +31,13 @@ const { SPF_SHEET_URL } = getSheetUrls();
 const formStore = useFormStore();
 const credentialVault = useCredentialVaultStore();
 const customerStore = useCustomerStore();
-const locationStore = useLocationStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
 const shopProfileStore = useShopProfileStore();
 const route = useRoute();
 const router = useRouter();
+const { hydrateStoreData, loadStoreTabData } = useStoreTabData();
 
 const { loading: globalLoading } = useLoading();
 const isLayoutActive = ref(true);
@@ -147,26 +148,6 @@ watch(
 );
 
 // ── Shop selector ────────────────────────────────────────────────────────────
-function hydrateStoreData(storeId: string) {
-  const hasOrders = orderStore.hydrate(storeId);
-  if (!hasOrders) orderStore.$reset();
-
-  const hasPayments = paymentStore.hydrate(storeId);
-  if (!hasPayments) paymentStore.$reset();
-
-  const hasProducts = productStore.hydrate(storeId);
-  if (!hasProducts) productStore.$reset();
-
-  const hasLocations = locationStore.hydrate(storeId);
-  if (!hasLocations) locationStore.$reset();
-
-  const hasCustomers = customerStore.hydrate(storeId);
-  if (!hasCustomers) customerStore.$reset();
-
-  const hasShopProfile = shopProfileStore.hydrate(storeId);
-  if (!hasShopProfile) shopProfileStore.$reset();
-}
-
 function getRouteShop() {
   const queryShop = route.query.shop;
 
@@ -235,6 +216,14 @@ function resolveToken(sid: string): string | null {
 function fetchCurrent(force = false) {
   const sid = formStore.storeId;
   if (!sid) return;
+
+  if (route.path === "/store") {
+    if (force) {
+      void loadStoreTabData(resolveStoreTab(route.query.tab), sid, true);
+    }
+    return;
+  }
+
   const token = resolveToken(sid);
 
   if (!token) {
@@ -259,29 +248,6 @@ function fetchCurrent(force = false) {
     const idMatch = route.path.match(/\/order\/(\d+)/);
     if (idMatch && idMatch[1]) {
       orderStore.fetchById(sid, token, idMatch[1], force);
-    }
-  } else if (route.path === "/store") {
-    if (route.query.tab === "customers") {
-      customerStore.fetchAll(sid, token, customerStore.activeQuery);
-    } else if (route.query.tab === "profile") {
-      shopProfileStore.fetchProfile(sid, token);
-      if (force || !paymentStore.hasFetchedAll) {
-        paymentStore.fetchAll(sid, token, force);
-      }
-      paymentStore.fetchBalanceTransactions(sid, token, force);
-      if (force || !orderStore.hasFetchedAll) {
-        orderStore.fetchAll(sid, token, force);
-      }
-    } else if (route.query.tab === "products") {
-      productStore.fetchAll(sid, token);
-    } else if (route.query.tab === "orders") {
-      orderStore.fetchAll(sid, token, force);
-      paymentStore.fetchBalanceTransactions(sid, token, force);
-    } else {
-      if (force || !paymentStore.hasFetchedAll) {
-        paymentStore.fetchAll(sid, token, force);
-      }
-      paymentStore.fetchBalanceTransactions(sid, token, force);
     }
   } else if (route.path.startsWith("/store/payout/")) {
     const idMatch = route.path.match(/\/store\/payout\/(\d+)/);

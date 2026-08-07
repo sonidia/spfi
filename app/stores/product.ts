@@ -1,4 +1,4 @@
-﻿import { defineStore } from "pinia";
+import { defineStore } from "pinia";
 import { ref } from "vue";
 import type {
   ProductsResponse,
@@ -12,6 +12,8 @@ export const useProductStore = defineStore("product", () => {
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const activeStoreId = ref("");
+  let storeScopeVersion = 0;
   const storeCache = ref<
     Record<string, { products: ShopifyProduct[]; hasFetchedAll: boolean }>
   >({});
@@ -22,6 +24,8 @@ export const useProductStore = defineStore("product", () => {
       return;
     }
 
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
     isLoading.value = true;
     error.value = null;
 
@@ -31,17 +35,32 @@ export const useProductStore = defineStore("product", () => {
         body: { storeId, token, limit },
       });
 
-      products.value = response.products || [];
-      hasFetchedAll.value = true;
+      const nextProducts = response.products || [];
       storeCache.value[storeId] = {
-        products: [...products.value],
-        hasFetchedAll: hasFetchedAll.value,
+        products: [...nextProducts],
+        hasFetchedAll: true,
       };
+      if (isActiveRequest(storeId, requestScope)) {
+        products.value = nextProducts;
+        hasFetchedAll.value = true;
+      }
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to fetch product data.");
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(err, "Failed to fetch product data.");
+      }
     } finally {
-      isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
+  }
+
+  function activateStore(storeId: string) {
+    if (activeStoreId.value !== storeId) hydrate(storeId);
+  }
+
+  function isActiveRequest(storeId: string, requestScope: number) {
+    return (
+      activeStoreId.value === storeId && storeScopeVersion === requestScope
+    );
   }
 
   async function createProduct(
@@ -111,8 +130,13 @@ export const useProductStore = defineStore("product", () => {
   }
 
   function hydrate(storeId: string): boolean {
+    activeStoreId.value = storeId;
+    storeScopeVersion += 1;
     const cached = storeCache.value[storeId];
-    if (!cached) return false;
+    if (!cached) {
+      $reset();
+      return false;
+    }
     products.value = [...cached.products];
     hasFetchedAll.value = cached.hasFetchedAll;
     error.value = null;
@@ -131,6 +155,7 @@ export const useProductStore = defineStore("product", () => {
     hasFetchedAll,
     isLoading,
     error,
+    activeStoreId,
     fetchAll,
     createProduct,
     updateProduct,
