@@ -7,6 +7,7 @@ import type {
   ShopifyPayoutStatus,
 } from "~~/types/shopify-payment";
 import { capitalize, fmtDate } from "~~/helpers";
+import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 const paymentStore = usePaymentStore();
 const router = useRouter();
@@ -73,6 +74,10 @@ function getPayoutProcessedDate(payoutId: number) {
   return charge ? fmtDate(charge.processed_at) : "—";
 }
 
+function getPayoutMetadata(payoutId: number) {
+  return paymentStore.payoutMetadata[String(payoutId)] || null;
+}
+
 function statusBadge(statusValue: string) {
   if (statusValue === "paid") return "badge-paid";
   if (statusValue === "in_transit") return "badge-in-transit";
@@ -103,6 +108,8 @@ function updatePageSize(size: number) {
 
 <template>
   <div class="payouts-tab">
+    <PaymentAccountSummary />
+
     <form class="filter-toolbar" @submit.prevent="applyFilters">
       <label>
         <span>Status</span>
@@ -150,6 +157,9 @@ function updatePageSize(size: number) {
         <tr>
           <th>Payout date</th>
           <th>Status</th>
+          <th>Direction</th>
+          <th>Business entity</th>
+          <th>Bank trace</th>
           <th>Transaction date</th>
           <th class="right">Amount</th>
         </tr>
@@ -165,6 +175,19 @@ function updatePageSize(size: number) {
             <span class="badge" :class="statusBadge(payout.status)">
               {{ payout.status === "paid" ? "Deposited" : capitalize(payout.status) }}
             </span>
+          </td>
+          <td>
+            {{
+              formatShopifyPaymentLabel(
+                getPayoutMetadata(payout.id)?.transactionType,
+              ) || "—"
+            }}
+          </td>
+          <td>
+            {{ getPayoutMetadata(payout.id)?.businessEntity.displayName || "—" }}
+          </td>
+          <td class="trace-id">
+            {{ getPayoutMetadata(payout.id)?.externalTraceId || "—" }}
           </td>
           <td class="td-date">{{ getPayoutProcessedDate(payout.id) }}</td>
           <td class="right td-net">
@@ -261,6 +284,14 @@ function updatePageSize(size: number) {
 .td-net {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.trace-id {
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  color: var(--text-sub);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
 }
 
 @media (max-width: 1180px) {

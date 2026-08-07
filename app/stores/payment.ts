@@ -11,6 +11,16 @@ import type {
   ShopifyBalanceTransactionFilters,
   ShopifyPayoutFilters,
 } from "~~/types/shopify-payment";
+import type {
+  ShopifyPaymentsAccount,
+  ShopifyPaymentsAccountResponse,
+  ShopifyPaymentsBalanceTransactionSearchFilters,
+  ShopifyPaymentsDispute,
+  ShopifyPaymentsDisputeFilters,
+  ShopifyPaymentsDisputesResponse,
+  ShopifyPaymentsGraphqlTransactionsResponse,
+  ShopifyPaymentsPayoutMetadata,
+} from "~~/types/shopify-payments-graphql";
 import { getAppErrorMessage } from "~~/utils/error";
 
 export type Payout = ShopifyPayout;
@@ -22,15 +32,21 @@ export const usePaymentStore = defineStore("payment", () => {
   const payouts = ref<Payout[]>([]);
   const visiblePayouts = ref<Payout[]>([]);
   const payoutDetails = ref<Record<string, Payout>>({});
+  const paymentsAccount = ref<ShopifyPaymentsAccount | null>(null);
+  const payoutMetadata = ref<Record<string, ShopifyPaymentsPayoutMetadata>>({});
   const transactionsByPayout = ref<Record<string, Transaction[]>>({});
 
   const balanceTransactions = ref<Transaction[]>([]);
   const visibleBalanceTransactions = ref<Transaction[]>([]);
+  const disputes = ref<ShopifyPaymentsDispute[]>([]);
+  const visibleDisputes = ref<ShopifyPaymentsDispute[]>([]);
   const hasFetchedAll = ref(false);
   const hasFetchedBalanceTransactions = ref(false);
+  const hasFetchedDisputes = ref(false);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const graphqlWarning = ref<string | null>(null);
 
   const storeCache = ref<
     Record<
@@ -40,11 +56,17 @@ export const usePaymentStore = defineStore("payment", () => {
         payouts: Payout[];
         visiblePayouts: Payout[];
         payoutDetails: Record<string, Payout>;
+        paymentsAccount: ShopifyPaymentsAccount | null;
+        payoutMetadata: Record<string, ShopifyPaymentsPayoutMetadata>;
         transactionsByPayout: Record<string, Transaction[]>;
         balanceTransactions: Transaction[];
         visibleBalanceTransactions: Transaction[];
+        disputes: ShopifyPaymentsDispute[];
+        visibleDisputes: ShopifyPaymentsDispute[];
         hasFetchedAll: boolean;
         hasFetchedBalanceTransactions: boolean;
+        hasFetchedDisputes: boolean;
+        graphqlWarning: string | null;
       }
     >
   >({});
@@ -55,11 +77,17 @@ export const usePaymentStore = defineStore("payment", () => {
       payouts: [...payouts.value],
       visiblePayouts: [...visiblePayouts.value],
       payoutDetails: { ...payoutDetails.value },
+      paymentsAccount: paymentsAccount.value,
+      payoutMetadata: { ...payoutMetadata.value },
       transactionsByPayout: { ...transactionsByPayout.value },
       balanceTransactions: [...balanceTransactions.value],
       visibleBalanceTransactions: [...visibleBalanceTransactions.value],
+      disputes: [...disputes.value],
+      visibleDisputes: [...visibleDisputes.value],
       hasFetchedAll: hasFetchedAll.value,
       hasFetchedBalanceTransactions: hasFetchedBalanceTransactions.value,
+      hasFetchedDisputes: hasFetchedDisputes.value,
+      graphqlWarning: graphqlWarning.value,
     };
   }
 
@@ -73,26 +101,190 @@ export const usePaymentStore = defineStore("payment", () => {
 
     isLoading.value = true;
     error.value = null;
+    graphqlWarning.value = null;
 
     try {
-      const response = await $fetch<PaymentsOverviewResponse>("/api/payment/all", {
-        method: "POST",
-        body: { storeId, token },
-      });
+      const [overviewResult, accountResult, graphqlTransactionsResult] =
+        await Promise.allSettled([
+          $fetch<PaymentsOverviewResponse>("/api/payment/all", {
+            method: "POST",
+            body: { storeId, token },
+          }),
+          $fetch<ShopifyPaymentsAccountResponse>("/api/payment/account", {
+            method: "POST",
+            body: { storeId, token },
+          }),
+          $fetch<ShopifyPaymentsGraphqlTransactionsResponse>(
+            "/api/payment/graphql-balance-transactions",
+            {
+              method: "POST",
+              body: { storeId, token, filters: {} },
+            },
+          ),
+        ]);
 
-      balance.value = response.balance || null;
+      if (overviewResult.status === "rejected") throw overviewResult.reason;
+      const response = overviewResult.value;
+
       payouts.value = response.payouts || [];
       visiblePayouts.value = [...payouts.value];
-      transactionsByPayout.value = response.transactionsByPayout || {};
-      balanceTransactions.value = (response.balanceTransactions || []).filter(
+      const restTransactions = (response.balanceTransactions || []).filter(
+        (transaction) => transaction.type !== "payout",
+      );
+
+      if (accountResult.status === "fulfilled") {
+        applyPaymentsAccountResponse(accountResult.value);
+      } else {
+        balance.value = response.balance || null;
+      }
+
+      const preferredTransactions =
+        graphqlTransactionsResult.status === "fulfilled"
+          ? graphqlTransactionsResult.value.transactions
+          : restTransactions;
+      balanceTransactions.value = preferredTransactions.filter(
         (transaction) => transaction.type !== "payout",
       );
       visibleBalanceTransactions.value = [...balanceTransactions.value];
+      transactionsByPayout.value = groupByPayout(
+        graphqlTransactionsResult.status === "fulfilled"
+          ? graphqlTransactionsResult.value.transactions
+          : response.balanceTransactions || [],
+      );
+
+      const warnings: string[] = [];
+      if (accountResult.status === "rejected") {
+        warnings.push(
+          getAppErrorMessage(
+            accountResult.reason,
+            "Shopify Payments account details are unavailable.",
+          ),
+        );
+      }
+      if (graphqlTransactionsResult.status === "rejected") {
+        warnings.push(
+          getAppErrorMessage(
+            graphqlTransactionsResult.reason,
+            "GraphQL transaction enrichment is unavailable; showing REST data.",
+          ),
+        );
+      }
+      graphqlWarning.value = warnings.length ? warnings.join(" ") : null;
+
       hasFetchedAll.value = true;
       hasFetchedBalanceTransactions.value = true;
       rememberStore(storeId);
     } catch (err) {
       error.value = getAppErrorMessage(err, "Failed to fetch payment data.");
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function fetchPaymentsAccount(
+    storeId: string,
+    token: string,
+    force = false,
+  ) {
+    if (!storeId || !token) {
+      error.value = "Store ID and Access Token are required.";
+      return;
+    }
+    if (!force && paymentsAccount.value) return;
+
+    try {
+      const response = await $fetch<ShopifyPaymentsAccountResponse>(
+        "/api/payment/account",
+        {
+          method: "POST",
+          body: { storeId, token },
+        },
+      );
+      applyPaymentsAccountResponse(response);
+      graphqlWarning.value = null;
+      rememberStore(storeId);
+    } catch (err) {
+      graphqlWarning.value = getAppErrorMessage(
+        err,
+        "Shopify Payments account details are unavailable.",
+      );
+    }
+  }
+
+  async function fetchGraphqlBalanceTransactions(
+    storeId: string,
+    token: string,
+    filters: ShopifyPaymentsBalanceTransactionSearchFilters = {},
+  ) {
+    if (!storeId || !token) {
+      error.value = "Store ID and Access Token are required.";
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const response =
+        await $fetch<ShopifyPaymentsGraphqlTransactionsResponse>(
+          "/api/payment/graphql-balance-transactions",
+          {
+            method: "POST",
+            body: { storeId, token, filters },
+          },
+        );
+      visibleBalanceTransactions.value = response.transactions || [];
+      if (!hasActiveFilters(filters)) {
+        balanceTransactions.value = [...visibleBalanceTransactions.value];
+        transactionsByPayout.value = groupByPayout(
+          visibleBalanceTransactions.value,
+        );
+      }
+      hasFetchedBalanceTransactions.value = true;
+      graphqlWarning.value = null;
+      rememberStore(storeId);
+    } catch (err) {
+      error.value = getAppErrorMessage(
+        err,
+        "Failed to load Shopify Payments transactions.",
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function fetchDisputes(
+    storeId: string,
+    token: string,
+    filters: ShopifyPaymentsDisputeFilters = {},
+  ) {
+    if (!storeId || !token) {
+      error.value = "Store ID and Access Token are required.";
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const response = await $fetch<ShopifyPaymentsDisputesResponse>(
+        "/api/payment/dispute/all",
+        {
+          method: "POST",
+          body: { storeId, token, filters },
+        },
+      );
+      visibleDisputes.value = response.disputes || [];
+      if (!hasActiveFilters(filters)) {
+        disputes.value = [...visibleDisputes.value];
+      }
+      hasFetchedDisputes.value = true;
+      rememberStore(storeId);
+    } catch (err) {
+      error.value = getAppErrorMessage(
+        err,
+        "Failed to load Shopify Payments disputes.",
+      );
     } finally {
       isLoading.value = false;
     }
@@ -212,7 +404,24 @@ export const usePaymentStore = defineStore("payment", () => {
         }
       }
 
-      transactionsByPayout.value[String(payoutId)] = response.transactions ?? [];
+      const enrichedById = new Map(
+        balanceTransactions.value.map((transaction) => [
+          String(transaction.id),
+          transaction,
+        ]),
+      );
+      transactionsByPayout.value[String(payoutId)] = (
+        response.transactions ?? []
+      ).map((transaction) => {
+        const enriched = enrichedById.get(String(transaction.id));
+        return enriched
+          ? {
+              ...transaction,
+              source_order_name:
+                enriched.source_order_name || transaction.source_order_name,
+            }
+          : transaction;
+      });
 
       rememberStore(storeId);
     } catch (err) {
@@ -231,14 +440,22 @@ export const usePaymentStore = defineStore("payment", () => {
       ...(cached.visiblePayouts || cached.payouts),
     ];
     payoutDetails.value = { ...cached.payoutDetails };
+    paymentsAccount.value = cached.paymentsAccount || null;
+    payoutMetadata.value = { ...(cached.payoutMetadata || {}) };
     transactionsByPayout.value = { ...cached.transactionsByPayout };
     balanceTransactions.value = [...cached.balanceTransactions];
     visibleBalanceTransactions.value = [
       ...(cached.visibleBalanceTransactions || cached.balanceTransactions),
     ];
+    disputes.value = [...(cached.disputes || [])];
+    visibleDisputes.value = [
+      ...(cached.visibleDisputes || cached.disputes || []),
+    ];
     hasFetchedAll.value = cached.hasFetchedAll;
     hasFetchedBalanceTransactions.value =
       cached.hasFetchedBalanceTransactions;
+    hasFetchedDisputes.value = cached.hasFetchedDisputes || false;
+    graphqlWarning.value = cached.graphqlWarning || null;
     error.value = null;
     return true;
   }
@@ -248,12 +465,18 @@ export const usePaymentStore = defineStore("payment", () => {
     payouts.value = [];
     visiblePayouts.value = [];
     payoutDetails.value = {};
+    paymentsAccount.value = null;
+    payoutMetadata.value = {};
     transactionsByPayout.value = {};
     balanceTransactions.value = [];
     visibleBalanceTransactions.value = [];
+    disputes.value = [];
+    visibleDisputes.value = [];
     hasFetchedAll.value = false;
     hasFetchedBalanceTransactions.value = false;
+    hasFetchedDisputes.value = false;
     error.value = null;
+    graphqlWarning.value = null;
     isLoading.value = false;
   }
 
@@ -272,21 +495,48 @@ export const usePaymentStore = defineStore("payment", () => {
     return grouped;
   }
 
+  function applyPaymentsAccountResponse(
+    response: ShopifyPaymentsAccountResponse,
+  ) {
+    paymentsAccount.value = response.account;
+    payoutMetadata.value = Object.fromEntries(
+      (response.payouts || []).map((payout) => [
+        String(payout.legacyResourceId),
+        payout,
+      ]),
+    );
+    if (response.account?.balance.length) {
+      balance.value = response.account.balance.map((money) => ({
+        amount: money.amount,
+        currency: money.currencyCode,
+      }));
+    }
+  }
+
   return {
     balance,
     payouts,
     visiblePayouts,
     payoutDetails,
+    paymentsAccount,
+    payoutMetadata,
     transactionsByPayout,
     balanceTransactions,
     visibleBalanceTransactions,
+    disputes,
+    visibleDisputes,
     hasFetchedAll,
     hasFetchedBalanceTransactions,
+    hasFetchedDisputes,
     isLoading,
     error,
+    graphqlWarning,
     fetchAll,
     fetchPayouts,
     fetchBalanceTransactions,
+    fetchGraphqlBalanceTransactions,
+    fetchPaymentsAccount,
+    fetchDisputes,
     fetchPayoutDetail,
     getTransactionsForPayout,
     hydrate,

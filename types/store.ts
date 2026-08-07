@@ -1,6 +1,7 @@
 export type StoreTab =
   | "transactions"
   | "payouts"
+  | "disputes"
   | "orders"
   | "products"
   | "customers"
@@ -9,6 +10,7 @@ export type StoreTab =
 export const STORE_TABS: readonly StoreTab[] = [
   "transactions",
   "payouts",
+  "disputes",
   "orders",
   "products",
   "customers",

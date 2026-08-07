@@ -56,6 +56,17 @@ function selectTab(tab: StoreTab) {
     </button>
     <button
       class="tab-btn"
+      :class="{ active: activeTab === 'disputes' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'disputes'"
+      @click="selectTab('disputes')"
+    >
+      <IconsCheck />
+      Disputes
+    </button>
+    <button
+      class="tab-btn"
       :class="{ active: activeTab === 'orders' }"
       type="button"
       role="tab"

@@ -61,40 +61,47 @@
             <div class="overview-left">
               <div class="overview-label">Total</div>
               <div>
-                <span class="overview-amount"
-                  >${{ parseFloat(currentPayout.amount).toFixed(2) }}</span
-                >
+                <span class="overview-amount">{{
+                  formatMoney(currentPayout.amount, currentPayout.currency)
+                }}</span>
                 <span class="overview-currency">{{
                   currentPayout.currency
                 }}</span>
               </div>
               <div class="overview-provider">Shopify Payments</div>
               <div class="overview-meta">
-                <div class="meta-item" v-if="currentPayout.bank_account">
-                  <label>Bank account</label>
-                  <span>
-                    {{
-                      currentPayout.bank_account.bank_name ||
-                      currentPayout.bank_account.title
-                    }}
-                    ({{ currentPayout.bank_account.account_number }})
-                  </span>
-                </div>
-                <div class="meta-item" v-else>
-                  <label>Bank account</label>
-                  <span>Unknown bank account</span>
-                </div>
-                <div
-                  class="meta-item"
-                  v-if="currentPayout.bank_account?.routing_number"
-                >
-                  <label>Routing</label>
-                  <span>{{ currentPayout.bank_account.routing_number }}</span>
+                <div class="meta-item">
+                  <label>Business entity</label>
+                  <span>{{
+                    currentPayoutMetadata?.businessEntity.displayName ||
+                    "Unavailable"
+                  }}</span>
                 </div>
                 <div class="meta-item">
-                  <label>Schedule</label>
+                  <label>Direction</label>
                   <span>{{
-                    currentPayout.date ? fmtDate(currentPayout.date) : "N/A"
+                    formatShopifyPaymentLabel(
+                      currentPayoutMetadata?.transactionType,
+                    ) || "Unavailable"
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <label>Issued</label>
+                  <span>{{
+                    currentPayoutMetadata?.issuedAt
+                      ? fmtDate(currentPayoutMetadata.issuedAt)
+                      : currentPayout.date
+                        ? fmtDate(currentPayout.date)
+                        : "N/A"
+                  }}</span>
+                </div>
+                <div
+                  v-if="currentPayoutMetadata?.externalTraceId"
+                  class="meta-item"
+                >
+                  <label>Bank trace ID</label>
+                  <span class="trace-id">{{
+                    currentPayoutMetadata.externalTraceId
                   }}</span>
                 </div>
               </div>
@@ -168,15 +175,45 @@
                 <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
                 <td class="td-order">
                   <NuxtLink
-                    v-if="getOrderNumber(tx)"
+                    v-if="tx.source_order_id"
                     class="link"
-                    :to="`/order/${getOrderNumber(tx)}`"
+                    :to="`/order/${tx.source_order_id}`"
                   >
-                    #{{ getOrderNumber(tx) }}</NuxtLink
-                  >
+                    {{ getOrderName(tx) }}
+                  </NuxtLink>
                   <span v-else>—</span>
                 </td>
-                <td class="td-type">{{ capitalize(tx.type) }}</td>
+                <td class="td-type">
+                  <strong>{{ formatShopifyPaymentLabel(tx.type) }}</strong>
+                  <small v-if="tx.source_type">
+                    Source: {{ formatShopifyPaymentLabel(tx.source_type) }}
+                  </small>
+                  <details
+                    v-if="tx.adjustment_order_transactions.length"
+                    class="adjustment-orders"
+                  >
+                    <summary>
+                      {{ tx.adjustment_order_transactions.length }} adjusted
+                      {{
+                        tx.adjustment_order_transactions.length === 1
+                          ? "order"
+                          : "orders"
+                      }}
+                    </summary>
+                    <div
+                      v-for="adjustment in tx.adjustment_order_transactions"
+                      :key="adjustment.id"
+                    >
+                      <NuxtLink
+                        v-if="adjustment.order.id"
+                        :to="`/order/${adjustment.order.id}`"
+                      >
+                        {{ adjustment.order.name }}
+                      </NuxtLink>
+                      <span v-else>{{ adjustment.order.name }}</span>
+                    </div>
+                  </details>
+                </td>
                 <td>
                   <span class="payment-method">
                     <span class="card-brand">{{
@@ -185,18 +222,18 @@
                   </span>
                 </td>
                 <td class="right td-amount">
-                  ${{ parseFloat(tx.amount).toFixed(2) }}
+                  {{ formatMoney(tx.amount, tx.currency) }}
                   <span class="chevron-sm">▾</span>
                 </td>
                 <td class="right td-fee">
                   <template v-if="parseFloat(tx.fee)">
-                    -${{ parseFloat(tx.fee).toFixed(2) }}
+                    {{ formatMoney(tx.fee, tx.currency) }}
                     <span class="chevron-sm">▾</span>
                   </template>
                   <template v-else>—</template>
                 </td>
                 <td class="right td-net">
-                  ${{ parseFloat(tx.net).toFixed(2) }} {{ tx.currency }}
+                  {{ formatMoney(tx.net, tx.currency) }}
                 </td>
               </tr>
             </tbody>
@@ -221,6 +258,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
 import { usePaymentStore } from "../../../stores/payment";
+import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 definePageMeta({ layout: false });
 
@@ -236,6 +274,7 @@ onMounted(() => {
     const token = resolveToken(formStore.storeId);
     if (token) {
       paymentStore.fetchPayoutDetail(formStore.storeId, token, payoutId, false);
+      paymentStore.fetchPaymentsAccount(formStore.storeId, token);
     }
   }
 });
@@ -254,6 +293,10 @@ const currentPayout = computed(
     paymentStore.payoutDetails[String(payoutId)] ||
     paymentStore.payouts.find((p) => p.id === payoutId) ||
     null,
+);
+
+const currentPayoutMetadata = computed(
+  () => paymentStore.payoutMetadata[String(payoutId)] || null,
 );
 
 const currentPayoutTransactions = computed(() => {
@@ -327,10 +370,22 @@ function capitalize(s: string) {
   );
 }
 
-function getOrderNumber(tx: Transaction) {
+function getOrderName(tx: Transaction) {
+  if (tx.source_order_name) return tx.source_order_name;
   if (!tx.source_order_id) return null;
-  const orderMap: Record<number, string> = {};
-  return orderMap[tx.source_order_id] || tx.source_order_id;
+  return `#${tx.source_order_id}`;
+}
+
+function formatMoney(amount: string, currency: string) {
+  const numericAmount = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(numericAmount);
+  } catch {
+    return `${numericAmount.toFixed(2)} ${currency}`;
+  }
 }
 </script>
 
@@ -480,6 +535,11 @@ function getOrderNumber(tx: Transaction) {
   font-weight: 500;
   color: var(--text);
 }
+.trace-id {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px !important;
+}
 .text-muted {
   color: var(--text-muted) !important;
 }
@@ -587,6 +647,23 @@ td.right {
 }
 .td-date {
   color: var(--text-sub);
+}
+.td-type strong,
+.td-type small {
+  display: block;
+}
+.td-type small {
+  margin-top: 2px;
+  color: var(--text-sub);
+  font-size: 10px;
+}
+.adjustment-orders {
+  margin-top: 5px;
+  font-size: 10px;
+}
+.adjustment-orders summary {
+  color: var(--text-link);
+  cursor: pointer;
 }
 .td-order a {
   color: var(--text-link);

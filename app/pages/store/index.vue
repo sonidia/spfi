@@ -94,12 +94,21 @@
         >
           {{ paymentStore.error }}
         </div>
+        <div
+          v-else-if="isPaymentTab && paymentStore.graphqlWarning"
+          class="payment-alert payment-warning"
+          role="status"
+        >
+          {{ paymentStore.graphqlWarning }}
+        </div>
 
 
         <div v-if="showsStoreSummary" class="card data-card">
           <PaymentPayoutsTab v-if="activeTab === 'payouts'" />
 
           <PaymentTransactionsTab v-else-if="activeTab === 'transactions'" />
+
+          <PaymentDisputesTab v-else-if="activeTab === 'disputes'" />
 
           <PaymentOrdersTab v-else-if="activeTab === 'orders'" />
 
@@ -185,11 +194,10 @@ function loadProfileTabData(storeId: string, token: string) {
   }
 }
 
-const currentBalance = computed(() => {
+const balances = computed(() => {
   const b = paymentStore.balance;
-  if (!b) return null;
-  if (Array.isArray(b)) return b[0] ?? null;
-  return b;
+  if (!b) return [];
+  return Array.isArray(b) ? b : [b];
 });
 
 const transactionsCount = computed(
@@ -200,16 +208,19 @@ const ordersCount = computed(() => orderStore.orders.length);
 const productsCount = computed(() => productStore.products.length);
 const customersCount = computed(() => customerStore.customers.length);
 const isPaymentTab = computed(() =>
-  ["transactions", "payouts"].includes(activeTab.value),
+  ["transactions", "payouts", "disputes"].includes(activeTab.value),
 );
 const showsStoreSummary = computed(() =>
-  ["transactions", "payouts", "orders", "products"].includes(activeTab.value),
+  ["transactions", "payouts", "disputes", "orders", "products"].includes(
+    activeTab.value,
+  ),
 );
 const hasPaymentData = computed(
   () =>
-    Boolean(currentBalance.value) ||
+    balances.value.length > 0 ||
     transactionsCount.value > 0 ||
     payoutsCount.value > 0 ||
+    (activeTab.value === "disputes" && paymentStore.hasFetchedDisputes) ||
     ordersCount.value > 0 ||
     productsCount.value > 0,
 );
@@ -219,6 +230,7 @@ const activeTabLabel = computed(
     ({
       transactions: "Money movement and fees",
       payouts: "Settlement schedule",
+      disputes: "Chargebacks and evidence deadlines",
       orders: "Sales connected to payments",
       products: "Store catalog",
       customers: "Customer directory",
@@ -286,24 +298,39 @@ watch(
 
 watch(
   activeTab,
-  (newTab) => {
+  async (newTab) => {
     if (!isPageActive.value) return;
 
+    let paymentRequest: Promise<void> | null = null;
     if (isPaymentTab.value && formStore.storeId) {
       const token = resolveToken(formStore.storeId);
       if (token && (!paymentStore.hasFetchedAll || paymentStore.error)) {
-        paymentStore.fetchAll(formStore.storeId, token);
+        paymentRequest = paymentStore.fetchAll(formStore.storeId, token);
       } else if (
         token &&
         (!paymentStore.hasFetchedBalanceTransactions || paymentStore.error)
       ) {
-        paymentStore.fetchBalanceTransactions(formStore.storeId, token);
+        paymentRequest = paymentStore.fetchBalanceTransactions(
+          formStore.storeId,
+          token,
+        );
       }
     }
     if (newTab === "orders" && formStore.storeId) {
       const token = resolveToken(formStore.storeId);
       if (token && (!orderStore.orders.length || orderStore.error)) {
         orderStore.fetchAll(formStore.storeId, token);
+      }
+    }
+    if (newTab === "disputes" && formStore.storeId) {
+      const token = resolveToken(formStore.storeId);
+      if (paymentRequest) await paymentRequest;
+      if (activeTab.value !== "disputes") return;
+      if (
+        token &&
+        (!paymentStore.hasFetchedDisputes || paymentStore.error)
+      ) {
+        await paymentStore.fetchDisputes(formStore.storeId, token);
       }
     }
     if (newTab === "products" && formStore.storeId) {
@@ -628,6 +655,12 @@ function resolveToken(sid: string): string | null {
 :deep(.btn-add-track.is-loading) {
   opacity: 0.7;
   cursor: wait;
+}
+
+.payment-warning {
+  border-color: rgba(161, 92, 0, 0.2);
+  background: rgba(255, 184, 0, 0.1);
+  color: #8a5500;
 }
 
 :deep(.empty) {

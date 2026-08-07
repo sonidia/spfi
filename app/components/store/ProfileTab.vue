@@ -85,10 +85,14 @@
         </div>
 
         <section class="finance-summary" aria-label="Store finance summary">
-          <article class="summary-card is-balance">
+          <article
+            v-for="balanceItem in formattedBalances"
+            :key="balanceItem.currency"
+            class="summary-card is-balance"
+          >
             <span>Available balance</span>
-            <strong>{{ formattedBalance }}</strong>
-            <small>{{ currentBalance?.currency || "Store currency" }}</small>
+            <strong>{{ balanceItem.formatted }}</strong>
+            <small>{{ balanceItem.currency }}</small>
           </article>
           <article class="summary-card">
             <span>Transactions</span>
@@ -293,11 +297,10 @@ const tokenStatus = computed(() => {
   return "Valid";
 });
 
-const currentBalance = computed(() => {
+const balances = computed(() => {
   const balance = paymentStore.balance;
-  if (!balance) return null;
-  if (Array.isArray(balance)) return balance[0] ?? null;
-  return balance;
+  if (!balance) return [];
+  return Array.isArray(balance) ? balance : [balance];
 });
 
 const transactionsCount = computed(
@@ -305,12 +308,33 @@ const transactionsCount = computed(
 );
 const payoutsCount = computed(() => paymentStore.payouts.length);
 const ordersCount = computed(() => orderStore.orders.length);
-const formattedBalance = computed(() => {
-  const amount = Number(currentBalance.value?.amount || 0);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currentBalance.value?.currency || "USD",
-  }).format(amount);
+const formattedBalances = computed(() => {
+  if (!balances.value.length) {
+    return [
+      {
+        currency: "Store currency",
+        formatted: "—",
+      },
+    ];
+  }
+
+  return balances.value.map((balanceItem) => {
+    const amount = Number(balanceItem.amount || 0);
+    try {
+      return {
+        currency: balanceItem.currency,
+        formatted: new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: balanceItem.currency,
+        }).format(amount),
+      };
+    } catch {
+      return {
+        currency: balanceItem.currency,
+        formatted: `${amount.toFixed(2)} ${balanceItem.currency}`,
+      };
+    }
+  });
 });
 const showCredentialModal = ref(false);
 const editDomain = ref("");

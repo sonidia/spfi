@@ -17,6 +17,15 @@ const CUSTOMER_SEARCH_PARAMS = new Set([
   "query",
 ]);
 
+const CUSTOMER_COUNT_PARAMS = new Set([
+  "created_at_max",
+  "created_at_min",
+  "updated_at_max",
+  "updated_at_min",
+]);
+
+const CUSTOMER_ADDRESS_LIST_PARAMS = new Set(["limit", "page_info"]);
+
 type CustomerRequestBody = Record<string, unknown>;
 type ShopifyQueryValue = string | number | boolean;
 
@@ -44,6 +53,35 @@ export function buildCustomerQueryParams(
 
   if (!("limit" in params)) {
     params.limit = 250;
+  }
+
+  return params;
+}
+
+export function buildCustomerCountParams(body?: CustomerRequestBody) {
+  return buildAllowedParams(body, CUSTOMER_COUNT_PARAMS);
+}
+
+export function buildCustomerAddressListParams(body?: CustomerRequestBody) {
+  const params = buildAllowedParams(body, CUSTOMER_ADDRESS_LIST_PARAMS);
+
+  if ("limit" in params) {
+    params.limit = normalizeLimit(params.limit);
+  }
+
+  return params;
+}
+
+function buildAllowedParams(
+  body: CustomerRequestBody | undefined,
+  allowedParams: Set<string>,
+) {
+  const params: Record<string, ShopifyQueryValue> = {};
+
+  for (const [key, value] of Object.entries(body || {})) {
+    if (allowedParams.has(key) && isQueryValue(value)) {
+      params[key] = value;
+    }
   }
 
   return params;

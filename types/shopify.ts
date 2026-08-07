@@ -57,10 +57,12 @@ export interface ShopifyMoneySet {
   shop_money?: {
     amount?: string;
     currency_code?: string;
+    currency?: string;
   };
   presentment_money?: {
     amount?: string;
     currency_code?: string;
+    currency?: string;
   };
 }
 
@@ -222,15 +224,35 @@ export interface ShopifyOrderTransaction {
   payment_id?: string | null;
   manual_payment_gateway?: boolean;
   admin_graphql_api_id?: string;
-  extended_authorization_attributes?: Record<string, unknown> | null;
+  extended_authorization_attributes?: {
+    standard_authorization_expires_at?: string | null;
+    extended_authorization_expires_at?: string | null;
+  } | null;
   total_unsettled_set?: ShopifyMoneySet | null;
+  currency_exchange_adjustment?: {
+    id: number;
+    adjustment: string;
+    original_amount: string;
+    final_amount: string;
+    currency: string;
+  } | null;
+  amount_rounding?: string | null;
   payment_details?: {
+    credit_card_bin?: string | null;
     credit_card_company?: string | null;
     credit_card_number?: string | null;
     credit_card_name?: string | null;
     credit_card_wallet?: string | null;
+    credit_card_expiration_month?: number | null;
+    credit_card_expiration_year?: number | null;
+    payment_method_name?: string | null;
+    buyer_action_info?: Record<string, unknown> | null;
     avs_result_code?: string | null;
     cvv_result_code?: string | null;
+  } | null;
+  payments_refund_attributes?: {
+    status?: string | null;
+    acquirer_reference_number?: string | null;
   } | null;
   receipt?: Record<string, unknown> | null;
 }
@@ -296,13 +318,6 @@ export interface ShopifyPayoutSummary {
   retried_payouts_gross_amount: string;
 }
 
-export interface ShopifyBankAccount {
-  bank_name?: string;
-  title?: string;
-  account_number?: string;
-  routing_number?: string;
-}
-
 export interface ShopifyPayout {
   id: number;
   status: string;
@@ -310,7 +325,6 @@ export interface ShopifyPayout {
   currency: string;
   amount: string;
   summary: ShopifyPayoutSummary;
-  bank_account?: ShopifyBankAccount | null;
 }
 
 export interface ShopifyBalance {
@@ -320,9 +334,51 @@ export interface ShopifyBalance {
   pending_amount?: string;
 }
 
+export const SHOPIFY_REST_BALANCE_TRANSACTION_TYPES = [
+  "charge",
+  "refund",
+  "dispute",
+  "reserve",
+  "adjustment",
+  "credit",
+  "debit",
+  "payout",
+  "payout_failure",
+  "payout_cancellation",
+] as const;
+
+export type ShopifyRestBalanceTransactionType =
+  | (typeof SHOPIFY_REST_BALANCE_TRANSACTION_TYPES)[number]
+  | "capture"
+  | "advance"
+  | "SHOPIFY_COLLECTIVE_DEBIT_REVERSAL"
+  | "seller_protection_credit_reversal"
+  | (string & {});
+
+export type ShopifyBalanceTransactionSourceType =
+  | "charge"
+  | "refund"
+  | "dispute"
+  | "reserve"
+  | "adjustment"
+  | "payout"
+  | `Payments::${string}`
+  | (string & {});
+
+export interface ShopifyAdjustmentOrderTransaction {
+  id: number;
+  amount: string;
+  fee: string;
+  net: string;
+  order: {
+    id: number;
+    name: string;
+  };
+}
+
 export interface ShopifyBalanceTransaction {
   id: number;
-  type: string;
+  type: ShopifyRestBalanceTransactionType;
   test: boolean;
   payout_id: number | null;
   payout_status: string;
@@ -331,11 +387,13 @@ export interface ShopifyBalanceTransaction {
   fee: string;
   net: string;
   source_id: number | null;
-  source_type: string | null;
+  source_type: ShopifyBalanceTransactionSourceType | null;
   source_order_id: number | null;
+  /** Enriched from GraphQL ShopifyPaymentsAssociatedOrder. */
+  source_order_name?: string | null;
   source_order_transaction_id: number | null;
   processed_at: string;
-  adjustment_order_transactions: unknown;
+  adjustment_order_transactions: ShopifyAdjustmentOrderTransaction[];
   adjustment_reason: string | null;
 }
 

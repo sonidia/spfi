@@ -5,16 +5,26 @@ import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import type { Transaction } from "~/stores/payment";
 import type {
-  ShopifyBalancePayoutStatus,
-  ShopifyBalanceTransactionFilters,
-} from "~~/types/shopify-payment";
+  ShopifyPaymentsBalanceTransactionSearchFilters,
+} from "~~/types/shopify-payments-graphql";
 import { capitalize, fmtDate } from "~~/helpers";
+import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 const paymentStore = usePaymentStore();
 const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
 
-const payoutStatus = ref<"" | ShopifyBalancePayoutStatus>("");
+const transactionType = ref("");
+const payoutStatus = ref("");
+const payoutDate = ref("");
+const processedFrom = ref("");
+const processedThrough = ref("");
+const currency = ref("");
+const cardLast4 = ref("");
+const paymentMethod = ref("");
+const transferId = ref("");
+const taxExempt = ref<"" | "yes" | "no">("");
+const hideTransfers = ref(false);
 const testMode = ref<"" | "live" | "test">("");
 const sinceId = ref("");
 const lastId = ref("");
@@ -43,19 +53,42 @@ watch(totalPages, (count) => {
 
 async function applyFilters() {
   if (!isReady.value) return;
-  const filters: ShopifyBalanceTransactionFilters = {
+  const filters: ShopifyPaymentsBalanceTransactionSearchFilters = {
+    ...(transactionType.value
+      ? { transaction_type: transactionType.value }
+      : {}),
     ...(payoutStatus.value
       ? { payout_status: payoutStatus.value }
       : {}),
+    ...(payoutDate.value ? { payout_date: payoutDate.value } : {}),
+    ...(processedFrom.value
+      ? { processed_at_min: processedFrom.value }
+      : {}),
+    ...(processedThrough.value
+      ? { processed_at_max: processedThrough.value }
+      : {}),
+    ...(currency.value ? { currency: currency.value } : {}),
+    ...(cardLast4.value
+      ? { credit_card_last4: cardLast4.value }
+      : {}),
+    ...(paymentMethod.value
+      ? { payment_method_name: paymentMethod.value }
+      : {}),
+    ...(transferId.value
+      ? { payments_transfer_id: transferId.value }
+      : {}),
+    ...(taxExempt.value
+      ? { tax_reporting_exempt: taxExempt.value === "yes" }
+      : {}),
+    ...(hideTransfers.value ? { hide_transfers: true } : {}),
     ...(testMode.value ? { test: testMode.value === "test" } : {}),
     ...(sinceId.value ? { since_id: sinceId.value } : {}),
     ...(lastId.value ? { last_id: lastId.value } : {}),
   };
   currentPage.value = 1;
-  await paymentStore.fetchBalanceTransactions(
+  await paymentStore.fetchGraphqlBalanceTransactions(
     storeId.value,
     token.value,
-    true,
     filters,
   );
 }
@@ -66,7 +99,17 @@ async function showPending() {
 }
 
 async function resetFilters() {
+  transactionType.value = "";
   payoutStatus.value = "";
+  payoutDate.value = "";
+  processedFrom.value = "";
+  processedThrough.value = "";
+  currency.value = "";
+  cardLast4.value = "";
+  paymentMethod.value = "";
+  transferId.value = "";
+  taxExempt.value = "";
+  hideTransfers.value = false;
   testMode.value = "";
   sinceId.value = "";
   lastId.value = "";
@@ -80,6 +123,7 @@ function getPayoutDate(payoutId: number | null) {
 }
 
 function getOrderName(transaction: Transaction) {
+  if (transaction.source_order_name) return transaction.source_order_name;
   if (!transaction.source_order_id) return null;
   const order = orderStore.orders.find(
     (item) => item.id === transaction.source_order_id,
@@ -126,6 +170,13 @@ function updatePageSize(size: number) {
   <div class="transactions-tab">
     <form class="filter-toolbar" @submit.prevent="applyFilters">
       <label>
+        <span>Transaction type</span>
+        <input
+          v-model.trim="transactionType"
+          placeholder="charge, refund…"
+        />
+      </label>
+      <label>
         <span>Payout status</span>
         <select v-model="payoutStatus">
           <option value="">All statuses</option>
@@ -135,6 +186,56 @@ function updatePageSize(size: number) {
           <option value="paid">Paid</option>
           <option value="failed">Failed</option>
           <option value="canceled">Canceled</option>
+          <option value="action_required">Action required</option>
+        </select>
+      </label>
+      <label>
+        <span>Payout date</span>
+        <input v-model="payoutDate" type="date" />
+      </label>
+      <label>
+        <span>Processed from</span>
+        <input v-model="processedFrom" type="date" />
+      </label>
+      <label>
+        <span>Processed through</span>
+        <input v-model="processedThrough" type="date" />
+      </label>
+      <label>
+        <span>Currency</span>
+        <input
+          v-model.trim="currency"
+          maxlength="4"
+          placeholder="USD"
+        />
+      </label>
+      <label>
+        <span>Card last 4</span>
+        <input
+          v-model.trim="cardLast4"
+          inputmode="numeric"
+          maxlength="4"
+          placeholder="4242"
+        />
+      </label>
+      <label>
+        <span>Payment method</span>
+        <input v-model.trim="paymentMethod" placeholder="Visa" />
+      </label>
+      <label>
+        <span>Payments transfer ID</span>
+        <input
+          v-model.trim="transferId"
+          inputmode="numeric"
+          placeholder="Transfer ID"
+        />
+      </label>
+      <label>
+        <span>Tax reporting</span>
+        <select v-model="taxExempt">
+          <option value="">All</option>
+          <option value="yes">Exempt</option>
+          <option value="no">Not exempt</option>
         </select>
       </label>
       <label>
@@ -148,6 +249,10 @@ function updatePageSize(size: number) {
       <label>
         <span>After transaction ID</span>
         <input v-model.trim="sinceId" inputmode="numeric" placeholder="since_id" />
+      </label>
+      <label class="checkbox-filter">
+        <input v-model="hideTransfers" type="checkbox" />
+        <span>Hide transfers</span>
       </label>
       <label>
         <span>Before transaction ID</span>
@@ -205,7 +310,41 @@ function updatePageSize(size: number) {
             <span v-else>—</span>
           </td>
           <td class="td-customer">{{ getCustomerName(transaction) }}</td>
-          <td class="td-type">{{ capitalize(transaction.type) }}</td>
+          <td class="td-type">
+            <strong>{{ formatShopifyPaymentLabel(transaction.type) }}</strong>
+            <small v-if="transaction.source_type">
+              Source: {{ formatShopifyPaymentLabel(transaction.source_type) }}
+            </small>
+            <details
+              v-if="transaction.adjustment_order_transactions.length"
+              class="adjustment-orders"
+            >
+              <summary>
+                {{ transaction.adjustment_order_transactions.length }}
+                adjusted
+                {{
+                  transaction.adjustment_order_transactions.length === 1
+                    ? "order"
+                    : "orders"
+                }}
+              </summary>
+              <div
+                v-for="adjustment in transaction.adjustment_order_transactions"
+                :key="adjustment.id"
+              >
+                <NuxtLink
+                  v-if="adjustment.order.id"
+                  :to="`/order/${adjustment.order.id}`"
+                >
+                  {{ adjustment.order.name }}
+                </NuxtLink>
+                <span v-else>{{ adjustment.order.name }}</span>
+                <span>
+                  {{ formatMoney(adjustment.net, transaction.currency) }} net
+                </span>
+              </div>
+            </details>
+          </td>
           <td>
             <span v-if="transaction.test" class="mode-badge">Test</span>
             <span v-else>Live</span>
@@ -239,7 +378,7 @@ function updatePageSize(size: number) {
 <style scoped>
 .filter-toolbar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
   gap: 10px;
   align-items: end;
   padding: 12px 14px;
@@ -275,6 +414,8 @@ function updatePageSize(size: number) {
 .filter-actions {
   display: flex;
   gap: 6px;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
 }
 
 .filter-actions button {
@@ -307,6 +448,45 @@ function updatePageSize(size: number) {
 .filter-actions button:disabled {
   opacity: 0.55;
   cursor: wait;
+}
+
+.checkbox-filter {
+  display: flex !important;
+  align-items: center;
+  min-height: 34px;
+}
+
+.checkbox-filter input {
+  width: 16px;
+  height: 16px;
+}
+
+.td-type strong,
+.td-type small {
+  display: block;
+}
+
+.td-type small {
+  margin-top: 2px;
+  color: var(--text-sub);
+  font-size: 10px;
+}
+
+.adjustment-orders {
+  margin-top: 5px;
+  font-size: 10px;
+}
+
+.adjustment-orders summary {
+  color: var(--text-link);
+  cursor: pointer;
+}
+
+.adjustment-orders div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 3px;
 }
 
 .td-date {
