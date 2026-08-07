@@ -15,10 +15,14 @@ import type {
   OrderEditCommitInput,
   OrderEditCommitResponse,
   OrderEditSessionResponse,
+  OrderFulfillmentListQuery,
   OrderFulfillmentInput,
+  OrderFulfillmentsResponse,
   OrderListQuery,
   OrderManualPaymentInput,
   OrderRefundInput,
+  OrderRefundListQuery,
+  OrderRefundsResponse,
   OrderRiskAssessmentsResponse,
   OrderTransactionDetailQuery,
   OrderTransactionListQuery,
@@ -195,6 +199,16 @@ export function useOrderApi() {
     );
   }
 
+  function getRefunds(
+    auth: OrderAuth,
+    id: string | number,
+    query: OrderRefundListQuery = {},
+  ) {
+    return $fetch<OrderRefundsResponse>(`/api/order/${id}/refunds`, {
+      params: { ...auth, ...query },
+    });
+  }
+
   function beginEdit(auth: OrderAuth, id: string | number) {
     return $fetch<OrderEditSessionResponse>(`/api/order/${id}/edit/begin`, {
       method: "POST",
@@ -217,6 +231,17 @@ export function useOrderApi() {
     return $fetch<{ fulfillment_orders?: ShopifyFulfillmentOrder[] }>(
       `/api/order/${id}/fulfillment_orders`,
       { params: auth },
+    );
+  }
+
+  function getFulfillments(
+    auth: OrderAuth,
+    id: string | number,
+    query: OrderFulfillmentListQuery = {},
+  ) {
+    return $fetch<OrderFulfillmentsResponse>(
+      `/api/order/${id}/fulfillments`,
+      { params: { ...auth, ...query } },
     );
   }
 
@@ -282,9 +307,11 @@ export function useOrderApi() {
     voidTransaction,
     createManualPayment,
     refund,
+    getRefunds,
     beginEdit,
     commitEdit,
     getFulfillmentOrders,
+    getFulfillments,
     fulfill,
     cancelFulfillment,
     getRiskAssessments,

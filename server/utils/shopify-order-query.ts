@@ -1,6 +1,8 @@
 import type {
   OrderCountQuery,
+  OrderFulfillmentListQuery,
   OrderListQuery,
+  OrderRefundListQuery,
 } from "~~/types/shopify-order";
 
 const ORDER_LIST_PARAMS = new Set<keyof OrderListQuery>([
@@ -31,13 +33,26 @@ const ORDER_COUNT_PARAMS = new Set<keyof OrderCountQuery>([
   "updated_at_min",
 ]);
 
+const ORDER_REFUND_LIST_PARAMS = new Set<keyof OrderRefundListQuery>([
+  "fields",
+  "in_shop_currency",
+  "limit",
+]);
+
+const ORDER_FULFILLMENT_LIST_PARAMS =
+  new Set<keyof OrderFulfillmentListQuery>([
+    "created_at_max",
+    "created_at_min",
+    "fields",
+    "limit",
+    "since_id",
+    "updated_at_max",
+    "updated_at_min",
+  ]);
+
 export function buildOrderListParams(input: unknown) {
   const params = pickOrderParams(input, ORDER_LIST_PARAMS);
-  const limit = Number(params.limit ?? 250);
-
-  params.limit = Number.isFinite(limit)
-    ? Math.min(250, Math.max(1, Math.floor(limit)))
-    : 250;
+  params.limit = normalizeOrderListLimit(params.limit, 250);
   params.status ??= "any";
 
   return params;
@@ -45,6 +60,39 @@ export function buildOrderListParams(input: unknown) {
 
 export function buildOrderCountParams(input: unknown) {
   return pickOrderParams(input, ORDER_COUNT_PARAMS);
+}
+
+export function buildOrderRefundListParams(input: unknown) {
+  return normalizeOptionalOrderListLimit(
+    pickOrderParams(input, ORDER_REFUND_LIST_PARAMS),
+  );
+}
+
+export function buildOrderFulfillmentListParams(input: unknown) {
+  return normalizeOptionalOrderListLimit(
+    pickOrderParams(input, ORDER_FULFILLMENT_LIST_PARAMS),
+  );
+}
+
+function normalizeOptionalOrderListLimit(
+  params: Record<string, string | number | boolean>,
+) {
+  if (params.limit !== undefined) {
+    params.limit = normalizeOrderListLimit(params.limit, 50);
+  }
+
+  return params;
+}
+
+function normalizeOrderListLimit(
+  value: string | number | boolean | undefined,
+  fallback: number,
+) {
+  const limit = Number(value ?? fallback);
+
+  return Number.isFinite(limit)
+    ? Math.min(250, Math.max(1, Math.floor(limit)))
+    : fallback;
 }
 
 function pickOrderParams(

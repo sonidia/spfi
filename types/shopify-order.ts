@@ -1,4 +1,8 @@
-import type { ShopifyOrder } from "./shopify";
+import type {
+  ShopifyFulfillment,
+  ShopifyOrder,
+  ShopifyRefund,
+} from "./shopify";
 
 export type ShopifyOrderPayload = Record<string, unknown>;
 
@@ -146,6 +150,30 @@ export interface OrderRefundInput {
   idempotencyKey?: string;
 }
 
+export interface OrderRefundListQuery {
+  fields?: string;
+  in_shop_currency?: boolean;
+  limit?: number;
+}
+
+export interface OrderRefundsResponse {
+  refunds: ShopifyRefund[];
+}
+
+export interface OrderFulfillmentListQuery {
+  created_at_max?: string;
+  created_at_min?: string;
+  fields?: string;
+  limit?: number;
+  since_id?: string | number;
+  updated_at_max?: string;
+  updated_at_min?: string;
+}
+
+export interface OrderFulfillmentsResponse {
+  fulfillments: ShopifyFulfillment[];
+}
+
 export interface CalculatedOrderLineItem {
   id: string;
   title: string;
@@ -166,9 +194,20 @@ export interface OrderEditLineChange {
   restock?: boolean;
 }
 
+export interface OrderEditCustomItemInput {
+  title: string;
+  price: string;
+  currencyCode: string;
+  quantity: number;
+  locationId?: string | number;
+  requiresShipping?: boolean;
+  taxable?: boolean;
+}
+
 export interface OrderEditCommitInput {
   calculatedOrderId: string;
-  changes: OrderEditLineChange[];
+  changes?: OrderEditLineChange[];
+  customItems?: OrderEditCustomItemInput[];
   notifyCustomer?: boolean;
   staffNote?: string;
 }

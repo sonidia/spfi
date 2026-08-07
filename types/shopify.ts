@@ -137,14 +137,20 @@ export interface ShopifyLineItem {
 
 export interface ShopifyFulfillment {
   id?: number;
+  order_id?: number;
   name?: string;
   status?: string;
   service?: string;
   shipment_status?: string | null;
+  location_id?: number | null;
   tracking_company?: string | null;
   tracking_number?: string | null;
+  tracking_numbers?: string[];
   tracking_url?: string | null;
+  tracking_urls?: string[];
   created_at?: string;
+  updated_at?: string;
+  admin_graphql_api_id?: string;
   line_items?: ShopifyLineItem[];
 }
 
@@ -157,9 +163,14 @@ export interface ShopifyRefundLineItem {
 
 export interface ShopifyRefund {
   id: number;
+  order_id?: number;
   created_at?: string;
+  processed_at?: string;
   note?: string | null;
+  user_id?: number | null;
+  admin_graphql_api_id?: string;
   refund_line_items?: ShopifyRefundLineItem[];
+  transactions?: ShopifyOrderTransaction[];
 }
 
 export interface ShopifyOrder {

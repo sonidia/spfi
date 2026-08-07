@@ -5,6 +5,10 @@ import {
   toShopifyGid,
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import {
+  stageOrderEditCustomItems,
+  stageOrderEditLineChanges,
+} from "~~/server/utils/shopify-order-edit";
 import type {
   OrderEditCommitInput,
   OrderEditCommitResponse,
@@ -13,12 +17,6 @@ import type {
 interface CommitEditBody extends OrderEditCommitInput {
   storeId?: string;
   token?: string;
-}
-
-interface SetQuantityData {
-  orderEditSetQuantity: {
-    userErrors: Array<{ field?: string[] | null; message: string }>;
-  };
 }
 
 interface CommitEditData {
@@ -36,6 +34,7 @@ export default defineEventHandler(async (event): Promise<OrderEditCommitResponse
   const token = String(body.token || "");
   const calculatedOrderId = String(body.calculatedOrderId || "").trim();
   const changes = Array.isArray(body.changes) ? body.changes : [];
+  const customItems = Array.isArray(body.customItems) ? body.customItems : [];
 
   if (!orderId || !storeId || !token || !calculatedOrderId) {
     throw createApiErrorFromMessage(
@@ -43,74 +42,19 @@ export default defineEventHandler(async (event): Promise<OrderEditCommitResponse
       400,
     );
   }
-  if (!changes.length) {
-    throw createApiErrorFromMessage("No line item changes were provided.", 400);
+  if (!changes.length && !customItems.length) {
+    throw createApiErrorFromMessage("No order item changes were provided.", 400);
   }
-
-  const normalizedChanges = changes.map((change) => {
-    const quantity = Number(change.quantity);
-    const calculatedLineItemId = String(
-      change.calculatedLineItemId || "",
-    ).trim();
-
-    if (!calculatedLineItemId || !Number.isInteger(quantity) || quantity < 0) {
-      throw createApiErrorFromMessage(
-        "Each edit requires a calculated line item ID and a non-negative integer quantity.",
-        400,
-      );
-    }
-
-    return {
-      calculatedLineItemId: toShopifyGid(
-        "CalculatedLineItem",
-        calculatedLineItemId,
-      ),
-      quantity,
-      restock: Boolean(change.restock),
-    };
-  });
-
   const calculatedId = toShopifyGid("CalculatedOrder", calculatedOrderId);
-  for (const change of normalizedChanges) {
-    const staged = await callShopifyGraphql<
-      SetQuantityData,
-      { id: string; lineItemId: string; quantity: number; restock: boolean }
-    >({
-      event,
-      storeId,
-      token,
-      operationName: "SetEditedOrderLineQuantity",
-      retryTransport: false,
-      query: `
-        mutation SetEditedOrderLineQuantity(
-          $id: ID!
-          $lineItemId: ID!
-          $quantity: Int!
-          $restock: Boolean
-        ) {
-          orderEditSetQuantity(
-            id: $id
-            lineItemId: $lineItemId
-            quantity: $quantity
-            restock: $restock
-          ) {
-            userErrors { field message }
-          }
-        }
-      `,
-      variables: {
-        id: calculatedId,
-        lineItemId: change.calculatedLineItemId,
-        quantity: change.quantity,
-        restock: change.restock,
-      },
-    });
+  const editContext = {
+    event,
+    storeId,
+    token,
+    calculatedOrderId: calculatedId,
+  };
 
-    assertNoGraphqlUserErrors(
-      staged.orderEditSetQuantity.userErrors,
-      "Failed to stage an order line item change.",
-    );
-  }
+  await stageOrderEditLineChanges(editContext, changes);
+  await stageOrderEditCustomItems(editContext, customItems);
 
   const committed = await callShopifyGraphql<
     CommitEditData,
