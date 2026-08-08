@@ -1,5 +1,6 @@
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useCustomerStore } from "~/stores/customers";
+import { useDataRetentionStore } from "~/stores/dataRetention";
 import { useFormStore } from "~/stores/form";
 import { useLocationStore } from "~/stores/locations";
 import { useOrderStore } from "~/stores/order";
@@ -13,15 +14,69 @@ const MISSING_TOKEN_MESSAGE =
 const EXPIRED_TOKEN_MESSAGE =
   "Access token has expired. Update this store's credentials and try again.";
 
+type StoreDataResource =
+  | "customers"
+  | "disputes"
+  | "orders"
+  | "payment"
+  | "products"
+  | "profile";
+
+const resourceLoadedAt = new Map<string, number>();
+
+const TAB_RESOURCES: Record<StoreTab, StoreDataResource[]> = {
+  transactions: ["payment"],
+  payouts: ["payment"],
+  disputes: ["payment", "disputes"],
+  orders: ["orders", "payment"],
+  products: ["products"],
+  customers: ["customers"],
+  profile: ["profile", "payment", "orders"],
+};
+
 export function useStoreTabData() {
   const formStore = useFormStore();
   const credentialVault = useCredentialVaultStore();
+  const dataRetention = useDataRetentionStore();
   const customerStore = useCustomerStore();
   const locationStore = useLocationStore();
   const orderStore = useOrderStore();
   const paymentStore = usePaymentStore();
   const productStore = useProductStore();
   const profileStore = useShopProfileStore();
+
+  function cacheKey(storeId: string, resource: StoreDataResource) {
+    return `${storeId}:${resource}`;
+  }
+
+  function isResourceExpired(storeId: string, resource: StoreDataResource) {
+    return !dataRetention.isAlive(
+      resourceLoadedAt.get(cacheKey(storeId, resource)),
+    );
+  }
+
+  function markResourceLoaded(storeId: string, resource: StoreDataResource) {
+    resourceLoadedAt.set(cacheKey(storeId, resource), Date.now());
+  }
+
+  function clearExpiredResources(
+    storeId: string,
+    resources: StoreDataResource[],
+  ) {
+    const expired = resources.filter((resource) =>
+      isResourceExpired(storeId, resource),
+    );
+    if (!expired.length) return;
+
+    const expiredSet = new Set(expired);
+    if (expiredSet.has("orders")) orderStore.evictStore(storeId);
+    if (expiredSet.has("payment") || expiredSet.has("disputes")) {
+      paymentStore.evictStore(storeId);
+    }
+    if (expiredSet.has("products")) productStore.evictStore(storeId);
+    if (expiredSet.has("customers")) customerStore.evictStore(storeId);
+    if (expiredSet.has("profile")) profileStore.evictStore(storeId);
+  }
 
   function hydrateStoreData(storeId: string) {
     const hasOrders = orderStore.hydrate(storeId);
@@ -79,16 +134,6 @@ export function useStoreTabData() {
     }
   }
 
-  function getTabError(tab: StoreTab) {
-    if (["transactions", "payouts", "disputes"].includes(tab)) {
-      return paymentStore.error;
-    }
-    if (tab === "orders") return orderStore.error;
-    if (tab === "products") return productStore.error;
-    if (tab === "customers") return customerStore.error;
-    return profileStore.error;
-  }
-
   async function loadPaymentData(
     storeId: string,
     token: string,
@@ -112,75 +157,111 @@ export function useStoreTabData() {
     if (!storeId) return false;
 
     ensureStoreScope(storeId);
+    const resources = TAB_RESOURCES[tab];
+    const hadPaymentError = Boolean(paymentStore.error);
+    const hadOrderError = Boolean(orderStore.error);
+    const hadProductError = Boolean(productStore.error);
+    const hadCustomerError = Boolean(customerStore.error);
+    const hadProfileError = Boolean(profileStore.error);
+    if (!force) clearExpiredResources(storeId, resources);
+
     const { token, error: tokenError } = getToken(storeId);
     if (!token) {
       setTabError(tab, tokenError);
       return false;
     }
 
-    const shouldForce = force || Boolean(getTabError(tab));
     setTabError(tab, null);
 
     if (["transactions", "payouts", "disputes"].includes(tab)) {
-      await loadPaymentData(storeId, token, shouldForce);
+      const paymentForce =
+        force || hadPaymentError || isResourceExpired(storeId, "payment");
+      await loadPaymentData(storeId, token, paymentForce);
+      if (!paymentStore.error) markResourceLoaded(storeId, "payment");
+
+      const disputeForce = force || isResourceExpired(storeId, "disputes");
       if (
         tab === "disputes" &&
         !paymentStore.error &&
-        (shouldForce || !paymentStore.hasFetchedDisputes)
+        (disputeForce || !paymentStore.hasFetchedDisputes)
       ) {
         await paymentStore.fetchDisputes(storeId, token);
+      }
+      if (tab === "disputes" && !paymentStore.error) {
+        markResourceLoaded(storeId, "disputes");
       }
       return !paymentStore.error;
     }
 
     if (tab === "orders") {
       const requests: Promise<unknown>[] = [];
-      if (shouldForce || !orderStore.hasFetchedAll || orderStore.error) {
-        requests.push(orderStore.fetchAll(storeId, token, shouldForce));
+      const orderForce =
+        force || hadOrderError || isResourceExpired(storeId, "orders");
+      const paymentForce =
+        force || hadPaymentError || isResourceExpired(storeId, "payment");
+      if (orderForce || !orderStore.hasFetchedAll) {
+        requests.push(orderStore.fetchAll(storeId, token, orderForce));
       }
-      if (shouldForce || !paymentStore.hasFetchedBalanceTransactions) {
+      if (paymentForce || !paymentStore.hasFetchedBalanceTransactions) {
         requests.push(
-          paymentStore.fetchBalanceTransactions(storeId, token, shouldForce),
+          paymentStore.fetchBalanceTransactions(storeId, token, paymentForce),
         );
       }
       await Promise.all(requests);
+      if (!orderStore.error) markResourceLoaded(storeId, "orders");
+      if (!paymentStore.error) markResourceLoaded(storeId, "payment");
       return !orderStore.error;
     }
 
     if (tab === "products") {
-      if (shouldForce || !productStore.hasFetchedAll || productStore.error) {
+      const productForce =
+        force || hadProductError || isResourceExpired(storeId, "products");
+      if (productForce || !productStore.hasFetchedAll) {
         await productStore.fetchAll(storeId, token);
       }
+      if (!productStore.error) markResourceLoaded(storeId, "products");
       return !productStore.error;
     }
 
     if (tab === "customers") {
-      if (shouldForce || !customerStore.hasFetchedAll || customerStore.error) {
+      const customerForce =
+        force || hadCustomerError || isResourceExpired(storeId, "customers");
+      if (customerForce || !customerStore.hasFetchedAll) {
         await customerStore.fetchAll(
           storeId,
           token,
           customerStore.activeQuery,
         );
       }
+      if (!customerStore.error) markResourceLoaded(storeId, "customers");
       return !customerStore.error;
     }
 
     const requests: Promise<unknown>[] = [];
-    if (shouldForce || !profileStore.hasFetchedProfile || profileStore.error) {
+    const profileForce =
+      force || hadProfileError || isResourceExpired(storeId, "profile");
+    const paymentForce =
+      force || hadPaymentError || isResourceExpired(storeId, "payment");
+    const orderForce =
+      force || hadOrderError || isResourceExpired(storeId, "orders");
+    if (profileForce || !profileStore.hasFetchedProfile) {
       requests.push(profileStore.fetchProfile(storeId, token));
     }
     if (
-      shouldForce ||
+      paymentForce ||
       !paymentStore.hasFetchedAll ||
       !paymentStore.hasFetchedBalanceTransactions ||
       paymentStore.error
     ) {
-      requests.push(loadPaymentData(storeId, token, shouldForce));
+      requests.push(loadPaymentData(storeId, token, paymentForce));
     }
-    if (shouldForce || !orderStore.hasFetchedAll || orderStore.error) {
-      requests.push(orderStore.fetchAll(storeId, token, shouldForce));
+    if (orderForce || !orderStore.hasFetchedAll || orderStore.error) {
+      requests.push(orderStore.fetchAll(storeId, token, orderForce));
     }
     await Promise.all(requests);
+    if (!profileStore.error) markResourceLoaded(storeId, "profile");
+    if (!paymentStore.error) markResourceLoaded(storeId, "payment");
+    if (!orderStore.error) markResourceLoaded(storeId, "orders");
     return !profileStore.error;
   }
 

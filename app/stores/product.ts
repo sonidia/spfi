@@ -145,10 +145,16 @@ export const useProductStore = defineStore("product", () => {
   }
 
   function $reset() {
+    storeScopeVersion += 1;
     products.value = [];
     hasFetchedAll.value = false;
     error.value = null;
     isLoading.value = false;
+  }
+
+  function evictStore(storeId: string) {
+    delete storeCache.value[storeId];
+    if (activeStoreId.value === storeId) $reset();
   }
 
   return {
@@ -162,6 +168,7 @@ export const useProductStore = defineStore("product", () => {
     updateProduct,
     deleteProduct,
     hydrate,
+    evictStore,
     $reset,
   };
 });

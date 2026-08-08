@@ -521,6 +521,7 @@ export const usePaymentStore = defineStore("payment", () => {
   }
 
   function $reset() {
+    storeScopeVersion += 1;
     balance.value = null;
     payouts.value = [];
     visiblePayouts.value = [];
@@ -538,6 +539,11 @@ export const usePaymentStore = defineStore("payment", () => {
     error.value = null;
     graphqlWarning.value = null;
     isLoading.value = false;
+  }
+
+  function evictStore(storeId: string) {
+    delete storeCache.value[storeId];
+    if (activeStoreId.value === storeId) $reset();
   }
 
   function hasActiveFilters(filters: object) {
@@ -601,6 +607,7 @@ export const usePaymentStore = defineStore("payment", () => {
     fetchPayoutDetail,
     getTransactionsForPayout,
     hydrate,
+    evictStore,
     $reset,
   };
 });

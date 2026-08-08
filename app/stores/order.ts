@@ -519,7 +519,13 @@ export const useOrderStore = defineStore("order", () => {
     else orders.value.unshift(order);
   }
 
+  function evictStore(storeId: string) {
+    delete storeCache.value[storeId];
+    if (activeStoreId.value === storeId) $reset();
+  }
+
   function $reset() {
+    storeScopeVersion += 1;
     orders.value = [];
     orderCount.value = 0;
     riskByOrder.value = {};
@@ -568,6 +574,7 @@ export const useOrderStore = defineStore("order", () => {
     fetchRiskAssessments,
     createRiskAssessment,
     hydrate,
+    evictStore,
     setPage,
     setPageSize,
     $reset,

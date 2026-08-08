@@ -87,6 +87,11 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
     isLoading.value = false;
   }
 
+  function evictStore(storeId: string) {
+    delete storeCache.value[storeId];
+    if (activeStoreId.value === storeId) $reset();
+  }
+
   return {
     shop,
     hasFetchedProfile,
@@ -95,6 +100,7 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
     activeStoreId,
     fetchProfile,
     hydrate,
+    evictStore,
     $reset,
   };
 });

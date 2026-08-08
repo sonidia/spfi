@@ -414,6 +414,11 @@ export const useCustomerStore = defineStore("customers", () => {
     clearSelection();
   }
 
+  function evictStore(storeId: string) {
+    delete storeCache.value[storeId];
+    if (activeStoreId.value === storeId) $reset();
+  }
+
   return {
     customers,
     selectedCustomer,
@@ -440,6 +445,7 @@ export const useCustomerStore = defineStore("customers", () => {
     sendInvite,
     clearSelection,
     hydrate,
+    evictStore,
     $reset,
   };
 });

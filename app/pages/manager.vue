@@ -671,7 +671,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
           >
             <IconsSync v-if="isFindingShop" />
             <IconsAdd v-else />
-            {{ isFindingShop ? "Processing…" : "Add connect" }}
+            {{ isFindingShop ? "Processing…" : "Connect" }}
           </button>
         </div>
       </div>
@@ -1158,7 +1158,6 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
 
 /* Steps */
 .step-progress {
-  margin: 0 18px 18px;
   padding: 12px 16px;
   background: var(--surface-soft);
   border-radius: 8px;

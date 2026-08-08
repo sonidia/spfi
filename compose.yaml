@@ -11,9 +11,6 @@ services:
       NODE_ENV: production
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
-      NUXT_APP_AUTH_REQUIRED: "true"
-      NUXT_APP_AUTH_USERNAME: "${SPFI_AUTH_USERNAME:-admin}"
-      NUXT_APP_AUTH_PASSWORD: "${SPFI_AUTH_PASSWORD:-}"
       NUXT_ALLOWED_ORIGINS: "${SPFI_ALLOWED_ORIGINS:-}"
     expose:
       - "3000"

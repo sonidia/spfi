@@ -70,7 +70,7 @@ const en = {
   "nav.language": "Language",
   "settings.title": "Settings",
   "settings.subtitle":
-    "Configure automatic tracking without server environment variables",
+    "Configure local integrations and in-memory data behavior",
   "settings.configured": "Configured",
   "settings.notConfigured": "Not configured",
   "settings.providerTitle": "Tracktaco",
@@ -100,6 +100,14 @@ const en = {
   "settings.cleared": "Tracktaco settings cleared from this browser.",
   "settings.clearConfirm":
     "Clear the saved Tracktaco endpoint and API key from this browser?",
+  "settings.retentionTitle": "Pinia data lifetime",
+  "settings.retentionDescription":
+    "Choose how long Shopify operational data remains reusable in memory.",
+  "settings.retentionCurrent": "Cache lifetime",
+  "settings.retentionNoCache": "No cache",
+  "settings.retentionUntilRefresh": "Infinite (until refresh)",
+  "settings.retentionHint":
+    "Expired data is fetched again when you revisit a store or tab. This setting is saved locally; the data itself is cleared when the browser refreshes.",
   "theme.label": "Theme",
   "theme.light": "Light",
   "theme.dark": "Dark",
@@ -254,7 +262,7 @@ const vi: Record<MessageKey, string> = {
   "nav.language": "Ngôn ngữ",
   "settings.title": "Cài đặt",
   "settings.subtitle":
-    "Cấu hình tracking tự động mà không cần biến môi trường trên server",
+    "Cấu hình tích hợp cục bộ và cách lưu dữ liệu trong bộ nhớ",
   "settings.configured": "Đã cấu hình",
   "settings.notConfigured": "Chưa cấu hình",
   "settings.providerTitle": "Tracktaco",
@@ -284,6 +292,14 @@ const vi: Record<MessageKey, string> = {
   "settings.cleared": "Đã xóa cài đặt Tracktaco khỏi trình duyệt này.",
   "settings.clearConfirm":
     "Xóa endpoint và API key Tracktaco đã lưu khỏi trình duyệt này?",
+  "settings.retentionTitle": "Thời gian lưu dữ liệu Pinia",
+  "settings.retentionDescription":
+    "Chọn thời gian dữ liệu vận hành Shopify được tái sử dụng trong bộ nhớ.",
+  "settings.retentionCurrent": "Thời gian cache",
+  "settings.retentionNoCache": "Không cache",
+  "settings.retentionUntilRefresh": "Vô hạn (đến khi refresh)",
+  "settings.retentionHint":
+    "Dữ liệu hết hạn sẽ được tải lại khi bạn quay lại shop hoặc tab. Chỉ cài đặt này được lưu cục bộ; dữ liệu sẽ bị xóa khi refresh trình duyệt.",
   "theme.label": "Giao diện",
   "theme.light": "Sáng",
   "theme.dark": "Tối",

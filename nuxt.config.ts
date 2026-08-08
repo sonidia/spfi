@@ -3,11 +3,6 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   modules: ["@pinia/nuxt"],
   runtimeConfig: {
-    // Production is fail-closed unless a Basic Auth password is configured.
-    // Development remains local-first unless a password is explicitly set.
-    appAuthRequired: process.env.NODE_ENV === "production",
-    appAuthUsername: "admin",
-    appAuthPassword: "",
     allowedOrigins: "",
     debugProxyEnabled: process.env.NODE_ENV !== "production",
     debugProxyAllowedHosts: "httpbin.org,api.ipify.org",
