@@ -16,7 +16,7 @@
             {{ products.length }} product{{ products.length !== 1 ? "s" : "" }}
           </div>
           <button class="btn-primary-sm" @click="showCreateModal = true">
-            <span v-html="ICONS_PLUS"></span>
+            <Plus :size="14" aria-hidden="true" />
             Add product
           </button>
         </div>
@@ -497,6 +497,7 @@
 </template>
 
 <script setup lang="ts">
+import { Plus } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
@@ -624,8 +625,6 @@ const editProduct = ref({
   published: true,
   published_at: null as string | null,
 });
-
-const ICONS_PLUS = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>`;
 
 // ── Actions ──
 function selectProduct(prod: ShopifyProduct) {

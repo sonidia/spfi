@@ -46,11 +46,6 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  console.log(`[GenerateToken] Received StoreId: ${storeId}`);
-  console.log(
-    `[GenerateToken] Incoming Sock: ${sock ? `${sock.substring(0, 10)}...` : "MISSING"}`,
-  );
-
   if (!sock) {
     throw createApiErrorFromMessage("No proxy (sock) provided.", 400);
   }
@@ -113,7 +108,7 @@ export default defineEventHandler(async (event) => {
       "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw SOCKS5H variants",
       500,
       {
-        hint: "Call POST /api/debug-proxy with body { proxy } to view which variant passes/fails with details.",
+        hint: "Verify the proxy credentials. The debug endpoint is available only when explicitly enabled.",
         variantsTried: variants.map((item) => ({
           name: item.name,
           maskedProxy: maskProxyUrl(item.proxyUrl),

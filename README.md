@@ -61,6 +61,33 @@ The app runs at `http://localhost:3000` by default.
 
 ## 🔐 Configuration
 
+### Application access control
+
+Production runs fail closed: all app pages and API routes require HTTP Basic
+Auth, except the minimal `/api/health` probe. Configure a long random password
+before starting a production server:
+
+```text
+NUXT_APP_AUTH_REQUIRED=true
+NUXT_APP_AUTH_USERNAME=admin
+NUXT_APP_AUTH_PASSWORD=replace-with-a-long-random-password
+```
+
+Development remains unauthenticated by default for localhost use. Setting
+`NUXT_APP_AUTH_PASSWORD` enables the same protection in development. Basic Auth
+must be served over HTTPS when the app is reachable beyond a trusted local
+network because Basic credentials are encoded, not encrypted.
+
+API requests are same-origin by default. If a separate trusted browser UI must
+call the API, allow its exact origins as a comma-separated list:
+
+```text
+NUXT_ALLOWED_ORIGINS=https://ops.example.com,https://admin.example.com
+```
+
+Copy `.env.example` to `.env` as a starting point, then replace every example
+secret before use.
+
 Add the Google service account file:
 
 ```text
@@ -151,8 +178,21 @@ On PowerShell:
 
 ```powershell
 $env:NGINX_PORT = "8080"
+$env:SPFI_AUTH_USERNAME = "admin"
+$env:SPFI_AUTH_PASSWORD = "replace-with-a-long-random-password"
 docker compose up -d --build
 ```
+
+On Bash-compatible shells:
+
+```bash
+SPFI_AUTH_PASSWORD='replace-with-a-long-random-password' docker compose up -d --build
+```
+
+If `SPFI_AUTH_PASSWORD` is empty, the app health probe remains available but
+all operational pages and APIs return `503` instead of running publicly without
+authentication. For internet exposure, terminate TLS in front of this Nginx
+service or extend the Nginx configuration with a valid certificate.
 
 Inspect or stop the stack:
 
@@ -218,6 +258,10 @@ Expected header aliases for store auto-fill:
 
 - Do not commit `server/service_account.json`, `.env` files, logs, or generated build output.
 - Store credentials and proxy details should be treated as sensitive operational data.
+- Production app and API access is protected by fail-closed Basic Auth; use HTTPS and a long random password.
+- Browser API calls are same-origin unless explicitly listed in `NUXT_ALLOWED_ORIGINS`.
+- `/api/debug-proxy` is disabled by default in production. When explicitly enabled, it accepts only HTTPS destinations on `NUXT_DEBUG_PROXY_ALLOWED_HOSTS`, blocks private/reserved DNS results and redirects, caps response size, and suppresses raw socket errors.
+- Store status targets and every redirect are restricted to public HTTPS port 443; direct connections use the validated DNS address to reduce DNS-rebinding risk.
 - Production environments must allow outbound HTTPS requests to Shopify, Google APIs, and any proxy endpoints used by status checks.
 
 ## 🧪 Scripts

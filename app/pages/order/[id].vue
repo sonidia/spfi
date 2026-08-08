@@ -75,7 +75,7 @@
                         gap: 6px;
                       "
                     >
-                      <span v-html="ICONS.box"></span> Fulfilled
+                      <PackageCheck :size="16" aria-hidden="true" /> Fulfilled
                     </span>
                     <span
                       v-else
@@ -96,7 +96,7 @@
                         gap: 4px;
                       "
                     >
-                      <span v-html="ICONS.pin"></span>
+                      <MapPin :size="14" aria-hidden="true" />
                       {{ serviceName(nilVal(f.service, "Manual")) }}
                     </span>
                   </div>
@@ -123,26 +123,32 @@
                         : 'transit-badge'
                     "
                   >
-                    <span v-html="ICONS.truck"></span
-                    >{{ getShipmentLabel(f.shipment_status) }}
+                    <Truck :size="13" aria-hidden="true" />
+                    {{ getShipmentLabel(f.shipment_status) }}
                   </span>
                   <div v-if="nilVal(f.created_at)" class="tracking-row">
-                    <span v-html="ICONS.cal"></span> {{ fmtDate(f.created_at) }}
+                    <CalendarDays :size="14" aria-hidden="true" />
+                    {{ fmtDate(f.created_at) }}
                   </div>
                   <div v-if="nilVal(f.created_at)" class="tracking-row">
-                    <span v-html="ICONS.deliver"></span> Deliver by
+                    <BadgeCheck :size="14" aria-hidden="true" /> Deliver by
                     {{ getDeliverBy(f.created_at) }}
                   </div>
                   <div v-if="nilVal(f.tracking_number)" class="tracking-row">
-                    <span v-html="ICONS.link"></span>
+                    <Link2 :size="14" aria-hidden="true" />
                     {{
                       nilVal(f.tracking_company)
                         ? f.tracking_company + " tracking: "
                         : "Tracking: "
                     }}
-                    <a :href="nilVal(f.tracking_url) || '#'" target="_blank">{{
-                      f.tracking_number
-                    }}</a>
+                    <a
+                      v-if="getSafeExternalUrl(f.tracking_url)"
+                      :href="getSafeExternalUrl(f.tracking_url) || undefined"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >{{ f.tracking_number }}</a
+                    >
+                    <span v-else>{{ f.tracking_number }}</span>
                   </div>
                 </div>
 
@@ -202,7 +208,7 @@
                         gap: 6px;
                       "
                     >
-                      <span v-html="ICONS.box"></span> Unfulfilled
+                      <Package :size="16" aria-hidden="true" /> Unfulfilled
                     </span>
                   </div>
                 </div>
@@ -250,7 +256,11 @@
             <div class="card">
               <div class="card-header">
                 <div class="card-header-left">
-                  <span style="color: var(--green)" v-html="ICONS.card"></span>
+                  <CreditCard
+                    :size="16"
+                    aria-hidden="true"
+                    style="color: var(--green)"
+                  />
                   <span class="card-title" style="color: var(--green)"
                     >Paid</span
                   >
@@ -361,7 +371,9 @@
             <div v-if="nilVal(currentOrder.note)" class="card">
               <div class="card-header">
                 <div class="card-title-row"><FileText class="card-title-icon" aria-hidden="true" /><span class="card-title">Notes</span></div>
-                <button class="icon-btn" v-html="ICONS.edit"></button>
+                <button class="icon-btn" type="button" aria-label="Edit note">
+                  <Pencil :size="16" aria-hidden="true" />
+                </button>
               </div>
               <div class="sidebar-body">
                 <span class="sidebar-value">{{ currentOrder.note }}</span>
@@ -372,7 +384,13 @@
             <div class="card">
               <div class="card-header">
                 <div class="card-title-row"><User class="card-title-icon" aria-hidden="true" /><span class="card-title">Customer</span></div>
-                <button class="icon-btn" v-html="ICONS.dots"></button>
+                <button
+                  class="icon-btn"
+                  type="button"
+                  aria-label="Customer actions"
+                >
+                  <Ellipsis :size="16" aria-hidden="true" />
+                </button>
               </div>
               <div class="sidebar-body">
                 <div class="sidebar-section">
@@ -414,14 +432,15 @@
                   class="sidebar-section"
                 >
                   <div class="sidebar-label">Shipping address</div>
-                  <div
+                  <OrderAddressLines
                     class="sidebar-value"
-                    v-html="formatAddress(currentOrder.shipping_address)"
-                  ></div>
+                    :address="currentOrder.shipping_address"
+                  />
                   <a
                     v-if="currentOrder.shipping_address.latitude != null"
                     :href="`https://maps.google.com/?q=${currentOrder.shipping_address.latitude},${currentOrder.shipping_address.longitude}`"
                     target="_blank"
+                    rel="noopener noreferrer"
                     class="sidebar-link"
                     style="display: inline-block; margin-top: 4px"
                     >View map</a
@@ -440,11 +459,11 @@
                   >
                     Same as shipping address
                   </div>
-                  <div
+                  <OrderAddressLines
                     v-else-if="currentOrder.billing_address"
                     class="sidebar-value"
-                    v-html="formatAddress(currentOrder.billing_address)"
-                  ></div>
+                    :address="currentOrder.billing_address"
+                  />
                   <div v-else class="sidebar-sub">No billing address</div>
                 </div>
               </div>
@@ -460,20 +479,23 @@
                   v-if="nilVal(currentOrder.customer?.orders_count, 1) === 1"
                   class="conversion-item"
                 >
-                  <span v-html="ICONS.user"></span> This is their 1st order
+                  <User :size="14" aria-hidden="true" /> This is their 1st order
                 </div>
                 <div class="conversion-item">
-                  <span v-html="ICONS.clock"></span>
+                  <Clock3 :size="14" aria-hidden="true" />
                   <template v-if="!nilVal(currentOrder.referring_site)"
                     >1st session was direct to your store</template
                   >
                   <template v-else>
                     <a
-                      :href="currentOrder.referring_site || '#'"
+                      v-if="getSafeExternalUrl(currentOrder.referring_site)"
+                      :href="getSafeExternalUrl(currentOrder.referring_site) || undefined"
                       target="_blank"
+                      rel="noopener noreferrer"
                       class="sidebar-link"
                       >{{ currentOrder.referring_site }}</a
                     >
+                    <span v-else>{{ currentOrder.referring_site }}</span>
                   </template>
                 </div>
               </div>
@@ -489,18 +511,34 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false });
-import { Activity, ArrowLeft, FileText, User } from "@lucide/vue";
+import {
+  Activity,
+  ArrowLeft,
+  BadgeCheck,
+  CalendarDays,
+  Clock3,
+  CreditCard,
+  Ellipsis,
+  FileText,
+  Link2,
+  MapPin,
+  Package,
+  PackageCheck,
+  Pencil,
+  Truck,
+  User,
+} from "@lucide/vue";
 import { computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
+import { getSafeExternalUrl } from "~~/utils/safe-url";
 import {
   addressSame,
   capitalize,
   fmtDate,
   fmtDateTime,
   fmtMoney,
-  formatAddress,
   getCustomerEmail,
   getCustomerName,
   getDeliverBy,
@@ -511,7 +549,6 @@ import {
   getSource,
   getSubtotal,
   getTax,
-  ICONS,
   nilVal,
   serviceName,
 } from "~~/utils/order";

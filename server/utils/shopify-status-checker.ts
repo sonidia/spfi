@@ -1,7 +1,6 @@
 ﻿import { resolve4, resolve6, resolveCname, resolveNs } from "node:dns/promises";
 import * as http from "node:http";
 import * as https from "node:https";
-import { isIP } from "node:net";
 import tls from "node:tls";
 import { URL } from "node:url";
 import type { SocksProxyAgent } from "socks-proxy-agent";
@@ -13,6 +12,12 @@ import type {
 import { StoreStatusInputError } from "./status-checker-errors";
 import { createSocksProxyAgents } from "./callShopifyApi";
 import { resolveProxyIp } from "./status-proxy-ip";
+import {
+  getUnsafeHostnameReason,
+  isPublicIpAddress,
+  PublicUrlError,
+  resolvePublicUrl,
+} from "./public-outbound-url";
 import {
   buildShopifyStatusVerdict,
   classifyShopifyStoreStatus,
@@ -88,7 +93,7 @@ export async function checkShopifyStoreStatus(
   const normalizedUrl = normalizeTarget(input);
   const url = new URL(normalizedUrl);
   const host = url.hostname;
-  const blockedHostReason = getBlockedHostReason(host);
+  const blockedHostReason = getUnsafeHostnameReason(host);
   const proxyAgents = createSocksProxyAgents(options.proxy);
   const hasProxy = proxyAgents.length > 0;
 
@@ -99,7 +104,7 @@ export async function checkShopifyStoreStatus(
   const dns = await checkDns(host);
   const blockedDnsReason = getBlockedDnsReason(dns);
 
-  if (blockedDnsReason && !hasProxy) {
+  if (blockedDnsReason) {
     throw new StoreStatusInputError(blockedDnsReason);
   }
 
@@ -242,12 +247,29 @@ function normalizeTarget(input: string) {
     const url = new URL(withProtocol);
 
     url.protocol = "https:";
+    if (url.username || url.password) {
+      throw new StoreStatusInputError(
+        "Target URLs cannot contain credentials.",
+      );
+    }
+    if (url.port && url.port !== "443") {
+      throw new StoreStatusInputError(
+        "Only the standard HTTPS port can be checked.",
+      );
+    }
+    const blockedHostReason = getUnsafeHostnameReason(url.hostname);
+    if (blockedHostReason) {
+      throw new StoreStatusInputError(blockedHostReason);
+    }
+
+    url.port = "";
     url.pathname = "/";
     url.search = "";
     url.hash = "";
 
     return url.toString();
-  } catch {
+  } catch (error) {
+    if (error instanceof StoreStatusInputError) throw error;
     throw new StoreStatusInputError("Invalid target URL or domain.");
   }
 }
@@ -262,50 +284,7 @@ async function fetchSnapshot(
     return fetchSnapshotWithProxyVariants(url, method, redirect, agents);
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(url, {
-      method,
-      redirect,
-      signal: controller.signal,
-      headers: {
-        "user-agent": "Mozilla/5.0 ShopifyStatusChecker/1.0",
-      },
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    const shouldReadBody = method === "GET";
-    const bodySnippet = shouldReadBody
-      ? await response.text().then((text) => text.slice(0, BODY_SNIPPET_LIMIT))
-      : "";
-
-    return {
-      ok: response.ok,
-      status: response.status,
-      statusText: response.statusText,
-      url: response.url,
-      redirected: response.redirected,
-      headers: Object.fromEntries(response.headers.entries()),
-      bodySnippet,
-      contentType,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: null,
-      statusText: "Request failed",
-      url,
-      redirected: false,
-      headers: {},
-      bodySnippet: "",
-      contentType: "",
-      error: error instanceof Error ? error.message : "Unknown request error",
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return fetchSnapshotWithNodeRequest(url, method, redirect);
 }
 
 async function fetchSnapshotWithProxyVariants(
@@ -350,11 +329,24 @@ async function fetchSnapshotWithNodeRequest(
   url: string,
   method: "GET" | "HEAD",
   redirect: RequestRedirect,
-  agent: SocksProxyAgent,
+  agent?: SocksProxyAgent,
   redirectCount = 0,
   redirected = false,
 ): Promise<FetchSnapshot> {
-  const snapshot = await requestSnapshot(url, method, agent);
+  let resolution;
+
+  try {
+    resolution = await resolvePublicUrl(url);
+  } catch (error) {
+    return buildBlockedSnapshot(url, getPublicUrlErrorMessage(error));
+  }
+
+  const snapshot = await requestSnapshot(
+    resolution.url.toString(),
+    method,
+    agent,
+    resolution.addresses[0],
+  );
   const location = snapshot.headers.location;
 
   if (
@@ -385,7 +377,8 @@ async function fetchSnapshotWithNodeRequest(
 function requestSnapshot(
   url: string,
   method: "GET" | "HEAD",
-  agent: SocksProxyAgent,
+  agent?: SocksProxyAgent,
+  pinnedAddress?: { address: string; family: 4 | 6 },
 ): Promise<FetchSnapshot> {
   return new Promise((resolve) => {
     const targetUrl = new URL(url);
@@ -404,7 +397,11 @@ function requestSnapshot(
         path: `${targetUrl.pathname}${targetUrl.search}`,
         method,
         headers,
-        agent: agent as unknown as http.Agent,
+        ...(agent
+          ? { agent: agent as unknown as http.Agent }
+          : pinnedAddress
+            ? { lookup: createPinnedLookup(pinnedAddress) }
+            : {}),
         timeout: SSL_CHECK_TIMEOUT_MS,
       },
       (response) => {
@@ -477,6 +474,46 @@ function normalizeResponseHeaders(
       Array.isArray(value) ? value.join(", ") : String(value || ""),
     ]),
   );
+}
+
+function createPinnedLookup(pinnedAddress: {
+  address: string;
+  family: 4 | 6;
+}): NonNullable<http.RequestOptions["lookup"]> {
+  const lookup = (
+    _hostname: string,
+    options: { all?: boolean },
+    callback: (...args: unknown[]) => void,
+  ) => {
+    if (options?.all) {
+      callback(null, [pinnedAddress]);
+      return;
+    }
+
+    callback(null, pinnedAddress.address, pinnedAddress.family);
+  };
+
+  return lookup as unknown as NonNullable<http.RequestOptions["lookup"]>;
+}
+
+function buildBlockedSnapshot(url: string, message: string): FetchSnapshot {
+  return {
+    ok: false,
+    status: null,
+    statusText: "Request blocked",
+    url,
+    redirected: false,
+    headers: {},
+    bodySnippet: "",
+    contentType: "",
+    error: message,
+  };
+}
+
+function getPublicUrlErrorMessage(error: unknown) {
+  return error instanceof PublicUrlError
+    ? `Outbound request blocked: ${error.message}`
+    : "Outbound request blocked by destination policy.";
 }
 
 async function checkDns(host: string): Promise<DnsSnapshot> {
@@ -793,11 +830,27 @@ function buildProductsCheck(snapshot: FetchSnapshot): CheckItem {
   };
 }
 
-function checkSsl(host: string): Promise<SslSnapshot> {
+async function checkSsl(host: string): Promise<SslSnapshot> {
+  let resolution;
+
+  try {
+    resolution = await resolvePublicUrl(`https://${host}/`);
+  } catch (error) {
+    return {
+      ok: false,
+      error: getPublicUrlErrorMessage(error),
+    };
+  }
+
+  const pinnedAddress = resolution.addresses[0];
+  if (!pinnedAddress) {
+    return { ok: false, error: "No public TLS destination was resolved." };
+  }
+
   return new Promise((resolve) => {
     const socket = tls.connect(
       {
-        host,
+        host: pinnedAddress.address,
         port: 443,
         servername: host,
         rejectUnauthorized: false,
@@ -948,33 +1001,13 @@ function formatDnsDetails(snapshot: DnsSnapshot) {
   return snapshot.errors.length ? [...details, ...snapshot.errors] : details;
 }
 
-function getBlockedHostReason(host: string) {
-  const normalizedHost = host
-    .toLowerCase()
-    .replace(/^\[/, "")
-    .replace(/\]$/, "");
-
-  if (
-    normalizedHost === "localhost" ||
-    normalizedHost.endsWith(".localhost") ||
-    normalizedHost.endsWith(".local") ||
-    normalizedHost.endsWith(".internal")
-  ) {
-    return "Only public domains can be checked; localhost and internal hostnames are blocked.";
-  }
-
-  if (isPrivateIp(normalizedHost)) {
-    return "Only public domains can be checked; private, loopback, and link-local IPs are blocked.";
-  }
-
-  return "";
-}
-
 function getBlockedDnsReason(snapshot: DnsSnapshot) {
-  const blockedA = snapshot.a.find((record) => isPrivateIp(record));
-  const blockedAaaa = snapshot.aaaa.find((record) => isPrivateIp(record));
+  const blockedA = snapshot.a.find((record) => !isPublicIpAddress(record));
+  const blockedAaaa = snapshot.aaaa.find(
+    (record) => !isPublicIpAddress(record),
+  );
   const blockedCname = snapshot.cname.find((record) =>
-    getBlockedHostReason(record),
+    getUnsafeHostnameReason(record),
   );
 
   if (blockedA || blockedAaaa) {
@@ -986,45 +1019,6 @@ function getBlockedDnsReason(snapshot: DnsSnapshot) {
   }
 
   return "";
-}
-
-function isPrivateIp(value: string) {
-  const ipVersion = isIP(value);
-
-  if (ipVersion === 4) {
-    const octets = value.split(".").map(Number);
-    const [a = 0, b = 0] = octets;
-
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 198 && (b === 18 || b === 19)) ||
-      a >= 224
-    );
-  }
-
-  if (ipVersion === 6) {
-    const normalized = value.toLowerCase();
-
-    return (
-      normalized === "::" ||
-      normalized === "::1" ||
-      normalized.startsWith("fc") ||
-      normalized.startsWith("fd") ||
-      normalized.startsWith("fe80:") ||
-      normalized.startsWith("::ffff:127.") ||
-      normalized.startsWith("::ffff:10.") ||
-      normalized.startsWith("::ffff:192.168.") ||
-      normalized.startsWith("2001:db8:")
-    );
-  }
-
-  return false;
 }
 
 
