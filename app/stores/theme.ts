@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 export type ThemeMode = "light" | "dark";
 
 const THEME_STORAGE_KEY = "spf_theme";
+let systemThemeQuery: MediaQueryList | null = null;
 
 function isThemeMode(value: string | null): value is ThemeMode {
   return value === "light" || value === "dark";
@@ -22,6 +23,11 @@ function applyTheme(theme: ThemeMode) {
   document.documentElement.style.colorScheme = theme;
 }
 
+function getStoredTheme() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(THEME_STORAGE_KEY);
+}
+
 export const useThemeStore = defineStore("theme", () => {
   const theme = ref<ThemeMode>("light");
   const isInitialized = ref(false);
@@ -32,12 +38,26 @@ export const useThemeStore = defineStore("theme", () => {
     if (isInitialized.value) return;
 
     if (typeof window !== "undefined") {
-      const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+      const storedTheme = getStoredTheme();
       theme.value = isThemeMode(storedTheme) ? storedTheme : getPreferredTheme();
       applyTheme(theme.value);
+      watchSystemTheme();
     }
 
     isInitialized.value = true;
+  }
+
+  function watchSystemTheme() {
+    if (systemThemeQuery || typeof window === "undefined") return;
+    systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const syncSystemTheme = () => {
+      if (isThemeMode(getStoredTheme())) return;
+      theme.value = getPreferredTheme();
+      applyTheme(theme.value);
+    };
+
+    systemThemeQuery.addEventListener("change", syncSystemTheme);
   }
 
   function setTheme(nextTheme: ThemeMode) {

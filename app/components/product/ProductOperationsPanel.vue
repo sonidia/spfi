@@ -26,6 +26,7 @@ const props = defineProps<{ product: ShopifyProduct }>();
 const emit = defineEmits<{ refreshed: [] }>();
 const toast = useToastStore();
 const operations = useProductOperations();
+const { t } = useLocalization();
 const {
   locations,
   inventoryLevels,
@@ -64,6 +65,18 @@ const selectedInventoryLevel = computed(() => {
       level.location_id === inventoryLocationId.value,
   );
 });
+
+function formatVariantInventory(variant: ShopifyVariant) {
+  if (typeof variant.inventory_quantity === "number") {
+    return t("product.availableCount", {
+      count: variant.inventory_quantity,
+    });
+  }
+
+  return variant.inventory_management
+    ? t("product.tracked")
+    : t("product.notTracked");
+}
 
 watch(
   () => props.product.id,
@@ -172,7 +185,7 @@ async function saveVariant() {
   const option1 = String(variantForm.value.option1 || "").trim();
   const price = String(variantForm.value.price || "").trim();
   if (!option1 || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(price)) {
-    toast.error("Variant title and a valid non-negative price are required.");
+    toast.error(t("product.variantRequired"));
     return;
   }
   const input = {
@@ -189,26 +202,34 @@ async function saveVariant() {
     : await operations.createVariant(props.product.id, input);
   if (!response) return;
 
-  toast.success(editingVariantId.value ? "Variant updated." : "Variant created.");
+  toast.success(
+    editingVariantId.value
+      ? t("product.variantUpdated")
+      : t("product.variantCreated"),
+  );
   resetVariantForm();
   await afterMutation();
 }
 
 async function removeVariant(variant: ShopifyVariant) {
   if (
-    !confirm(`Delete variant "${variant.title || variant.id}"?`) ||
+    !confirm(
+      t("product.deleteVariantConfirm", {
+        title: variant.title || variant.id,
+      }),
+    ) ||
     !(await operations.deleteVariant(props.product.id, variant.id))
   ) {
     return;
   }
-  toast.success("Variant deleted.");
+  toast.success(t("product.variantDeleted"));
   await afterMutation();
 }
 
 async function addImage() {
   const src = imageUrl.value.trim();
   if (!/^https?:\/\//i.test(src)) {
-    toast.error("Enter a valid http(s) image URL.");
+    toast.error(t("product.validImageUrl"));
     return;
   }
   const image: ShopifyProductImageInput = {
@@ -219,7 +240,7 @@ async function addImage() {
 
   imageUrl.value = "";
   imageAlt.value = "";
-  toast.success("Product image added.");
+  toast.success(t("product.productImageAdded"));
   await afterMutation();
 }
 
@@ -227,7 +248,7 @@ async function saveImage(image: ShopifyProductImage) {
   if (!image.id) return;
   const draft = imageDrafts.value[image.id];
   if (!draft || !Number.isSafeInteger(Number(draft.position)) || draft.position < 1) {
-    toast.error("Image position must be a positive integer.");
+    toast.error(t("product.imagePositionRequired"));
     return;
   }
   if (
@@ -239,19 +260,19 @@ async function saveImage(image: ShopifyProductImage) {
   ) {
     return;
   }
-  toast.success("Image position and variant assignments saved.");
+  toast.success(t("product.imageSaved"));
   await afterMutation();
 }
 
 async function removeImage(image: ShopifyProductImage) {
   if (
     !image.id ||
-    !confirm("Delete this product image?") ||
+    !confirm(t("product.deleteImageConfirm")) ||
     !(await operations.deleteImage(props.product.id, image.id))
   ) {
     return;
   }
-  toast.success("Product image deleted.");
+  toast.success(t("product.imageDeleted"));
   await afterMutation();
 }
 
@@ -268,7 +289,7 @@ async function updateInventory() {
   const locationId = inventoryLocationId.value;
   const amount = Number(inventoryAmount.value);
   if (!itemId || !locationId || !Number.isSafeInteger(amount)) {
-    toast.error("Select a variant and location, then enter a whole number.");
+    toast.error(t("product.selectVariantLocationWhole"));
     return;
   }
   const response =
@@ -283,8 +304,8 @@ async function updateInventory() {
   );
   toast.success(
     inventoryMode.value === "set"
-      ? "Inventory quantity updated."
-      : "Inventory adjustment applied.",
+      ? t("product.inventoryUpdated")
+      : t("product.inventoryAdjustmentApplied"),
   );
   inventoryAmount.value = 0;
   emit("refreshed");
@@ -300,12 +321,12 @@ async function afterMutation() {
   <section class="operations-panel">
     <header>
       <div>
-        <strong>Catalog operations</strong>
-        <span>Manage variants, images and inventory for this product.</span>
+        <strong>{{ t("product.operationsTitle") }}</strong>
+        <span>{{ t("product.operationsDescription") }}</span>
       </div>
       <BaseButton
         icon-only
-        title="Refresh product operations"
+        :title="t('product.refreshOperations')"
         :loading="operations.isLoading.value"
         @click="refreshAll"
       >
@@ -319,38 +340,38 @@ async function afterMutation() {
 
     <div class="operation-section">
       <div class="section-title">
-        <div><Boxes /><strong>Variants</strong></div>
-        <span>{{ operations.variants.value.length }} total</span>
+        <div><Boxes /><strong>{{ t("product.variants") }}</strong></div>
+        <span>{{ t("product.totalCount", { count: operations.variants.value.length }) }}</span>
       </div>
 
       <div class="variant-form form-grid">
-        <label><span>Title *</span><input v-model="variantForm.option1" placeholder="Default title" /></label>
-        <label><span>Price *</span><input v-model="variantForm.price" type="number" min="0" step="0.01" /></label>
-        <label><span>SKU</span><input v-model="variantForm.sku" /></label>
-        <label><span>Barcode</span><input v-model="variantForm.barcode" /></label>
+        <label><span>{{ t("product.variantTitle") }} *</span><input v-model="variantForm.option1" :placeholder="t('product.defaultTitle')" /></label>
+        <label><span>{{ t("product.price") }} *</span><input v-model="variantForm.price" type="number" min="0" step="0.01" /></label>
+        <label><span>{{ t("product.sku") }}</span><input v-model="variantForm.sku" /></label>
+        <label><span>{{ t("product.barcode") }}</span><input v-model="variantForm.barcode" /></label>
         <label>
-          <span>Image</span>
+          <span>{{ t("product.image") }}</span>
           <select v-model.number="variantForm.image_id">
-            <option :value="null">No image</option>
+            <option :value="null">{{ t("product.noImage") }}</option>
             <option v-for="image in operations.images.value" :key="image.id" :value="image.id">
-              Image {{ image.position || image.id }}
+              {{ t("product.imageNumber", { id: image.position || image.id || "" }) }}
             </option>
           </select>
         </label>
         <label>
-          <span>Inventory policy</span>
+          <span>{{ t("product.inventoryPolicy") }}</span>
           <select v-model="variantForm.inventory_policy">
-            <option value="deny">Stop selling at zero</option>
-            <option value="continue">Continue selling</option>
+            <option value="deny">{{ t("product.stopSellingAtZero") }}</option>
+            <option value="continue">{{ t("product.continueSelling") }}</option>
           </select>
         </label>
-        <label class="check"><input v-model="variantForm.taxable" type="checkbox" /><span>Taxable</span></label>
-        <label class="check"><input v-model="variantForm.requires_shipping" type="checkbox" /><span>Requires shipping</span></label>
+        <label class="check"><input v-model="variantForm.taxable" type="checkbox" /><span>{{ t("product.taxable") }}</span></label>
+        <label class="check"><input v-model="variantForm.requires_shipping" type="checkbox" /><span>{{ t("product.requiresShipping") }}</span></label>
         <div class="form-actions">
-          <BaseButton v-if="editingVariantId" @click="resetVariantForm">Cancel</BaseButton>
+          <BaseButton v-if="editingVariantId" @click="resetVariantForm">{{ t("common.cancel") }}</BaseButton>
           <BaseButton variant="primary" :loading="operations.isLoading.value" @click="saveVariant">
             <template #icon><Save v-if="editingVariantId" /><Plus v-else /></template>
-            {{ editingVariantId ? "Save variant" : "Add variant" }}
+            {{ editingVariantId ? t("product.saveVariant") : t("product.addVariant") }}
           </BaseButton>
         </div>
       </div>
@@ -358,14 +379,14 @@ async function afterMutation() {
       <div class="compact-list">
         <article v-for="variant in operations.variants.value" :key="variant.id">
           <div>
-            <strong>{{ variant.title || "Default" }}</strong>
-            <span>{{ variant.sku || "No SKU" }} · {{ variant.price || "0.00" }} · {{ variant.inventory_quantity ?? "Untracked" }} available</span>
+            <strong>{{ variant.title || t("product.defaultVariant") }}</strong>
+            <span class="variant-summary">{{ variant.sku || t("product.noSku") }} - {{ variant.price || "0.00" }} - {{ formatVariantInventory(variant) }}</span>
           </div>
           <div class="row-actions">
-            <BaseButton icon-only variant="ghost" title="Edit variant" @click="editVariant(variant)">
+            <BaseButton icon-only variant="ghost" :title="t('product.editVariant')" @click="editVariant(variant)">
               <template #icon><Pencil /></template>
             </BaseButton>
-            <BaseButton icon-only variant="danger-ghost" title="Delete variant" @click="removeVariant(variant)">
+            <BaseButton icon-only variant="danger-ghost" :title="t('product.deleteVariant')" @click="removeVariant(variant)">
               <template #icon><Trash2 /></template>
             </BaseButton>
           </div>
@@ -375,25 +396,25 @@ async function afterMutation() {
 
     <div class="operation-section">
       <div class="section-title">
-        <div><ImagePlus /><strong>Images</strong></div>
-        <span>Position and variant assignment</span>
+        <div><ImagePlus /><strong>{{ t("product.images") }}</strong></div>
+        <span>{{ t("product.imagesDescription") }}</span>
       </div>
       <div class="image-create">
-        <input v-model="imageUrl" type="url" placeholder="https://…/image.jpg" />
-        <input v-model="imageAlt" placeholder="Alt text" />
+        <input v-model="imageUrl" type="url" :placeholder="t('product.imageUrlPlaceholder')" />
+        <input v-model="imageAlt" :placeholder="t('product.altText')" />
         <BaseButton variant="primary" :loading="operations.isLoading.value" @click="addImage">
           <template #icon><ImagePlus /></template>
-          Add image
+          {{ t("product.addImage") }}
         </BaseButton>
       </div>
       <div class="image-grid">
         <article v-for="image in operations.images.value" :key="image.id" class="image-card">
-          <img :src="image.src" :alt="image.alt || 'Product image'" />
+          <img :src="image.src" :alt="image.alt || t('product.productImage')" />
           <div v-if="image.id && imageDrafts[image.id]" class="image-fields">
-            <label><span>Position</span><input v-model.number="imageDrafts[image.id]!.position" type="number" min="1" step="1" /></label>
-            <label><span>Alt text</span><input v-model="imageDrafts[image.id]!.alt" /></label>
+            <label><span>{{ t("product.position") }}</span><input v-model.number="imageDrafts[image.id]!.position" type="number" min="1" step="1" /></label>
+            <label><span>{{ t("product.altText") }}</span><input v-model="imageDrafts[image.id]!.alt" /></label>
             <fieldset>
-              <legend>Assigned variants</legend>
+              <legend>{{ t("product.assignedVariants") }}</legend>
               <label v-for="variant in operations.variants.value" :key="variant.id" class="check">
                 <input
                   type="checkbox"
@@ -406,11 +427,11 @@ async function afterMutation() {
             <div class="form-actions">
               <BaseButton variant="danger-ghost" @click="removeImage(image)">
                 <template #icon><Trash2 /></template>
-                Delete
+                {{ t("common.delete") }}
               </BaseButton>
               <BaseButton variant="primary" @click="saveImage(image)">
                 <template #icon><Save /></template>
-                Save
+                {{ t("common.save") }}
               </BaseButton>
             </div>
           </div>
@@ -420,12 +441,12 @@ async function afterMutation() {
 
     <div class="operation-section">
       <div class="section-title">
-        <div><Boxes /><strong>Inventory</strong></div>
-        <span>Set an absolute quantity or apply an adjustment.</span>
+        <div><Boxes /><strong>{{ t("product.inventory") }}</strong></div>
+        <span>{{ t("product.inventoryDescription") }}</span>
       </div>
       <div class="inventory-form">
         <label>
-          <span>Variant</span>
+          <span>{{ t("product.variant") }}</span>
           <select v-model.number="inventoryVariantId">
             <option v-for="variant in inventoryVariants" :key="variant.id" :value="variant.id">
               {{ variant.title || variant.sku || variant.id }}
@@ -433,7 +454,7 @@ async function afterMutation() {
           </select>
         </label>
         <label>
-          <span>Location</span>
+          <span>{{ t("product.location") }}</span>
           <select v-model.number="inventoryLocationId">
             <option v-for="location in locations" :key="location.id" :value="location.id">
               {{ location.name || location.id }}
@@ -441,22 +462,22 @@ async function afterMutation() {
           </select>
         </label>
         <label>
-          <span>Operation</span>
+          <span>{{ t("product.operation") }}</span>
           <select v-model="inventoryMode">
-            <option value="set">Set quantity</option>
-            <option value="adjust">Adjust +/−</option>
+            <option value="set">{{ t("product.setQuantity") }}</option>
+            <option value="adjust">{{ t("product.adjustQuantity") }}</option>
           </select>
         </label>
         <label>
-          <span>{{ inventoryMode === "set" ? "Available" : "Adjustment" }}</span>
+          <span>{{ inventoryMode === "set" ? t("product.available") : t("product.adjustment") }}</span>
           <input v-model.number="inventoryAmount" type="number" step="1" />
         </label>
         <div class="inventory-current">
-          Current: <strong>{{ selectedInventoryLevel?.available ?? "Not connected" }}</strong>
+          {{ t("product.current") }}: <strong>{{ selectedInventoryLevel?.available ?? t("product.notConnected") }}</strong>
         </div>
         <BaseButton variant="primary" :loading="operations.isLoading.value" @click="updateInventory">
           <template #icon><Save /></template>
-          Apply
+          {{ t("product.apply") }}
         </BaseButton>
       </div>
     </div>

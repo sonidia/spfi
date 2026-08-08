@@ -3,7 +3,7 @@
     <div class="products-manager">
       <!-- Loading state -->
       <div v-if="productStore.isLoading && !products.length" id="loading">
-        Loading products...
+        {{ t("product.loadingProducts") }}
       </div>
       <div v-else-if="productStore.error" id="loading" style="color: red">
         {{ productStore.error }}
@@ -13,11 +13,11 @@
       <div v-else>
         <div class="page-meta-header">
           <div class="page-meta">
-            {{ products.length }} product{{ products.length !== 1 ? "s" : "" }}
+            {{ t("product.productCount", { count: products.length }) }}
           </div>
           <button class="btn-primary-sm" @click="showCreateModal = true">
             <Plus :size="14" aria-hidden="true" />
-            Add product
+            {{ t("product.addProduct") }}
           </button>
         </div>
 
@@ -26,13 +26,11 @@
           <table class="products-table">
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Tags</th>
-                <th>Variants</th>
-                <th>Updated</th>
-                <th style="text-align: right">Actions</th>
+                <th>{{ t("product.columnProduct") }}</th>
+                <th>{{ t("product.columnStatus") }}</th>
+                <th>{{ t("product.columnVariants") }}</th>
+                <th>{{ t("product.columnUpdated") }}</th>
+                <th style="text-align: right">{{ t("product.columnActions") }}</th>
               </tr>
             </thead>
             <tbody>
@@ -49,12 +47,16 @@
                       v-if="prod.image"
                       :src="prod.image.src"
                       class="product-thumb"
-                      alt="Product Image"
+                      :alt="t('product.productImage')"
                     />
-                    <div v-else class="product-thumb empty-thumb">No Img</div>
+                    <div v-else class="product-thumb empty-thumb">
+                      {{ t("product.noImage") }}
+                    </div>
                     <div class="product-main-details">
                       <div class="product-title-text">{{ prod.title }}</div>
-                      <div class="product-id-sub">ID: {{ prod.id }}</div>
+                      <div class="product-id-sub">
+                        {{ t("product.productId", { id: prod.id }) }}
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -67,76 +69,38 @@
                         prod.status === 'active' ? 'badge-paid' : 'badge-pending'
                       "
                     >
-                      {{
-                        prod.status.charAt(0).toUpperCase() + prod.status.slice(1)
-                      }}
+                      {{ formatProductStatus(prod.status) }}
                     </span>
                     <span
                       class="publication-state"
                       :class="{ published: isProductPublished(prod) }"
                     >
-                      {{ isProductPublished(prod) ? "Published" : "Unpublished" }}
+                      {{
+                        isProductPublished(prod)
+                          ? t("product.published")
+                          : t("product.unpublished")
+                      }}
                     </span>
-                  </div>
-                </td>
-                <td>
-                  {{ prod.product_type || "—" }}
-                </td>
-                <td>
-                  <div class="tags-cell">
-                    <span
-                      v-for="tag in prod.tags
-                        ? prod.tags.split(',').slice(0, 2)
-                        : []"
-                      :key="tag"
-                      class="tag-item"
-                    >
-                      {{ tag.trim() }}
-                    </span>
-                    <span
-                      v-if="prod.tags && prod.tags.split(',').length > 2"
-                      class="tag-item more"
-                    >
-                      +{{ prod.tags.split(",").length - 2 }}
-                    </span>
-                    <span v-if="!prod.tags || prod.tags.trim() === ''">—</span>
                   </div>
                 </td>
                 <td>
                   {{ prod.variants?.length || 0 }}
                 </td>
                 <td>
-                  {{
-                    prod.updated_at
-                      ? new Date(prod.updated_at).toLocaleDateString()
-                      : "—"
-                  }}
+                  {{ formatProductDate(prod.updated_at) }}
                 </td>
                 <td style="text-align: right">
                   <div
                     class="product-actions-cell"
                     style="justify-content: flex-end"
                   >
-                    <button
-                      class="btn-publication"
-                      :class="{ 'is-unpublish': isProductPublished(prod) }"
-                      type="button"
-                      :disabled="publishingProductId === prod.id"
-                      @click.stop="toggleProductPublication(prod)"
-                    >
-                      {{
-                        publishingProductId === prod.id
-                          ? "Saving..."
-                          : isProductPublished(prod)
-                            ? "Unpublish"
-                            : "Publish"
-                      }}
-                    </button>
                     <BasePopover align="right">
                       <template #trigger="{ isOpen }">
                         <button
                           class="btn-ghost-sm btn-icon"
                           :class="{ 'is-active': isOpen }"
+                          type="button"
+                          :aria-label="t('product.moreActions')"
                         >
                           <IconsMore />
                         </button>
@@ -146,11 +110,11 @@
                           <button
                             class="popover-item"
                             @click.stop="
-                              selectProduct(prod);
+                              openDetailModal(prod);
                               close();
                             "
                           >
-                            Details
+                            {{ t("product.details") }}
                           </button>
                           <button
                             class="popover-item"
@@ -159,7 +123,23 @@
                               close();
                             "
                           >
-                            Edit
+                            {{ t("common.edit") }}
+                          </button>
+                          <button
+                            class="popover-item"
+                            :disabled="publishingProductId === prod.id"
+                            @click.stop="
+                              toggleProductPublication(prod);
+                              close();
+                            "
+                          >
+                            {{
+                              publishingProductId === prod.id
+                                ? t("product.publicationSaving")
+                                : isProductPublished(prod)
+                                  ? t("product.unpublish")
+                                  : t("product.publish")
+                            }}
                           </button>
                           <button
                             class="popover-item text-danger"
@@ -168,7 +148,7 @@
                               close();
                             "
                           >
-                            Delete
+                            {{ t("common.delete") }}
                           </button>
                         </div>
                       </template>
@@ -179,147 +159,19 @@
             </tbody>
           </table>
           <div v-if="products.length === 0" class="empty-state">
-            No products found. Create one.
+            {{ t("product.empty") }}
           </div>
         </div>
-
-        <aside v-if="selectedProduct" class="card product-detail-card">
-          <div class="detail-head">
-            <div class="detail-product">
-              <img
-                v-if="selectedProduct.image"
-                :src="selectedProduct.image.src"
-                class="detail-thumb"
-                alt="Selected product"
-              />
-              <div v-else class="detail-thumb empty-thumb">No Img</div>
-              <div class="detail-product-main">
-                <div class="detail-title">{{ selectedProduct.title }}</div>
-                <div class="detail-sub">ID: {{ selectedProduct.id }}</div>
-              </div>
-            </div>
-            <button
-              class="btn-ghost-sm btn-icon"
-              type="button"
-              :disabled="isLoadingLocations"
-              title="Refresh locations"
-              @click="refreshSelectedProductLocations"
-            >
-              <IconsRefresh />
-            </button>
-          </div>
-
-          <div class="detail-meta-grid">
-            <div class="detail-meta-item">
-              <span>Status</span>
-              <strong>{{ selectedProduct.status || "Unknown" }}</strong>
-            </div>
-            <div class="detail-meta-item">
-              <span>Online Store</span>
-              <strong>
-                {{ isProductPublished(selectedProduct) ? "Published" : "Unpublished" }}
-              </strong>
-            </div>
-            <div class="detail-meta-item">
-              <span>Variants</span>
-              <strong>{{ selectedProduct.variants?.length || 0 }}</strong>
-            </div>
-            <div class="detail-meta-item">
-              <span>Total inventory</span>
-              <strong>{{ totalVariantInventory }}</strong>
-            </div>
-            <div class="detail-meta-item">
-              <span>Tracked variants</span>
-              <strong>{{ trackedVariantCount }}</strong>
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-title">Variants</div>
-            <div v-if="selectedProduct.variants?.length" class="variant-list">
-              <div
-                v-for="variant in selectedProduct.variants"
-                :key="variant.id"
-                class="variant-row"
-              >
-                <div>
-                  <div class="variant-title">{{ variant.title || "Default" }}</div>
-                  <div class="variant-sub">
-                    {{ variant.sku || "No SKU" }}
-                    <span v-if="variant.inventory_item_id">
-                      - Item {{ variant.inventory_item_id }}
-                    </span>
-                  </div>
-                </div>
-                <span class="variant-inventory">
-                  {{ formatVariantInventory(variant) }}
-                </span>
-              </div>
-            </div>
-            <div v-else class="detail-empty">No variants found.</div>
-          </div>
-
-          <div class="detail-section">
-            <div class="detail-section-head">
-              <div>
-                <div class="detail-section-title">Inventory locations</div>
-                <div class="detail-section-sub">
-                  {{ visibleLocations.length }} location{{
-                    visibleLocations.length !== 1 ? "s" : ""
-                  }}
-                </div>
-              </div>
-            </div>
-
-            <div v-if="isLoadingLocations" class="detail-loading">
-              Loading locations...
-            </div>
-            <div v-else-if="locationError" class="detail-error">
-              {{ locationError }}
-            </div>
-            <div v-else-if="!visibleLocations.length" class="detail-empty">
-              No locations found.
-            </div>
-            <div v-else class="location-list">
-              <div
-                v-for="location in visibleLocations"
-                :key="location.id"
-                class="location-row"
-              >
-                <div class="location-main">
-                  <div class="location-name">
-                    {{ location.name || `Location ${location.id}` }}
-                  </div>
-                  <div class="location-address">
-                    {{ formatLocationAddress(location) }}
-                  </div>
-                </div>
-                <div class="location-side">
-                  <span class="inventory-count">
-                    {{ getLocationInventoryLabel(location.id) }}
-                  </span>
-                  <span
-                    class="location-status"
-                    :class="{
-                      active: location.active,
-                      inactive: location.active === false,
-                    }"
-                  >
-                    {{ location.active === false ? "Inactive" : "Active" }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <ProductOperationsPanel
-            :product="selectedProduct"
-            @refreshed="refreshProducts"
-          />
-        </aside>
         </div>
       </div>
     </div>
+
+    <ProductDetailModal
+      v-if="detailProduct"
+      :product="detailProduct"
+      @close="detailProductId = null"
+      @refreshed="refreshProducts"
+    />
 
     <!-- Create Modal -->
     <div
@@ -329,28 +181,35 @@
     >
       <div class="modal-card">
         <div class="modal-head">
-          <h3 class="modal-title">Create Product</h3>
-          <button class="btn-close" @click="showCreateModal = false">✕</button>
+          <h3 class="modal-title">{{ t("product.createTitle") }}</h3>
+          <button
+            class="btn-close"
+            type="button"
+            :aria-label="t('common.close')"
+            @click="showCreateModal = false"
+          >
+            x
+          </button>
         </div>
         <div class="modal-body">
           <div class="field">
             <label class="field-label"
-              >Title <span style="color: red">*</span></label
+              >{{ t("product.fieldTitle") }} <span style="color: red">*</span></label
             >
             <input
               v-model="newProduct.title"
               type="text"
               class="inp"
-              placeholder="Awesome Product"
+              :placeholder="t('product.titlePlaceholder')"
             />
           </div>
           <div class="field-row">
             <div class="field">
-              <label class="field-label">Status</label>
+              <label class="field-label">{{ t("product.columnStatus") }}</label>
               <select v-model="newProduct.status" class="inp">
-                <option value="active">Active</option>
-                <option value="draft">Draft</option>
-                <option value="archived">Archived</option>
+                <option value="active">{{ t("product.statusActive") }}</option>
+                <option value="draft">{{ t("product.statusDraft") }}</option>
+                <option value="archived">{{ t("product.statusArchived") }}</option>
               </select>
             </div>
             <label class="field checkbox-field">
@@ -359,58 +218,62 @@
                 type="checkbox"
                 :disabled="newProduct.status !== 'active'"
               />
-              Published to Online Store
+              {{ t("product.publishedToOnlineStore") }}
             </label>
           </div>
           <div class="field-row">
             <div class="field">
-              <label class="field-label">Vendor</label>
+              <label class="field-label">{{ t("product.vendor") }}</label>
               <input
                 v-model="newProduct.vendor"
                 type="text"
                 class="inp"
-                placeholder="My Vendor"
+                :placeholder="t('product.vendorPlaceholder')"
               />
             </div>
             <div class="field">
-              <label class="field-label">Product Type</label>
+              <label class="field-label">{{ t("product.productType") }}</label>
               <input
                 v-model="newProduct.product_type"
                 type="text"
                 class="inp"
-                placeholder="e.g. Shirts"
+                :placeholder="t('product.typePlaceholder')"
               />
             </div>
           </div>
           <div class="field">
-            <label class="field-label">Tags</label>
+            <label class="field-label">{{ t("product.tags") }}</label>
             <input
               v-model="newProduct.tags"
               type="text"
               class="inp"
-              placeholder="Tag 1, Tag 2"
+              :placeholder="t('product.tagsPlaceholder')"
             />
           </div>
           <div class="field">
-            <label class="field-label">Description (HTML)</label>
+            <label class="field-label">{{ t("product.descriptionHtml") }}</label>
             <textarea
               v-model="newProduct.body_html"
               class="inp"
               rows="4"
-              placeholder="<p>Information</p>"
+              :placeholder="t('product.descriptionPlaceholder')"
             ></textarea>
           </div>
         </div>
         <div class="modal-actions">
           <button class="btn-outline" @click="showCreateModal = false">
-            Cancel
+            {{ t("common.cancel") }}
           </button>
           <button
             class="btn-primary"
             @click="createProduct"
             :disabled="productStore.isLoading"
           >
-            {{ productStore.isLoading ? "Creating..." : "Create Product" }}
+            {{
+              productStore.isLoading
+                ? t("product.creating")
+                : t("product.createTitle")
+            }}
           </button>
         </div>
       </div>
@@ -424,23 +287,30 @@
     >
       <div class="modal-card">
         <div class="modal-head">
-          <h3 class="modal-title">Edit Product</h3>
-          <button class="btn-close" @click="showEditModal = false">✕</button>
+          <h3 class="modal-title">{{ t("product.editTitle") }}</h3>
+          <button
+            class="btn-close"
+            type="button"
+            :aria-label="t('common.close')"
+            @click="showEditModal = false"
+          >
+            x
+          </button>
         </div>
         <div class="modal-body">
           <div class="field">
             <label class="field-label"
-              >Title <span style="color: red">*</span></label
+              >{{ t("product.fieldTitle") }} <span style="color: red">*</span></label
             >
             <input v-model="editProduct.title" type="text" class="inp" />
           </div>
           <div class="field-row">
             <div class="field">
-              <label class="field-label">Status</label>
+              <label class="field-label">{{ t("product.columnStatus") }}</label>
               <select v-model="editProduct.status" class="inp">
-                <option value="active">Active</option>
-                <option value="draft">Draft</option>
-                <option value="archived">Archived</option>
+                <option value="active">{{ t("product.statusActive") }}</option>
+                <option value="draft">{{ t("product.statusDraft") }}</option>
+                <option value="archived">{{ t("product.statusArchived") }}</option>
               </select>
             </div>
             <label class="field checkbox-field">
@@ -449,16 +319,16 @@
                 type="checkbox"
                 :disabled="editProduct.status !== 'active'"
               />
-              Published to Online Store
+              {{ t("product.publishedToOnlineStore") }}
             </label>
           </div>
           <div class="field-row">
             <div class="field">
-              <label class="field-label">Vendor</label>
+              <label class="field-label">{{ t("product.vendor") }}</label>
               <input v-model="editProduct.vendor" type="text" class="inp" />
             </div>
             <div class="field">
-              <label class="field-label">Product Type</label>
+              <label class="field-label">{{ t("product.productType") }}</label>
               <input
                 v-model="editProduct.product_type"
                 type="text"
@@ -467,11 +337,11 @@
             </div>
           </div>
           <div class="field">
-            <label class="field-label">Tags</label>
+            <label class="field-label">{{ t("product.tags") }}</label>
             <input v-model="editProduct.tags" type="text" class="inp" />
           </div>
           <div class="field">
-            <label class="field-label">Description (HTML)</label>
+            <label class="field-label">{{ t("product.descriptionHtml") }}</label>
             <textarea
               v-model="editProduct.body_html"
               class="inp"
@@ -481,14 +351,18 @@
         </div>
         <div class="modal-actions">
           <button class="btn-outline" @click="showEditModal = false">
-            Cancel
+            {{ t("common.cancel") }}
           </button>
           <button
             class="btn-primary"
             @click="saveEditProduct"
             :disabled="productStore.isLoading"
           >
-            {{ productStore.isLoading ? "Saving..." : "Save Changes" }}
+            {{
+              productStore.isLoading
+                ? t("product.saving")
+                : t("product.saveChanges")
+            }}
           </button>
         </div>
       </div>
@@ -498,13 +372,12 @@
 
 <script setup lang="ts">
 import { Plus } from "@lucide/vue";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import type {
-  ShopifyLocation,
   ShopifyProduct,
   ShopifyProductInput,
   ShopifyProductStatus,
@@ -514,90 +387,23 @@ const productStore = useProductStore();
 const formStore = useFormStore();
 const { token: activeToken } = useActiveShopAuth();
 const feedback = useStoreFeedback();
-const {
-  locations,
-  inventoryLevels,
-  isLoadingLocations,
-  locationError,
-  fetchProductInventory,
-} = useLocations();
+const { t, locale } = useLocalization();
 
 const products = computed(() => productStore.products);
 const selectedProductId = ref<number | null>(null);
 const selectedProduct = computed(() => {
-  if (!products.value.length) return null;
-
   return (
     products.value.find((product) => product.id === selectedProductId.value) ||
-    products.value[0] ||
     null
   );
 });
-const selectedInventoryItemIds = computed(() =>
-  Array.from(
-    new Set(
-      (selectedProduct.value?.variants || [])
-        .map((variant) => variant.inventory_item_id)
-        .filter((id): id is number => typeof id === "number"),
-    ),
-  ),
-);
-const selectedInventoryItemIdSet = computed(
-  () => new Set(selectedInventoryItemIds.value),
-);
-const selectedInventoryLevels = computed(() =>
-  inventoryLevels.value.filter((level) =>
-    selectedInventoryItemIdSet.value.has(level.inventory_item_id),
-  ),
-);
-const inventoryByLocation = computed(() => {
-  const summaries = new Map<
-    number,
-    { available: number; levelCount: number; hasUntracked: boolean }
-  >();
-
-  selectedInventoryLevels.value.forEach((level) => {
-    const current = summaries.get(level.location_id) || {
-      available: 0,
-      levelCount: 0,
-      hasUntracked: false,
-    };
-
-    current.levelCount += 1;
-    if (level.available === null) {
-      current.hasUntracked = true;
-    } else {
-      current.available += level.available;
-    }
-
-    summaries.set(level.location_id, current);
-  });
-
-  return summaries;
-});
-const visibleLocations = computed(() => {
-  if (!selectedInventoryLevels.value.length) {
-    return locations.value;
-  }
-
-  const locationIds = new Set(
-    selectedInventoryLevels.value.map((level) => level.location_id),
+const detailProductId = ref<number | null>(null);
+const detailProduct = computed(() => {
+  return (
+    products.value.find((product) => product.id === detailProductId.value) ||
+    null
   );
-
-  return locations.value.filter((location) => locationIds.has(location.id));
 });
-const totalVariantInventory = computed(() =>
-  (selectedProduct.value?.variants || []).reduce(
-    (sum, variant) => sum + (variant.inventory_quantity || 0),
-    0,
-  ),
-);
-const trackedVariantCount = computed(
-  () =>
-    (selectedProduct.value?.variants || []).filter(
-      (variant) => !!variant.inventory_management,
-    ).length,
-);
 
 // ── Local state for modals ──
 const showCreateModal = ref(false);
@@ -635,89 +441,29 @@ function isProductPublished(prod: ShopifyProduct) {
   return prod.status === "active" && Boolean(prod.published_at);
 }
 
-async function loadLocationsForSelectedProduct(force = false) {
-  if (!selectedProduct.value) return;
-
-  await fetchProductInventory(selectedProduct.value, force);
+function openDetailModal(prod: ShopifyProduct) {
+  selectProduct(prod);
+  detailProductId.value = prod.id;
 }
 
-function refreshSelectedProductLocations() {
-  void loadLocationsForSelectedProduct(true);
+function formatProductStatus(status?: ShopifyProductStatus) {
+  if (status === "active") return t("product.statusActive");
+  if (status === "draft") return t("product.statusDraft");
+  if (status === "archived") return t("product.statusArchived");
+  return t("product.statusUnknown");
 }
 
-function formatVariantInventory(variant: ShopifyProduct["variants"][number]) {
-  if (typeof variant.inventory_quantity === "number") {
-    return `${variant.inventory_quantity} available`;
-  }
-
-  return variant.inventory_management ? "Tracked" : "Not tracked";
+function formatProductDate(value?: string) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString(locale.value);
 }
-
-function formatLocationAddress(location: ShopifyLocation) {
-  const parts = [
-    location.address1,
-    location.address2,
-    location.city,
-    location.province_code || location.province,
-    location.zip,
-    location.country_code || location.country,
-  ].filter(Boolean);
-
-  return parts.length ? parts.join(", ") : "No address";
-}
-
-function getLocationInventoryLabel(locationId: number) {
-  if (selectedInventoryItemIds.value.length === 0) {
-    return "No inventory item ID";
-  }
-
-  const summary = inventoryByLocation.value.get(locationId);
-  if (!summary) {
-    return "No inventory level";
-  }
-
-  if (summary.hasUntracked && summary.available === 0) {
-    return "Not tracked";
-  }
-
-  return `${summary.available} available${
-    summary.hasUntracked ? " + untracked" : ""
-  }`;
-}
-
-watch(
-  products,
-  (list) => {
-    if (!list.length) {
-      selectedProductId.value = null;
-      return;
-    }
-
-    if (!list.some((product) => product.id === selectedProductId.value)) {
-      selectedProductId.value = list[0]?.id || null;
-    }
-  },
-  { immediate: true },
-);
-
-watch(
-  () => [
-    formStore.storeId,
-    selectedProduct.value?.id || "",
-    selectedInventoryItemIds.value.join(","),
-  ],
-  () => {
-    void loadLocationsForSelectedProduct();
-  },
-  { immediate: true },
-);
 
 async function createProduct() {
   const sid = formStore.storeId;
   const token = activeToken.value;
 
   if (!sid || !token) {
-    feedback.error("Store ID or Access Token is missing.");
+    feedback.error(t("product.credentialsMissing"));
     return;
   }
 
@@ -737,9 +483,9 @@ async function createProduct() {
       status: "active",
       published: true,
     };
-    feedback.success("Product created.");
+    feedback.success(t("product.created"));
   } else {
-    feedback.error(productStore.error, "Create failed.");
+    feedback.error(productStore.error, t("product.createFailed"));
   }
 }
 
@@ -763,7 +509,7 @@ async function saveEditProduct() {
   const token = activeToken.value;
 
   if (!sid || !token || !editProduct.value.id) {
-    feedback.error("Store ID or Access Token is missing.");
+    feedback.error(t("product.credentialsMissing"));
     return;
   }
 
@@ -789,9 +535,9 @@ async function saveEditProduct() {
   );
   if (success) {
     showEditModal.value = false;
-    feedback.success("Product saved.");
+    feedback.success(t("product.saved"));
   } else {
-    feedback.error(productStore.error, "Update failed.");
+    feedback.error(productStore.error, t("product.updateFailed"));
   }
 }
 
@@ -799,7 +545,7 @@ async function toggleProductPublication(prod: ShopifyProduct) {
   const sid = formStore.storeId;
   const token = activeToken.value;
   if (!sid || !token) {
-    feedback.error("Store ID or Access Token is missing.");
+    feedback.error(t("product.credentialsMissing"));
     return;
   }
 
@@ -813,11 +559,13 @@ async function toggleProductPublication(prod: ShopifyProduct) {
     });
 
     if (success) {
-      feedback.success(`Product ${publish ? "published" : "unpublished"}.`);
+      feedback.success(
+        publish ? t("product.publishSuccess") : t("product.unpublishSuccess"),
+      );
     } else {
       feedback.error(
         productStore.error,
-        publish ? "Publish failed." : "Unpublish failed.",
+        publish ? t("product.publishFailed") : t("product.unpublishFailed"),
       );
     }
   } finally {
@@ -826,20 +574,20 @@ async function toggleProductPublication(prod: ShopifyProduct) {
 }
 
 async function removeProduct(prodId: number) {
-  if (!confirm("Are you sure you want to delete this product?")) return;
+  if (!confirm(t("product.deleteConfirm"))) return;
   const sid = formStore.storeId;
   const token = activeToken.value;
 
   if (!sid || !token) {
-    feedback.error("Store ID or Access Token is missing.");
+    feedback.error(t("product.credentialsMissing"));
     return;
   }
 
   const success = await productStore.deleteProduct(sid, token, prodId);
   if (success) {
-    feedback.success("Product deleted.");
+    feedback.success(t("product.deleted"));
   } else {
-    feedback.error(productStore.error, "Delete failed.");
+    feedback.error(productStore.error, t("product.deleteFailed"));
   }
 }
 
@@ -871,23 +619,27 @@ async function refreshProducts() {
   overflow: hidden;
 }
 .table-card {
-  overflow: visible !important;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
 }
 
 .product-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
-  gap: 16px;
-  align-items: start;
+  display: block;
+  min-width: 0;
 }
 
 .products-table {
   width: 100%;
+  min-width: 720px;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;
   text-align: left;
 }
 .products-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
@@ -901,6 +653,24 @@ async function refreshProducts() {
   color: var(--text);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.products-table th:nth-child(1) {
+  width: 46%;
+}
+
+.products-table th:nth-child(2) {
+  width: 18%;
+}
+
+.products-table th:nth-child(3),
+.products-table th:nth-child(4) {
+  width: 12%;
+}
+
+.products-table th:nth-child(5) {
+  width: 12%;
 }
 
 .product-row:hover {
@@ -918,6 +688,7 @@ async function refreshProducts() {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 .product-thumb {
   width: 40px;
@@ -938,14 +709,19 @@ async function refreshProducts() {
 .product-main-details {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 .product-title-text {
   font-weight: 600;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 .product-id-sub {
   font-size: 11px;
   color: var(--text-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .badge {
@@ -1018,52 +794,6 @@ async function refreshProducts() {
   background: var(--blue-soft);
 }
 
-.btn-publication {
-  min-width: 82px;
-  padding: 5px 9px;
-  border: 1px solid color-mix(in srgb, var(--green) 35%, var(--border));
-  border-radius: 6px;
-  background: var(--green-soft);
-  color: var(--green);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-publication.is-unpublish {
-  border-color: var(--border);
-  background: var(--surface-soft);
-  color: var(--text-sub);
-}
-
-.btn-publication:disabled {
-  cursor: wait;
-  opacity: 0.6;
-}
-.btn-danger-text {
-  color: var(--badge-cancelled-text);
-}
-.btn-danger-text:hover {
-  background: var(--red-soft);
-}
-
-.tags-cell {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.tag-item {
-  background: var(--surface-soft);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--text-sub);
-}
-.tag-item.more {
-  background: var(--blue-soft);
-  color: var(--blue);
-}
 .btn-icon {
   padding: 4px;
   display: flex;
@@ -1087,6 +817,10 @@ async function refreshProducts() {
   color: var(--text);
   font-family: inherit;
 }
+.popover-item:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
 .popover-item:hover {
   background: var(--surface-soft);
 }
@@ -1097,173 +831,6 @@ async function refreshProducts() {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.product-detail-card {
-  padding: 16px;
-  position: sticky;
-  top: 0;
-  max-height: calc(100vh - 180px);
-  overflow: auto;
-}
-.detail-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-.detail-product {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.detail-thumb {
-  width: 54px;
-  height: 54px;
-  border-radius: 6px;
-  object-fit: cover;
-  border: 1px solid var(--border);
-  flex: 0 0 auto;
-}
-.detail-product-main {
-  min-width: 0;
-}
-.detail-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-.detail-sub {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--text-sub);
-}
-.detail-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-.detail-meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px;
-  border-radius: 6px;
-  background: var(--surface-soft);
-}
-.detail-meta-item span {
-  font-size: 11px;
-  color: var(--text-sub);
-}
-.detail-meta-item strong {
-  font-size: 13px;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-.detail-section {
-  padding-top: 14px;
-}
-.detail-section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-.detail-section-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-.detail-section-sub {
-  margin-top: -4px;
-  font-size: 12px;
-  color: var(--text-sub);
-}
-.variant-list,
-.location-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.variant-row,
-.location-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-}
-.variant-title,
-.location-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-.variant-sub,
-.location-address {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--text-sub);
-  overflow-wrap: anywhere;
-}
-.variant-inventory,
-.inventory-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--green);
-  white-space: nowrap;
-}
-.location-main {
-  min-width: 0;
-}
-.location-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  flex: 0 0 auto;
-}
-.location-status {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--surface-soft);
-  color: var(--text-sub);
-}
-.location-status.active {
-  background: var(--badge-paid);
-  color: var(--badge-paid-text);
-}
-.location-status.inactive {
-  background: var(--badge-cancelled);
-  color: var(--badge-cancelled-text);
-}
-.detail-loading,
-.detail-error,
-.detail-empty {
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--text-sub);
-  background: var(--surface-soft);
-}
-.detail-error {
-  color: var(--badge-cancelled-text);
-  background: var(--badge-cancelled);
 }
 
 .empty-state {
@@ -1404,14 +971,4 @@ async function refreshProducts() {
   cursor: not-allowed;
 }
 
-@media (max-width: 1080px) {
-  .product-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .product-detail-card {
-    position: static;
-    max-height: none;
-  }
-}
 </style>

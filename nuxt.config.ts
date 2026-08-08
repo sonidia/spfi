@@ -2,6 +2,16 @@
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   modules: ["@pinia/nuxt"],
+  app: {
+    head: {
+      script: [
+        {
+          innerHTML:
+            '(function(){try{var key="spf_theme";var stored=localStorage.getItem(key);var theme=stored==="dark"||stored==="light"?stored:(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}catch(error){}})();',
+        },
+      ],
+    },
+  },
   runtimeConfig: {
     allowedOrigins: "",
     debugProxyEnabled: process.env.NODE_ENV !== "production",

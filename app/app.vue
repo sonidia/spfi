@@ -166,6 +166,54 @@ textarea {
   border-color: var(--border);
 }
 
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  display: inline-grid;
+  place-content: center;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 44%, var(--border));
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--green);
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 16%, 84% 0, 36% 68%);
+  background: currentColor;
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+input[type="checkbox"]:focus-visible {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(31, 122, 77, 0.45) rgba(217, 228, 221, 0.45);
