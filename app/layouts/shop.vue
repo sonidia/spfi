@@ -97,7 +97,6 @@ const isFetching = computed(() => {
   if (path === "/customer") {
     return customerStore.isLoading || customerStore.isLoadingDetail;
   }
-  if (path === "/product") return productStore.isLoading;
   if (path === "/profile") {
     return shopProfileStore.isLoading || productStore.isLoading;
   }
@@ -116,7 +115,6 @@ watch(
       newPath.startsWith("/order") ||
       newPath.startsWith("/store") ||
       newPath === "/customer" ||
-      newPath === "/product" ||
       newPath === "/profile"
     ) {
       fetchCurrent();
@@ -254,8 +252,6 @@ function fetchCurrent(force = false) {
     if (idMatch && idMatch[1]) {
       paymentStore.fetchPayoutDetail(sid, token, Number(idMatch[1]), force);
     }
-  } else if (route.path === "/product") {
-    if (force || !productStore.hasFetchedAll) productStore.fetchAll(sid, token);
   } else if (route.path === "/customer") {
     if (force || !customerStore.hasFetchedAll) {
       customerStore.fetchAll(sid, token, customerStore.activeQuery);

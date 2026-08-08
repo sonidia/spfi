@@ -5,6 +5,7 @@ import type {
   ShopifyProduct,
   ShopifyProductInput,
 } from "~~/types/shopify";
+import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
 import { getAppErrorMessage } from "~~/utils/error";
 
 export const useProductStore = defineStore("product", () => {
@@ -90,7 +91,7 @@ export const useProductStore = defineStore("product", () => {
     storeId: string,
     token: string,
     id: number,
-    product: ShopifyProductInput,
+    product: ShopifyProductUpdateInput,
   ) {
     if (!storeId || !token || !id) return;
     isLoading.value = true;

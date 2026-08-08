@@ -11,7 +11,7 @@ export interface ShopifyProductUpdateInput {
   product_type?: string;
   tags?: string;
   status?: "active" | "archived" | "draft";
-  published?: boolean;
+  published_at?: string | null;
   handle?: string;
   template_suffix?: string | null;
   published_scope?: "global" | "web";

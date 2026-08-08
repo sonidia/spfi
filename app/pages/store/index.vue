@@ -103,7 +103,9 @@
         </div>
 
 
-        <div v-if="showsStoreSummary" class="card data-card">
+        <StoreProductsTab v-if="activeTab === 'products'" />
+
+        <div v-else-if="showsStoreSummary" class="card data-card">
           <PaymentPayoutsTab v-if="activeTab === 'payouts'" />
 
           <PaymentTransactionsTab v-else-if="activeTab === 'transactions'" />
@@ -111,8 +113,6 @@
           <PaymentDisputesTab v-else-if="activeTab === 'disputes'" />
 
           <PaymentOrdersTab v-else-if="activeTab === 'orders'" />
-
-          <PaymentProductsTab v-else-if="activeTab === 'products'" />
         </div>
 
         <StoreCustomersTab v-else-if="activeTab === 'customers'" />
@@ -194,7 +194,7 @@ const isPaymentTab = computed(() =>
   ["transactions", "payouts", "disputes"].includes(activeTab.value),
 );
 const showsStoreSummary = computed(() =>
-  ["transactions", "payouts", "disputes", "orders", "products"].includes(
+  ["transactions", "payouts", "disputes", "orders"].includes(
     activeTab.value,
   ),
 );

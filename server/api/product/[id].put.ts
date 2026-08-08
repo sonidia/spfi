@@ -6,6 +6,7 @@ import {
   requireShopifyResourceId,
   requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
+import { normalizeShopifyProductUpdate } from "~~/server/utils/shopify-product-update";
 import type { ProductsResponse } from "~~/types/shopify";
 import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
 
@@ -28,7 +29,7 @@ export default defineEventHandler(async (event) => {
   );
   const requestBody = {
     product: {
-      ...product,
+      ...normalizeShopifyProductUpdate(product),
       id: requireShopifySafeResourceNumber(productId, "Product"),
     },
   };
