@@ -510,7 +510,6 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: false });
 import {
   Activity,
   ArrowLeft,
@@ -552,6 +551,8 @@ import {
   nilVal,
   serviceName,
 } from "~~/utils/order";
+
+definePageMeta({ layout: false });
 
 // ── Store ──────────────────────────────────────────────────────────────────
 const orderStore = useOrderStore();

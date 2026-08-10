@@ -56,12 +56,6 @@ export function writeStorageValue<T>(key: string, value: T, ttl?: number) {
   localStorage.setItem(key, JSON.stringify(envelope));
 }
 
-export function isStorageValueExpired(key: string): boolean {
-  const parsed = readBrowserJson(key);
-  if (!isStorageEnvelope(parsed)) return parsed === null;
-  return Boolean(parsed.expiresAt && Date.now() > parsed.expiresAt);
-}
-
 export function isStorageEnvelope(
   value: unknown,
 ): value is StorageEnvelope<unknown> {

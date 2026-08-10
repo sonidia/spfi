@@ -1,0 +1,336 @@
+.financial-panel {
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+}
+.panel-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+h2 {
+  color: var(--text);
+  font-size: 15px;
+}
+header p {
+  margin: 3px 0 0;
+  color: var(--text-sub);
+  font-size: 12px;
+}
+.action-row,
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.refund-form {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.form-grid.compact {
+  padding: 0;
+  border: 0;
+}
+label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+label > span,
+.field-label {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+input,
+select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  gap: 8px;
+  min-height: 36px;
+}
+.check-row input {
+  width: 16px;
+  min-height: 16px;
+}
+.form-actions {
+  grid-column: 1 / -1;
+}
+.refund-lines {
+  display: grid;
+  gap: 8px;
+}
+.refund-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+}
+.refund-line div {
+  display: grid;
+  min-width: 0;
+}
+.refund-line strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.refund-line small {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.refund-line input {
+  width: 76px;
+}
+.refund-line select {
+  width: 155px;
+}
+.amount-help,
+.manual-help,
+.void-warning {
+  margin: -6px 0 0;
+  color: var(--text-sub);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.manual-help,
+.void-warning {
+  align-self: end;
+  margin: 0;
+}
+.void-warning {
+  color: var(--red);
+}
+.panel-note,
+.panel-error {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.panel-note {
+  color: var(--text-sub);
+}
+.panel-error {
+  border-top-color: rgba(180, 49, 43, 0.2);
+  background: var(--red-soft);
+  color: var(--red);
+}
+.transaction-history {
+  border-top: 1px solid var(--border);
+}
+.transaction-history-head {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 16px;
+  background: var(--surface);
+}
+.transaction-history-head > div {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.transaction-history-head strong {
+  color: var(--text);
+  font-size: 13px;
+}
+.transaction-history-head span {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.currency-toggle {
+  display: flex;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 7px;
+}
+.currency-toggle input {
+  width: 16px;
+  min-height: 16px;
+}
+.transaction-table-wrap {
+  overflow-x: auto;
+}
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.transaction-table th,
+.transaction-table td {
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.transaction-table th {
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+.transaction-table .right {
+  text-align: right;
+}
+.transaction-kind {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.transaction-status {
+  display: inline-flex;
+  border-radius: 20px;
+  padding: 2px 8px;
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.transaction-status.success {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.details-button {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.details-button:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green);
+}
+.details-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.detail-row td {
+  padding: 0;
+  background: var(--surface-soft);
+  white-space: normal;
+}
+.transaction-detail {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+}
+.transaction-detail dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.transaction-detail dl div {
+  min-width: 0;
+}
+.transaction-detail dt {
+  color: var(--text-sub);
+  font-size: 10px;
+  font-weight: 700;
+}
+.transaction-detail dd {
+  overflow-wrap: anywhere;
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 11px;
+}
+.extended-authorization {
+  display: grid;
+  gap: 6px;
+}
+.extended-authorization strong {
+  color: var(--text);
+  font-size: 11px;
+}
+.extended-authorization pre {
+  overflow: auto;
+  max-height: 220px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 10px;
+  white-space: pre-wrap;
+}
+.detail-loading {
+  padding: 12px 16px;
+  color: var(--text-sub);
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .action-row {
+    justify-content: flex-start;
+  }
+  .transaction-detail dl {
+    grid-template-columns: 1fr 1fr;
+  }
+}

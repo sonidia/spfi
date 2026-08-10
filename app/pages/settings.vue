@@ -21,6 +21,7 @@ const { locale, t } = useLocalization();
 const credentialVault = useCredentialVaultStore();
 const dataRetention = useDataRetentionStore();
 const toast = useToastStore();
+const { requestConfirmation } = useConfirmDialog();
 
 const endpoint = ref("");
 const apiKey = ref("");
@@ -126,8 +127,16 @@ async function saveSettings() {
   }
 }
 
-function clearSettings() {
-  if (!confirm(t("settings.clearConfirm"))) return;
+async function clearSettings() {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("settings.clearConfirm"),
+      confirmLabel: t("common.clear"),
+    }))
+  ) {
+    return;
+  }
 
   try {
     credentialVault.removeTrackingSettings();

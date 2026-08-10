@@ -9,7 +9,12 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "test": "node --test tests/*.test.ts",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check app/components/BaseConfirmDialog.vue app/components/BasePopover.vue app/components/BaseToast.vue app/components/LoadingOverlay.vue app/components/order/OrdersTable.vue app/components/payment/OrdersTab.vue app/components/store/ViewTabs.vue app/composables/useConfirmDialog.ts app/pages/order/index.vue \"app/assets/styles/**/*.css\" \"tests/unit/**/*.ts\" eslint.config.mjs prettier.config.mjs vitest.config.ts package.json",
+    "test": "npm run test:node && npm run test:unit",
+    "test:node": "node --test tests/*.test.ts",
+    "test:unit": "vitest run",
     "typecheck": "nuxi typecheck",
     "postinstall": "nuxt prepare",
     "tauri": "tauri"
@@ -28,11 +33,19 @@
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
+    "@nuxt/eslint": "^1.17.0",
     "@pinia/nuxt": "^0.11.3",
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^25.7.0",
     "@types/papaparse": "^5.5.2",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "happy-dom": "^20.11.2",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
     "vue-tsc": "^3.3.8"
   }
 }

@@ -18,6 +18,8 @@ const orderStore = useOrderStore();
 const toast = useToastStore();
 const appConfig = useAppConfig();
 const { storeId, token, isReady } = useActiveShopAuth();
+const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 
 const isOpen = ref(false);
 const isLoading = ref(false);
@@ -126,9 +128,14 @@ function normalizeQuantity(
 async function createFulfillment() {
   if (!isReady.value || !selectedGroups.value.length) return;
   if (
-    !window.confirm(
-      `Fulfill ${selectedItemCount.value} selected item${selectedItemCount.value === 1 ? "" : "s"}?`,
-    )
+    !(await requestConfirmation({
+      title: t("confirm.actionTitle"),
+      message: t("order.fulfillItemsConfirm", {
+        count: selectedItemCount.value,
+      }),
+      confirmLabel: t("order.fulfillItems"),
+      danger: false,
+    }))
   ) {
     return;
   }

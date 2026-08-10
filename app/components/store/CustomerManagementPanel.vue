@@ -37,6 +37,8 @@ const {
   sendInvite,
 } = useCustomers();
 const toast = useToastStore();
+const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 
 const dialog = ref<"customer" | "address" | null>(null);
 const editingCustomerId = ref<number | null>(null);
@@ -154,7 +156,11 @@ async function removeCustomer() {
   const customer = selectedCustomer.value;
   if (
     !customer?.id ||
-    !confirm(`Delete ${customerName(customer)}? This cannot be undone.`)
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("customer.deleteConfirm", { name: customerName(customer) }),
+      confirmLabel: t("common.delete"),
+    }))
   ) {
     return;
   }
@@ -183,7 +189,11 @@ async function removeAddress(address: ShopifyCustomerAddress) {
   if (
     !customerId.value ||
     !address.id ||
-    !confirm("Delete this customer address?")
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("customer.deleteAddressConfirm"),
+      confirmLabel: t("common.delete"),
+    }))
   ) {
     return;
   }
@@ -213,7 +223,14 @@ async function inviteCustomer() {
     toast.error("The customer needs an email address before sending an invite.");
     return;
   }
-  if (!confirm(`Send an account activation invite to ${customer.email}?`)) {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.actionTitle"),
+      message: t("customer.sendInviteConfirm", { email: customer.email }),
+      confirmLabel: t("customer.sendInvite"),
+      danger: false,
+    }))
+  ) {
     return;
   }
   if (await sendInvite(customer.id, { to: customer.email })) {

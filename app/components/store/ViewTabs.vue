@@ -9,9 +9,27 @@ defineProps<{
 const emit = defineEmits<{
   select: [tab: StoreTab];
 }>();
+const { t } = useLocalization();
 
 function selectTab(tab: StoreTab) {
   emit("select", tab);
+}
+
+function moveFocus(event: KeyboardEvent) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = Array.from(
+    (event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]',
+    ),
+  );
+  const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
+  let next = current;
+  if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = tabs.length - 1;
+  else if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
+  else next = current <= 0 ? tabs.length - 1 : current - 1;
+  event.preventDefault();
+  tabs[next]?.focus();
 }
 </script>
 
@@ -19,7 +37,8 @@ function selectTab(tab: StoreTab) {
   <div
     class="table-header store-tabs"
     role="tablist"
-    aria-label="Store data views"
+    :aria-label="t('store.views')"
+    @keydown="moveFocus"
   >
     <button
       class="tab-btn"
@@ -30,7 +49,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('profile')"
     >
       <IconsUser />
-      Profile
+      {{ t("store.tabProfile") }}
     </button>
     <button
       class="tab-btn"
@@ -41,7 +60,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('transactions')"
     >
       <IconsDate />
-      Transactions
+      {{ t("store.tabTransactions") }}
     </button>
     <button
       class="tab-btn"
@@ -52,7 +71,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('payouts')"
     >
       <IconsRefresh />
-      Payouts
+      {{ t("store.tabPayouts") }}
     </button>
     <button
       class="tab-btn"
@@ -63,7 +82,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('disputes')"
     >
       <IconsCheck />
-      Disputes
+      {{ t("store.tabDisputes") }}
     </button>
     <button
       class="tab-btn"
@@ -74,7 +93,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('orders')"
     >
       <IconsCopy />
-      Orders
+      {{ t("store.tabOrders") }}
     </button>
     <button
       class="tab-btn"
@@ -85,7 +104,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('products')"
     >
       <IconsBulking />
-      Products
+      {{ t("store.tabProducts") }}
     </button>
     <button
       class="tab-btn"
@@ -96,7 +115,7 @@ function selectTab(tab: StoreTab) {
       @click="selectTab('customers')"
     >
       <IconsUsers />
-      Customers
+      {{ t("store.tabCustomers") }}
     </button>
     <!-- <span class="active-view-label">{{ activeLabel }}</span> -->
   </div>

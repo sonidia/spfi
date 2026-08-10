@@ -15,6 +15,8 @@ const { SPF_SHEET_URL } = getSheetUrls();
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
+const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 const credentialVault = useCredentialVaultStore();
 const route = useRoute();
 
@@ -24,7 +26,6 @@ const newDomain = ref("");
 const newSock = ref("");
 const newClientId = ref("");
 const newClientSecret = ref("");
-const isGenerating = ref(false);
 const isFindingShop = ref(false);
 const rotatingIds = ref<Record<string, boolean>>({});
 const testingProxies = ref<Record<string, boolean>>({});
@@ -200,8 +201,16 @@ const filteredStoreList = computed(() => {
 });
 
 // ── Delete store ──────────────────────────────────────────────────────────────
-function deleteStore(id: string) {
-  if (!confirm(`Are you sure you want to delete store ${id}?`)) return;
+async function deleteStore(id: string) {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("store.deleteConfirm", { id }),
+      confirmLabel: t("common.delete"),
+    }))
+  ) {
+    return;
+  }
 
   formStore.removeKnownStore(id);
   credentialVault.removeStoreData(id);
@@ -280,12 +289,12 @@ async function addShop() {
   const manCSec = newClientSecret.value.trim();
 
   let successCount = 0;
-  let errors: string[] = [];
+  const errors: string[] = [];
 
   try {
     // 0. SPF cache setup
     const spfUrl = SPF_SHEET_URL.trim();
-    let spfSheetNames: string[] = [...SPF_SHEET_TABS];
+    const spfSheetNames: string[] = [...SPF_SHEET_TABS];
     const spfRowsCache: Record<string, ProxySheetRow[]> = {};
 
     for (const domain of domains) {
@@ -692,14 +701,22 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
             class="search-inp"
           />
           <BasePopover align="right">
-            <template #trigger="{ isOpen }">
-              <button class="btn-sort" :class="{ 'is-active': isOpen }">
+            <template #trigger="{ isOpen, triggerProps }">
+              <button
+                v-bind="triggerProps"
+                type="button"
+                class="btn-sort"
+                :class="{ 'is-active': isOpen }"
+                aria-label="Sort stores"
+              >
                 <IconsSort />
               </button>
             </template>
             <template #default="{ close }">
               <div class="popover-menu">
-                <div
+                <button
+                  type="button"
+                  role="menuitem"
                   class="popover-item"
                   :class="{ active: sortOrder === 'domain_asc' }"
                   @click="
@@ -708,8 +725,10 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                   "
                 >
                   Domain (A-Z)
-                </div>
-                <div
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   class="popover-item"
                   :class="{ active: sortOrder === 'domain_desc' }"
                   @click="
@@ -718,9 +737,11 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                   "
                 >
                   Domain (Z-A)
-                </div>
+                </button>
                 <div class="popover-divider"></div>
-                <div
+                <button
+                  type="button"
+                  role="menuitem"
                   class="popover-item"
                   :class="{ active: sortOrder === 'expiry_asc' }"
                   @click="
@@ -729,8 +750,10 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                   "
                 >
                   Expiry (Oldest)
-                </div>
-                <div
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
                   class="popover-item"
                   :class="{ active: sortOrder === 'expiry_desc' }"
                   @click="
@@ -739,7 +762,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                   "
                 >
                   Expiry (Newest)
-                </div>
+                </button>
               </div>
             </template>
           </BasePopover>
@@ -874,476 +897,4 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
   </div>
 </template>
 
-<style scoped>
-.token-page {
-  min-width: 58rem;
-  margin: 0 auto;
-  padding: 28px 20px 48px;
-  font-size: 14px;
-}
-/* Card */
-.card {
-  background: var(--surface);
-  border-radius: var(--radius, 8px);
-  box-shadow: var(--shadow);
-  margin-bottom: 20px;
-}
-
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.card-head-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.card-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.card-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.mode-toggle {
-  display: inline-flex;
-  gap: 3px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  padding: 4px;
-}
-
-.toggle-btn {
-  display: inline-flex;
-  min-height: 30px;
-  align-items: center;
-  gap: 6px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-sub);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 0 10px;
-  transition:
-    background 0.15s,
-    color 0.15s,
-    box-shadow 0.15s;
-}
-
-.toggle-btn.active {
-  background: var(--surface);
-  color: var(--text-primary);
-  box-shadow: var(--shadow);
-}
-
-.card-title {
-  font-weight: 600;
-  font-size: 14px;
-}
-.count-badge {
-  background: var(--surface-soft);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 20px;
-}
-/* Store rows */
-.store-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.store-row:last-child {
-  border-bottom: none;
-}
-.store-id {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-primary);
-  width: fit-content;
-}
-.store-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  flex-wrap: wrap;
-}
-.tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 9px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.tag-ok {
-  background: var(--green-soft);
-  color: var(--green);
-}
-.tag-warn {
-  background: var(--amber-soft);
-  color: var(--amber);
-}
-.tag-err {
-  background: var(--red-soft);
-  color: var(--red);
-}
-.expiry {
-  font-size: 12px;
-  color: var(--text-secondary, #6d6d6d);
-}
-.store-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-}
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background 0.15s,
-    opacity 0.15s;
-}
-.btn-outline:hover:not(:disabled) {
-  background: var(--surface-soft);
-}
-.btn-outline:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-danger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--red);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s;
-}
-.btn-danger:hover {
-  background: var(--red-soft);
-}
-/* Add form */
-.inp {
-  width: 100%;
-  border: 1px solid var(--border);
-  padding: 7px 10px;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 13px;
-  box-sizing: border-box;
-}
-.inp:focus {
-  outline: 2px solid var(--blue);
-  outline-offset: 1px;
-}
-.domain_inp {
-  width: 100%;
-}
-.search-inp {
-  border: 1px solid var(--border);
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 12px;
-  width: 180px;
-  background: var(--surface);
-  transition: border-color 0.15s;
-}
-.search-inp:focus {
-  outline: none;
-  border-color: var(--blue);
-}
-.btn-sort {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn-sort:hover,
-.btn-sort.is-active {
-  background: var(--surface-soft);
-  border-color: var(--blue);
-}
-.popover-menu {
-  padding: 4px;
-}
-.popover-item {
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  border-radius: 4px;
-  color: var(--text-primary);
-  transition: background 0.1s;
-}
-.popover-item:hover {
-  background: var(--surface-soft);
-}
-.popover-item.active {
-  color: var(--blue);
-  font-weight: 600;
-  background: var(--blue-soft);
-}
-.popover-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-.field-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-sub);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-}
-.add-form {
-  display: grid;
-  grid-template-columns: repeat(60, 1fr);
-  gap: 12px;
-  padding: 16px 18px;
-}
-
-.field-33 {
-  grid-column: span 20;
-}
-
-.field-50 {
-  grid-column: span 30;
-}
-
-.field-full {
-  grid-column: span 60;
-}
-
-/* Steps */
-.step-progress {
-  padding: 12px 16px;
-  background: var(--surface-soft);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border: 1px solid var(--border);
-}
-.step-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--text-sub);
-  transition: color 0.2s;
-}
-.step-icon {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-}
-.step-item.status-active {
-  color: var(--blue);
-  font-weight: 500;
-}
-.step-item.status-done {
-  color: var(--green);
-}
-.step-item.status-error {
-  color: var(--red);
-}
-
-.spinner-sm {
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--line);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 14px;
-  background: var(--text-primary, #1a1a1a);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-}
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.85;
-}
-/* Alerts */
-.alert {
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-.alert-err {
-  background: var(--red-soft);
-  color: var(--red);
-}
-.alert-ok {
-  background: var(--green-soft);
-  color: var(--green);
-}
-/* Empty */
-.empty-state {
-  text-align: center;
-  padding: 24px;
-  color: var(--text-muted, #9e9e9e);
-  font-size: 13px;
-  background: var(--surface);
-  border-radius: var(--radius, 8px);
-  box-shadow: var(--shadow);
-  margin-bottom: 20px;
-}
-
-/* Modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1200;
-  padding: 16px;
-}
-.modal-card {
-  width: min(640px, 100%);
-  background: var(--surface);
-  border-radius: 10px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
-  overflow: hidden;
-}
-.modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.modal-title {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-sub);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px 6px;
-  border-radius: 6px;
-}
-.btn-ghost:hover {
-  background: var(--surface-soft);
-}
-
-.btn-outline :deep(svg),
-.btn-danger :deep(svg),
-.btn-primary :deep(svg),
-.btn-ghost :deep(svg),
-.toggle-btn :deep(svg),
-.btn-sort :deep(svg) {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-}
-
-.icon-left {
-  transform: rotate(180deg);
-}
-.modal-body {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 16px;
-}
-.modal-actions,
-.modal-actions_2 {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.modal-actions_2 {
-  padding: 0 16px 16px;
-}
-.modal-alert {
-  margin: 0 16px;
-}
-.field-1 {
-  grid-column: span 1;
-}
-
-.field-2 {
-  grid-column: span 2;
-}
-</style>
+<style scoped src="../assets/styles/pages/manager.css"></style>

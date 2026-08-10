@@ -1,23 +1,29 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from "vue";
 
 interface BasePopoverProps {
   align?: "left" | "right" | "top" | "bottom";
   position?: "top" | "bottom" | "left" | "right";
+  role?: "menu" | "dialog";
 }
 
 const props = withDefaults(defineProps<BasePopoverProps>(), {
   align: "right",
   position: "bottom",
+  role: "menu",
 });
 
 const GAP = 8;
 const VIEWPORT_MARGIN = 8;
 
 const isOpen = ref(false);
+const id = useId();
+const triggerId = `popover-trigger-${id}`;
+const contentId = `popover-content-${id}`;
 const popoverRef = ref<HTMLElement | null>(null);
 const triggerRef = ref<HTMLElement | null>(null);
 const contentRef = ref<HTMLElement | null>(null);
+const pendingFocus = ref<"first" | "last" | null>(null);
 const actualPosition = ref<BasePopoverProps["position"]>(props.position);
 const popoverRect = ref({ top: 0, left: 0, minWidth: 180 });
 const transformOrigin = ref("top right");
@@ -29,14 +35,104 @@ const popoverStyle = computed<Record<string, string>>(() => ({
   "--popover-transform-origin": transformOrigin.value,
 }));
 
-const toggle = (event?: Event) => {
+const triggerElement = computed(
+  () => triggerRef.value?.firstElementChild as HTMLElement | null,
+);
+
+const triggerProps = computed(() => ({
+  id: triggerId,
+  "aria-controls": contentId,
+  "aria-expanded": isOpen.value,
+  "aria-haspopup": props.role,
+  "data-popover-trigger": "",
+  onClick: toggle,
+  onKeydown: handleTriggerKeydown,
+}));
+
+function toggle(event?: Event) {
   event?.stopPropagation();
   isOpen.value = !isOpen.value;
-};
+}
 
-const close = () => {
+function close(restoreFocus = false) {
   isOpen.value = false;
-};
+  if (restoreFocus) {
+    nextTick(() => triggerElement.value?.focus());
+  }
+}
+
+function getFocusableItems() {
+  if (!contentRef.value) return [];
+  return Array.from(
+    contentRef.value.querySelectorAll<HTMLElement>(
+      [
+        '[role="menuitem"]:not([aria-disabled="true"])',
+        "a[href]",
+        "button:not([disabled])",
+        "input:not([disabled])",
+        "select:not([disabled])",
+        "textarea:not([disabled])",
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(","),
+    ),
+  ).filter((element) => !element.hasAttribute("hidden"));
+}
+
+function focusItem(position: "first" | "last") {
+  const items = getFocusableItems();
+  const item = position === "first" ? items[0] : items.at(-1);
+  (item || contentRef.value)?.focus();
+}
+
+function handleTriggerKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && isOpen.value) {
+    event.preventDefault();
+    close(true);
+    return;
+  }
+
+  if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+    event.preventDefault();
+    pendingFocus.value = event.key === "ArrowDown" ? "first" : "last";
+    if (!isOpen.value) isOpen.value = true;
+    else nextTick(() => focusItem(pendingFocus.value || "first"));
+    return;
+  }
+
+  if (["Enter", " "].includes(event.key) && !isOpen.value) {
+    pendingFocus.value = "first";
+  }
+}
+
+function handleContentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    close(true);
+    return;
+  }
+
+  const items = getFocusableItems();
+  if (!items.length) return;
+
+  const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+  let nextIndex: number | null = null;
+
+  if (["ArrowDown", "ArrowRight"].includes(event.key)) {
+    nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
+  } else if (["ArrowUp", "ArrowLeft"].includes(event.key)) {
+    nextIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = items.length - 1;
+  }
+
+  if (nextIndex !== null) {
+    event.preventDefault();
+    items[nextIndex]?.focus();
+  }
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -86,9 +182,7 @@ function resolvePosition(
   return preferred;
 }
 
-function resolveTransformOrigin(
-  position: NonNullable<BasePopoverProps["position"]>,
-) {
+function resolveTransformOrigin(position: NonNullable<BasePopoverProps["position"]>) {
   if (position === "bottom" || position === "top") {
     const inlineOrigin =
       props.align === "left" ? "left" : props.align === "right" ? "right" : "center";
@@ -107,12 +201,7 @@ function updatePosition() {
   const triggerBox = trigger.getBoundingClientRect();
   const menuWidth = Math.max(contentRef.value?.offsetWidth || 0, 180);
   const menuHeight = contentRef.value?.offsetHeight || 0;
-  const position = resolvePosition(
-    props.position,
-    triggerBox,
-    menuWidth,
-    menuHeight,
-  );
+  const position = resolvePosition(props.position, triggerBox, menuWidth, menuHeight);
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   let top = 0;
@@ -133,9 +222,7 @@ function updatePosition() {
     }
   } else {
     left =
-      position === "right"
-        ? triggerBox.right + GAP
-        : triggerBox.left - menuWidth - GAP;
+      position === "right" ? triggerBox.right + GAP : triggerBox.left - menuWidth - GAP;
 
     if (props.align === "top") {
       top = triggerBox.top;
@@ -149,8 +236,16 @@ function updatePosition() {
   actualPosition.value = position;
   transformOrigin.value = resolveTransformOrigin(position);
   popoverRect.value = {
-    top: clamp(top, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportHeight - menuHeight - VIEWPORT_MARGIN)),
-    left: clamp(left, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportWidth - menuWidth - VIEWPORT_MARGIN)),
+    top: clamp(
+      top,
+      VIEWPORT_MARGIN,
+      Math.max(VIEWPORT_MARGIN, viewportHeight - menuHeight - VIEWPORT_MARGIN),
+    ),
+    left: clamp(
+      left,
+      VIEWPORT_MARGIN,
+      Math.max(VIEWPORT_MARGIN, viewportWidth - menuWidth - VIEWPORT_MARGIN),
+    ),
     minWidth: Math.max(180, Math.round(triggerBox.width)),
   };
 }
@@ -182,6 +277,10 @@ watch(isOpen, async (open) => {
   await nextTick();
   updatePosition();
   addPositionListeners();
+  if (pendingFocus.value) {
+    focusItem(pendingFocus.value);
+    pendingFocus.value = null;
+  }
 });
 
 onMounted(() => {
@@ -198,8 +297,8 @@ defineExpose({ close, toggle });
 
 <template>
   <div class="popover-container" ref="popoverRef">
-    <div class="popover-trigger" ref="triggerRef" @click="toggle">
-      <slot name="trigger" :isOpen="isOpen"></slot>
+    <div class="popover-trigger" ref="triggerRef">
+      <slot name="trigger" :isOpen="isOpen" :triggerProps="triggerProps"></slot>
     </div>
     <Teleport to="body">
       <Transition name="popover">
@@ -207,8 +306,13 @@ defineExpose({ close, toggle });
           v-if="isOpen"
           ref="contentRef"
           class="popover-content"
+          :id="contentId"
           :class="[`align-${align}`, `pos-${actualPosition}`]"
           :style="popoverStyle"
+          :role="role"
+          :aria-labelledby="triggerId"
+          tabindex="-1"
+          @keydown="handleContentKeydown"
         >
           <slot :close="close"></slot>
         </div>

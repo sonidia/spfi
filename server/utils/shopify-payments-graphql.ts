@@ -11,9 +11,7 @@ import type {
   ShopifyAdjustmentOrderTransaction,
   ShopifyBalanceTransaction,
 } from "~~/types/shopify";
-import {
-  callShopifyGraphql,
-} from "./callShopifyGraphql";
+import { callShopifyGraphql } from "./callShopifyGraphql";
 import { createApiErrorFromMessage } from "./callShopifyApi";
 
 interface PageInfo {
@@ -368,33 +366,31 @@ export async function fetchShopifyPaymentsBalanceTransactions(
   filters: ShopifyPaymentsBalanceTransactionSearchFilters = {},
 ) {
   const searchQuery = buildBalanceTransactionSearchQuery(filters);
-  const nodes = await collectConnection<GraphqlBalanceTransaction>(
-    async (after) => {
-      const data = await callShopifyGraphql<
-        BalanceTransactionsData,
-        {
-          first: number;
-          after: string | null;
-          query: string | null;
-          hideTransfers: boolean;
-        }
-      >({
-        ...context,
-        query: BALANCE_TRANSACTIONS_QUERY,
-        operationName: "ShopifyPaymentsBalanceTransactions",
-        variables: {
-          first: CONNECTION_PAGE_SIZE,
-          after,
-          query: searchQuery || null,
-          hideTransfers: filters.hide_transfers === true,
-        },
-      });
-      return (
-        data.shopifyPaymentsAccount?.balanceTransactions ??
-        emptyConnection<GraphqlBalanceTransaction>()
-      );
-    },
-  );
+  const nodes = await collectConnection<GraphqlBalanceTransaction>(async (after) => {
+    const data = await callShopifyGraphql<
+      BalanceTransactionsData,
+      {
+        first: number;
+        after: string | null;
+        query: string | null;
+        hideTransfers: boolean;
+      }
+    >({
+      ...context,
+      query: BALANCE_TRANSACTIONS_QUERY,
+      operationName: "ShopifyPaymentsBalanceTransactions",
+      variables: {
+        first: CONNECTION_PAGE_SIZE,
+        after,
+        query: searchQuery || null,
+        hideTransfers: filters.hide_transfers === true,
+      },
+    });
+    return (
+      data.shopifyPaymentsAccount?.balanceTransactions ??
+      emptyConnection<GraphqlBalanceTransaction>()
+    );
+  });
 
   const mapped = nodes.map(mapBalanceTransaction);
   if (typeof filters.test !== "boolean") return mapped;
@@ -461,17 +457,8 @@ export function buildBalanceTransactionSearchQuery(
     parts.push(`credit_card_last4:${last4}`);
   }
 
-  addToken(
-    parts,
-    "payment_method_name",
-    filters.payment_method_name,
-    "quoted",
-  );
-  addPositiveId(
-    parts,
-    "payments_transfer_id",
-    filters.payments_transfer_id,
-  );
+  addToken(parts, "payment_method_name", filters.payment_method_name, "quoted");
+  addPositiveId(parts, "payments_transfer_id", filters.payments_transfer_id);
   addPositiveId(parts, "id", filters.since_id, ">");
   addPositiveId(parts, "id", filters.last_id, "<");
 
@@ -525,7 +512,7 @@ function emptyConnection<T>(): Connection<T> {
   };
 }
 
-function mapBalanceTransaction(
+export function mapBalanceTransaction(
   transaction: GraphqlBalanceTransaction,
 ): ShopifyBalanceTransaction {
   const sourceOrderId = numericId(transaction.associatedOrder?.id);
@@ -535,8 +522,7 @@ function mapBalanceTransaction(
     type: transaction.type.toLowerCase(),
     test: transaction.test,
     payout_id: numericId(transaction.associatedPayout.id),
-    payout_status:
-      transaction.associatedPayout.status?.toLowerCase() || "pending",
+    payout_status: transaction.associatedPayout.status?.toLowerCase() || "pending",
     currency: transaction.amount.currencyCode,
     amount: transaction.amount.amount,
     fee: transaction.fee.amount,
@@ -545,13 +531,10 @@ function mapBalanceTransaction(
     source_type: transaction.sourceType || null,
     source_order_id: sourceOrderId,
     source_order_name: transaction.associatedOrder?.name || null,
-    source_order_transaction_id: numericScalar(
-      transaction.sourceOrderTransactionId,
-    ),
+    source_order_transaction_id: numericScalar(transaction.sourceOrderTransactionId),
     processed_at: transaction.transactionDate,
-    adjustment_order_transactions: transaction.adjustmentsOrders.map(
-      mapAdjustmentOrder,
-    ),
+    adjustment_order_transactions:
+      transaction.adjustmentsOrders.map(mapAdjustmentOrder),
     adjustment_reason: transaction.adjustmentReason,
   };
 }
@@ -619,10 +602,7 @@ function addToken(
   if (value === undefined || value === null || value === "") return;
   const normalized = String(value).trim();
   if (!normalized || normalized.length > 100) {
-    throw createApiErrorFromMessage(
-      `The "${key}" filter is invalid or too long.`,
-      400,
-    );
+    throw createApiErrorFromMessage(`The "${key}" filter is invalid or too long.`, 400);
   }
 
   if (mode === "identifier") {
@@ -639,12 +619,7 @@ function addToken(
   parts.push(`${key}:${quoteSearchValue(normalized)}`);
 }
 
-function addPositiveId(
-  parts: string[],
-  key: string,
-  value: unknown,
-  comparator = "",
-) {
+function addPositiveId(parts: string[], key: string, value: unknown, comparator = "") {
   if (value === undefined || value === null || value === "") return;
   const normalized = String(value).trim();
   if (!/^\d+$/.test(normalized) || normalized === "0") {
@@ -672,10 +647,7 @@ function addDateRange(
   const min = normalizeOptionalDate(`${key}_min`, minValue);
   const max = normalizeOptionalDate(`${key}_max`, maxValue);
   if (min && max && min > max) {
-    throw createApiErrorFromMessage(
-      `"${key}_min" cannot be after "${key}_max".`,
-      400,
-    );
+    throw createApiErrorFromMessage(`"${key}_min" cannot be after "${key}_max".`, 400);
   }
   if (min) parts.push(`${key}:>=${min}T00:00:00Z`);
   if (max) parts.push(`${key}:<=${max}T23:59:59Z`);

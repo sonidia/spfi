@@ -404,16 +404,6 @@ const shopDomain = computed(() => {
   );
 });
 
-const shopInitials = computed(() => {
-  const words = shopTitle.value.trim().split(/\s+/).filter(Boolean);
-  return (
-    words
-      .slice(0, 2)
-      .map((word) => word.charAt(0).toUpperCase())
-      .join("") || "SP"
-  );
-});
-
 const shopUrl = computed(() => {
   const domain = shopDomain.value;
   if (!domain || domain === "-") return "";
@@ -439,19 +429,16 @@ const connectionRows = computed<ProfileFieldRow[]>(() => [
   {
     key: "clientId",
     label: "Client ID",
-    // value: maskSensitiveValue(currentStoreData.value.clientId),
     value: currentStoreData.value.clientId || "-",
   },
   {
     key: "clientSecret",
     label: "Client secret",
-    // value: maskSensitiveValue(currentStoreData.value.clientSecret),
     value: currentStoreData.value.clientSecret || "-",
   },
   {
     key: "proxy",
     label: "Proxy",
-    // value: maskSensitiveValue(currentStoreData.value.sock, 6),
     value: currentStoreData.value.sock || "-",
   },
 ]);

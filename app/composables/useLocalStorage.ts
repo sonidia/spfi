@@ -1,9 +1,5 @@
 import { ref, watch, type Ref } from "vue";
-import {
-  isStorageValueExpired,
-  readStorageValue,
-  writeStorageValue,
-} from "~~/utils/browser-storage";
+import { readStorageValue, writeStorageValue } from "~~/utils/browser-storage";
 
 interface Options {
   ttl?: number;
@@ -37,7 +33,6 @@ export function useLocalStorage<T>(
     state,
     set,
     remove,
-    isExpired: () => isStorageValueExpired(key),
   };
 }
 

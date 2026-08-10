@@ -10,7 +10,7 @@ import {
   Undo2,
   X,
 } from "@lucide/vue";
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
 import type { ShopifyOrder } from "~~/types/shopify";
@@ -20,6 +20,8 @@ const props = defineProps<{ order: ShopifyOrder }>();
 const emit = defineEmits<{ deleted: [] }>();
 const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
+const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 const mode = ref<"idle" | "edit" | "cancel">("idle");
 const note = ref("");
 const tags = ref("");
@@ -28,33 +30,15 @@ const phone = ref("");
 const cancelReason = ref<OrderCancelInput["reason"]>("other");
 const cancelAmount = ref("");
 const notifyCustomer = ref(false);
-const cancelReasonOptions = [
-  {
-    label: "Customer request",
-    value: "customer",
-    description: "The customer asked to cancel",
-  },
-  {
-    label: "Inventory",
-    value: "inventory",
-    description: "Items are no longer available",
-  },
-  {
-    label: "Fraud",
-    value: "fraud",
-    description: "The order appears fraudulent",
-  },
-  {
-    label: "Payment declined",
-    value: "declined",
-    description: "Payment could not be completed",
-  },
-  {
-    label: "Other",
-    value: "other",
-    description: "Another cancellation reason",
-  },
-];
+const cancelReasonOptions = computed(() =>
+  (["customer", "inventory", "fraud", "declined", "other"] as const).map(
+    (value) => ({
+      value,
+      label: t(`order.cancelReason.${value}`),
+      description: t(`order.cancelReason.${value}Description`),
+    }),
+  ),
+);
 
 watch(
   () => props.order,
@@ -122,7 +106,15 @@ function setCancelReason(value: unknown) {
 
 async function deleteOrder() {
   if (!isReady.value) return;
-  if (!window.confirm(`Delete ${props.order.name || `order ${props.order.id}`}?`)) {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("order.deleteConfirm", {
+        name: props.order.name || `#${props.order.id}`,
+      }),
+      confirmLabel: t("common.delete"),
+    }))
+  ) {
     return;
   }
   const deleted = await orderStore.deleteOrder(
@@ -137,25 +129,28 @@ async function deleteOrder() {
 <template>
   <section class="management-panel" aria-labelledby="order-actions-title">
     <header>
-      <div class="panel-title"><Pencil aria-hidden="true" /><h2 id="order-actions-title">Manage order</h2></div>
+      <div class="panel-title">
+        <Pencil aria-hidden="true" />
+        <h2 id="order-actions-title">{{ t("order.manage") }}</h2>
+      </div>
       <div class="action-row">
         <BaseButton @click="mode = mode === 'edit' ? 'idle' : 'edit'">
           <template #icon><X v-if="mode === 'edit'" /><Pencil v-else /></template>
-          {{ mode === "edit" ? "Close editor" : "Edit" }}
+          {{ mode === "edit" ? t("order.closeEditor") : t("common.edit") }}
         </BaseButton>
         <BaseButton
           :disabled="Boolean(order.cancelled_at) || orderStore.isMutating"
           @click="changeOpenState"
         >
           <template #icon><RotateCcw v-if="order.closed_at" /><Archive v-else /></template>
-          {{ order.closed_at ? "Re-open" : "Close" }}
+          {{ order.closed_at ? t("order.reopen") : t("common.close") }}
         </BaseButton>
         <BaseButton
           :disabled="Boolean(order.cancelled_at) || orderStore.isMutating"
           @click="mode = mode === 'cancel' ? 'idle' : 'cancel'"
         >
           <template #icon><Ban /></template>
-          Cancel
+          {{ t("common.cancel") }}
         </BaseButton>
         <BaseButton
           variant="danger-ghost"
@@ -163,26 +158,26 @@ async function deleteOrder() {
           @click="deleteOrder"
         >
           <template #icon><Trash2 /></template>
-          Delete
+          {{ t("common.delete") }}
         </BaseButton>
       </div>
     </header>
 
     <div v-if="mode === 'edit'" class="editor-grid">
       <label>
-        <span>Note</span>
+        <span>{{ t("order.note") }}</span>
         <textarea v-model="note" class="editor-textarea" rows="3" />
       </label>
       <label>
-        <span>Tags</span>
+        <span>{{ t("order.tags") }}</span>
         <textarea v-model="tags" class="editor-textarea" rows="3" />
       </label>
-      <label><span>Email</span><input v-model="email" type="email" /></label>
-      <label><span>Phone</span><input v-model="phone" type="tel" /></label>
+      <label><span>{{ t("order.email") }}</span><input v-model="email" type="email" /></label>
+      <label><span>{{ t("order.phone") }}</span><input v-model="phone" type="tel" /></label>
       <div class="editor-actions">
         <BaseButton @click="mode = 'idle'">
           <template #icon><Undo2 /></template>
-          Discard
+          {{ t("order.discard") }}
         </BaseButton>
         <BaseButton
           variant="primary"
@@ -190,26 +185,26 @@ async function deleteOrder() {
           @click="saveOrder"
         >
           <template #icon><Save /></template>
-          Save changes
+          {{ t("order.saveChanges") }}
         </BaseButton>
       </div>
     </div>
 
     <div v-else-if="mode === 'cancel'" class="cancel-grid">
       <label>
-        <span>Reason</span>
+        <span>{{ t("order.reason") }}</span>
         <BaseSelect
           :model-value="cancelReason"
           :options="cancelReasonOptions"
           @update:model-value="setCancelReason"
         />
       </label>
-      <label><span>Refund amount</span><input v-model="cancelAmount" inputmode="decimal" /></label>
-      <label class="check-row"><input v-model="notifyCustomer" type="checkbox" /><span>Notify customer</span></label>
+      <label><span>{{ t("order.refundAmount") }}</span><input v-model="cancelAmount" inputmode="decimal" /></label>
+      <label class="check-row"><input v-model="notifyCustomer" type="checkbox" /><span>{{ t("order.notifyCustomer") }}</span></label>
       <div class="editor-actions">
         <BaseButton @click="mode = 'idle'">
           <template #icon><ArrowLeft /></template>
-          Back
+          {{ t("order.back") }}
         </BaseButton>
         <BaseButton
           variant="danger"
@@ -217,7 +212,7 @@ async function deleteOrder() {
           @click="cancelOrder"
         >
           <template #icon><Ban /></template>
-          Confirm cancellation
+          {{ t("order.confirmCancellation") }}
         </BaseButton>
       </div>
     </div>

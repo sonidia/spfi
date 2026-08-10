@@ -5,22 +5,39 @@ import { useCredentialVaultStore } from "./stores/credentialVault";
 
 const { loading } = useLoading();
 const credentialVault = useCredentialVaultStore();
+const { t } = useLocalization();
+const confirmDialog = useConfirmDialog();
 
 onMounted(() => credentialVault.initialize());
 useTokenRotation();
 </script>
 
 <template>
-  <main class="app-root">
+  <div class="app-root">
+    <a class="skip-link" href="#main-content">
+      {{ t("a11y.skipToContent") }}
+    </a>
     <ClientOnly>
       <LoadingOverlay :visible="loading" />
     </ClientOnly>
     <BaseToast />
+    <BaseConfirmDialog
+      :open="Boolean(confirmDialog.options.value)"
+      :title="confirmDialog.options.value?.title || ''"
+      :message="confirmDialog.options.value?.message || ''"
+      :confirm-label="confirmDialog.options.value?.confirmLabel"
+      :cancel-label="confirmDialog.options.value?.cancelLabel"
+      :danger="confirmDialog.options.value?.danger"
+      @confirm="confirmDialog.resolveConfirmation(true)"
+      @cancel="confirmDialog.resolveConfirmation(false)"
+    />
     <Nav />
-    <NuxtLayout>
-      <NuxtPage :keepalive="{ max: 6 }" />
-    </NuxtLayout>
-  </main>
+    <div id="main-content" tabindex="-1">
+      <NuxtLayout>
+        <NuxtPage :keepalive="{ max: 6 }" />
+      </NuxtLayout>
+    </div>
+  </div>
 </template>
 
 <style>
@@ -257,6 +274,38 @@ input[type="checkbox"]:disabled {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10000;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(calc(-100% - 24px));
+  transition: transform 0.16s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .layout,

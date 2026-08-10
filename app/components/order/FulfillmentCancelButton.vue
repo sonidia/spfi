@@ -13,6 +13,8 @@ const props = defineProps<{
 const orderStore = useOrderStore();
 const toast = useToastStore();
 const { storeId, token, isReady } = useActiveShopAuth();
+const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 const canCancel = computed(
   () =>
     Boolean(props.fulfillment.id) &&
@@ -23,7 +25,13 @@ const canCancel = computed(
 
 async function cancelFulfillment() {
   if (!isReady.value || !props.fulfillment.id || !canCancel.value) return;
-  if (!window.confirm("Cancel this fulfillment and return its items to the fulfillment queue?")) {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.actionTitle"),
+      message: t("order.cancelFulfillmentConfirm"),
+      confirmLabel: t("order.cancelFulfillment"),
+    }))
+  ) {
     return;
   }
   const updated = await orderStore.cancelFulfillment(
@@ -32,7 +40,7 @@ async function cancelFulfillment() {
     props.orderId,
     props.fulfillment.id,
   );
-  if (updated) toast.success("Fulfillment cancelled.");
+  if (updated) toast.success(t("order.fulfillmentCancelled"));
 }
 </script>
 
@@ -44,6 +52,6 @@ async function cancelFulfillment() {
     @click="cancelFulfillment"
   >
     <template #icon><Ban /></template>
-    Cancel fulfillment
+    {{ t("order.cancelFulfillment") }}
   </BaseButton>
 </template>

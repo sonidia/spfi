@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import type { StoreLocalData } from "~~/types/shopify";
 import type { TrackingProviderSettings } from "~~/types/tracking";
 import {
@@ -66,23 +66,15 @@ function readTrackingSettings(): TrackingProviderSettings {
 
 export const useCredentialVaultStore = defineStore("credentialVault", () => {
   const isInitialized = ref(false);
-  const isUnlocked = ref(true);
-  const isBusy = ref(false);
-  const error = ref<string | null>(null);
   const storeDataRevision = ref(0);
   const trackingSettings = ref<TrackingProviderSettings>(
     emptyTrackingSettings(),
   );
 
-  const hasVault = computed(() => false);
-  const needsSetup = computed(() => false);
-
   function initialize() {
     if (typeof window === "undefined") return;
     trackingSettings.value = readTrackingSettings();
     isInitialized.value = true;
-    isUnlocked.value = true;
-    error.value = null;
   }
 
   function ensureInitialized() {
@@ -99,16 +91,6 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
     ensureInitialized();
     void storeDataRevision.value;
     return readStoredShop(storeId);
-  }
-
-  async function unlock() {
-    initialize();
-    return true;
-  }
-
-  function lock() {
-    isUnlocked.value = true;
-    error.value = null;
   }
 
   async function saveStoreData(storeId: string, data: StoreLocalData) {
@@ -156,15 +138,8 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
 
   return {
     isInitialized,
-    isUnlocked,
-    isBusy,
-    error,
     trackingSettings,
-    hasVault,
-    needsSetup,
     initialize,
-    unlock,
-    lock,
     getPublicStoreData,
     getStoreData,
     saveStoreData,

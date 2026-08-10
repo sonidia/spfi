@@ -27,6 +27,7 @@ const emit = defineEmits<{ refreshed: [] }>();
 const toast = useToastStore();
 const operations = useProductOperations();
 const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 const {
   locations,
   inventoryLevels,
@@ -213,11 +214,13 @@ async function saveVariant() {
 
 async function removeVariant(variant: ShopifyVariant) {
   if (
-    !confirm(
-      t("product.deleteVariantConfirm", {
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("product.deleteVariantConfirm", {
         title: variant.title || variant.id,
       }),
-    ) ||
+      confirmLabel: t("common.delete"),
+    })) ||
     !(await operations.deleteVariant(props.product.id, variant.id))
   ) {
     return;
@@ -267,7 +270,11 @@ async function saveImage(image: ShopifyProductImage) {
 async function removeImage(image: ShopifyProductImage) {
   if (
     !image.id ||
-    !confirm(t("product.deleteImageConfirm")) ||
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("product.deleteImageConfirm"),
+      confirmLabel: t("common.delete"),
+    })) ||
     !(await operations.deleteImage(props.product.id, image.id))
   ) {
     return;

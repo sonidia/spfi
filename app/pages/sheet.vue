@@ -12,6 +12,9 @@ import { useSheetService } from "../composables/useSheetService";
 
 definePageMeta({ layout: false });
 
+const { t } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
+
 const { state: sheetList, set: setSheetList } = useLocalStorage<
   (StoredSheet | LegacyStoredSheet)[]
 >(SHEET_RECENT_STORAGE_KEY, []);
@@ -28,7 +31,6 @@ const {
 } = useSheetService();
 
 const sheetInputValue = ref("");
-const sheetRangeInput = ref("");
 const selectedSheetRanges = ref<Record<string, string>>({});
 const isSheetModalOpen = ref(false);
 const sheetModalTitle = ref("");
@@ -80,12 +82,6 @@ function setSelectedSheetName(source: string, sheetName: unknown) {
     ...selectedSheetRanges.value,
     [source]: typeof sheetName === "string" ? sheetName : String(sheetName || ""),
   };
-}
-
-function handleSheetRangeChange(source: string, event: Event) {
-  const target = event.target as HTMLSelectElement | null;
-  if (!target) return;
-  setSelectedSheetName(source, target.value || "");
 }
 
 async function readSheetMetaSafe(source: string) {
@@ -189,8 +185,16 @@ async function loadSheetViewerData(sheet: StoredSheet) {
   }
 }
 
-function removeRecentSheet(source: string) {
-  if (!confirm("Are you sure you want to delete this recent sheet?")) return;
+async function removeRecentSheet(source: string) {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("sheet.deleteRecentConfirm"),
+      confirmLabel: t("common.delete"),
+    }))
+  ) {
+    return;
+  }
 
   persistRecentSheets(
     recentSheets.value.filter((sheet) => sheet.source !== source),

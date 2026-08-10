@@ -5,7 +5,12 @@
       <div v-if="productStore.isLoading && !products.length" id="loading">
         {{ t("product.loadingProducts") }}
       </div>
-      <div v-else-if="productStore.error" id="loading" style="color: red">
+      <div
+        v-else-if="productStore.error"
+        id="loading"
+        class="error-state"
+        role="alert"
+      >
         {{ productStore.error }}
       </div>
 
@@ -65,6 +70,11 @@
                     <span
                       v-if="prod.status"
                       class="badge"
+                      :aria-label="
+                        t('a11y.statusLabel', {
+                          status: formatProductStatus(prod.status),
+                        })
+                      "
                       :class="
                         prod.status === 'active' ? 'badge-paid' : 'badge-pending'
                       "
@@ -95,8 +105,9 @@
                     style="justify-content: flex-end"
                   >
                     <BasePopover align="right">
-                      <template #trigger="{ isOpen }">
+                      <template #trigger="{ isOpen, triggerProps }">
                         <button
+                          v-bind="triggerProps"
                           class="btn-ghost-sm btn-icon"
                           :class="{ 'is-active': isOpen }"
                           type="button"
@@ -108,6 +119,7 @@
                       <template #default="{ close }">
                         <div class="popover-menu popover-actions">
                           <button
+                            role="menuitem"
                             class="popover-item"
                             @click.stop="
                               openDetailModal(prod);
@@ -117,6 +129,7 @@
                             {{ t("product.details") }}
                           </button>
                           <button
+                            role="menuitem"
                             class="popover-item"
                             @click.stop="
                               openEditModal(prod);
@@ -126,6 +139,7 @@
                             {{ t("common.edit") }}
                           </button>
                           <button
+                            role="menuitem"
                             class="popover-item"
                             :disabled="publishingProductId === prod.id"
                             @click.stop="
@@ -142,6 +156,7 @@
                             }}
                           </button>
                           <button
+                            role="menuitem"
                             class="popover-item text-danger"
                             @click.stop="
                               removeProduct(prod.id);
@@ -194,7 +209,9 @@
         <div class="modal-body">
           <div class="field">
             <label class="field-label"
-              >{{ t("product.fieldTitle") }} <span style="color: red">*</span></label
+              >{{ t("product.fieldTitle") }}
+                <span aria-hidden="true" style="color: red">*</span>
+                <span class="sr-only">{{ t("a11y.required") }}</span></label
             >
             <input
               v-model="newProduct.title"
@@ -388,6 +405,7 @@ const formStore = useFormStore();
 const { token: activeToken } = useActiveShopAuth();
 const feedback = useStoreFeedback();
 const { t, locale } = useLocalization();
+const { requestConfirmation } = useConfirmDialog();
 
 const products = computed(() => productStore.products);
 const selectedProductId = ref<number | null>(null);
@@ -574,7 +592,15 @@ async function toggleProductPublication(prod: ShopifyProduct) {
 }
 
 async function removeProduct(prodId: number) {
-  if (!confirm(t("product.deleteConfirm"))) return;
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("product.deleteConfirm"),
+      confirmLabel: t("common.delete"),
+    }))
+  ) {
+    return;
+  }
   const sid = formStore.storeId;
   const token = activeToken.value;
 
@@ -732,6 +758,10 @@ async function refreshProducts() {
   border-radius: 20px;
   font-size: 11px;
   font-weight: 500;
+}
+
+.error-state {
+  color: var(--red);
 }
 .badge::before {
   content: "•";

@@ -7,7 +7,9 @@ export async function resolvePublicHttpsEndpoint(value: string) {
     return url.toString();
   } catch (error) {
     if (error instanceof PublicUrlError) {
-      throw new Error(`Invalid tracking API endpoint: ${error.message}`);
+      throw new Error(`Invalid tracking API endpoint: ${error.message}`, {
+        cause: error,
+      });
     }
     throw error;
   }
