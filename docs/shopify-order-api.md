@@ -84,14 +84,14 @@ fulfilled quantities.
 | --- | --- | --- |
 | Read fulfillment orders | `GET /api/order/:id/fulfillment_orders` | REST fulfillment orders |
 | List fulfillment history | `GET /api/order/:id/fulfillments` | `GET /orders/:id/fulfillments.json` |
-| Full or partial fulfillment | `POST /api/order/:id/fulfill` | REST `POST /fulfillments.json` |
+| Full or partial fulfillment | `POST /api/order/:id/fulfill` | GraphQL `fulfillmentCreate` |
 | Cancel fulfillment | `POST /api/fulfillments/:id/cancel` | GraphQL `fulfillmentCancel` |
 
 Partial fulfillment requests are validated against the order's current open
-fulfillment orders and fulfillable quantities. The server no longer falls back
-to the legacy order fulfillment endpoint after a modern fulfillment error,
-which prevents an invalid partial request from accidentally fulfilling every
-open item. Fulfillment history accepts Shopify's documented time range,
+fulfillment orders and fulfillable quantities. Numeric REST IDs are parsed
+without precision loss, validated as decimal strings, and converted to GraphQL
+GIDs before `fulfillmentCreate`; there is no legacy fallback that could fulfill
+unselected items. Fulfillment history accepts Shopify's documented time range,
 `fields`, `limit`, and `since_id` query parameters.
 
 References:
@@ -107,6 +107,7 @@ References:
 - https://shopify.dev/docs/apps/build/orders-fulfillment/order-management-apps/edit-orders
 - https://shopify.dev/docs/api/admin-graphql/latest/mutations/orderEditSetQuantity
 - https://shopify.dev/docs/api/admin-graphql/latest/mutations/orderEditAddCustomItem
+- https://shopify.dev/docs/api/admin-graphql/latest/mutations/fulfillmentCreate
 - https://shopify.dev/docs/api/admin-graphql/latest/mutations/fulfillmentCancel
 - https://shopify.dev/docs/api/admin-rest/latest/resources/fulfillment
 - https://shopify.dev/docs/api/admin-rest/latest/resources/event

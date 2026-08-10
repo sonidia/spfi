@@ -54,7 +54,9 @@ export function buildBalanceTransactionQueryParams(input: unknown): QueryParams 
   return params;
 }
 
-export function groupTransactionsByPayout<T extends { payout_id: number | null }>(
+export function groupTransactionsByPayout<
+  T extends { payout_id: string | number | null },
+>(
   transactions: T[],
 ): Record<string, T[]> {
   const grouped: Record<string, T[]> = {};

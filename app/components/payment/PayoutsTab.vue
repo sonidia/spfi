@@ -92,7 +92,7 @@ async function resetFilters() {
   await applyFilters("Payout filters reset.");
 }
 
-function getPayoutProcessedDate(payoutId: number) {
+function getPayoutProcessedDate(payoutId: string | number) {
   const transactions =
     paymentStore.transactionsByPayout[String(payoutId)] || [];
   const charge = transactions.find(
@@ -101,7 +101,7 @@ function getPayoutProcessedDate(payoutId: number) {
   return charge ? fmtDate(charge.processed_at) : "—";
 }
 
-function getPayoutMetadata(payoutId: number) {
+function getPayoutMetadata(payoutId: string | number) {
   return paymentStore.payoutMetadata[String(payoutId)] || null;
 }
 
@@ -123,7 +123,7 @@ function formatMoney(amount: string, currency: string) {
   }
 }
 
-function openPayoutDetail(payoutId: number) {
+function openPayoutDetail(payoutId: string | number) {
   router.push(`/store/payout/${payoutId}`);
 }
 

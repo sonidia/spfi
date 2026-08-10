@@ -13,6 +13,7 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    adminApiVersion: "2026-07",
     allowedOrigins: "",
     debugProxyEnabled: process.env.NODE_ENV !== "production",
     debugProxyAllowedHosts: "httpbin.org,api.ipify.org",

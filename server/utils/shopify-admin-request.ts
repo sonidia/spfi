@@ -33,11 +33,16 @@ export function getShopifyQueryCredentials(
 ): ShopifyApiCredentials {
   const query = getQuery(event);
 
+  if (normalizeShopifyRequestValue(query.token)) {
+    throw createApiErrorFromMessage(
+      "Access Token must be sent in the X-Shopify-Access-Token header, not the query string.",
+      400,
+    );
+  }
+
   return requireShopifyCredentials({
     storeId: query.storeId,
-    token:
-      getHeader(event, "x-shopify-access-token") ||
-      normalizeShopifyRequestValue(query.token),
+    token: getHeader(event, "x-shopify-access-token"),
   });
 }
 
@@ -72,6 +77,22 @@ export function requireShopifySafeResourceNumber(
   }
 
   return numberValue;
+}
+
+export function requireShopifyExactResourceId(
+  value: unknown,
+  resourceName: string,
+) {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+
+  if (typeof firstValue === "number" && !Number.isSafeInteger(firstValue)) {
+    throw createApiErrorFromMessage(
+      `${resourceName} ID must be sent as a decimal string when it exceeds JavaScript's safe integer range.`,
+      400,
+    );
+  }
+
+  return requireShopifyResourceId(firstValue, resourceName);
 }
 
 export function requireShopifyPayload<T extends object>(

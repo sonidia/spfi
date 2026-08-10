@@ -531,7 +531,7 @@ function mapBalanceTransaction(
   const sourceOrderId = numericId(transaction.associatedOrder?.id);
 
   return {
-    id: numericId(transaction.id) ?? 0,
+    id: requireNumericId(transaction.id, "balance transaction"),
     type: transaction.type.toLowerCase(),
     test: transaction.test,
     payout_id: numericId(transaction.associatedPayout.id),
@@ -560,12 +560,15 @@ function mapAdjustmentOrder(
   adjustment: GraphqlAdjustmentOrder,
 ): ShopifyAdjustmentOrderTransaction {
   return {
-    id: numericScalar(adjustment.orderTransactionId) ?? 0,
+    id: requireNumericScalar(
+      adjustment.orderTransactionId,
+      "adjustment order transaction",
+    ),
     amount: adjustment.amount.amount,
     fee: adjustment.fees.amount,
     net: adjustment.net.amount,
     order: {
-      id: orderIdFromLink(adjustment.link) ?? 0,
+      id: orderIdFromLink(adjustment.link),
       name: adjustment.name,
     },
   };
@@ -579,12 +582,32 @@ function numericId(value: string | null | undefined) {
 
 function numericScalar(value: string | null | undefined) {
   if (!value || !/^\d+$/.test(String(value))) return null;
-  return Number(value);
+  return String(value);
 }
 
 function orderIdFromLink(link: string) {
   const match = String(link || "").match(/\/orders\/(\d+)/);
   return numericScalar(match?.[1]);
+}
+
+function requireNumericId(value: string, resourceName: string) {
+  const id = numericId(value);
+  if (id) return id;
+
+  throw createApiErrorFromMessage(
+    `Shopify returned an invalid ${resourceName} ID.`,
+    502,
+  );
+}
+
+function requireNumericScalar(value: string, resourceName: string) {
+  const id = numericScalar(value);
+  if (id) return id;
+
+  throw createApiErrorFromMessage(
+    `Shopify returned an invalid ${resourceName} ID.`,
+    502,
+  );
 }
 
 function addToken(

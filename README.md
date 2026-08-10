@@ -72,6 +72,14 @@ NUXT_ALLOWED_ORIGINS=https://ops.example.com,https://admin.example.com
 
 Copy `.env.example` to `.env` as a starting point.
 
+Shopify Admin REST and GraphQL requests share a runtime-configured API version.
+The default is `2026-07`; after validating the next quarterly release and once
+it is stable, rotate it without rebuilding the app, for example:
+
+```text
+NUXT_ADMIN_API_VERSION=2026-10
+```
+
 Add the Google service account file:
 
 ```text
@@ -235,6 +243,7 @@ Expected header aliases for store auto-fill:
 - Do not commit `server/service_account.json`, `.env` files, logs, or generated build output.
 - Store credentials and proxy details should be treated as sensitive operational data.
 - Browser API calls are same-origin unless explicitly listed in `NUXT_ALLOWED_ORIGINS`.
+- Shopify access tokens for GET and DELETE routes must use the `X-Shopify-Access-Token` header; query-string tokens are rejected.
 - CORS is a browser boundary, not user authentication. Keep deployments on localhost, a trusted network, or behind a VPN/reverse proxy when public access is not intended.
 - `/api/debug-proxy` is disabled by default in production. When explicitly enabled, it accepts only HTTPS destinations on `NUXT_DEBUG_PROXY_ALLOWED_HOSTS`, blocks private/reserved DNS results and redirects, caps response size, and suppresses raw socket errors.
 - Store status targets and every redirect are restricted to public HTTPS port 443; direct connections use the validated DNS address to reduce DNS-rebinding risk.

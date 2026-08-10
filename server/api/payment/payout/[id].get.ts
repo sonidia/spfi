@@ -1,9 +1,10 @@
-import { defineEventHandler, getQuery } from "h3";
-import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+import { defineEventHandler } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
+import {
+  getShopifyQueryCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 import type {
   PayoutDetailResponse,
   ShopifyPayout,
@@ -15,14 +16,11 @@ interface PayoutResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  const payoutId = event.context.params?.id;
-  const query = getQuery(event);
-  const storeId = String(query.storeId || "");
-  const token = String(query.token || "");
-
-  if (!storeId || !token || !payoutId) {
-    throw createApiErrorFromMessage("storeId, token and payout id are required.", 400);
-  }
+  const payoutId = requireShopifyResourceId(
+    event.context.params?.id,
+    "Payout",
+  );
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
   const [payoutRes, transactions] = await Promise.all([
     callShopifyApi<PayoutResponse>({
@@ -30,6 +28,7 @@ export default defineEventHandler(async (event) => {
       storeId,
       token,
       path: `/shopify_payments/payouts/${payoutId}.json`,
+      preserveUnsafeIntegers: true,
     }),
     callShopifyPaginatedApi<ShopifyBalanceTransaction>({
       event,
@@ -38,11 +37,14 @@ export default defineEventHandler(async (event) => {
       path: "/shopify_payments/balance/transactions.json",
       resourceKey: "transactions",
       params: { payout_id: payoutId },
+      preserveUnsafeIntegers: true,
     }),
   ]);
 
   return {
-    payout: payoutRes.payout ?? null,
+    payout: payoutRes.payout
+      ? { ...payoutRes.payout, id: payoutId }
+      : null,
     transactions,
   } satisfies PayoutDetailResponse;
 });

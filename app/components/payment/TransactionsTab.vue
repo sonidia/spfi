@@ -160,9 +160,11 @@ async function resetFilters() {
   await applyFilters("Transaction filters reset.");
 }
 
-function getPayoutDate(payoutId: number | null) {
+function getPayoutDate(payoutId: string | number | null) {
   if (!payoutId) return "—";
-  const payout = paymentStore.payouts.find((item) => item.id === payoutId);
+  const payout = paymentStore.payouts.find(
+    (item) => String(item.id) === String(payoutId),
+  );
   return payout ? fmtDate(payout.date) : "—";
 }
 
@@ -170,7 +172,7 @@ function getOrderName(transaction: Transaction) {
   if (transaction.source_order_name) return transaction.source_order_name;
   if (!transaction.source_order_id) return null;
   const order = orderStore.orders.find(
-    (item) => item.id === transaction.source_order_id,
+    (item) => String(item.id) === String(transaction.source_order_id),
   );
   return order?.name || `#${transaction.source_order_id}`;
 }
@@ -178,7 +180,7 @@ function getOrderName(transaction: Transaction) {
 function getCustomerName(transaction: Transaction) {
   if (!transaction.source_order_id) return "—";
   const customer = orderStore.orders.find(
-    (item) => item.id === transaction.source_order_id,
+    (item) => String(item.id) === String(transaction.source_order_id),
   )?.customer;
   if (!customer) return "—";
   return (

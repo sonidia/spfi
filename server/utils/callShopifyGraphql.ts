@@ -4,7 +4,6 @@ import axios, {
   type RawAxiosResponseHeaders,
 } from "axios";
 import { setResponseHeader, type H3Event } from "h3";
-import { useAppConfig } from "#imports";
 import {
   createApiError,
   createApiErrorFromMessage,
@@ -13,6 +12,8 @@ import {
   resolveStoreAdminDomain,
   resolveStoreCookieData,
 } from "./callShopifyApi";
+import { getShopifyAdminApiBase } from "./shopify-api-version";
+import { parseJsonPreservingUnsafeIntegers } from "./lossless-json";
 import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
@@ -72,7 +73,6 @@ export async function callShopifyGraphql<
     throw createApiErrorFromMessage("Store ID is required.", 400);
   }
 
-  const appConfig = useAppConfig();
   const storeCookie = resolveStoreCookieData(event, storeId);
   const accessToken = String(token || storeCookie?.accessToken || "").trim();
   if (!accessToken) {
@@ -88,7 +88,7 @@ export async function callShopifyGraphql<
   }
 
   const domain = resolveStoreAdminDomain(storeId, storeCookie?.domain);
-  const endpoint = `https://${domain}/${appConfig.apiBase}/graphql.json`;
+  const endpoint = `https://${domain}/${getShopifyAdminApiBase(event)}/graphql.json`;
   const throttleKey = buildShopifyThrottleKey(
     "graphql",
     domain,
@@ -115,6 +115,7 @@ export async function callShopifyGraphql<
       httpsAgent: agent,
       proxy: false,
       timeout: timeoutMs,
+      transformResponse: [parseJsonPreservingUnsafeIntegers],
     };
     let envelope: ShopifyGraphqlEnvelope<TData> | null = null;
 

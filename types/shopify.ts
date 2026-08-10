@@ -4,6 +4,8 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
+export type ShopifyNumericId = string | number;
+
 export interface AppErrorData {
   data?: {
     error?: {
@@ -338,7 +340,7 @@ export interface ShopifyPayoutSummary {
 }
 
 export interface ShopifyPayout {
-  id: number;
+  id: ShopifyNumericId;
   status: string;
   date: string;
   currency: string;
@@ -385,32 +387,32 @@ export type ShopifyBalanceTransactionSourceType =
   | (string & {});
 
 export interface ShopifyAdjustmentOrderTransaction {
-  id: number;
+  id: ShopifyNumericId;
   amount: string;
   fee: string;
   net: string;
   order: {
-    id: number;
+    id: ShopifyNumericId | null;
     name: string;
   };
 }
 
 export interface ShopifyBalanceTransaction {
-  id: number;
+  id: ShopifyNumericId;
   type: ShopifyRestBalanceTransactionType;
   test: boolean;
-  payout_id: number | null;
+  payout_id: ShopifyNumericId | null;
   payout_status: string;
   currency: string;
   amount: string;
   fee: string;
   net: string;
-  source_id: number | null;
+  source_id: ShopifyNumericId | null;
   source_type: ShopifyBalanceTransactionSourceType | null;
-  source_order_id: number | null;
+  source_order_id: ShopifyNumericId | null;
   /** Enriched from GraphQL ShopifyPaymentsAssociatedOrder. */
   source_order_name?: string | null;
-  source_order_transaction_id: number | null;
+  source_order_transaction_id: ShopifyNumericId | null;
   processed_at: string;
   adjustment_order_transactions: ShopifyAdjustmentOrderTransaction[];
   adjustment_reason: string | null;
@@ -446,16 +448,16 @@ export interface ShopifyShop {
 }
 
 export interface ShopifyFulfillmentOrderLineItem {
-  id: number;
+  id: ShopifyNumericId;
   quantity: number;
   fulfillable_quantity?: number;
-  line_item_id?: number;
-  inventory_item_id?: number;
-  variant_id?: number | null;
+  line_item_id?: ShopifyNumericId;
+  inventory_item_id?: ShopifyNumericId;
+  variant_id?: ShopifyNumericId | null;
 }
 
 export interface ShopifyFulfillmentOrder {
-  id: number;
+  id: ShopifyNumericId;
   status?: string;
   line_items?: ShopifyFulfillmentOrderLineItem[];
 }

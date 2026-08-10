@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     resourceKey: "transactions",
     params: buildBalanceTransactionQueryParams(body.filters),
     missingProxyMessage: "Missing sock proxy for this store.",
+    preserveUnsafeIntegers: true,
   });
 
   return {

@@ -21,5 +21,6 @@ export default defineEventHandler(async (event) => {
     path: `/orders/${id}/fulfillment_orders.json`,
     useAdminDomain: true,
     missingProxyMessage: "Missing sock proxy.",
+    preserveUnsafeIntegers: true,
   });
 });

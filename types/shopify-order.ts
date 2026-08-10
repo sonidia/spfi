@@ -1,5 +1,6 @@
 import type {
   ShopifyFulfillment,
+  ShopifyNumericId,
   ShopifyOrder,
   ShopifyRefund,
 } from "./shopify";
@@ -220,12 +221,12 @@ export interface OrderEditCommitResponse {
 }
 
 export interface OrderFulfillmentLineItemInput {
-  id: number;
+  id: ShopifyNumericId;
   quantity: number;
 }
 
 export interface OrderFulfillmentGroupInput {
-  fulfillment_order_id: number;
+  fulfillment_order_id: ShopifyNumericId;
   fulfillment_order_line_items: OrderFulfillmentLineItemInput[];
 }
 

@@ -33,11 +33,16 @@ export function getCustomerQueryCredentials(
 ): CustomerApiCredentials {
   const query = getQuery(event);
 
+  if (normalizeRequestValue(query.token)) {
+    throw createApiErrorFromMessage(
+      "Access Token must be sent in the X-Shopify-Access-Token header, not the query string.",
+      400,
+    );
+  }
+
   return requireCustomerCredentials({
     storeId: query.storeId,
-    token:
-      getHeader(event, "x-shopify-access-token") ||
-      normalizeRequestValue(query.token),
+    token: getHeader(event, "x-shopify-access-token"),
   });
 }
 

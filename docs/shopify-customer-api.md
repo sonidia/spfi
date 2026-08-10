@@ -48,8 +48,8 @@ Mutation routes receive credentials in the JSON body:
 ```
 
 GET and DELETE routes receive `storeId` in the query. Send the token using the
-`X-Shopify-Access-Token` header; a `token` query parameter is also accepted for
-backward compatibility.
+`X-Shopify-Access-Token` header. Query-string tokens are not accepted because
+URLs can be retained in logs, browser history, and referrer metadata.
 
 | App route | Shopify REST request | Additional input |
 | --- | --- | --- |

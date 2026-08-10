@@ -273,7 +273,9 @@ const paymentStore = usePaymentStore();
 const credentialVault = useCredentialVaultStore();
 const feedback = useStoreFeedback();
 
-const payoutId = Number(route.params.id);
+const payoutId = String(
+  Array.isArray(route.params.id) ? route.params.id[0] : route.params.id || "",
+).trim();
 
 onMounted(() => {
   if (formStore.storeId && payoutId) {
@@ -297,7 +299,7 @@ function resolveToken(sid: string): string | null {
 const currentPayout = computed(
   () =>
     paymentStore.payoutDetails[String(payoutId)] ||
-    paymentStore.payouts.find((p) => p.id === payoutId) ||
+    paymentStore.payouts.find((p) => String(p.id) === payoutId) ||
     null,
 );
 

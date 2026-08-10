@@ -16,6 +16,7 @@ interface CallShopifyPaginatedApiOptions<TItem> {
   params?: ShopifyQueryParams;
   missingProxyMessage?: string;
   mapItem?: (item: unknown) => TItem;
+  preserveUnsafeIntegers?: boolean;
 }
 
 const MAX_PAGE_SIZE = 250;
@@ -29,6 +30,7 @@ export async function callShopifyPaginatedApi<TItem>({
   params = {},
   missingProxyMessage,
   mapItem = (item) => item as TItem,
+  preserveUnsafeIntegers = false,
 }: CallShopifyPaginatedApiOptions<TItem>): Promise<TItem[]> {
   const items: TItem[] = [];
   const visitedPageUrls = new Set<string>();
@@ -45,6 +47,7 @@ export async function callShopifyPaginatedApi<TItem>({
       path,
       params: requestParams,
       missingProxyMessage,
+      preserveUnsafeIntegers,
     });
     const pageItems = response.data[resourceKey];
 

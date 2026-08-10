@@ -408,14 +408,14 @@ export const usePaymentStore = defineStore("payment", () => {
     }
   }
 
-  function getTransactionsForPayout(payoutId: number): Transaction[] {
+  function getTransactionsForPayout(payoutId: string | number): Transaction[] {
     return transactionsByPayout.value[String(payoutId)] ?? [];
   }
 
   async function fetchPayoutDetail(
     storeId: string,
     token: string,
-    payoutId: number,
+    payoutId: string | number,
     force = false,
   ) {
     if (!storeId || !token) {
@@ -440,7 +440,8 @@ export const usePaymentStore = defineStore("payment", () => {
       const response = await $fetch<PayoutDetailResponse>(
         `/api/payment/payout/${payoutId}`,
         {
-          params: { storeId, token },
+          params: { storeId },
+          headers: { "x-shopify-access-token": token },
         },
       );
 
@@ -449,7 +450,9 @@ export const usePaymentStore = defineStore("payment", () => {
       if (response.payout) {
         payoutDetails.value[String(payoutId)] = response.payout;
 
-        const listIndex = payouts.value.findIndex((payout) => payout.id === payoutId);
+        const listIndex = payouts.value.findIndex(
+          (payout) => String(payout.id) === String(payoutId),
+        );
         if (listIndex > -1) {
           payouts.value[listIndex] = response.payout;
         } else {

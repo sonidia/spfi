@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
       ...(body.payoutId ? { payout_id: body.payoutId } : {}),
     }),
     missingProxyMessage: "Missing sock proxy for this store.",
+    preserveUnsafeIntegers: true,
   });
 
   return {

@@ -12,7 +12,8 @@ import type {
   RawAxiosResponseHeaders,
 } from "axios";
 import { SocksProxyAgent } from "socks-proxy-agent";
-import { useAppConfig } from "#imports";
+import { parseJsonPreservingUnsafeIntegers } from "./lossless-json";
+import { getShopifyAdminApiBase } from "./shopify-api-version";
 import { StoreStatusInputError } from "./status-checker-errors";
 import {
   blockShopifyThrottle,
@@ -63,6 +64,7 @@ export interface CallShopifyApiOptions<TBody = unknown> {
   missingProxyMessage?: string;
   timeoutMs?: number;
   retryTransport?: boolean;
+  preserveUnsafeIntegers?: boolean;
 }
 
 export interface ShopifyApiResponse<TResponse> {
@@ -421,12 +423,12 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   missingProxyMessage = "Missing sock proxy for this store. Please update it in Manager page.",
   timeoutMs = DEFAULT_TIMEOUT_MS,
   retryTransport = true,
+  preserveUnsafeIntegers = false,
 }: CallShopifyApiOptions<TBody>): Promise<ShopifyApiResponse<TResponse>> {
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
   }
 
-  const appConfig = useAppConfig();
   const storeCookie = resolveStoreCookieData(event, storeId);
   const accessToken = String(token || storeCookie?.accessToken || "").trim();
 
@@ -443,7 +445,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   const domain = useAdminDomain
     ? resolveStoreAdminDomain(storeId, storeCookie?.domain)
     : resolveStoreDomain(storeId, storeCookie?.domain);
-  const baseURL = `https://${domain}/${appConfig.apiBase}`;
+  const baseURL = `https://${domain}/${getShopifyAdminApiBase(event)}`;
   const proxyVariants = resolveShopifyProxyVariants(sock);
   const throttleKey = buildShopifyThrottleKey("rest", domain, accessToken);
 
@@ -465,6 +467,9 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
         httpsAgent: agent,
         proxy: false,
         timeout: timeoutMs,
+        ...(preserveUnsafeIntegers
+          ? { transformResponse: [parseJsonPreservingUnsafeIntegers] }
+          : {}),
       };
       const response = await requestWithRateLimitRetry<TResponse, TBody>(
         requestConfig,

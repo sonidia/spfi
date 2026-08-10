@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
       token,
       path: "/shopify_payments/payouts.json",
       resourceKey: "payouts",
+      preserveUnsafeIntegers: true,
     }),
     callShopifyPaginatedApi<ShopifyBalanceTransaction>({
       event,
@@ -50,6 +51,7 @@ export default defineEventHandler(async (event) => {
       token,
       path: "/shopify_payments/balance/transactions.json",
       resourceKey: "transactions",
+      preserveUnsafeIntegers: true,
     }),
   ]);
 

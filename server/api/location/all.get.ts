@@ -1,9 +1,8 @@
-import { defineEventHandler, getHeader, getQuery } from "h3";
-import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import { defineEventHandler, getQuery } from "h3";
 import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
+import { getShopifyQueryCredentials } from "~~/server/utils/shopify-admin-request";
 import {
   chunkInventoryItemIds,
-  getFirstQueryValue,
   normalizeInventoryItemIds,
   normalizeLocationLimit,
 } from "~~/server/utils/shopify-location-query";
@@ -14,14 +13,7 @@ import type {
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
-  const storeId = getFirstQueryValue(query.storeId);
-  const token =
-    getFirstQueryValue(query.token) ||
-    String(getHeader(event, "x-shopify-access-token") || "").trim();
-
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
-  }
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
   const limit = normalizeLocationLimit(query.limit);
   const inventoryItemIds = normalizeInventoryItemIds(

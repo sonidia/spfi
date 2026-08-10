@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     resourceKey: "payouts",
     params: buildPayoutQueryParams(body.filters),
     missingProxyMessage: "Missing sock proxy for this store.",
+    preserveUnsafeIntegers: true,
   });
 
   return {
