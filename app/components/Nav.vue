@@ -40,6 +40,7 @@ onBeforeUnmount(() => {
         <span class="topbar-title">Spfi</span>
       </NuxtLink>
       <div class="nav-list">
+        <NuxtLink to="/dashboard">{{ t("nav.dashboard") }}</NuxtLink>
         <NuxtLink to="/setup">{{ t("nav.setup") }}</NuxtLink>
         <NuxtLink to="/manager">{{ t("nav.manager") }}</NuxtLink>
         <NuxtLink :to="withActiveShop('/store')">{{ t("nav.store") }}</NuxtLink>

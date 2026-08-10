@@ -136,6 +136,14 @@ CSV downloads are available from `POST /api/export/csv/:resource`, where
 by page, emitted as UTF-8 CSV, and protected against spreadsheet formula
 injection. The store UI exposes the same exports through reusable buttons.
 
+`/dashboard` is an all-store operational view. The browser loads saved stores
+with a concurrency limit and calls `POST /api/dashboard` once per store. Each
+response aggregates the current calendar month's orders, daily revenue, top
+products, pending fulfillments, customer and product totals, Shopify Payments,
+and staff access. Totals remain separated by currency, date boundaries follow
+the viewer's timezone, and restricted resources degrade independently instead
+of hiding the rest of a store's dashboard.
+
 The optional local per-IP limits are disabled by default so they don't reduce
 Shopify throughput. A deployment that exposes the server publicly can enable
 them without changing source code:
