@@ -68,6 +68,7 @@ export interface CallShopifyApiOptions<TBody = unknown> {
   timeoutMs?: number;
   retryTransport?: boolean;
   preserveUnsafeIntegers?: boolean;
+  forwardResponseHeaders?: boolean;
 }
 
 export interface ShopifyApiResponse<TResponse> {
@@ -83,8 +84,7 @@ interface SocksProxyAgentInternals {
 
 const SHOPIFY_JSON_CONTENT_TYPE = "application/json";
 const DEFAULT_TIMEOUT_MS = 15000;
-const INVISIBLE_OR_CONTROL_CHARS =
-  /[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g;
+const INVISIBLE_OR_CONTROL_CHARS = /[\u0000-\u001F\u007F\u00A0\u200B-\u200D\uFEFF]/g;
 const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
 const SOCKS5_PROTOCOL_PATTERN = /^socks5h?:\/\//i;
 const SOCKS5H_PROTOCOL = "socks5h:";
@@ -99,7 +99,9 @@ function safeDecode(value: string) {
 }
 
 function sanitizePart(value: string) {
-  return String(value || "").replace(INVISIBLE_OR_CONTROL_CHARS, "").trim();
+  return String(value || "")
+    .replace(INVISIBLE_OR_CONTROL_CHARS, "")
+    .trim();
 }
 
 function normalizeCredential(value: string) {
@@ -278,24 +280,23 @@ function sanitizeRequestStoreData(
   if (!value) return null;
 
   const domain = normalizeStoreHost(value.domain).slice(0, 253);
-  const sock = String(value.sock || "").trim().slice(0, 2048);
-  const clientId = String(value.clientId || "").trim().slice(0, 512);
+  const sock = String(value.sock || "")
+    .trim()
+    .slice(0, 2048);
+  const clientId = String(value.clientId || "")
+    .trim()
+    .slice(0, 512);
   const expiresTime = Number(value.expiresTime);
 
   return {
     ...(domain ? { domain } : {}),
     ...(sock ? { sock } : {}),
     ...(clientId ? { clientId } : {}),
-    ...(Number.isSafeInteger(expiresTime) && expiresTime > 0
-      ? { expiresTime }
-      : {}),
+    ...(Number.isSafeInteger(expiresTime) && expiresTime > 0 ? { expiresTime } : {}),
   };
 }
 
-export function resolveStoreDomain(
-  storeId: string,
-  cookieDomain?: string,
-): string {
+export function resolveStoreDomain(storeId: string, cookieDomain?: string): string {
   const fromCookie = String(cookieDomain || "").trim();
   if (fromCookie) return fromCookie;
 
@@ -329,12 +330,14 @@ function normalizeStoreHost(value?: string): string {
   try {
     return new URL(raw).hostname.toLowerCase();
   } catch {
-    return raw
-      .replace(/^https?:\/\//i, "")
-      .split(/[/?#]/)[0]
-      ?.replace(/:\d+$/, "")
-      .toLowerCase()
-      .trim() || "";
+    return (
+      raw
+        .replace(/^https?:\/\//i, "")
+        .split(/[/?#]/)[0]
+        ?.replace(/:\d+$/, "")
+        .toLowerCase()
+        .trim() || ""
+    );
   }
 }
 
@@ -418,10 +421,7 @@ export function buildProxyVariants(sock: string): string[] {
   if (!raw) return [];
 
   const rawVariant = toRawProxyVariant(raw);
-  const variants = [
-    normalizeProxyUrl(raw),
-    ...(rawVariant ? [rawVariant] : []),
-  ];
+  const variants = [normalizeProxyUrl(raw), ...(rawVariant ? [rawVariant] : [])];
 
   return variants.filter(
     (variant, index) =>
@@ -461,6 +461,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   retryTransport = true,
   preserveUnsafeIntegers = false,
+  forwardResponseHeaders = true,
 }: CallShopifyApiOptions<TBody>): Promise<ShopifyApiResponse<TResponse>> {
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
@@ -512,7 +513,9 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
         requestConfig,
         throttleKey,
       );
-      forwardShopifyResponseHeaders(event, response.headers);
+      if (forwardResponseHeaders) {
+        forwardShopifyResponseHeaders(event, response.headers);
+      }
 
       return {
         data: response.data,
@@ -541,16 +544,11 @@ async function requestWithRateLimitRetry<TResponse, TBody>(
     await waitForShopifyThrottle(throttleKey);
 
     try {
-      return await axios.request<
-        TResponse,
-        AxiosResponse<TResponse>,
-        TBody
-      >(requestConfig);
+      return await axios.request<TResponse, AxiosResponse<TResponse>, TBody>(
+        requestConfig,
+      );
     } catch (error) {
-      if (
-        !axios.isAxiosError(error) ||
-        error.response?.status !== 429
-      ) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 429) {
         throw error;
       }
 
@@ -573,10 +571,7 @@ function forwardShopifyResponseHeaders(
   event: H3Event,
   headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
 ) {
-  for (const headerName of [
-    "x-shopify-shop-api-call-limit",
-    "x-shopify-api-version",
-  ]) {
+  for (const headerName of ["x-shopify-shop-api-call-limit", "x-shopify-api-version"]) {
     const value = getAxiosResponseHeader(headers, headerName);
     if (value !== undefined && value !== null && String(value).trim()) {
       setResponseHeader(event, headerName, String(value));
@@ -685,10 +680,7 @@ function buildStoreStatusProxyVariants(proxy?: string) {
   }
 }
 
-function assertRemoteDnsSocks5hAgent(
-  agent: SocksProxyAgent,
-  proxyUrl: string,
-) {
+function assertRemoteDnsSocks5hAgent(agent: SocksProxyAgent, proxyUrl: string) {
   const internals = agent as SocksProxyAgentInternals;
   const protocol = getProxyProtocol(internals.proxyUrl || proxyUrl);
 
@@ -838,4 +830,3 @@ export function buildStandardApiError(
     },
   };
 }
-

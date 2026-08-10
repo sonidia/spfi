@@ -4,7 +4,9 @@
       <div>
         <div class="page-meta">
           <template v-if="activeQuery">
-            {{ customers.length }} matching customer{{ customers.length === 1 ? "" : "s" }}
+            {{ customers.length }} matching customer{{
+              customers.length === 1 ? "" : "s"
+            }}
           </template>
           <template v-else>
             {{ totalCount }} customer{{ totalCount === 1 ? "" : "s" }}
@@ -48,7 +50,7 @@
       <div v-if="error" class="inline-error">{{ error }}</div>
 
       <div class="card table-card">
-        <div class="table-scroll">
+        <div ref="customerList" class="table-scroll" @scroll="updateCustomerViewport">
           <table class="customers-table">
             <thead>
               <tr>
@@ -61,8 +63,11 @@
               </tr>
             </thead>
             <tbody>
+              <tr v-if="customerPaddingTop" class="virtual-spacer" aria-hidden="true">
+                <td :style="{ height: `${customerPaddingTop}px` }" colspan="6" />
+              </tr>
               <tr
-                v-for="customer in customers"
+                v-for="{ item: customer } in visibleCustomers"
                 :key="customer.id"
                 class="customer-row"
                 :class="{
@@ -89,8 +94,7 @@
                     class="status-pill"
                     :class="{
                       'is-subscribed':
-                        customer.email_marketing_consent?.state ===
-                        'subscribed',
+                        customer.email_marketing_consent?.state === 'subscribed',
                     }"
                   >
                     {{
@@ -102,13 +106,18 @@
                 </td>
                 <td>{{ formatDate(customer.updated_at) }}</td>
               </tr>
+              <tr
+                v-if="customerPaddingBottom"
+                class="virtual-spacer"
+                aria-hidden="true"
+              >
+                <td :style="{ height: `${customerPaddingBottom}px` }" colspan="6" />
+              </tr>
             </tbody>
           </table>
         </div>
 
-        <div v-if="!customers.length" class="empty-state">
-          No customers found.
-        </div>
+        <div v-if="!customers.length" class="empty-state">No customers found.</div>
       </div>
 
       <section
@@ -161,9 +170,7 @@
             <div>
               <span>Lifetime value</span>
               <strong>{{ formatTotalSpent(selectedCustomer) }}</strong>
-              <small>
-                {{ selectedCustomer.orders_count ?? 0 }} total orders
-              </small>
+              <small> {{ selectedCustomer.orders_count ?? 0 }} total orders </small>
             </div>
           </div>
 
@@ -200,7 +207,6 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, watch } from "vue";
 import { useCustomers } from "~/composables/useCustomers";
 import { useFormStore } from "~/stores/form";
 import type { ShopifyCustomer } from "~~/types/shopify";
@@ -221,18 +227,25 @@ const {
   clearSelection,
 } = useCustomers();
 
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
+useDebouncedWatch(
+  searchQuery,
+  (query) => {
+    if (query.trim() !== activeQuery.value) return search(query);
+  },
+  350,
+);
 
-watch(searchQuery, (query) => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    if (query.trim() !== activeQuery.value) {
-      search(query);
-    }
-  }, 350);
+const {
+  container: customerList,
+  paddingBottom: customerPaddingBottom,
+  paddingTop: customerPaddingTop,
+  updateViewport: updateCustomerViewport,
+  visibleItems: visibleCustomers,
+} = useVirtualList(customers, {
+  itemHeight: 59,
+  overscan: 6,
+  defaultViewportHeight: 560,
 });
-
-onBeforeUnmount(() => clearTimeout(searchTimer));
 
 function getCustomerName(customer: ShopifyCustomer) {
   return (
@@ -358,7 +371,8 @@ function formatOrderTotal(value: string, currency = "USD") {
 }
 
 .table-scroll {
-  overflow-x: auto;
+  max-height: min(62vh, 620px);
+  overflow: auto;
 }
 
 .customers-table {
@@ -377,9 +391,17 @@ function formatOrderTotal(value: string, currency = "USD") {
 }
 
 .customers-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: var(--surface-soft);
   color: var(--text-sub);
   font-weight: 600;
+}
+
+.virtual-spacer td {
+  padding: 0;
+  border: 0;
 }
 
 .customer-row {

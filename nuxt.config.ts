@@ -29,6 +29,10 @@ export default defineNuxtConfig({
   nitro: {
     externals: {
       external: ["papaparse"],
+      traceInclude: ["./node_modules/papaparse/papaparse.js"],
+    },
+    rollupConfig: {
+      external: [/papaparse/],
     },
   },
   vite: {

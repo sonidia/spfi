@@ -1,26 +1,22 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
+import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
 
 definePageMeta({ layout: false });
 
 const orderStore = useOrderStore();
+const { storeId, token } = useActiveShopAuth();
 const { t } = useLocalization();
 const orders = computed(() => orderStore.orders);
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(orders.value.length / orderStore.pageSize)),
-);
-const paginatedOrders = computed(() => {
-  const page = Math.min(orderStore.currentPage, totalPages.value);
-  const start = (page - 1) * orderStore.pageSize;
-  return orders.value.slice(start, start + orderStore.pageSize);
-});
 
-watch(totalPages, (pageCount) => {
-  if (orderStore.currentPage > pageCount) {
-    orderStore.setPage(pageCount);
-  }
-});
+function changePage(page: number) {
+  return orderStore.fetchPage(storeId.value, token.value, page);
+}
+
+function changePageSize(pageSize: number) {
+  return orderStore.changePageSize(storeId.value, token.value, pageSize);
+}
 </script>
 
 <template>
@@ -38,17 +34,21 @@ watch(totalPages, (pageCount) => {
       </div>
       <div v-else>
         <div class="page-meta">
-          {{ t("order.loadedCount", { count: orders.length }) }}
+          <span>{{ t("order.loadedCount", { count: orders.length }) }}</span>
+          <CsvExportButton resource="orders" />
         </div>
         <div v-if="orders.length" class="card table-card">
-          <OrderOrdersTable :orders="paginatedOrders" />
+          <OrderOrdersTable :orders="orders" />
           <PaginationControls
             :page="orderStore.currentPage"
             :page-size="orderStore.pageSize"
-            :total-items="orders.length"
+            :total-items="orderStore.orderCount || orders.length"
+            :has-next-page="orderStore.pageInfo.hasNextPage"
+            :has-previous-page="orderStore.pageInfo.hasPreviousPage"
+            :loading="orderStore.isLoading"
             :item-label="t('order.items')"
-            @update:page="orderStore.setPage"
-            @update:page-size="orderStore.setPageSize"
+            @update:page="changePage"
+            @update:page-size="changePageSize"
           />
         </div>
         <div v-else class="empty">{{ t("order.empty") }}</div>
@@ -65,6 +65,10 @@ watch(totalPages, (pageCount) => {
 }
 
 .page-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
   color: var(--text-sub);
   font-size: 13px;

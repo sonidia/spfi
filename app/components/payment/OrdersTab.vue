@@ -1,33 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 
 const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
 const { t } = useLocalization();
 const isCreateOpen = ref(false);
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(orderStore.orders.length / orderStore.pageSize)),
-);
-const paginatedOrders = computed(() => {
-  const page = Math.min(orderStore.currentPage, totalPages.value);
-  const start = (page - 1) * orderStore.pageSize;
-  return orderStore.orders.slice(start, start + orderStore.pageSize);
-});
-
-watch(totalPages, (pageCount) => {
-  if (orderStore.currentPage > pageCount) {
-    orderStore.setPage(pageCount);
-  }
-});
-
 async function refreshCount() {
   if (!isReady.value) return;
   await orderStore.fetchCount(storeId.value, token.value, { status: "any" });
 }
 
-onMounted(refreshCount);
-watch(storeId, refreshCount);
+function changePage(page: number) {
+  return orderStore.fetchPage(storeId.value, token.value, page);
+}
+
+function changePageSize(pageSize: number) {
+  return orderStore.changePageSize(storeId.value, token.value, pageSize);
+}
 </script>
 
 <template>
@@ -37,10 +27,13 @@ watch(storeId, refreshCount);
         <strong>{{ orderStore.orderCount || orderStore.orders.length }}</strong>
         <span>{{ t("order.totalOrders") }}</span>
       </div>
-      <button type="button" @click="isCreateOpen = true">
-        <IconsAdd aria-hidden="true" />
-        {{ t("order.createOrder") }}
-      </button>
+      <div class="orders-toolbar-actions">
+        <CsvExportButton resource="orders" />
+        <button type="button" @click="isCreateOpen = true">
+          <IconsAdd aria-hidden="true" />
+          {{ t("order.createOrder") }}
+        </button>
+      </div>
     </div>
 
     <div
@@ -54,31 +47,22 @@ watch(storeId, refreshCount);
       {{ orderStore.error }}
     </div>
     <template v-else>
-      <p
-        v-if="orderStore.orderCount > orderStore.orders.length"
-        class="orders-limit-note"
-        role="status"
-      >
-        {{
-          t("order.loadedSubset", {
-            loaded: orderStore.orders.length,
-            total: orderStore.orderCount,
-          })
-        }}
-      </p>
       <OrderOrdersTable
         v-if="orderStore.orders.length"
-        :orders="paginatedOrders"
+        :orders="orderStore.orders"
         tracking-actions
       />
       <PaginationControls
         v-if="orderStore.orders.length"
         :page="orderStore.currentPage"
         :page-size="orderStore.pageSize"
-        :total-items="orderStore.orders.length"
+        :total-items="orderStore.orderCount || orderStore.orders.length"
+        :has-next-page="orderStore.pageInfo.hasNextPage"
+        :has-previous-page="orderStore.pageInfo.hasPreviousPage"
+        :loading="orderStore.isLoading"
         :item-label="t('order.items')"
-        @update:page="orderStore.setPage"
-        @update:page-size="orderStore.setPageSize"
+        @update:page="changePage"
+        @update:page-size="changePageSize"
       />
       <div v-else class="empty">{{ t("order.empty") }}</div>
     </template>
@@ -108,6 +92,12 @@ watch(storeId, refreshCount);
   gap: 6px;
 }
 
+.orders-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .orders-toolbar strong {
   color: var(--text);
   font-size: 15px;
@@ -132,15 +122,6 @@ watch(storeId, refreshCount);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.orders-limit-note {
-  margin: 0;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--amber-soft);
-  color: var(--text-sub);
-  font-size: 12px;
 }
 
 .error-state {

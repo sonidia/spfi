@@ -5,12 +5,7 @@
       <div v-if="productStore.isLoading && !products.length" id="loading">
         {{ t("product.loadingProducts") }}
       </div>
-      <div
-        v-else-if="productStore.error"
-        id="loading"
-        class="error-state"
-        role="alert"
-      >
+      <div v-else-if="productStore.error" id="loading" class="error-state" role="alert">
         {{ productStore.error }}
       </div>
 
@@ -20,163 +15,177 @@
           <div class="page-meta">
             {{ t("product.productCount", { count: products.length }) }}
           </div>
-          <button class="btn-primary-sm" @click="showCreateModal = true">
-            <Plus :size="14" aria-hidden="true" />
-            {{ t("product.addProduct") }}
-          </button>
+          <div class="page-meta-actions">
+            <CsvExportButton resource="products" />
+            <button class="btn-primary-sm" @click="showCreateModal = true">
+              <Plus :size="14" aria-hidden="true" />
+              {{ t("product.addProduct") }}
+            </button>
+          </div>
         </div>
 
         <div class="product-workspace">
-        <div class="card table-card">
-          <table class="products-table">
-            <thead>
-              <tr>
-                <th>{{ t("product.columnProduct") }}</th>
-                <th>{{ t("product.columnStatus") }}</th>
-                <th>{{ t("product.columnVariants") }}</th>
-                <th>{{ t("product.columnUpdated") }}</th>
-                <th style="text-align: right">{{ t("product.columnActions") }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(prod, index) in products"
-                :key="prod.id || index"
-                class="product-row"
-                :class="{ selected: selectedProduct?.id === prod.id }"
-                @click="selectProduct(prod)"
-              >
-                <td>
-                  <div class="product-info-cell">
-                    <img
-                      v-if="prod.image"
-                      :src="prod.image.src"
-                      class="product-thumb"
-                      :alt="t('product.productImage')"
-                    />
-                    <div v-else class="product-thumb empty-thumb">
-                      {{ t("product.noImage") }}
-                    </div>
-                    <div class="product-main-details">
-                      <div class="product-title-text">{{ prod.title }}</div>
-                      <div class="product-id-sub">
-                        {{ t("product.productId", { id: prod.id }) }}
+          <div
+            ref="productList"
+            class="card table-card"
+            @scroll="updateProductViewport"
+          >
+            <table class="products-table">
+              <thead>
+                <tr>
+                  <th>{{ t("product.columnProduct") }}</th>
+                  <th>{{ t("product.columnStatus") }}</th>
+                  <th>{{ t("product.columnVariants") }}</th>
+                  <th>{{ t("product.columnUpdated") }}</th>
+                  <th style="text-align: right">{{ t("product.columnActions") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="productPaddingTop" class="virtual-spacer" aria-hidden="true">
+                  <td :style="{ height: `${productPaddingTop}px` }" colspan="5" />
+                </tr>
+                <tr
+                  v-for="{ item: prod, index } in visibleProducts"
+                  :key="prod.id || index"
+                  class="product-row"
+                  :class="{ selected: selectedProduct?.id === prod.id }"
+                  @click="selectProduct(prod)"
+                >
+                  <td>
+                    <div class="product-info-cell">
+                      <img
+                        v-if="prod.image"
+                        :src="prod.image.src"
+                        class="product-thumb"
+                        :alt="t('product.productImage')"
+                      />
+                      <div v-else class="product-thumb empty-thumb">
+                        {{ t("product.noImage") }}
+                      </div>
+                      <div class="product-main-details">
+                        <div class="product-title-text">{{ prod.title }}</div>
+                        <div class="product-id-sub">
+                          {{ t("product.productId", { id: prod.id }) }}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="product-status-cell">
-                    <span
-                      v-if="prod.status"
-                      class="badge"
-                      :aria-label="
-                        t('a11y.statusLabel', {
-                          status: formatProductStatus(prod.status),
-                        })
-                      "
-                      :class="
-                        prod.status === 'active' ? 'badge-paid' : 'badge-pending'
-                      "
-                    >
-                      {{ formatProductStatus(prod.status) }}
-                    </span>
-                    <span
-                      class="publication-state"
-                      :class="{ published: isProductPublished(prod) }"
-                    >
-                      {{
-                        isProductPublished(prod)
-                          ? t("product.published")
-                          : t("product.unpublished")
-                      }}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  {{ prod.variants?.length || 0 }}
-                </td>
-                <td>
-                  {{ formatProductDate(prod.updated_at) }}
-                </td>
-                <td style="text-align: right">
-                  <div
-                    class="product-actions-cell"
-                    style="justify-content: flex-end"
-                  >
-                    <BasePopover align="right">
-                      <template #trigger="{ isOpen, triggerProps }">
-                        <button
-                          v-bind="triggerProps"
-                          class="btn-ghost-sm btn-icon"
-                          :class="{ 'is-active': isOpen }"
-                          type="button"
-                          :aria-label="t('product.moreActions')"
-                        >
-                          <IconsMore />
-                        </button>
-                      </template>
-                      <template #default="{ close }">
-                        <div class="popover-menu popover-actions">
+                  </td>
+                  <td>
+                    <div class="product-status-cell">
+                      <span
+                        v-if="prod.status"
+                        class="badge"
+                        :aria-label="
+                          t('a11y.statusLabel', {
+                            status: formatProductStatus(prod.status),
+                          })
+                        "
+                        :class="
+                          prod.status === 'active' ? 'badge-paid' : 'badge-pending'
+                        "
+                      >
+                        {{ formatProductStatus(prod.status) }}
+                      </span>
+                      <span
+                        class="publication-state"
+                        :class="{ published: isProductPublished(prod) }"
+                      >
+                        {{
+                          isProductPublished(prod)
+                            ? t("product.published")
+                            : t("product.unpublished")
+                        }}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {{ prod.variants?.length || 0 }}
+                  </td>
+                  <td>
+                    {{ formatProductDate(prod.updated_at) }}
+                  </td>
+                  <td style="text-align: right">
+                    <div class="product-actions-cell" style="justify-content: flex-end">
+                      <BasePopover align="right">
+                        <template #trigger="{ isOpen, triggerProps }">
                           <button
-                            role="menuitem"
-                            class="popover-item"
-                            @click.stop="
-                              openDetailModal(prod);
-                              close();
-                            "
+                            v-bind="triggerProps"
+                            class="btn-ghost-sm btn-icon"
+                            :class="{ 'is-active': isOpen }"
+                            type="button"
+                            :aria-label="t('product.moreActions')"
                           >
-                            {{ t("product.details") }}
+                            <IconsMore />
                           </button>
-                          <button
-                            role="menuitem"
-                            class="popover-item"
-                            @click.stop="
-                              openEditModal(prod);
-                              close();
-                            "
-                          >
-                            {{ t("common.edit") }}
-                          </button>
-                          <button
-                            role="menuitem"
-                            class="popover-item"
-                            :disabled="publishingProductId === prod.id"
-                            @click.stop="
-                              toggleProductPublication(prod);
-                              close();
-                            "
-                          >
-                            {{
-                              publishingProductId === prod.id
-                                ? t("product.publicationSaving")
-                                : isProductPublished(prod)
-                                  ? t("product.unpublish")
-                                  : t("product.publish")
-                            }}
-                          </button>
-                          <button
-                            role="menuitem"
-                            class="popover-item text-danger"
-                            @click.stop="
-                              removeProduct(prod.id);
-                              close();
-                            "
-                          >
-                            {{ t("common.delete") }}
-                          </button>
-                        </div>
-                      </template>
-                    </BasePopover>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-if="products.length === 0" class="empty-state">
-            {{ t("product.empty") }}
+                        </template>
+                        <template #default="{ close }">
+                          <div class="popover-menu popover-actions">
+                            <button
+                              role="menuitem"
+                              class="popover-item"
+                              @click.stop="
+                                openDetailModal(prod);
+                                close();
+                              "
+                            >
+                              {{ t("product.details") }}
+                            </button>
+                            <button
+                              role="menuitem"
+                              class="popover-item"
+                              @click.stop="
+                                openEditModal(prod);
+                                close();
+                              "
+                            >
+                              {{ t("common.edit") }}
+                            </button>
+                            <button
+                              role="menuitem"
+                              class="popover-item"
+                              :disabled="publishingProductId === prod.id"
+                              @click.stop="
+                                toggleProductPublication(prod);
+                                close();
+                              "
+                            >
+                              {{
+                                publishingProductId === prod.id
+                                  ? t("product.publicationSaving")
+                                  : isProductPublished(prod)
+                                    ? t("product.unpublish")
+                                    : t("product.publish")
+                              }}
+                            </button>
+                            <button
+                              role="menuitem"
+                              class="popover-item text-danger"
+                              @click.stop="
+                                removeProduct(prod.id);
+                                close();
+                              "
+                            >
+                              {{ t("common.delete") }}
+                            </button>
+                          </div>
+                        </template>
+                      </BasePopover>
+                    </div>
+                  </td>
+                </tr>
+                <tr
+                  v-if="productPaddingBottom"
+                  class="virtual-spacer"
+                  aria-hidden="true"
+                >
+                  <td :style="{ height: `${productPaddingBottom}px` }" colspan="5" />
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="products.length === 0" class="empty-state">
+              {{ t("product.empty") }}
+            </div>
           </div>
-        </div>
         </div>
       </div>
     </div>
@@ -210,8 +219,8 @@
           <div class="field">
             <label class="field-label"
               >{{ t("product.fieldTitle") }}
-                <span aria-hidden="true" style="color: red">*</span>
-                <span class="sr-only">{{ t("a11y.required") }}</span></label
+              <span aria-hidden="true" style="color: red">*</span>
+              <span class="sr-only">{{ t("a11y.required") }}</span></label
             >
             <input
               v-model="newProduct.title"
@@ -287,9 +296,7 @@
             :disabled="productStore.isLoading"
           >
             {{
-              productStore.isLoading
-                ? t("product.creating")
-                : t("product.createTitle")
+              productStore.isLoading ? t("product.creating") : t("product.createTitle")
             }}
           </button>
         </div>
@@ -346,11 +353,7 @@
             </div>
             <div class="field">
               <label class="field-label">{{ t("product.productType") }}</label>
-              <input
-                v-model="editProduct.product_type"
-                type="text"
-                class="inp"
-              />
+              <input v-model="editProduct.product_type" type="text" class="inp" />
             </div>
           </div>
           <div class="field">
@@ -359,11 +362,7 @@
           </div>
           <div class="field">
             <label class="field-label">{{ t("product.descriptionHtml") }}</label>
-            <textarea
-              v-model="editProduct.body_html"
-              class="inp"
-              rows="4"
-            ></textarea>
+            <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
           </div>
         </div>
         <div class="modal-actions">
@@ -376,9 +375,7 @@
             :disabled="productStore.isLoading"
           >
             {{
-              productStore.isLoading
-                ? t("product.saving")
-                : t("product.saveChanges")
+              productStore.isLoading ? t("product.saving") : t("product.saveChanges")
             }}
           </button>
         </div>
@@ -408,19 +405,26 @@ const { t, locale } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 
 const products = computed(() => productStore.products);
+const {
+  container: productList,
+  paddingBottom: productPaddingBottom,
+  paddingTop: productPaddingTop,
+  updateViewport: updateProductViewport,
+  visibleItems: visibleProducts,
+} = useVirtualList(products, {
+  itemHeight: 65,
+  overscan: 6,
+  defaultViewportHeight: 600,
+});
 const selectedProductId = ref<number | null>(null);
 const selectedProduct = computed(() => {
   return (
-    products.value.find((product) => product.id === selectedProductId.value) ||
-    null
+    products.value.find((product) => product.id === selectedProductId.value) || null
   );
 });
 const detailProductId = ref<number | null>(null);
 const detailProduct = computed(() => {
-  return (
-    products.value.find((product) => product.id === detailProductId.value) ||
-    null
-  );
+  return products.value.find((product) => product.id === detailProductId.value) || null;
 });
 
 // ── Local state for modals ──
@@ -487,8 +491,7 @@ async function createProduct() {
 
   const success = await productStore.createProduct(sid, token, {
     ...newProduct.value,
-    published:
-      newProduct.value.status === "active" && newProduct.value.published,
+    published: newProduct.value.status === "active" && newProduct.value.published,
   });
   if (success) {
     showCreateModal.value = false;
@@ -534,23 +537,18 @@ async function saveEditProduct() {
   const shouldPublish =
     editProduct.value.status === "active" && editProduct.value.published;
 
-  const success = await productStore.updateProduct(
-    sid,
-    token,
-    editProduct.value.id,
-    {
-      title: editProduct.value.title,
-      body_html: editProduct.value.body_html,
-      vendor: editProduct.value.vendor,
-      product_type: editProduct.value.product_type,
-      tags: editProduct.value.tags,
-      status: editProduct.value.status,
-      published_at: shouldPublish
-        ? editProduct.value.published_at || new Date().toISOString()
-        : null,
-      ...(shouldPublish ? { published_scope: "web" as const } : {}),
-    },
-  );
+  const success = await productStore.updateProduct(sid, token, editProduct.value.id, {
+    title: editProduct.value.title,
+    body_html: editProduct.value.body_html,
+    vendor: editProduct.value.vendor,
+    product_type: editProduct.value.product_type,
+    tags: editProduct.value.tags,
+    status: editProduct.value.status,
+    published_at: shouldPublish
+      ? editProduct.value.published_at || new Date().toISOString()
+      : null,
+    ...(shouldPublish ? { published_scope: "web" as const } : {}),
+  });
   if (success) {
     showEditModal.value = false;
     feedback.success(t("product.saved"));
@@ -758,6 +756,17 @@ async function refreshProducts() {
   border-radius: 20px;
   font-size: 11px;
   font-weight: 500;
+}
+
+.virtual-spacer td {
+  padding: 0;
+  border: 0;
+}
+
+.page-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .error-state {
@@ -1000,5 +1009,4 @@ async function refreshProducts() {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 </style>

@@ -4,6 +4,7 @@ import type {
   OrderListQuery,
   OrderRefundListQuery,
 } from "~~/types/shopify-order";
+import { createError } from "h3";
 
 const ORDER_LIST_PARAMS = new Set<keyof OrderListQuery>([
   "attribution_app_id",
@@ -15,6 +16,7 @@ const ORDER_LIST_PARAMS = new Set<keyof OrderListQuery>([
   "ids",
   "limit",
   "name",
+  "page_info",
   "processed_at_max",
   "processed_at_min",
   "since_id",
@@ -39,23 +41,44 @@ const ORDER_REFUND_LIST_PARAMS = new Set<keyof OrderRefundListQuery>([
   "limit",
 ]);
 
-const ORDER_FULFILLMENT_LIST_PARAMS =
-  new Set<keyof OrderFulfillmentListQuery>([
-    "created_at_max",
-    "created_at_min",
-    "fields",
-    "limit",
-    "since_id",
-    "updated_at_max",
-    "updated_at_min",
-  ]);
+const ORDER_FULFILLMENT_LIST_PARAMS = new Set<keyof OrderFulfillmentListQuery>([
+  "created_at_max",
+  "created_at_min",
+  "fields",
+  "limit",
+  "since_id",
+  "updated_at_max",
+  "updated_at_min",
+]);
 
 export function buildOrderListParams(input: unknown) {
   const params = pickOrderParams(input, ORDER_LIST_PARAMS);
   params.limit = normalizeOrderListLimit(params.limit, 250);
+
+  const cursor = normalizeOrderCursor(params.page_info);
+  if (cursor) {
+    return {
+      page_info: cursor,
+      limit: params.limit,
+      ...(params.fields ? { fields: params.fields } : {}),
+    };
+  }
+
   params.status ??= "any";
 
   return params;
+}
+
+function normalizeOrderCursor(value: unknown) {
+  if (value === undefined || value === null || value === "") return null;
+  const cursor = String(value).trim();
+  if (!cursor || cursor.length > 4096 || /[\u0000-\u001f\u007f\s]/.test(cursor)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "Invalid Shopify pagination cursor.",
+    });
+  }
+  return cursor;
 }
 
 export function buildOrderCountParams(input: unknown) {

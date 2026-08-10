@@ -10,9 +10,11 @@ import {
   normalizeLocationLimit,
 } from "../server/utils/shopify-location-query.ts";
 import {
+  buildOrderListParams,
   buildOrderFulfillmentListParams,
   buildOrderRefundListParams,
 } from "../server/utils/shopify-order-query.ts";
+import { getShopifyPageInfo } from "../server/utils/shopify-pagination.ts";
 
 test("customer queries whitelist parameters and clamp page size", () => {
   assert.deepEqual(
@@ -55,6 +57,35 @@ test("order history query builders clamp limits and reject credentials", () => {
   );
 });
 
+test("order list cursor requests discard incompatible filters", () => {
+  assert.deepEqual(
+    buildOrderListParams({
+      page_info: "opaque-cursor==",
+      limit: 20,
+      status: "open",
+      since_id: "10",
+      fields: "id,name",
+    }),
+    { page_info: "opaque-cursor==", limit: 20, fields: "id,name" },
+  );
+});
+
+test("Shopify Link headers expose opaque next and previous cursors", () => {
+  const pageInfo = getShopifyPageInfo({
+    link: [
+      '<https://shop.myshopify.com/admin/api/2026-07/orders.json?page_info=next%3D%3D&limit=20>; rel="next"',
+      '<https://shop.myshopify.com/admin/api/2026-07/orders.json?page_info=previous%3D%3D&limit=20>; rel="previous"',
+    ].join(", "),
+  });
+
+  assert.deepEqual(pageInfo, {
+    nextCursor: "next==",
+    previousCursor: "previous==",
+    hasNextPage: true,
+    hasPreviousPage: true,
+  });
+});
+
 test("inventory item IDs are normalized, deduplicated and chunked by 50", () => {
   const ids = normalizeInventoryItemIds([
     "1,2,2,invalid",
@@ -63,7 +94,10 @@ test("inventory item IDs are normalized, deduplicated and chunked by 50", () => 
   const chunks = chunkInventoryItemIds(ids);
 
   assert.equal(ids.length, 75);
-  assert.deepEqual(chunks.map((chunk) => chunk.length), [50, 25]);
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.length),
+    [50, 25],
+  );
   assert.equal(new Set(ids).size, ids.length);
   assert.equal(normalizeLocationLimit("999"), 250);
   assert.equal(normalizeLocationLimit("0"), 1);

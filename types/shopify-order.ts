@@ -17,12 +17,25 @@ export interface OrderListQuery {
   ids?: string;
   limit?: number;
   name?: string;
+  page_info?: string;
   processed_at_max?: string;
   processed_at_min?: string;
   since_id?: number | string;
   status?: string;
   updated_at_max?: string;
   updated_at_min?: string;
+}
+
+export interface ShopifyPageInfo {
+  nextCursor: string | null;
+  previousCursor: string | null;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface PaginatedOrdersResponse {
+  orders: ShopifyOrder[];
+  pageInfo: ShopifyPageInfo;
 }
 
 export type OrderCountQuery = Pick<
@@ -38,9 +51,7 @@ export type OrderCountQuery = Pick<
 
 export interface OrderCreateOptions {
   inventory_behaviour?:
-    | "bypass"
-    | "decrement_ignoring_policy"
-    | "decrement_obeying_policy";
+    "bypass" | "decrement_ignoring_policy" | "decrement_obeying_policy";
   send_receipt?: boolean;
   send_fulfillment_receipt?: boolean;
 }
@@ -57,12 +68,7 @@ export interface OrderCountResponse {
   count: number;
 }
 
-export type RiskAssessmentLevel =
-  | "HIGH"
-  | "MEDIUM"
-  | "LOW"
-  | "NONE"
-  | "PENDING";
+export type RiskAssessmentLevel = "HIGH" | "MEDIUM" | "LOW" | "NONE" | "PENDING";
 
 export type RiskFactSentiment = "NEGATIVE" | "NEUTRAL" | "POSITIVE";
 
@@ -127,10 +133,7 @@ export type OrderTransactionDetailQuery = Pick<
   "fields" | "in_shop_currency"
 >;
 
-export type RefundLineItemRestockType =
-  | "CANCEL"
-  | "NO_RESTOCK"
-  | "RETURN";
+export type RefundLineItemRestockType = "CANCEL" | "NO_RESTOCK" | "RETURN";
 
 export interface OrderRefundLineItemInput {
   lineItemId: string | number;

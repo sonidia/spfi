@@ -26,14 +26,14 @@
 
 ## 🧭 Core Workflows
 
-| Route      | Workflow        | What it does                                                                                                     |
-| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `/setup`   | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                          |
-| `/manager` | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                       |
-| `/payment` | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
-| `/sheet`   | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
-| `/status`  | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
-| `/settings` | Settings       | Stores Tracktaco credentials locally and controls the in-memory Pinia data lifetime.                             |
+| Route       | Workflow        | What it does                                                                                                     |
+| ----------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `/setup`    | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                          |
+| `/manager`  | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                       |
+| `/payment`  | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
+| `/sheet`    | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
+| `/status`   | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
+| `/settings` | Settings        | Stores Tracktaco credentials locally and controls the in-memory Pinia data lifetime.                             |
 
 ## 🧰 Tech Stack
 
@@ -104,6 +104,37 @@ Shopify Admin requests are throttled from Shopify's own response metadata, not
 from a hard-coded store plan. REST requests honor `Retry-After` and share the
 upstream bucket state per app/store; GraphQL retries use
 `extensions.cost.throttleStatus.currentlyAvailable` and `restoreRate`.
+
+### Data access endpoints
+
+Order lists use Shopify cursor pagination end to end. `POST /api/order/all`
+returns one page at a time:
+
+```json
+{
+  "orders": [],
+  "pageInfo": {
+    "nextCursor": null,
+    "previousCursor": null,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+Pass a returned cursor as `query.page_info`; cursor requests intentionally drop
+filters that Shopify does not permit alongside `page_info`.
+
+`POST /api/graphql` provides a generic Admin GraphQL read endpoint for nested
+data. It accepts `{ storeId, token, query, variables?, operationName? }` and
+returns `{ data }`. This endpoint is deliberately read-only: mutations,
+subscriptions, schema introspection, oversized inputs, and excessively nested
+queries are rejected.
+
+CSV downloads are available from `POST /api/export/csv/:resource`, where
+`resource` is `orders`, `products`, or `payments`. Responses are streamed page
+by page, emitted as UTF-8 CSV, and protected against spreadsheet formula
+injection. The store UI exposes the same exports through reusable buttons.
 
 The optional local per-IP limits are disabled by default so they don't reduce
 Shopify throughput. A deployment that exposes the server publicly can enable

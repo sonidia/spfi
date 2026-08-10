@@ -13,6 +13,7 @@ import type {
   OrderFulfillmentInput,
   OrderListQuery,
   OrderManualPaymentInput,
+  ShopifyPageInfo,
   OrderRefundInput,
   RiskAssessmentLevel,
   ShopifyOrderPayload,
@@ -32,7 +33,16 @@ interface OrderStoreCache {
   hasFetchedAll: boolean;
   currentPage: number;
   pageSize: number;
+  pageInfo: ShopifyPageInfo;
+  activeQuery: OrderListQuery;
 }
+
+const EMPTY_PAGE_INFO: ShopifyPageInfo = {
+  nextCursor: null,
+  previousCursor: null,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
 
 export const useOrderStore = defineStore("order", () => {
   const orderApi = useOrderApi();
@@ -50,6 +60,8 @@ export const useOrderStore = defineStore("order", () => {
   let storeScopeVersion = 0;
   const currentPage = ref(1);
   const pageSize = ref(20);
+  const pageInfo = ref<ShopifyPageInfo>({ ...EMPTY_PAGE_INFO });
+  const activeQuery = ref<OrderListQuery>({ status: "any" });
   const storeCache = usePerStoreCache<OrderStoreCache>({
     activeStoreId,
     capture: () => ({
@@ -58,6 +70,8 @@ export const useOrderStore = defineStore("order", () => {
       hasFetchedAll: hasFetchedAll.value,
       currentPage: currentPage.value,
       pageSize: pageSize.value,
+      pageInfo: { ...pageInfo.value },
+      activeQuery: { ...activeQuery.value },
     }),
     restore: (cached) => {
       orders.value = [...cached.orders];
@@ -65,6 +79,8 @@ export const useOrderStore = defineStore("order", () => {
       hasFetchedAll.value = cached.hasFetchedAll;
       currentPage.value = cached.currentPage;
       pageSize.value = cached.pageSize;
+      pageInfo.value = { ...cached.pageInfo };
+      activeQuery.value = { ...cached.activeQuery };
       riskByOrder.value = {};
       error.value = null;
       mutationError.value = null;
@@ -102,18 +118,30 @@ export const useOrderStore = defineStore("order", () => {
     error.value = null;
 
     try {
-      const response = await orderApi.list({ storeId, token }, query);
+      const normalizedQuery = withoutCursor(query);
+      const [response, countResponse] = await Promise.all([
+        orderApi.list(
+          { storeId, token },
+          { ...normalizedQuery, limit: pageSize.value },
+        ),
+        orderApi.count({ storeId, token }, normalizedQuery),
+      ]);
       if (!isActiveRequest(storeId, requestScope)) return;
 
       const snapshot: OrderStoreCache = {
-        orders: response.orders || (response.order ? [response.order] : []),
-        orderCount: orderCount.value,
+        orders: response.orders,
+        orderCount: countResponse.count,
         hasFetchedAll: true,
         currentPage: force ? 1 : currentPage.value,
         pageSize: pageSize.value,
+        pageInfo: { ...response.pageInfo },
+        activeQuery: { ...normalizedQuery },
       };
       storeCache.set(storeId, snapshot);
       orders.value = [...snapshot.orders];
+      orderCount.value = snapshot.orderCount;
+      pageInfo.value = { ...snapshot.pageInfo };
+      activeQuery.value = { ...snapshot.activeQuery };
       hasFetchedAll.value = true;
       if (force) currentPage.value = 1;
     } catch (err) {
@@ -127,12 +155,7 @@ export const useOrderStore = defineStore("order", () => {
     }
   }
 
-  async function fetchById(
-    storeId: string,
-    token: string,
-    id: string,
-    force = false,
-  ) {
+  async function fetchById(storeId: string, token: string, id: string, force = false) {
     void force;
     if (!storeId || !token || !id) return;
 
@@ -145,9 +168,7 @@ export const useOrderStore = defineStore("order", () => {
       const response = await orderApi.get({ storeId, token }, id);
 
       if (response.order && isActiveRequest(storeId, requestScope)) {
-        const index = orders.value.findIndex(
-          (order) => order.id?.toString() === id,
-        );
+        const index = orders.value.findIndex((order) => order.id?.toString() === id);
         if (index > -1) {
           orders.value[index] = response.order;
         } else {
@@ -167,9 +188,7 @@ export const useOrderStore = defineStore("order", () => {
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
-    return (
-      activeStoreId.value === storeId && storeScopeVersion === requestScope
-    );
+    return activeStoreId.value === storeId && storeScopeVersion === requestScope;
   }
 
   function setPage(page: number) {
@@ -216,12 +235,16 @@ export const useOrderStore = defineStore("order", () => {
     order: ShopifyOrderPayload,
     options: OrderCreateOptions = {},
   ) {
-    return runMutation(storeId, async () => {
-      const response = await orderApi.create({ storeId, token }, order, options);
-      if (response.order) upsertOrder(response.order);
-      orderCount.value += response.order ? 1 : 0;
-      return response.order || null;
-    }, "Failed to create the order.");
+    return runMutation(
+      storeId,
+      async () => {
+        const response = await orderApi.create({ storeId, token }, order, options);
+        if (response.order) upsertOrder(response.order);
+        orderCount.value += response.order ? 1 : 0;
+        return response.order || null;
+      },
+      "Failed to create the order.",
+    );
   }
 
   async function updateOrder(
@@ -230,11 +253,15 @@ export const useOrderStore = defineStore("order", () => {
     id: string | number,
     order: ShopifyOrderPayload,
   ) {
-    return runMutation(storeId, async () => {
-      const response = await orderApi.update({ storeId, token }, id, order);
-      if (response.order) upsertOrder(response.order);
-      return response.order || null;
-    }, "Failed to update the order.");
+    return runMutation(
+      storeId,
+      async () => {
+        const response = await orderApi.update({ storeId, token }, id, order);
+        if (response.order) upsertOrder(response.order);
+        return response.order || null;
+      },
+      "Failed to update the order.",
+    );
   }
 
   async function cancelOrder(
@@ -246,34 +273,26 @@ export const useOrderStore = defineStore("order", () => {
     return runOrderAction(storeId, token, id, "cancel", input);
   }
 
-  async function closeOrder(
-    storeId: string,
-    token: string,
-    id: string | number,
-  ) {
+  async function closeOrder(storeId: string, token: string, id: string | number) {
     return runOrderAction(storeId, token, id, "close");
   }
 
-  async function openOrder(
-    storeId: string,
-    token: string,
-    id: string | number,
-  ) {
+  async function openOrder(storeId: string, token: string, id: string | number) {
     return runOrderAction(storeId, token, id, "open");
   }
 
-  async function deleteOrder(
-    storeId: string,
-    token: string,
-    id: string | number,
-  ) {
-    return runMutation(storeId, async () => {
-      await orderApi.remove({ storeId, token }, id);
-      orders.value = orders.value.filter((order) => String(order.id) !== String(id));
-      orderCount.value = Math.max(0, orderCount.value - 1);
-      rememberStore(storeId);
-      return true;
-    }, "Failed to delete the order.");
+  async function deleteOrder(storeId: string, token: string, id: string | number) {
+    return runMutation(
+      storeId,
+      async () => {
+        await orderApi.remove({ storeId, token }, id);
+        orders.value = orders.value.filter((order) => String(order.id) !== String(id));
+        orderCount.value = Math.max(0, orderCount.value - 1);
+        rememberStore(storeId);
+        return true;
+      },
+      "Failed to delete the order.",
+    );
   }
 
   async function capturePayment(
@@ -292,11 +311,7 @@ export const useOrderStore = defineStore("order", () => {
     );
   }
 
-  async function markOrderAsPaid(
-    storeId: string,
-    token: string,
-    id: string | number,
-  ) {
+  async function markOrderAsPaid(storeId: string, token: string, id: string | number) {
     return runOrderMutationAndRefresh(
       storeId,
       token,
@@ -407,10 +422,7 @@ export const useOrderStore = defineStore("order", () => {
     id: string | number,
   ) {
     return runRiskOperation(async () => {
-      const response = await orderApi.getRiskAssessments(
-        { storeId, token },
-        id,
-      );
+      const response = await orderApi.getRiskAssessments({ storeId, token }, id);
       riskByOrder.value[String(id)] = response.risk;
       return response.risk;
     }, "Failed to fetch order risk assessments.");
@@ -430,10 +442,7 @@ export const useOrderStore = defineStore("order", () => {
         riskLevel,
         facts,
       );
-      const refreshed = await orderApi.getRiskAssessments(
-        { storeId, token },
-        id,
-      );
+      const refreshed = await orderApi.getRiskAssessments({ storeId, token }, id);
       riskByOrder.value[String(id)] = refreshed.risk;
       return response.orderRiskAssessment;
     }, "Failed to create the order risk assessment.");
@@ -446,18 +455,22 @@ export const useOrderStore = defineStore("order", () => {
     action: "cancel" | "close" | "open",
     input: OrderCancelInput = {},
   ) {
-    return runMutation(storeId, async () => {
-      const auth = { storeId, token };
-      const response =
-        action === "cancel"
-          ? await orderApi.cancel(auth, id, input)
-          : action === "close"
-            ? await orderApi.close(auth, id)
-            : await orderApi.open(auth, id);
-      if (response.order) upsertOrder(response.order);
-      if (action === "cancel") await refreshPaymentCache(storeId, token);
-      return response.order || null;
-    }, `Failed to ${action} the order.`);
+    return runMutation(
+      storeId,
+      async () => {
+        const auth = { storeId, token };
+        const response =
+          action === "cancel"
+            ? await orderApi.cancel(auth, id, input)
+            : action === "close"
+              ? await orderApi.close(auth, id)
+              : await orderApi.open(auth, id);
+        if (response.order) upsertOrder(response.order);
+        if (action === "cancel") await refreshPaymentCache(storeId, token);
+        return response.order || null;
+      },
+      `Failed to ${action} the order.`,
+    );
   }
 
   async function runMutation<T>(
@@ -488,28 +501,73 @@ export const useOrderStore = defineStore("order", () => {
     fallback: string,
     invalidatePayments = false,
   ) {
-    return runMutation(storeId, async () => {
-      await operation();
-      const paymentRefresh = invalidatePayments
-        ? refreshPaymentCache(storeId, token)
-        : Promise.resolve();
-      try {
-        const response = await orderApi.get({ storeId, token }, id);
-        if (response.order) upsertOrder(response.order);
-        return response.order || null;
-      } catch (refreshError) {
-        const refreshMessage = getAppErrorMessage(
-          refreshError,
-          "The refreshed order could not be loaded.",
-        );
-        mutationError.value = `The action succeeded, but refresh failed: ${refreshMessage}`;
-        return (
-          orders.value.find((order) => String(order.id) === String(id)) || null
-        );
-      } finally {
-        await paymentRefresh;
+    return runMutation(
+      storeId,
+      async () => {
+        await operation();
+        const paymentRefresh = invalidatePayments
+          ? refreshPaymentCache(storeId, token)
+          : Promise.resolve();
+        try {
+          const response = await orderApi.get({ storeId, token }, id);
+          if (response.order) upsertOrder(response.order);
+          return response.order || null;
+        } catch (refreshError) {
+          const refreshMessage = getAppErrorMessage(
+            refreshError,
+            "The refreshed order could not be loaded.",
+          );
+          mutationError.value = `The action succeeded, but refresh failed: ${refreshMessage}`;
+          return orders.value.find((order) => String(order.id) === String(id)) || null;
+        } finally {
+          await paymentRefresh;
+        }
+      },
+      fallback,
+    );
+  }
+
+  async function fetchPage(storeId: string, token: string, targetPage: number) {
+    const nextPage = Math.max(1, Math.floor(targetPage));
+    if (nextPage === currentPage.value) return;
+
+    const isNext = nextPage === currentPage.value + 1;
+    const isPrevious = nextPage === currentPage.value - 1;
+    const cursor = isNext
+      ? pageInfo.value.nextCursor
+      : isPrevious
+        ? pageInfo.value.previousCursor
+        : null;
+    if (!cursor) return;
+
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const response = await orderApi.list(
+        { storeId, token },
+        { page_info: cursor, limit: pageSize.value },
+      );
+      if (!isActiveRequest(storeId, requestScope)) return;
+
+      orders.value = [...response.orders];
+      pageInfo.value = { ...response.pageInfo };
+      currentPage.value = nextPage;
+      rememberStore(storeId);
+    } catch (err) {
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(err, "Failed to fetch the order page.");
       }
-    }, fallback);
+    } finally {
+      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
+    }
+  }
+
+  async function changePageSize(storeId: string, token: string, size: number) {
+    setPageSize(size);
+    await fetchAll(storeId, token, true, activeQuery.value);
   }
 
   async function refreshPaymentCache(storeId: string, token: string) {
@@ -560,6 +618,8 @@ export const useOrderStore = defineStore("order", () => {
     hasFetchedAll.value = false;
     currentPage.value = 1;
     pageSize.value = 20;
+    pageInfo.value = { ...EMPTY_PAGE_INFO };
+    activeQuery.value = { status: "any" };
     error.value = null;
     isLoading.value = false;
     isMutating.value = false;
@@ -582,6 +642,8 @@ export const useOrderStore = defineStore("order", () => {
     activeStoreId,
     currentPage,
     pageSize,
+    pageInfo,
+    activeQuery,
     fetchAll,
     fetchById,
     fetchCount,
@@ -605,6 +667,13 @@ export const useOrderStore = defineStore("order", () => {
     evictStore,
     setPage,
     setPageSize,
+    fetchPage,
+    changePageSize,
     $reset,
   };
 });
+
+function withoutCursor(query: OrderListQuery): OrderListQuery {
+  const { page_info: _cursor, limit: _limit, ...filters } = query;
+  return filters;
+}

@@ -2,8 +2,8 @@ import type { H3Event } from "h3";
 import {
   callShopifyApiWithResponse,
   createApiErrorFromMessage,
-  type ShopifyApiResponse,
 } from "./callShopifyApi";
+import { getShopifyPageInfo, type ShopifyPageInfo } from "./shopify-pagination";
 
 type ShopifyQueryParams = Record<string, unknown>;
 
@@ -17,11 +17,29 @@ interface CallShopifyPaginatedApiOptions<TItem> {
   missingProxyMessage?: string;
   mapItem?: (item: unknown) => TItem;
   preserveUnsafeIntegers?: boolean;
+  forwardResponseHeaders?: boolean;
+}
+
+export interface ShopifyPaginatedPage<TItem> {
+  items: TItem[];
+  pageInfo: ShopifyPageInfo;
 }
 
 const MAX_PAGE_SIZE = 250;
 
-export async function callShopifyPaginatedApi<TItem>({
+export async function callShopifyPaginatedApi<TItem>(
+  options: CallShopifyPaginatedApiOptions<TItem>,
+): Promise<TItem[]> {
+  const items: TItem[] = [];
+
+  for await (const page of iterateShopifyPaginatedApi(options)) {
+    items.push(...page.items);
+  }
+
+  return items;
+}
+
+export async function* iterateShopifyPaginatedApi<TItem>({
   event,
   storeId,
   token,
@@ -31,9 +49,9 @@ export async function callShopifyPaginatedApi<TItem>({
   missingProxyMessage,
   mapItem = (item) => item as TItem,
   preserveUnsafeIntegers = false,
-}: CallShopifyPaginatedApiOptions<TItem>): Promise<TItem[]> {
-  const items: TItem[] = [];
-  const visitedPageUrls = new Set<string>();
+  forwardResponseHeaders = true,
+}: CallShopifyPaginatedApiOptions<TItem>): AsyncGenerator<ShopifyPaginatedPage<TItem>> {
+  const visitedCursors = new Set<string>();
   let requestParams: ShopifyQueryParams = {
     ...params,
     limit: MAX_PAGE_SIZE,
@@ -48,90 +66,35 @@ export async function callShopifyPaginatedApi<TItem>({
       params: requestParams,
       missingProxyMessage,
       preserveUnsafeIntegers,
+      forwardResponseHeaders,
     });
-    const pageItems = response.data[resourceKey];
+    const rawItems = response.data[resourceKey];
 
-    if (!Array.isArray(pageItems)) {
+    if (!Array.isArray(rawItems)) {
       throw createApiErrorFromMessage(
         `Shopify response is missing the "${resourceKey}" list.`,
         502,
       );
     }
 
-    items.push(...pageItems.map(mapItem));
+    const pageInfo = getShopifyPageInfo(response.headers);
+    yield {
+      items: rawItems.map(mapItem),
+      pageInfo,
+    };
 
-    const nextPageUrl = getNextPageUrl(response);
-    if (!nextPageUrl) break;
-
-    if (visitedPageUrls.has(nextPageUrl)) {
+    if (!pageInfo.nextCursor) break;
+    if (visitedCursors.has(pageInfo.nextCursor)) {
       throw createApiErrorFromMessage(
         "Shopify returned a repeated pagination cursor.",
         502,
       );
     }
-    visitedPageUrls.add(nextPageUrl);
-    requestParams = getCursorParams(nextPageUrl);
+
+    visitedCursors.add(pageInfo.nextCursor);
+    requestParams = {
+      page_info: pageInfo.nextCursor,
+      limit: MAX_PAGE_SIZE,
+    };
   }
-
-  return items;
-}
-
-function getNextPageUrl(
-  response: ShopifyApiResponse<Record<string, unknown>>,
-): string | null {
-  const headers = response.headers as AxiosHeaderLike;
-  const rawLink =
-    typeof headers.get === "function"
-      ? headers.get("link")
-      : headers.link ?? headers.Link;
-  const linkHeader = Array.isArray(rawLink)
-    ? rawLink.join(",")
-    : String(rawLink || "");
-
-  for (const part of linkHeader.split(/,\s*(?=<)/)) {
-    const match = part.match(/<([^>]+)>\s*;\s*rel="?([^";,\s]+)"?/i);
-    if (match?.[2]?.toLowerCase() === "next") {
-      return match[1] || null;
-    }
-  }
-
-  return null;
-}
-
-function getCursorParams(nextPageUrl: string): ShopifyQueryParams {
-  let url: URL;
-
-  try {
-    url = new URL(nextPageUrl);
-  } catch {
-    throw createApiErrorFromMessage(
-      "Shopify returned an invalid pagination link.",
-      502,
-    );
-  }
-
-  const pageInfo = url.searchParams.get("page_info");
-  if (!pageInfo) {
-    throw createApiErrorFromMessage(
-      "Shopify pagination link is missing page_info.",
-      502,
-    );
-  }
-
-  const requestedLimit = Number(url.searchParams.get("limit"));
-  return {
-    page_info: pageInfo,
-    limit:
-      Number.isInteger(requestedLimit) &&
-      requestedLimit > 0 &&
-      requestedLimit <= MAX_PAGE_SIZE
-        ? requestedLimit
-        : MAX_PAGE_SIZE,
-  };
-}
-
-interface AxiosHeaderLike {
-  get?: (name: string) => unknown;
-  link?: unknown;
-  Link?: unknown;
 }

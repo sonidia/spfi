@@ -6,9 +6,7 @@ import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import type { Transaction } from "~/stores/payment";
-import type {
-  ShopifyPaymentsBalanceTransactionSearchFilters,
-} from "~~/types/shopify-payments-graphql";
+import type { ShopifyPaymentsBalanceTransactionSearchFilters } from "~~/types/shopify-payments-graphql";
 import { capitalize, fmtDate } from "~~/helpers";
 import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
@@ -57,8 +55,7 @@ const testModeOptions = [
 const sortedTransactions = computed(() =>
   [...paymentStore.visibleBalanceTransactions].sort(
     (left, right) =>
-      new Date(right.processed_at).getTime() -
-      new Date(left.processed_at).getTime(),
+      new Date(right.processed_at).getTime() - new Date(left.processed_at).getTime(),
   ),
 );
 const totalPages = computed(() =>
@@ -92,32 +89,16 @@ async function applyFilters(successMessage = "Transaction filters applied.") {
     return;
   }
   const filters: ShopifyPaymentsBalanceTransactionSearchFilters = {
-    ...(transactionType.value
-      ? { transaction_type: transactionType.value }
-      : {}),
-    ...(payoutStatus.value
-      ? { payout_status: payoutStatus.value }
-      : {}),
+    ...(transactionType.value ? { transaction_type: transactionType.value } : {}),
+    ...(payoutStatus.value ? { payout_status: payoutStatus.value } : {}),
     ...(payoutDate.value ? { payout_date: payoutDate.value } : {}),
-    ...(processedFrom.value
-      ? { processed_at_min: processedFrom.value }
-      : {}),
-    ...(processedThrough.value
-      ? { processed_at_max: processedThrough.value }
-      : {}),
+    ...(processedFrom.value ? { processed_at_min: processedFrom.value } : {}),
+    ...(processedThrough.value ? { processed_at_max: processedThrough.value } : {}),
     ...(currency.value ? { currency: currency.value } : {}),
-    ...(cardLast4.value
-      ? { credit_card_last4: cardLast4.value }
-      : {}),
-    ...(paymentMethod.value
-      ? { payment_method_name: paymentMethod.value }
-      : {}),
-    ...(transferId.value
-      ? { payments_transfer_id: transferId.value }
-      : {}),
-    ...(taxExempt.value
-      ? { tax_reporting_exempt: taxExempt.value === "yes" }
-      : {}),
+    ...(cardLast4.value ? { credit_card_last4: cardLast4.value } : {}),
+    ...(paymentMethod.value ? { payment_method_name: paymentMethod.value } : {}),
+    ...(transferId.value ? { payments_transfer_id: transferId.value } : {}),
+    ...(taxExempt.value ? { tax_reporting_exempt: taxExempt.value === "yes" } : {}),
     ...(hideTransfers.value ? { hide_transfers: true } : {}),
     ...(testMode.value ? { test: testMode.value === "test" } : {}),
     ...(sinceId.value ? { since_id: sinceId.value } : {}),
@@ -183,9 +164,7 @@ function getCustomerName(transaction: Transaction) {
     (item) => String(item.id) === String(transaction.source_order_id),
   )?.customer;
   if (!customer) return "—";
-  return (
-    `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "—"
-  );
+  return `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "—";
 }
 
 function payoutBadge(status: string) {
@@ -217,10 +196,7 @@ function updatePageSize(size: number) {
     <form class="filter-toolbar" @submit.prevent="applyFilters()">
       <label>
         <span>Transaction type</span>
-        <input
-          v-model.trim="transactionType"
-          placeholder="charge, refund…"
-        />
+        <input v-model.trim="transactionType" placeholder="charge, refund…" />
       </label>
       <label>
         <span>Payout status</span>
@@ -245,11 +221,7 @@ function updatePageSize(size: number) {
       </label>
       <label>
         <span>Currency</span>
-        <input
-          v-model.trim="currency"
-          maxlength="4"
-          placeholder="USD"
-        />
+        <input v-model.trim="currency" maxlength="4" placeholder="USD" />
       </label>
       <label>
         <span>Card last 4</span>
@@ -300,11 +272,8 @@ function updatePageSize(size: number) {
         <input v-model.trim="lastId" inputmode="numeric" placeholder="last_id" />
       </label>
       <div class="filter-actions">
-        <BaseButton
-          type="button"
-          class="filter-action-pending"
-          @click="showPending"
-        >
+        <CsvExportButton resource="payments" label="Export all CSV" />
+        <BaseButton type="button" class="filter-action-pending" @click="showPending">
           <template #icon>
             <Clock />
           </template>
@@ -316,11 +285,7 @@ function updatePageSize(size: number) {
           </template>
           Reset
         </BaseButton>
-        <BaseButton
-          type="submit"
-          variant="primary"
-          :loading="paymentStore.isLoading"
-        >
+        <BaseButton type="submit" variant="primary" :loading="paymentStore.isLoading">
           <template #icon>
             <Filter />
           </template>

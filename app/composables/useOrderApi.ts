@@ -20,6 +20,7 @@ import type {
   OrderFulfillmentsResponse,
   OrderListQuery,
   OrderManualPaymentInput,
+  PaginatedOrdersResponse,
   OrderRefundInput,
   OrderRefundListQuery,
   OrderRefundsResponse,
@@ -39,10 +40,7 @@ interface OrderAuth {
 }
 
 export function useOrderApi() {
-  function queryOptions(
-    auth: OrderAuth,
-    query: object = {},
-  ) {
+  function queryOptions(auth: OrderAuth, query: object = {}) {
     return {
       params: {
         storeId: auth.storeId,
@@ -53,7 +51,7 @@ export function useOrderApi() {
   }
 
   function list(auth: OrderAuth, query: OrderListQuery = {}) {
-    return $fetch<OrdersResponse>("/api/order/all", {
+    return $fetch<PaginatedOrdersResponse>("/api/order/all", {
       method: "POST",
       body: { ...auth, query },
     });
@@ -83,11 +81,7 @@ export function useOrderApi() {
     });
   }
 
-  function update(
-    auth: OrderAuth,
-    id: string | number,
-    order: ShopifyOrderPayload,
-  ) {
+  function update(auth: OrderAuth, id: string | number, order: ShopifyOrderPayload) {
     return $fetch<OrdersResponse>(`/api/order/${id}`, {
       method: "PUT",
       body: { ...auth, order },
@@ -101,11 +95,7 @@ export function useOrderApi() {
     });
   }
 
-  function cancel(
-    auth: OrderAuth,
-    id: string | number,
-    input: OrderCancelInput = {},
-  ) {
+  function cancel(auth: OrderAuth, id: string | number, input: OrderCancelInput = {}) {
     return $fetch<OrdersResponse>(`/api/order/${id}/cancel`, {
       method: "POST",
       body: { ...auth, ...input },
@@ -161,11 +151,7 @@ export function useOrderApi() {
     });
   }
 
-  function capture(
-    auth: OrderAuth,
-    id: string | number,
-    input: OrderCaptureInput,
-  ) {
+  function capture(auth: OrderAuth, id: string | number, input: OrderCaptureInput) {
     return $fetch<{ transaction: Record<string, unknown> | null }>(
       `/api/order/${id}/capture`,
       { method: "POST", body: { ...auth, ...input } },
@@ -201,11 +187,7 @@ export function useOrderApi() {
     );
   }
 
-  function refund(
-    auth: OrderAuth,
-    id: string | number,
-    input: OrderRefundInput,
-  ) {
+  function refund(auth: OrderAuth, id: string | number, input: OrderRefundInput) {
     return $fetch<{ refund: Record<string, unknown> | null; idempotencyKey: string }>(
       `/api/order/${id}/refund`,
       { method: "POST", body: { ...auth, ...input } },
@@ -269,10 +251,7 @@ export function useOrderApi() {
     });
   }
 
-  function cancelFulfillment(
-    auth: OrderAuth,
-    fulfillmentId: string | number,
-  ) {
+  function cancelFulfillment(auth: OrderAuth, fulfillmentId: string | number) {
     return $fetch<{ fulfillment: Record<string, unknown> | null }>(
       `/api/fulfillments/${fulfillmentId}/cancel`,
       { method: "POST", body: auth },

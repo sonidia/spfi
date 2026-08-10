@@ -9,6 +9,9 @@ const props = withDefaults(
     totalItems: number;
     pageSizeOptions?: number[];
     itemLabel?: string;
+    hasNextPage?: boolean;
+    hasPreviousPage?: boolean;
+    loading?: boolean;
   }>(),
   {
     pageSizeOptions: () => [10, 20, 50],
@@ -37,6 +40,10 @@ const pageSizeSelectOptions = computed(() =>
     value: option,
   })),
 );
+const canGoPrevious = computed(() => props.hasPreviousPage ?? safePage.value > 1);
+const canGoNext = computed(
+  () => props.hasNextPage ?? safePage.value < totalPages.value,
+);
 
 function updatePageSize(value: unknown) {
   const nextPageSize = Number(value);
@@ -64,15 +71,13 @@ function updatePageSize(value: unknown) {
         />
       </label>
 
-      <span class="page-indicator">
-        Page {{ safePage }} of {{ totalPages }}
-      </span>
+      <span class="page-indicator"> Page {{ safePage }} of {{ totalPages }} </span>
 
       <BaseButton
         icon-only
         aria-label="Previous page"
         title="Previous page"
-        :disabled="safePage <= 1"
+        :disabled="loading || !canGoPrevious"
         @click="emit('update:page', safePage - 1)"
       >
         <template #icon>
@@ -84,7 +89,7 @@ function updatePageSize(value: unknown) {
         icon-only
         aria-label="Next page"
         title="Next page"
-        :disabled="safePage >= totalPages"
+        :disabled="loading || !canGoNext"
         @click="emit('update:page', safePage + 1)"
       >
         <template #icon>

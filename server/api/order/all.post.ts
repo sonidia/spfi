@@ -1,11 +1,12 @@
 import { defineEventHandler, readBody } from "h3";
 import {
-  callShopifyApi,
+  callShopifyApiWithResponse,
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
-import type { OrderListQuery } from "~~/types/shopify-order";
+import type { OrderListQuery, PaginatedOrdersResponse } from "~~/types/shopify-order";
 import { buildOrderListParams } from "~~/server/utils/shopify-order-query";
+import { getShopifyPageInfo } from "~~/server/utils/shopify-pagination";
 
 interface OrderAllBody {
   storeId?: string;
@@ -22,11 +23,17 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
   }
 
-  return callShopifyApi<OrdersResponse>({
+  const response = await callShopifyApiWithResponse<OrdersResponse>({
     event,
     storeId,
     token,
     path: "/orders.json",
     params: buildOrderListParams(body.query),
+    preserveUnsafeIntegers: true,
   });
+
+  return {
+    orders: response.data.orders || [],
+    pageInfo: getShopifyPageInfo(response.headers),
+  } satisfies PaginatedOrdersResponse;
 });
