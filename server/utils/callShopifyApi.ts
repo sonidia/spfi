@@ -6,6 +6,7 @@ import {
   setResponseHeader,
   type H3Event,
 } from "h3";
+import { useRuntimeConfig } from "#imports";
 import type {
   AxiosResponse,
   AxiosResponseHeaders,
@@ -15,6 +16,8 @@ import { SocksProxyAgent } from "socks-proxy-agent";
 import { parseJsonPreservingUnsafeIntegers } from "./lossless-json";
 import { getShopifyAdminApiBase } from "./shopify-api-version";
 import { StoreStatusInputError } from "./status-checker-errors";
+import { resolvePublicProxyUrls } from "./public-proxy";
+import { readRuntimeBoolean } from "./runtime-config";
 import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
@@ -85,6 +88,7 @@ const INVISIBLE_OR_CONTROL_CHARS =
 const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
 const SOCKS5_PROTOCOL_PATTERN = /^socks5h?:\/\//i;
 const SOCKS5H_PROTOCOL = "socks5h:";
+const MAX_STORE_DATA_HEADER_LENGTH = 4096;
 
 function safeDecode(value: string) {
   try {
@@ -213,13 +217,26 @@ export function resolveStoreCookieData(
   storeId: string,
 ): StoreCookieData | null {
   const headerData = event.node?.req?.headers?.["x-store-data"];
-  if (typeof headerData === "string" && headerData.length > 0) {
-    const parsed = tryParseCookieValue(headerData);
-    if (parsed) return parsed;
-  }
+  const requestStoreData =
+    typeof headerData === "string" &&
+    headerData.length > 0 &&
+    headerData.length <= MAX_STORE_DATA_HEADER_LENGTH
+      ? sanitizeRequestStoreData(tryParseCookieValue(headerData))
+      : null;
+  const mergeRequestData = (persisted: StoreCookieData | null) => {
+    if (!requestStoreData) return persisted;
+    return {
+      ...(persisted || {}),
+      ...requestStoreData,
+      // Request metadata may select a proxy, but must not smuggle secrets into
+      // routes that require explicit authentication input.
+      accessToken: persisted?.accessToken,
+      clientSecret: persisted?.clientSecret,
+    } satisfies StoreCookieData;
+  };
 
   const normalizedStoreId = String(storeId || "").trim();
-  if (!normalizedStoreId) return null;
+  if (!normalizedStoreId) return mergeRequestData(null);
 
   const normalizedDomain = normalizedStoreId.includes(".")
     ? normalizedStoreId.toLowerCase()
@@ -234,7 +251,7 @@ export function resolveStoreCookieData(
     if (typeof cookieValue !== "string") continue;
 
     const parsed = tryParseCookieValue(cookieValue);
-    if (parsed) return parsed;
+    if (parsed) return mergeRequestData(parsed);
   }
 
   const allCookies = parseCookies(event);
@@ -248,11 +265,31 @@ export function resolveStoreCookieData(
       .trim()
       .toLowerCase();
     if (domain && domain === normalizedDomain) {
-      return parsed;
+      return mergeRequestData(parsed);
     }
   }
 
-  return null;
+  return mergeRequestData(null);
+}
+
+function sanitizeRequestStoreData(
+  value: StoreCookieData | null,
+): StoreCookieData | null {
+  if (!value) return null;
+
+  const domain = normalizeStoreHost(value.domain).slice(0, 253);
+  const sock = String(value.sock || "").trim().slice(0, 2048);
+  const clientId = String(value.clientId || "").trim().slice(0, 512);
+  const expiresTime = Number(value.expiresTime);
+
+  return {
+    ...(domain ? { domain } : {}),
+    ...(sock ? { sock } : {}),
+    ...(clientId ? { clientId } : {}),
+    ...(Number.isSafeInteger(expiresTime) && expiresTime > 0
+      ? { expiresTime }
+      : {}),
+  };
 }
 
 export function resolveStoreDomain(
@@ -446,7 +483,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
     ? resolveStoreAdminDomain(storeId, storeCookie?.domain)
     : resolveStoreDomain(storeId, storeCookie?.domain);
   const baseURL = `https://${domain}/${getShopifyAdminApiBase(event)}`;
-  const proxyVariants = resolveShopifyProxyVariants(sock);
+  const proxyVariants = await resolveShopifyProxyVariants(event, sock);
   const throttleKey = buildShopifyThrottleKey("rest", domain, accessToken);
 
   let lastError: unknown;
@@ -558,12 +595,19 @@ function getAxiosResponseHeader(
   return headers[name];
 }
 
-export function resolveShopifyProxyVariants(sock: string): string[] {
+export async function resolveShopifyProxyVariants(
+  event: H3Event,
+  sock: string,
+): Promise<string[]> {
   try {
     const proxyVariants = buildProxyVariants(sock);
 
     if (proxyVariants.length > 0) {
-      return proxyVariants;
+      return await resolvePublicProxyUrls(proxyVariants, {
+        allowPrivateHosts: readRuntimeBoolean(
+          useRuntimeConfig(event).allowPrivateProxyHosts,
+        ),
+      });
     }
   } catch (error) {
     throw createApiErrorFromMessage(
@@ -580,8 +624,21 @@ export function resolveShopifyProxyVariants(sock: string): string[] {
   );
 }
 
-export function createSocksProxyAgents(proxy?: string) {
-  const proxyVariants = buildStoreStatusProxyVariants(proxy);
+export async function createSocksProxyAgents(
+  proxy?: string,
+  options: { allowPrivateHosts?: boolean } = {},
+) {
+  let proxyVariants: string[];
+  try {
+    proxyVariants = await resolvePublicProxyUrls(
+      buildStoreStatusProxyVariants(proxy),
+      options,
+    );
+  } catch (error) {
+    throw new StoreStatusInputError(
+      error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",
+    );
+  }
   const agents: SocksProxyAgent[] = [];
 
   for (const proxyUrl of proxyVariants) {

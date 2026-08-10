@@ -2,17 +2,18 @@
 import { useRuntimeConfig } from "#imports";
 import { createError, defineEventHandler, readBody } from "h3";
 import {
-  buildProxyVariants,
   createApiErrorFromMessage,
   createProxyAgent,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
+  resolveShopifyProxyVariants,
 } from "~~/server/utils/callShopifyApi";
 import {
   PublicUrlError,
   resolvePublicUrl,
 } from "~~/server/utils/public-outbound-url";
+import { readRuntimeBoolean } from "~~/server/utils/runtime-config";
 
 interface DebugProxyBody {
   proxy?: string;
@@ -31,11 +32,16 @@ const MAX_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 16_384;
 const RESPONSE_PREVIEW_LENGTH = 240;
 
-function buildDebugVariants(proxy: string): DebugVariant[] {
-  return buildProxyVariants(proxy).map((proxyUrl, index) => ({
-    name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
-    proxyUrl,
-  }));
+async function buildDebugVariants(
+  event: Parameters<typeof resolveShopifyProxyVariants>[0],
+  proxy: string,
+): Promise<DebugVariant[]> {
+  return (await resolveShopifyProxyVariants(event, proxy)).map(
+    (proxyUrl, index) => ({
+      name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
+      proxyUrl,
+    }),
+  );
 }
 
 async function runVariant(
@@ -83,7 +89,7 @@ async function runVariant(
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event);
-  if (!readBoolean(config.debugProxyEnabled)) {
+  if (!readRuntimeBoolean(config.debugProxyEnabled)) {
     throw createError({ statusCode: 404, statusMessage: "Not Found" });
   }
 
@@ -114,7 +120,7 @@ export default defineEventHandler(async (event) => {
   let variants: DebugVariant[];
 
   try {
-    variants = buildDebugVariants(proxy);
+    variants = await buildDebugVariants(event, proxy);
   } catch (error) {
     throw createApiErrorFromMessage(
       error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",
@@ -157,9 +163,4 @@ function parseCsv(value: unknown) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function readBoolean(value: unknown) {
-  if (typeof value === "boolean") return value;
-  return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
 }

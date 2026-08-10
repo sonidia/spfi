@@ -31,6 +31,7 @@ export const useLocationStore = defineStore("locations", () => {
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const activeStoreId = ref("");
   const storeCache = ref<Record<string, LocationCacheEntry>>({});
   let requestSequence = 0;
 
@@ -45,6 +46,7 @@ export const useLocationStore = defineStore("locations", () => {
       return;
     }
 
+    activateStore(storeId);
     const cached = storeCache.value[storeId];
     if (!force && cached?.hasFetchedAll && !cached.inventoryItemIdsKey) {
       hydrate(storeId);
@@ -104,6 +106,7 @@ export const useLocationStore = defineStore("locations", () => {
       return;
     }
 
+    activateStore(storeId);
     const inventoryItemIdsKey = normalizedIds.join(",");
     const cached = storeCache.value[storeId];
     if (
@@ -159,6 +162,8 @@ export const useLocationStore = defineStore("locations", () => {
   }
 
   function hydrate(storeId: string): boolean {
+    activeStoreId.value = storeId;
+    requestSequence += 1;
     const cached = storeCache.value[storeId];
     if (!cached) return false;
 
@@ -168,6 +173,16 @@ export const useLocationStore = defineStore("locations", () => {
     hasFetchedAll.value = cached.hasFetchedAll;
     error.value = null;
     return true;
+  }
+
+  function activateStore(storeId: string) {
+    if (activeStoreId.value === storeId) return;
+    if (!hydrate(storeId)) $reset();
+  }
+
+  function evictStore(storeId: string) {
+    delete storeCache.value[storeId];
+    if (activeStoreId.value === storeId) $reset();
   }
 
   function $reset() {
@@ -187,9 +202,11 @@ export const useLocationStore = defineStore("locations", () => {
     hasFetchedAll,
     isLoading,
     error,
+    activeStoreId,
     fetchAll,
     fetchForInventoryItems,
     hydrate,
+    evictStore,
     $reset,
   };
 });

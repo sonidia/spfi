@@ -25,6 +25,7 @@ import {
 
 interface StoreCheckOptions {
   proxy?: string;
+  allowPrivateProxyHosts?: boolean;
 }
 
 interface FetchSnapshot {
@@ -94,7 +95,9 @@ export async function checkShopifyStoreStatus(
   const url = new URL(normalizedUrl);
   const host = url.hostname;
   const blockedHostReason = getUnsafeHostnameReason(host);
-  const proxyAgents = createSocksProxyAgents(options.proxy);
+  const proxyAgents = await createSocksProxyAgents(options.proxy, {
+    allowPrivateHosts: options.allowPrivateProxyHosts,
+  });
   const hasProxy = proxyAgents.length > 0;
 
   if (blockedHostReason) {

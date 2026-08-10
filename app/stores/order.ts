@@ -1,6 +1,7 @@
 ﻿import { defineStore } from "pinia";
 import { ref } from "vue";
 import { useOrderApi } from "~/composables/useOrderApi";
+import { usePaymentStore } from "~/stores/payment";
 import type { ShopifyOrder } from "~~/types/shopify";
 import type {
   OrderCaptureInput,
@@ -19,6 +20,10 @@ import type {
   OrderVoidInput,
 } from "~~/types/shopify-order";
 import { getAppErrorMessage } from "~~/utils/error";
+import {
+  forgetStoreResource,
+  markStoreResourceLoaded,
+} from "~~/utils/store-resource-cache";
 
 export const useOrderStore = defineStore("order", () => {
   const orderApi = useOrderApi();
@@ -286,6 +291,7 @@ export const useOrderStore = defineStore("order", () => {
       id,
       () => orderApi.capture({ storeId, token }, id, input),
       "Failed to capture the order payment.",
+      true,
     );
   }
 
@@ -300,6 +306,7 @@ export const useOrderStore = defineStore("order", () => {
       id,
       () => orderApi.markAsPaid({ storeId, token }, id),
       "Failed to mark the order as paid.",
+      true,
     );
   }
 
@@ -315,6 +322,7 @@ export const useOrderStore = defineStore("order", () => {
       id,
       () => orderApi.voidTransaction({ storeId, token }, id, input),
       "Failed to void the authorization.",
+      true,
     );
   }
 
@@ -330,6 +338,7 @@ export const useOrderStore = defineStore("order", () => {
       id,
       () => orderApi.createManualPayment({ storeId, token }, id, input),
       "Failed to record the manual payment.",
+      true,
     );
   }
 
@@ -345,6 +354,7 @@ export const useOrderStore = defineStore("order", () => {
       id,
       () => orderApi.refund({ storeId, token }, id, input),
       "Failed to refund the order.",
+      true,
     );
   }
 
@@ -375,6 +385,7 @@ export const useOrderStore = defineStore("order", () => {
       id,
       () => orderApi.fulfill({ storeId, token }, id, input),
       "Failed to fulfill the selected items.",
+      true,
     );
   }
 
@@ -447,6 +458,7 @@ export const useOrderStore = defineStore("order", () => {
             ? await orderApi.close(auth, id)
             : await orderApi.open(auth, id);
       if (response.order) upsertOrder(response.order);
+      if (action === "cancel") await refreshPaymentCache(storeId, token);
       return response.order || null;
     }, `Failed to ${action} the order.`);
   }
@@ -477,9 +489,13 @@ export const useOrderStore = defineStore("order", () => {
     id: string | number,
     operation: () => Promise<unknown>,
     fallback: string,
+    invalidatePayments = false,
   ) {
     return runMutation(storeId, async () => {
       await operation();
+      const paymentRefresh = invalidatePayments
+        ? refreshPaymentCache(storeId, token)
+        : Promise.resolve();
       try {
         const response = await orderApi.get({ storeId, token }, id);
         if (response.order) upsertOrder(response.order);
@@ -493,8 +509,24 @@ export const useOrderStore = defineStore("order", () => {
         return (
           orders.value.find((order) => String(order.id) === String(id)) || null
         );
+      } finally {
+        await paymentRefresh;
       }
     }, fallback);
+  }
+
+  async function refreshPaymentCache(storeId: string, token: string) {
+    const paymentStore = usePaymentStore();
+    paymentStore.evictStore(storeId);
+    forgetStoreResource(storeId, "payment");
+    await paymentStore.fetchBalanceTransactions(storeId, token, true);
+    if (
+      paymentStore.activeStoreId === storeId &&
+      paymentStore.hasFetchedBalanceTransactions &&
+      !paymentStore.error
+    ) {
+      markStoreResourceLoaded(storeId, "payment");
+    }
   }
 
   async function runRiskOperation<T>(

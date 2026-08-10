@@ -7,6 +7,8 @@ import {
   sendNoContent,
   setResponseHeader,
 } from "h3";
+import { evaluateApiOriginPolicy } from "../utils/request-origin-policy";
+import { readRuntimeBoolean } from "../utils/runtime-config";
 
 const API_PATH_PREFIX = "/api/";
 
@@ -18,34 +20,50 @@ export default defineEventHandler((event) => {
 
   if (pathname.startsWith(API_PATH_PREFIX)) {
     setResponseHeader(event, "Cache-Control", "no-store");
-    const preflightHandled = enforceApiOrigin(event, config.allowedOrigins);
+    const preflightHandled = enforceApiOrigin(event, {
+      allowedOrigins: config.allowedOrigins,
+      requireOrigin: readRuntimeBoolean(config.apiOriginRequired, true),
+      allowHostFallback: readRuntimeBoolean(
+        config.allowHostOriginFallback,
+        false,
+      ),
+    });
     if (preflightHandled) return sendNoContent(event, 204);
   }
 });
 
 function enforceApiOrigin(
   event: Parameters<typeof getRequestURL>[0],
-  value: unknown,
+  options: {
+    allowedOrigins: unknown;
+    requireOrigin: boolean;
+    allowHostFallback: boolean;
+  },
 ) {
   const origin = getHeader(event, "origin");
-  if (!origin) return false;
+  const result = evaluateApiOriginPolicy({
+    method: event.method,
+    origin,
+    fetchSite: getHeader(event, "sec-fetch-site"),
+    allowedOrigins: options.allowedOrigins,
+    requireOrigin: options.requireOrigin,
+    allowHostFallback: options.allowHostFallback,
+    requestOrigin: options.allowHostFallback
+      ? getRequestURL(event).origin
+      : undefined,
+  });
 
-  const allowedOrigins = parseOrigins(value);
-  const requestOrigin = getRequestOrigin(event);
-  let originUrl: URL;
-
-  try {
-    originUrl = new URL(origin);
-  } catch {
+  if (!result.allowed) {
     throw createError({ statusCode: 403, statusMessage: "Origin not allowed" });
   }
 
-  const isSameOrigin = originUrl.origin.toLowerCase() === requestOrigin;
-  if (!isSameOrigin && !allowedOrigins.has(originUrl.origin.toLowerCase())) {
-    throw createError({ statusCode: 403, statusMessage: "Origin not allowed" });
-  }
+  if (!origin || !result.responseOrigin) return false;
 
-  setResponseHeader(event, "Access-Control-Allow-Origin", originUrl.origin);
+  setResponseHeader(
+    event,
+    "Access-Control-Allow-Origin",
+    result.responseOrigin,
+  );
   setResponseHeader(event, "Access-Control-Allow-Credentials", "true");
   setResponseHeader(event, "Vary", "Origin");
 
@@ -59,7 +77,7 @@ function enforceApiOrigin(
   setResponseHeader(
     event,
     "Access-Control-Allow-Headers",
-    "Content-Type, X-Shopify-Access-Token",
+    "Content-Type, X-Shopify-Access-Token, X-Store-Data",
   );
   setResponseHeader(event, "Access-Control-Max-Age", 600);
   return true;
@@ -69,34 +87,4 @@ function setSecurityHeaders(event: Parameters<typeof setResponseHeader>[0]) {
   setResponseHeader(event, "X-Content-Type-Options", "nosniff");
   setResponseHeader(event, "X-Frame-Options", "DENY");
   setResponseHeader(event, "Referrer-Policy", "no-referrer");
-}
-
-function getRequestOrigin(event: Parameters<typeof getRequestURL>[0]) {
-  const requestUrl = getRequestURL(event);
-  const forwardedProtocol = getHeader(event, "x-forwarded-proto")
-    ?.split(",")[0]
-    ?.trim()
-    .toLowerCase();
-  const protocol = ["http", "https"].includes(forwardedProtocol || "")
-    ? `${forwardedProtocol}:`
-    : requestUrl.protocol;
-
-  return `${protocol}//${requestUrl.host}`.toLowerCase();
-}
-
-function parseOrigins(value: unknown) {
-  const origins = new Set<string>();
-
-  for (const item of String(value || "").split(",")) {
-    try {
-      const url = new URL(item.trim());
-      if (["http:", "https:"].includes(url.protocol)) {
-        origins.add(url.origin.toLowerCase());
-      }
-    } catch {
-      // Ignore malformed deployment configuration instead of widening access.
-    }
-  }
-
-  return origins;
 }

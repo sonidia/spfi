@@ -45,7 +45,12 @@ for (const [network, prefix] of BLOCKED_IPV6_RANGES) {
 
 export interface PublicUrlResolution {
   url: URL;
-  addresses: Array<{ address: string; family: 4 | 6 }>;
+  addresses: PublicAddress[];
+}
+
+export interface PublicAddress {
+  address: string;
+  family: 4 | 6;
 }
 
 interface ResolvePublicUrlOptions {
@@ -83,17 +88,27 @@ export async function resolvePublicUrl(
   }
 
   const hostname = normalizeHostname(url.hostname);
-  const unsafeReason = getUnsafeHostnameReason(hostname);
-  if (unsafeReason) {
-    throw new PublicUrlError(unsafeReason);
-  }
 
   const allowedHosts = normalizeAllowedHosts(options.allowedHosts);
   if (allowedHosts && !allowedHosts.has(hostname)) {
     throw new PublicUrlError("The destination host is not allowlisted.");
   }
 
-  const addresses = await resolveAddresses(hostname);
+  const addresses = await resolvePublicHostname(hostname);
+
+  return { url, addresses };
+}
+
+export async function resolvePublicHostname(
+  hostname: string,
+): Promise<PublicAddress[]> {
+  const normalized = normalizeHostname(hostname);
+  const unsafeReason = getUnsafeHostnameReason(normalized);
+  if (unsafeReason) {
+    throw new PublicUrlError(unsafeReason);
+  }
+
+  const addresses = await resolveAddresses(normalized);
   const unsafeAddress = addresses.find(
     ({ address }) => !isPublicIpAddress(address),
   );
@@ -104,7 +119,7 @@ export async function resolvePublicUrl(
     );
   }
 
-  return { url, addresses };
+  return addresses;
 }
 
 export function getUnsafeHostnameReason(hostname: string): string {
@@ -173,7 +188,7 @@ async function resolveAddresses(hostname: string) {
   }
 
   try {
-    const addresses = await lookup(hostname, { all: true, verbatim: true });
+    const addresses = await lookup(hostname, { all: true, order: "verbatim" });
     if (!addresses.length) {
       throw new PublicUrlError("The destination hostname has no IP address.");
     }

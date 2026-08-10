@@ -1,5 +1,6 @@
 import type { H3Event } from "h3";
 import { useRuntimeConfig } from "#imports";
+import { readRuntimeBoolean } from "../utils/runtime-config";
 
 const WINDOW_MS = 60_000;
 const CLEANUP_INTERVAL_MS = 5 * WINDOW_MS;
@@ -21,8 +22,12 @@ const state: RateLimitState = {
   lastCleanupAt: Date.now(),
 };
 
-function resolveClientIp(event: H3Event): string {
-  return getRequestIP(event, { xForwardedFor: true }) || "unknown";
+function resolveClientIp(event: H3Event, trustProxyHeaders: boolean): string {
+  return (
+    getRequestIP(event, { xForwardedFor: trustProxyHeaders }) ||
+    event.node.req.socket.remoteAddress ||
+    "unknown"
+  );
 }
 
 function cleanupExpiredEntries(now: number) {
@@ -73,7 +78,10 @@ export default defineEventHandler((event) => {
   const now = Date.now();
   cleanupExpiredEntries(now);
 
-  const ip = resolveClientIp(event);
+  const ip = resolveClientIp(
+    event,
+    readRuntimeBoolean(config.trustProxyHeaders),
+  );
   const results = [
     ...(apiLimit > 0 ? [consume(state.api, ip, apiLimit, now)] : []),
     ...(isTokenRequest && tokenLimit > 0

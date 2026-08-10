@@ -15,6 +15,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     adminApiVersion: "2026-07",
     allowedOrigins: "",
+    apiOriginRequired: true,
+    allowHostOriginFallback: process.env.NODE_ENV !== "production",
+    trustProxyHeaders: false,
+    allowPrivateProxyHosts: false,
     debugProxyEnabled: process.env.NODE_ENV !== "production",
     debugProxyAllowedHosts: "httpbin.org,api.ipify.org",
     // Disabled by default so Shopify's app/store-specific throttle remains the

@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useLocationStore } from "~/stores/locations";
 import type {
   ShopifyInventoryLevel,
   ShopifyProductImage,
@@ -13,9 +14,11 @@ import type {
 } from "~~/types/shopify-product";
 import type { ShopifyInventoryLevelResponse } from "~~/types/shopify-inventory";
 import { getAppErrorMessage } from "~~/utils/error";
+import { forgetStoreResource } from "~~/utils/store-resource-cache";
 
 export function useProductOperations() {
   const { storeId, token, isReady } = useActiveShopAuth();
+  const locationStore = useLocationStore();
   const variants = ref<ShopifyVariant[]>([]);
   const images = ref<ShopifyProductImage[]>([]);
   const isLoading = ref(false);
@@ -157,17 +160,22 @@ export function useProductOperations() {
     inventoryItemId: number,
     available: number,
   ) {
-    return run("Failed to set inventory.", () =>
-      $fetch<ShopifyInventoryLevelResponse>("/api/inventory/set", {
-        method: "POST",
-        body: {
-          ...authBody(),
-          location_id: locationId,
-          inventory_item_id: inventoryItemId,
-          available,
+    return run("Failed to set inventory.", async () => {
+      const response = await $fetch<ShopifyInventoryLevelResponse>(
+        "/api/inventory/set",
+        {
+          method: "POST",
+          body: {
+            ...authBody(),
+            location_id: locationId,
+            inventory_item_id: inventoryItemId,
+            available,
+          },
         },
-      }),
-    );
+      );
+      invalidateInventoryCache();
+      return response;
+    });
   }
 
   async function adjustInventory(
@@ -175,17 +183,29 @@ export function useProductOperations() {
     inventoryItemId: number,
     adjustment: number,
   ) {
-    return run("Failed to adjust inventory.", () =>
-      $fetch<ShopifyInventoryLevelResponse>("/api/inventory/adjust", {
-        method: "POST",
-        body: {
-          ...authBody(),
-          location_id: locationId,
-          inventory_item_id: inventoryItemId,
-          available_adjustment: adjustment,
+    return run("Failed to adjust inventory.", async () => {
+      const response = await $fetch<ShopifyInventoryLevelResponse>(
+        "/api/inventory/adjust",
+        {
+          method: "POST",
+          body: {
+            ...authBody(),
+            location_id: locationId,
+            inventory_item_id: inventoryItemId,
+            available_adjustment: adjustment,
+          },
         },
-      }),
-    );
+      );
+      invalidateInventoryCache();
+      return response;
+    });
+  }
+
+  function invalidateInventoryCache() {
+    const currentStoreId = storeId.value;
+    if (!currentStoreId) return;
+    locationStore.evictStore(currentStoreId);
+    forgetStoreResource(currentStoreId, "locations");
   }
 
   function replaceInventoryLevel(

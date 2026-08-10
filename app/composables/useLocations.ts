@@ -3,6 +3,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useLocationStore } from "~/stores/locations";
 import type { ShopifyProduct } from "~~/types/shopify";
+import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
 
 function getProductInventoryItemIds(product?: ShopifyProduct | null) {
   return Array.from(
@@ -39,6 +40,7 @@ export function useLocations() {
     if (!storeId || !token) return;
 
     await locationStore.fetchAll(storeId, token, force);
+    if (!locationStore.error) markStoreResourceLoaded(storeId, "locations");
   }
 
   async function fetchProductInventory(
@@ -56,6 +58,7 @@ export function useLocations() {
       getProductInventoryItemIds(product),
       force,
     );
+    if (!locationStore.error) markStoreResourceLoaded(storeId, "locations");
   }
 
   return {

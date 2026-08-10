@@ -14,6 +14,7 @@ import type {
   TrackingNumberResponse,
 } from "~~/types/tracking";
 import { getAppErrorMessage } from "~~/utils/error";
+import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
 
 const TRACKING_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_TRACKING_STATE = "CA";
@@ -116,7 +117,18 @@ export function useAutomaticTracking() {
         );
       }
 
-      toast.success(`Tracking added successfully (${trackingNumber}).`);
+      await orderStore.fetchAll(storeId.value, token.value, true);
+
+      if (!orderStore.error) {
+        markStoreResourceLoaded(storeId.value, "orders");
+      }
+      if (orderStore.error || paymentStore.error) {
+        toast.warning(
+          `Tracking added (${trackingNumber}), but the order list could not be fully refreshed.`,
+        );
+      } else {
+        toast.success(`Tracking added successfully (${trackingNumber}).`);
+      }
     } catch (error) {
       toast.error(
         `Failed to add tracking: ${getAppErrorMessage(error, "Unknown error")}`,

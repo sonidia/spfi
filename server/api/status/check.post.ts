@@ -1,3 +1,4 @@
+import { useRuntimeConfig } from "#imports";
 import { defineEventHandler, readBody } from "h3";
 import { StoreStatusInputError } from "../../utils/status-checker-errors";
 import { checkShopifyStoreStatus } from "../../utils/shopify-status-checker";
@@ -5,6 +6,7 @@ import {
   createApiError,
   createApiErrorFromMessage,
 } from "../../utils/callShopifyApi";
+import { readRuntimeBoolean } from "../../utils/runtime-config";
 
 type StatusCheckBody = {
   target?: string;
@@ -12,6 +14,7 @@ type StatusCheckBody = {
 };
 
 export default defineEventHandler(async (event) => {
+  const config = useRuntimeConfig(event);
   const body = await readBody<StatusCheckBody>(event);
   const target = body?.target?.trim();
   const proxy = body?.proxy?.trim();
@@ -21,7 +24,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    return await checkShopifyStoreStatus(target, proxy ? { proxy } : {});
+    return await checkShopifyStoreStatus(target, {
+      ...(proxy ? { proxy } : {}),
+      allowPrivateProxyHosts: readRuntimeBoolean(
+        config.allowPrivateProxyHosts,
+      ),
+    });
   } catch (error) {
     if (error instanceof StoreStatusInputError) {
       throw createApiErrorFromMessage(error.message, 400);

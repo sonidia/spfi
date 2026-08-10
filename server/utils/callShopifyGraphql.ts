@@ -101,7 +101,7 @@ export async function callShopifyGraphql<
   };
   let lastTransportError: unknown;
 
-  for (const proxyUrl of resolveShopifyProxyVariants(sock)) {
+  for (const proxyUrl of await resolveShopifyProxyVariants(event, sock)) {
     const agent = createProxyAgent(proxyUrl);
     const config: AxiosRequestConfig<ShopifyGraphqlRequest<TVariables>> = {
       url: endpoint,

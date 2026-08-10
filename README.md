@@ -70,6 +70,11 @@ call the API, allow its exact origins as a comma-separated list:
 NUXT_ALLOWED_ORIGINS=https://ops.example.com,https://admin.example.com
 ```
 
+Unsafe API methods reject requests without an `Origin` header unless the
+browser supplies `Sec-Fetch-Site: same-origin`. Host-header origin fallback is
+off in production; enable `NUXT_ALLOW_HOST_ORIGIN_FALLBACK=true` only for a
+known legacy local client.
+
 Copy `.env.example` to `.env` as a starting point.
 
 Shopify Admin REST and GraphQL requests share a runtime-configured API version.
@@ -108,6 +113,10 @@ them without changing source code:
 NUXT_API_RATE_LIMIT_PER_MINUTE=600
 NUXT_TOKEN_RATE_LIMIT_PER_MINUTE=30
 ```
+
+Forwarded client IP headers are ignored by default. Set
+`NUXT_TRUST_PROXY_HEADERS=true` only behind a trusted reverse proxy that
+overwrites `X-Forwarded-For`; the bundled nginx and Compose configuration do.
 
 Automatic FedEx tracking is configured from `/settings`. The Tracktaco endpoint
 and API key are saved in browser-local storage; no PIN/password unlock or
@@ -245,6 +254,7 @@ Expected header aliases for store auto-fill:
 - Browser API calls are same-origin unless explicitly listed in `NUXT_ALLOWED_ORIGINS`.
 - Shopify access tokens for GET and DELETE routes must use the `X-Shopify-Access-Token` header; query-string tokens are rejected.
 - CORS is a browser boundary, not user authentication. Keep deployments on localhost, a trusted network, or behind a VPN/reverse proxy when public access is not intended.
+- SOCKS proxy hosts are DNS-resolved, rejected if any result is private/reserved, and pinned to a validated public IP before connecting. Isolated VPN deployments that intentionally use a private proxy can opt out with `NUXT_ALLOW_PRIVATE_PROXY_HOSTS=true`.
 - `/api/debug-proxy` is disabled by default in production. When explicitly enabled, it accepts only HTTPS destinations on `NUXT_DEBUG_PROXY_ALLOWED_HOSTS`, blocks private/reserved DNS results and redirects, caps response size, and suppresses raw socket errors.
 - Store status targets and every redirect are restricted to public HTTPS port 443; direct connections use the validated DNS address to reduce DNS-rebinding risk.
 - Production environments must allow outbound HTTPS requests to Shopify, Google APIs, and any proxy endpoints used by status checks.

@@ -2,12 +2,12 @@
 import { defineEventHandler, readBody } from "h3";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import {
-  buildProxyVariants,
   createApiErrorFromMessage,
   createProxyAgent,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
+  resolveShopifyProxyVariants,
   resolveStoreAdminDomain,
 } from "~~/server/utils/callShopifyApi";
 
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("No proxy (sock) provided.", 400);
   }
 
-  const variants = buildNamedProxyVariants(sock);
+  const variants = await buildNamedProxyVariants(event, sock);
 
   for (const variant of variants) {
     console.log(
@@ -129,12 +129,17 @@ export default defineEventHandler(async (event) => {
   );
 });
 
-function buildNamedProxyVariants(sock: string): ProxyVariant[] {
+async function buildNamedProxyVariants(
+  event: Parameters<typeof resolveShopifyProxyVariants>[0],
+  sock: string,
+): Promise<ProxyVariant[]> {
   try {
-    return buildProxyVariants(sock).map((proxyUrl, index) => ({
-      name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
-      proxyUrl,
-    }));
+    return (await resolveShopifyProxyVariants(event, sock)).map(
+      (proxyUrl, index) => ({
+        name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
+        proxyUrl,
+      }),
+    );
   } catch (error) {
     throw createApiErrorFromMessage(
       error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",

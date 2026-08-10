@@ -8,28 +8,24 @@ import { usePaymentStore } from "~/stores/payment";
 import { useProductStore } from "~/stores/product";
 import { useShopProfileStore } from "~/stores/shopProfile";
 import type { StoreTab } from "~~/types/store";
+import {
+  forgetStoreResource,
+  getStoreResourceLoadedAt,
+  markStoreResourceLoaded,
+  type StoreDataResource,
+} from "~~/utils/store-resource-cache";
 
 const MISSING_TOKEN_MESSAGE =
   "Access token is missing. Update this store's credentials and try again.";
 const EXPIRED_TOKEN_MESSAGE =
   "Access token has expired. Update this store's credentials and try again.";
 
-type StoreDataResource =
-  | "customers"
-  | "disputes"
-  | "orders"
-  | "payment"
-  | "products"
-  | "profile";
-
-const resourceLoadedAt = new Map<string, number>();
-
 const TAB_RESOURCES: Record<StoreTab, StoreDataResource[]> = {
   transactions: ["payment"],
   payouts: ["payment"],
   disputes: ["payment", "disputes"],
   orders: ["orders", "payment"],
-  products: ["products"],
+  products: ["products", "locations"],
   customers: ["customers"],
   profile: ["profile", "payment", "orders"],
 };
@@ -45,18 +41,12 @@ export function useStoreTabData() {
   const productStore = useProductStore();
   const profileStore = useShopProfileStore();
 
-  function cacheKey(storeId: string, resource: StoreDataResource) {
-    return `${storeId}:${resource}`;
-  }
-
   function isResourceExpired(storeId: string, resource: StoreDataResource) {
-    return !dataRetention.isAlive(
-      resourceLoadedAt.get(cacheKey(storeId, resource)),
-    );
+    return !dataRetention.isAlive(getStoreResourceLoadedAt(storeId, resource));
   }
 
   function markResourceLoaded(storeId: string, resource: StoreDataResource) {
-    resourceLoadedAt.set(cacheKey(storeId, resource), Date.now());
+    markStoreResourceLoaded(storeId, resource);
   }
 
   function clearExpiredResources(
@@ -74,8 +64,10 @@ export function useStoreTabData() {
       paymentStore.evictStore(storeId);
     }
     if (expiredSet.has("products")) productStore.evictStore(storeId);
+    if (expiredSet.has("locations")) locationStore.evictStore(storeId);
     if (expiredSet.has("customers")) customerStore.evictStore(storeId);
     if (expiredSet.has("profile")) profileStore.evictStore(storeId);
+    for (const resource of expired) forgetStoreResource(storeId, resource);
   }
 
   function hydrateStoreData(storeId: string) {
@@ -103,6 +95,7 @@ export function useStoreTabData() {
       orderStore.activeStoreId === storeId &&
       paymentStore.activeStoreId === storeId &&
       productStore.activeStoreId === storeId &&
+      locationStore.activeStoreId === storeId &&
       customerStore.activeStoreId === storeId &&
       profileStore.activeStoreId === storeId;
 
@@ -220,6 +213,9 @@ export function useStoreTabData() {
         await productStore.fetchAll(storeId, token);
       }
       if (!productStore.error) markResourceLoaded(storeId, "products");
+      if (!locationStore.error && locationStore.hasFetchedAll) {
+        markResourceLoaded(storeId, "locations");
+      }
       return !productStore.error;
     }
 
