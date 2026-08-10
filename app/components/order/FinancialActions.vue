@@ -19,7 +19,7 @@ import type {
 } from "~~/types/shopify";
 import type { RefundLineItemRestockType } from "~~/types/shopify-order";
 import { getAppErrorMessage } from "~~/utils/error";
-import { fmtMoney } from "~~/utils/order";
+import { fmtMoney, formatMoneyInput } from "~~/utils/order";
 
 const props = defineProps<{ order: ShopifyOrder }>();
 const orderApi = useOrderApi();
@@ -35,6 +35,14 @@ const transactionError = ref("");
 const showShopCurrency = ref(false);
 const expandedTransactionId = ref("");
 const transactionDetails = ref<Record<string, ShopifyOrderTransaction>>({});
+const formattedExtendedAuthorizationAttributes = computed(() =>
+  Object.fromEntries(
+    Object.entries(transactionDetails.value).map(([id, transaction]) => [
+      id,
+      JSON.stringify(transaction.extended_authorization_attributes, null, 2),
+    ]),
+  ),
+);
 const loadingTransactionId = ref("");
 const selectedAuthorizationId = ref("");
 const captureAmount = ref("");
@@ -190,7 +198,10 @@ function selectDefaultTransactions() {
     (option) => String(option.transaction.id) === selectedAuthorizationId.value,
   )) {
     selectedAuthorizationId.value = String(capture.transaction.id);
-    captureAmount.value = capture.remaining.toFixed(2);
+    captureAmount.value = formatMoneyInput(
+      capture.remaining,
+      capture.transaction.currency || props.order.currency,
+    );
   }
 
   const refund = refundOptions.value[0];
@@ -213,7 +224,10 @@ function selectDefaultTransactions() {
   }
 
   if (!manualPaymentAmount.value && outstandingAmount.value > 0) {
-    manualPaymentAmount.value = outstandingAmount.value.toFixed(2);
+    manualPaymentAmount.value = formatMoneyInput(
+      outstandingAmount.value,
+      props.order.currency,
+    );
   }
 }
 
@@ -252,7 +266,12 @@ function syncCaptureAmount() {
   const selected = captureOptions.value.find(
     (option) => String(option.transaction.id) === selectedAuthorizationId.value,
   );
-  captureAmount.value = selected ? selected.remaining.toFixed(2) : "";
+  captureAmount.value = selected
+    ? formatMoneyInput(
+        selected.remaining,
+        selected.transaction.currency || props.order.currency,
+      )
+    : "";
 }
 
 async function markAsPaid() {
@@ -498,7 +517,7 @@ function formatTransactionTime(value?: string | null) {
             :value="String(option.transaction.id)"
           >
             {{ option.transaction.gateway || "Payment" }} ·
-            {{ fmtMoney(option.remaining.toFixed(2), option.transaction.currency) }} remaining
+            {{ fmtMoney(option.remaining, option.transaction.currency) }} remaining
           </option>
         </select>
       </label>
@@ -538,7 +557,7 @@ function formatTransactionTime(value?: string | null) {
             {{ option.transaction.gateway || "Payment" }} ·
             {{
               fmtMoney(
-                option.remaining.toFixed(2),
+                option.remaining,
                 option.transaction.currency,
               )
             }}
@@ -622,7 +641,7 @@ function formatTransactionTime(value?: string | null) {
             :value="String(option.transaction.id)"
           >
             {{ option.transaction.gateway || "Payment" }} ·
-            {{ fmtMoney(option.remaining.toFixed(2), option.transaction.currency) }} refundable
+            {{ fmtMoney(option.remaining, option.transaction.currency) }} refundable
           </option>
         </select>
       </label>
@@ -819,12 +838,9 @@ function formatTransactionTime(value?: string | null) {
                     >
                       <strong>Extended authorization attributes</strong>
                       <pre>{{
-                        JSON.stringify(
-                          transactionDetails[String(transaction.id)]
-                            ?.extended_authorization_attributes,
-                          null,
-                          2,
-                        )
+                        formattedExtendedAuthorizationAttributes[
+                          String(transaction.id)
+                        ]
                       }}</pre>
                     </div>
                   </div>

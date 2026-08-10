@@ -1,27 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { defaultSheets } from "../../utils/sheets";
+import {
+  defaultSheets,
+  normalizeSheetEntries as normalizeStoredSheetEntries,
+  SHEET_RECENT_STORAGE_KEY,
+  type LegacyStoredSheet,
+  type StoredSheet,
+} from "../../utils/sheets";
 import { useLocalStorage } from "../composables/useLocalStorage";
 import { useSheetService } from "../composables/useSheetService";
 
 definePageMeta({ layout: false });
 
-type StoredSheet = {
-  source: string;
-  label: string;
-  ranges: string[];
-};
-
-type LegacyStoredSheet = {
-  source?: string;
-  label?: string;
-  range?: string;
-  ranges?: string[];
-};
-
 const { state: sheetList, set: setSheetList } = useLocalStorage<
   (StoredSheet | LegacyStoredSheet)[]
->("proxy:sheet-viewer:recent", []);
+>(SHEET_RECENT_STORAGE_KEY, []);
 
 const {
   loading: sheetLoading,
@@ -41,66 +34,12 @@ const isSheetModalOpen = ref(false);
 const sheetModalTitle = ref("");
 
 const recentSheets = computed<StoredSheet[]>(() =>
-  normalizeSheetEntries(sheetList.value || []),
+  normalizeStoredSheetEntries(sheetList.value || [], buildSheetLabel),
 );
 
 function truncateUrl(url: string): string {
   if (url.length <= 50) return url;
   return url.slice(0, 47) + "...";
-}
-
-function normalizeSheetNameFromRange(value: string): string {
-  const beforeBang = value.split("!")[0]?.trim() || "";
-  if (!beforeBang) return "";
-  const unquoted = beforeBang.replace(/^'/, "").replace(/'$/, "");
-  return unquoted.replace(/''/g, "'").trim();
-}
-
-function normalizeSheetEntries(
-  items: (StoredSheet | LegacyStoredSheet)[],
-): StoredSheet[] {
-  const normalized = new Map<string, StoredSheet>();
-
-  for (const item of items || []) {
-    const source = String(item?.source || "").trim();
-    if (!source) continue;
-
-    const legacyRange = (item as LegacyStoredSheet)?.range;
-    const rangesFromField = Array.isArray(item?.ranges)
-      ? item.ranges
-      : legacyRange
-        ? [legacyRange]
-        : [];
-
-    const ranges = Array.from(
-      new Set(
-        rangesFromField
-          .map((range) =>
-            String(range || "").includes("!")
-              ? normalizeSheetNameFromRange(String(range || ""))
-              : String(range || "").trim(),
-          )
-          .filter(Boolean),
-      ),
-    );
-
-    const prev = normalized.get(source);
-    const mergedRanges = Array.from(
-      new Set([...(prev?.ranges || []), ...ranges]),
-    );
-
-    normalized.set(source, {
-      source,
-      label:
-        String(item?.label || "").trim() ||
-        prev?.label ||
-        buildSheetLabel(source) ||
-        source.slice(0, 16) + "…",
-      ranges: mergedRanges,
-    });
-  }
-
-  return Array.from(normalized.values()).slice(0, 10);
 }
 
 function persistRecentSheets(items: StoredSheet[]) {
@@ -158,7 +97,10 @@ async function readSheetMetaSafe(source: string) {
 }
 
 onMounted(async () => {
-  const normalizedRecentSheets = normalizeSheetEntries(sheetList.value || []);
+  const normalizedRecentSheets = normalizeStoredSheetEntries(
+    sheetList.value || [],
+    buildSheetLabel,
+  );
   const defaults = defaultSheets();
 
   if (

@@ -18,6 +18,15 @@
       {{ orderStore.error }}
     </div>
     <template v-else>
+      <p
+        v-if="orderStore.orderCount > orderStore.orders.length"
+        class="orders-limit-note"
+        role="status"
+      >
+        Showing {{ orderStore.orders.length }} loaded orders out of
+        {{ orderStore.orderCount }}. Older orders are not included in this
+        client-side page set.
+      </p>
       <table class="orders-table">
         <thead>
           <tr>
@@ -148,9 +157,10 @@
                           <span class="popover-lbl">Tracking:</span>
                           <span class="popover-val">
                             <a
-                              v-if="order.fulfillments[0].tracking_url"
-                              :href="order.fulfillments[0].tracking_url"
+                              v-if="getSafeExternalUrl(order.fulfillments[0].tracking_url)"
+                              :href="getSafeExternalUrl(order.fulfillments[0].tracking_url) || undefined"
                               target="_blank"
+                              rel="noopener noreferrer"
                               class="order-link"
                             >
                               {{ order.fulfillments[0].tracking_number }}
@@ -234,13 +244,13 @@ import {
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
+import { getSafeExternalUrl } from "~~/utils/safe-url";
 
 const orderStore = useOrderStore();
-const paymentStore = usePaymentStore();
 const router = useRouter();
 const route = useRoute();
 const { storeId, token, isReady } = useActiveShopAuth();
-const { processingOrderId, canAddTracking, addTracking } =
+const { processingOrderId, canAddTracking, getTransactionStatus, addTracking } =
   useAutomaticTracking();
 const isCreateOpen = ref(false);
 const totalPages = computed(() =>
@@ -257,14 +267,6 @@ watch(totalPages, (pageCount) => {
     orderStore.setPage(pageCount);
   }
 });
-
-function getTransactionStatus(orderId: number | string | null | undefined) {
-  if (!orderId) return null;
-  const tx = paymentStore.balanceTransactions.find(
-    (transaction) => String(transaction.source_order_id) === String(orderId),
-  );
-  return tx?.payout_status || null;
-}
 
 function orderLocation(orderId: number | string) {
   return {
@@ -325,6 +327,15 @@ watch(storeId, refreshCount);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.orders-limit-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--yellow-soft, #fff8e1);
+  color: var(--text-sub);
+  font-size: 12px;
 }
 
 .delivery-actions {

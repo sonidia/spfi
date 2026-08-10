@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   PaymentsOverviewResponse,
   PayoutDetailResponse,
@@ -27,6 +28,24 @@ export type Payout = ShopifyPayout;
 export type Transaction = ShopifyBalanceTransaction;
 export type Balance = ShopifyBalance;
 
+interface PaymentStoreCache {
+  balance: Balance | Balance[] | null;
+  payouts: Payout[];
+  visiblePayouts: Payout[];
+  payoutDetails: Record<string, Payout>;
+  paymentsAccount: ShopifyPaymentsAccount | null;
+  payoutMetadata: Record<string, ShopifyPaymentsPayoutMetadata>;
+  transactionsByPayout: Record<string, Transaction[]>;
+  balanceTransactions: Transaction[];
+  visibleBalanceTransactions: Transaction[];
+  disputes: ShopifyPaymentsDispute[];
+  visibleDisputes: ShopifyPaymentsDispute[];
+  hasFetchedAll: boolean;
+  hasFetchedBalanceTransactions: boolean;
+  hasFetchedDisputes: boolean;
+  graphqlWarning: string | null;
+}
+
 export const usePaymentStore = defineStore("payment", () => {
   const balance = ref<Balance | Balance[] | null>(null);
   const payouts = ref<Payout[]>([]);
@@ -50,32 +69,9 @@ export const usePaymentStore = defineStore("payment", () => {
   const activeStoreId = ref("");
   let storeScopeVersion = 0;
 
-  const storeCache = ref<
-    Record<
-      string,
-      {
-        balance: Balance | Balance[] | null;
-        payouts: Payout[];
-        visiblePayouts: Payout[];
-        payoutDetails: Record<string, Payout>;
-        paymentsAccount: ShopifyPaymentsAccount | null;
-        payoutMetadata: Record<string, ShopifyPaymentsPayoutMetadata>;
-        transactionsByPayout: Record<string, Transaction[]>;
-        balanceTransactions: Transaction[];
-        visibleBalanceTransactions: Transaction[];
-        disputes: ShopifyPaymentsDispute[];
-        visibleDisputes: ShopifyPaymentsDispute[];
-        hasFetchedAll: boolean;
-        hasFetchedBalanceTransactions: boolean;
-        hasFetchedDisputes: boolean;
-        graphqlWarning: string | null;
-      }
-    >
-  >({});
-
-  function rememberStore(storeId: string) {
-    if (activeStoreId.value !== storeId) return;
-    storeCache.value[storeId] = {
+  const storeCache = usePerStoreCache<PaymentStoreCache>({
+    activeStoreId,
+    capture: () => ({
       balance: balance.value,
       payouts: [...payouts.value],
       visiblePayouts: [...visiblePayouts.value],
@@ -91,8 +87,18 @@ export const usePaymentStore = defineStore("payment", () => {
       hasFetchedBalanceTransactions: hasFetchedBalanceTransactions.value,
       hasFetchedDisputes: hasFetchedDisputes.value,
       graphqlWarning: graphqlWarning.value,
-    };
-  }
+    }),
+    restore: restoreStore,
+    reset: resetState,
+    onStoreChange: () => {
+      storeScopeVersion += 1;
+    },
+    canRemember: (storeId) => activeStoreId.value === storeId,
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
+  const rememberStore = storeCache.remember;
 
   async function fetchAll(storeId: string, token: string, force = false) {
     if (!storeId || !token) {
@@ -188,10 +194,6 @@ export const usePaymentStore = defineStore("payment", () => {
     } finally {
       if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
-  }
-
-  function activateStore(storeId: string) {
-    if (activeStoreId.value !== storeId) hydrate(storeId);
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
@@ -489,14 +491,7 @@ export const usePaymentStore = defineStore("payment", () => {
     }
   }
 
-  function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
-    storeScopeVersion += 1;
-    const cached = storeCache.value[storeId];
-    if (!cached) {
-      $reset();
-      return false;
-    }
+  function restoreStore(cached: PaymentStoreCache) {
     balance.value = cached.balance;
     payouts.value = [...cached.payouts];
     visiblePayouts.value = [
@@ -520,11 +515,15 @@ export const usePaymentStore = defineStore("payment", () => {
     hasFetchedDisputes.value = cached.hasFetchedDisputes || false;
     graphqlWarning.value = cached.graphqlWarning || null;
     error.value = null;
-    return true;
+    isLoading.value = false;
   }
 
   function $reset() {
     storeScopeVersion += 1;
+    resetState();
+  }
+
+  function resetState() {
     balance.value = null;
     payouts.value = [];
     visiblePayouts.value = [];
@@ -542,11 +541,6 @@ export const usePaymentStore = defineStore("payment", () => {
     error.value = null;
     graphqlWarning.value = null;
     isLoading.value = false;
-  }
-
-  function evictStore(storeId: string) {
-    delete storeCache.value[storeId];
-    if (activeStoreId.value === storeId) $reset();
   }
 
   function hasActiveFilters(filters: object) {

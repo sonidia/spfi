@@ -263,6 +263,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
 import { usePaymentStore } from "../../../stores/payment";
+import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 definePageMeta({ layout: false });
@@ -288,12 +289,7 @@ onMounted(() => {
 });
 
 function resolveToken(sid: string): string | null {
-  const data = credentialVault.getStoreData(sid);
-  const now = Date.now();
-  if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
-    return data.accessToken;
-  }
-  return null;
+  return resolveStoreAccessToken(credentialVault.getStoreData(sid)) || null;
 }
 
 const currentPayout = computed(

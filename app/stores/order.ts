@@ -1,6 +1,7 @@
 ﻿import { defineStore } from "pinia";
 import { ref } from "vue";
 import { useOrderApi } from "~/composables/useOrderApi";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import { usePaymentStore } from "~/stores/payment";
 import type { ShopifyOrder } from "~~/types/shopify";
 import type {
@@ -25,6 +26,14 @@ import {
   markStoreResourceLoaded,
 } from "~~/utils/store-resource-cache";
 
+interface OrderStoreCache {
+  orders: ShopifyOrder[];
+  orderCount: number;
+  hasFetchedAll: boolean;
+  currentPage: number;
+  pageSize: number;
+}
+
 export const useOrderStore = defineStore("order", () => {
   const orderApi = useOrderApi();
   const orders = ref<ShopifyOrder[]>([]);
@@ -41,34 +50,38 @@ export const useOrderStore = defineStore("order", () => {
   let storeScopeVersion = 0;
   const currentPage = ref(1);
   const pageSize = ref(20);
-  const storeCache = ref<
-    Record<
-      string,
-      {
-        orders: ShopifyOrder[];
-        orderCount: number;
-        hasFetchedAll: boolean;
-        currentPage: number;
-        pageSize: number;
-      }
-    >
-  >({});
-
-  function rememberStore(storeId = activeStoreId.value) {
-    if (!storeId) return;
-    storeCache.value[storeId] = {
+  const storeCache = usePerStoreCache<OrderStoreCache>({
+    activeStoreId,
+    capture: () => ({
       orders: [...orders.value],
       orderCount: orderCount.value,
       hasFetchedAll: hasFetchedAll.value,
       currentPage: currentPage.value,
       pageSize: pageSize.value,
-    };
-  }
-
-  function activateStore(storeId: string) {
-    if (activeStoreId.value === storeId) return;
-    hydrate(storeId);
-  }
+    }),
+    restore: (cached) => {
+      orders.value = [...cached.orders];
+      orderCount.value = cached.orderCount;
+      hasFetchedAll.value = cached.hasFetchedAll;
+      currentPage.value = cached.currentPage;
+      pageSize.value = cached.pageSize;
+      riskByOrder.value = {};
+      error.value = null;
+      mutationError.value = null;
+      riskError.value = null;
+      isLoading.value = false;
+      isMutating.value = false;
+      isRiskLoading.value = false;
+    },
+    reset: resetState,
+    onStoreChange: () => {
+      storeScopeVersion += 1;
+    },
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
+  const rememberStore = storeCache.remember;
 
   async function fetchAll(
     storeId: string,
@@ -92,14 +105,15 @@ export const useOrderStore = defineStore("order", () => {
       const response = await orderApi.list({ storeId, token }, query);
       if (!isActiveRequest(storeId, requestScope)) return;
 
-      storeCache.value[storeId] = {
+      const snapshot: OrderStoreCache = {
         orders: response.orders || (response.order ? [response.order] : []),
         orderCount: orderCount.value,
         hasFetchedAll: true,
         currentPage: force ? 1 : currentPage.value,
         pageSize: pageSize.value,
       };
-      orders.value = [...storeCache.value[storeId].orders];
+      storeCache.set(storeId, snapshot);
+      orders.value = [...snapshot.orders];
       hasFetchedAll.value = true;
       if (force) currentPage.value = 1;
     } catch (err) {
@@ -150,23 +164,6 @@ export const useOrderStore = defineStore("order", () => {
         isLoading.value = false;
       }
     }
-  }
-
-  function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
-    storeScopeVersion += 1;
-    const cached = storeCache.value[storeId];
-    if (!cached) {
-      $reset();
-      return false;
-    }
-    orders.value = [...cached.orders];
-    orderCount.value = cached.orderCount;
-    hasFetchedAll.value = cached.hasFetchedAll;
-    currentPage.value = cached.currentPage;
-    pageSize.value = cached.pageSize;
-    error.value = null;
-    return true;
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
@@ -551,13 +548,12 @@ export const useOrderStore = defineStore("order", () => {
     else orders.value.unshift(order);
   }
 
-  function evictStore(storeId: string) {
-    delete storeCache.value[storeId];
-    if (activeStoreId.value === storeId) $reset();
-  }
-
   function $reset() {
     storeScopeVersion += 1;
+    resetState();
+  }
+
+  function resetState() {
     orders.value = [];
     orderCount.value = 0;
     riskByOrder.value = {};

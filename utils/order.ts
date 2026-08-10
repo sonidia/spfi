@@ -44,7 +44,46 @@ export function fmtMoney(
   currency?: string | null,
 ) {
   if (amount === undefined || amount === null) return "—";
-  return `$${Number(amount).toFixed(2)} ${currency || ""}`.trim();
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return "—";
+
+  const currencyCode = String(currency || "").trim().toUpperCase();
+  if (currencyCode) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currencyCode,
+        currencyDisplay: "code",
+      }).format(numericAmount);
+    } catch {
+      return `${numericAmount.toLocaleString()} ${currencyCode}`;
+    }
+  }
+
+  return numericAmount.toLocaleString();
+}
+
+export function formatMoneyInput(
+  amount: string | number,
+  currency?: string | null,
+) {
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return "";
+  return numericAmount.toFixed(getCurrencyFractionDigits(currency));
+}
+
+export function getCurrencyFractionDigits(currency?: string | null) {
+  const currencyCode = String(currency || "").trim().toUpperCase();
+  if (!currencyCode) return 2;
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+    }).resolvedOptions().maximumFractionDigits;
+  } catch {
+    return 2;
+  }
 }
 export function capitalize(str: string) {
   if (!str) return "";

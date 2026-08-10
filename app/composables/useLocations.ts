@@ -3,6 +3,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useLocationStore } from "~/stores/locations";
 import type { ShopifyProduct } from "~~/types/shopify";
+import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
 
 function getProductInventoryItemIds(product?: ShopifyProduct | null) {
@@ -22,15 +23,7 @@ export function useLocations() {
 
   function resolveToken(storeId = formStore.storeId): string | null {
     if (!storeId || typeof window === "undefined") return null;
-
-    const data = credentialVault.getStoreData(storeId);
-    const now = Date.now();
-
-    if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
-      return data.accessToken;
-    }
-
-    return null;
+    return resolveStoreAccessToken(credentialVault.getStoreData(storeId)) || null;
   }
 
   async function fetchLocations(force = false) {

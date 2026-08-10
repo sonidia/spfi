@@ -1,7 +1,13 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type { ShopifyShop, ShopProfileResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
+
+interface ShopProfileCache {
+  shop: ShopifyShop | null;
+  hasFetchedProfile: boolean;
+}
 
 export const useShopProfileStore = defineStore("shopProfile", () => {
   const shop = ref<ShopifyShop | null>(null);
@@ -10,9 +16,25 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
   const error = ref<string | null>(null);
   const activeStoreId = ref("");
   let requestSequence = 0;
-  const storeCache = ref<
-    Record<string, { shop: ShopifyShop | null; hasFetchedProfile: boolean }>
-  >({});
+  const storeCache = usePerStoreCache<ShopProfileCache>({
+    activeStoreId,
+    capture: () => ({
+      shop: shop.value ? { ...shop.value } : null,
+      hasFetchedProfile: hasFetchedProfile.value,
+    }),
+    restore: (cached) => {
+      shop.value = cached.shop ? { ...cached.shop } : null;
+      hasFetchedProfile.value = cached.hasFetchedProfile;
+      error.value = null;
+    },
+    reset: resetState,
+    onStoreChange: () => {
+      requestSequence += 1;
+    },
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
 
   async function fetchProfile(storeId: string, token: string) {
     if (!storeId || !token) {
@@ -32,10 +54,10 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
       });
 
       const nextShop = response.shop ?? null;
-      storeCache.value[storeId] = {
+      storeCache.set(storeId, {
         shop: nextShop ? { ...nextShop } : null,
         hasFetchedProfile: true,
-      };
+      });
       if (
         requestId === requestSequence &&
         activeStoreId.value === storeId
@@ -60,36 +82,16 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
     }
   }
 
-  function activateStore(storeId: string) {
-    if (activeStoreId.value !== storeId) hydrate(storeId);
-  }
-
-  function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
-    requestSequence += 1;
-    const cached = storeCache.value[storeId];
-    if (!cached) {
-      $reset();
-      return false;
-    }
-
-    shop.value = cached.shop ? { ...cached.shop } : null;
-    hasFetchedProfile.value = cached.hasFetchedProfile;
-    error.value = null;
-    return true;
-  }
-
   function $reset() {
     requestSequence += 1;
+    resetState();
+  }
+
+  function resetState() {
     shop.value = null;
     hasFetchedProfile.value = false;
     error.value = null;
     isLoading.value = false;
-  }
-
-  function evictStore(storeId: string) {
-    delete storeCache.value[storeId];
-    if (activeStoreId.value === storeId) $reset();
   }
 
   return {

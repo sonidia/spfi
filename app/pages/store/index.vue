@@ -150,17 +150,17 @@ const route = useRoute();
 const { token: activeToken } = useActiveShopAuth();
 const { loadStoreTabData } = useStoreTabData();
 const feedback = useStoreFeedback();
+const { state: activeStoreStorage } = useLocalStorage("active_store_id", "");
 
 const activeTab = computed<StoreTab>(() => resolveStoreTab(route.query.tab));
 const isPageActive = ref(true);
 
 function setActiveTab(tab: StoreTab) {
-  const cookieShop = useLocalStorage("active_store_id", "").state.value;
   void router.replace({
     path: "/store",
     query: {
       ...route.query,
-      shop: route.query.shop || cookieShop || undefined,
+      shop: route.query.shop || activeStoreStorage.value || undefined,
       tab: tab === "transactions" ? undefined : tab,
     },
   });

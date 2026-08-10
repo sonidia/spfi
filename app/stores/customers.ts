@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   CustomerDetailResponse,
   CustomersResponse,
@@ -40,10 +41,34 @@ export const useCustomerStore = defineStore("customers", () => {
   const isMutating = ref(false);
   const error = ref<string | null>(null);
   const activeStoreId = ref("");
-  const storeCache = ref<Record<string, CustomerStoreCache>>({});
   let listRequestSequence = 0;
   let detailRequestSequence = 0;
   let addressRequestSequence = 0;
+  const storeCache = usePerStoreCache<CustomerStoreCache>({
+    activeStoreId,
+    capture: () => ({
+      customers: [...customers.value],
+      hasFetchedAll: hasFetchedAll.value,
+      activeQuery: activeQuery.value,
+      totalCount: totalCount.value,
+    }),
+    restore: (cached) => {
+      customers.value = [...cached.customers];
+      hasFetchedAll.value = cached.hasFetchedAll;
+      activeQuery.value = cached.activeQuery;
+      totalCount.value = cached.totalCount ?? cached.customers.length;
+      error.value = null;
+      clearSelection();
+    },
+    reset: resetState,
+    onStoreChange: () => {
+      listRequestSequence += 1;
+    },
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
+  const persist = storeCache.remember;
 
   async function fetchAll(
     storeId: string,
@@ -100,10 +125,6 @@ export const useCustomerStore = defineStore("customers", () => {
         isLoading.value = false;
       }
     }
-  }
-
-  function activateStore(storeId: string) {
-    if (activeStoreId.value !== storeId) hydrate(storeId);
   }
 
   async function fetchById(storeId: string, token: string, id: string | number) {
@@ -371,36 +392,12 @@ export const useCustomerStore = defineStore("customers", () => {
     }
   }
 
-  function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
-    const cached = storeCache.value[storeId];
-
-    if (!cached) {
-      $reset();
-      return false;
-    }
-
-    listRequestSequence += 1;
-    customers.value = [...cached.customers];
-    hasFetchedAll.value = cached.hasFetchedAll;
-    activeQuery.value = cached.activeQuery;
-    totalCount.value = cached.totalCount ?? cached.customers.length;
-    error.value = null;
-    clearSelection();
-    return true;
-  }
-
-  function persist(storeId: string) {
-    storeCache.value[storeId] = {
-      customers: [...customers.value],
-      hasFetchedAll: hasFetchedAll.value,
-      activeQuery: activeQuery.value,
-      totalCount: totalCount.value,
-    };
-  }
-
   function $reset() {
     listRequestSequence += 1;
+    resetState();
+  }
+
+  function resetState() {
     detailRequestSequence += 1;
     addressRequestSequence += 1;
     customers.value = [];
@@ -412,11 +409,6 @@ export const useCustomerStore = defineStore("customers", () => {
     isLoadingDetail.value = false;
     isMutating.value = false;
     clearSelection();
-  }
-
-  function evictStore(storeId: string) {
-    delete storeCache.value[storeId];
-    if (activeStoreId.value === storeId) $reset();
   }
 
   return {

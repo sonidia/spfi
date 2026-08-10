@@ -18,7 +18,7 @@ useTokenRotation();
     <BaseToast />
     <Nav />
     <NuxtLayout>
-      <NuxtPage :keepalive="{ max: 12 }" />
+      <NuxtPage :keepalive="{ max: 6 }" />
     </NuxtLayout>
   </main>
 </template>

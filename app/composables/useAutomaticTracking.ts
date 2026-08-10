@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderApi } from "~/composables/useOrderApi";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
@@ -14,6 +14,7 @@ import type {
   TrackingNumberResponse,
 } from "~~/types/tracking";
 import { getAppErrorMessage } from "~~/utils/error";
+import { buildOrderTransactionStatusMap } from "~~/utils/payment-transactions";
 import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
 
 const TRACKING_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -29,6 +30,9 @@ export function useAutomaticTracking() {
   const toast = useToastStore();
   const { storeId, token, isReady } = useActiveShopAuth();
   const processingOrderId = ref<number | null>(null);
+  const transactionStatusByOrderId = computed(() =>
+    buildOrderTransactionStatusMap(paymentStore.balanceTransactions),
+  );
 
   function canAddTracking(order: ShopifyOrder) {
     return (
@@ -37,11 +41,12 @@ export function useAutomaticTracking() {
     );
   }
 
-  function getTransactionStatus(orderId: number) {
-    const transaction = paymentStore.balanceTransactions.find(
-      (item) => String(item.source_order_id) === String(orderId),
-    );
-    return transaction?.payout_status || null;
+  function getTransactionStatus(
+    orderId: number | string | null | undefined,
+  ) {
+    return orderId
+      ? transactionStatusByOrderId.value.get(String(orderId)) || null
+      : null;
   }
 
   async function addTracking(order: ShopifyOrder) {
@@ -185,6 +190,7 @@ export function useAutomaticTracking() {
   return {
     processingOrderId,
     canAddTracking,
+    getTransactionStatus,
     addTracking,
   };
 }

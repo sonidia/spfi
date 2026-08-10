@@ -2,35 +2,15 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import type { StoreLocalData } from "~~/types/shopify";
 import type { TrackingProviderSettings } from "~~/types/tracking";
+import {
+  isRecord,
+  readStorageValue,
+  writeStorageValue,
+} from "~~/utils/browser-storage";
+import { readKnownStores, writeKnownStores } from "~~/utils/known-stores";
 
-const KNOWN_STORES_KEY = "shopify_known_stores";
 const TRACKING_SETTINGS_STORAGE_KEY = "spf_tracking_provider_settings";
 const STORE_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000;
-
-interface StorageValue<T> {
-  value: T;
-  expiresAt?: number;
-}
-
-function readJson<T>(key: string): T | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
-}
-
-function isStorageValue(value: unknown): value is StorageValue<StoreLocalData> {
-  return isRecord(value) && isRecord(value.value);
-}
 
 function normalizeStoreData(value: Partial<StoreLocalData> | null | undefined) {
   return {
@@ -46,35 +26,16 @@ function normalizeStoreData(value: Partial<StoreLocalData> | null | undefined) {
   } satisfies StoreLocalData;
 }
 
-function readKnownStores(): string[] {
-  const value = readJson<unknown>(KNOWN_STORES_KEY);
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
 function readStoredShop(storeId: string): StoreLocalData {
-  const stored = readJson<unknown>(storeId);
-  if (!stored) return {};
-
-  const value = isStorageValue(stored) ? stored.value : stored;
-  const expiresAt = isStorageValue(stored) ? stored.expiresAt : undefined;
-
-  if (expiresAt && Date.now() > expiresAt) {
-    localStorage.removeItem(storeId);
-    return {};
-  }
-
+  const value = readStorageValue<unknown>(storeId, null, {
+    allowLegacyValue: true,
+  });
   if (!isRecord(value)) return {};
   return normalizeStoreData(value);
 }
 
 function writeStoredShop(storeId: string, data: StoreLocalData) {
-  const wrapper: StorageValue<StoreLocalData> = {
-    value: normalizeStoreData(data),
-    expiresAt: Date.now() + STORE_TTL_MS,
-  };
-  localStorage.setItem(storeId, JSON.stringify(wrapper));
+  writeStorageValue(storeId, normalizeStoreData(data), STORE_TTL_MS);
 }
 
 function emptyTrackingSettings(): TrackingProviderSettings {
@@ -94,11 +55,13 @@ function normalizeTrackingSettings(
 }
 
 function readTrackingSettings(): TrackingProviderSettings {
-  const stored = readJson<unknown>(TRACKING_SETTINGS_STORAGE_KEY);
+  const stored = readStorageValue<unknown>(
+    TRACKING_SETTINGS_STORAGE_KEY,
+    null,
+    { allowLegacyValue: true },
+  );
   if (!isRecord(stored)) return emptyTrackingSettings();
-
-  const value = isRecord(stored.value) ? stored.value : stored;
-  return normalizeTrackingSettings(value);
+  return normalizeTrackingSettings(stored);
 }
 
 export const useCredentialVaultStore = defineStore("credentialVault", () => {
@@ -171,7 +134,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem(storeId);
       const remainingStores = readKnownStores().filter((id) => id !== storeId);
-      localStorage.setItem(KNOWN_STORES_KEY, JSON.stringify(remainingStores));
+      writeKnownStores(remainingStores);
       storeDataRevision.value += 1;
     }
   }
@@ -179,10 +142,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
   async function saveTrackingSettings(settings: TrackingProviderSettings) {
     ensureInitialized();
     const normalized = normalizeTrackingSettings(settings);
-    localStorage.setItem(
-      TRACKING_SETTINGS_STORAGE_KEY,
-      JSON.stringify(normalized),
-    );
+    writeStorageValue(TRACKING_SETTINGS_STORAGE_KEY, normalized);
     trackingSettings.value = normalized;
   }
 

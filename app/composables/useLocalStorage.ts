@@ -1,64 +1,28 @@
-﻿import { ref, watch, type Ref } from "vue";
-
-type StorageValue<T> = {
-  value: T;
-  expiresAt?: number;
-};
+import { ref, watch, type Ref } from "vue";
+import {
+  isStorageValueExpired,
+  readStorageValue,
+  writeStorageValue,
+} from "~~/utils/browser-storage";
 
 interface Options {
   ttl?: number;
+  deep?: boolean;
 }
+
+interface ClientStorageEntry {
+  state: Ref<unknown>;
+}
+
+const clientEntries = new Map<string, ClientStorageEntry>();
 
 export function useLocalStorage<T>(
   key: string,
   defaultValue: T,
   options: Options = {},
 ) {
-  const { ttl } = options;
-
-  const getStored = (): T => {
-    if (typeof window === "undefined") return defaultValue;
-
-    const raw = localStorage.getItem(key);
-    if (!raw) return defaultValue;
-
-    try {
-      const parsed: StorageValue<T> = JSON.parse(raw);
-
-      // check TTL
-      if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
-        localStorage.removeItem(key);
-        return defaultValue;
-      }
-
-      return parsed.value;
-    } catch {
-      return defaultValue;
-    }
-  };
-
-  const state = ref(getStored()) as Ref<T>;
-
-  const save = (value: T) => {
-    const data: StorageValue<T> = {
-      value,
-      expiresAt: ttl ? Date.now() + ttl : undefined,
-    };
-
-    localStorage.setItem(key, JSON.stringify(data));
-  };
-
-  watch(
-    state,
-    (val) => {
-      if (val === null || val === undefined) {
-        localStorage.removeItem(key);
-      } else {
-        save(val);
-      }
-    },
-    { deep: true },
-  );
+  const { ttl, deep = false } = options;
+  const state = getSharedState(key, defaultValue, ttl, deep);
 
   const set = (value: T) => {
     state.value = value;
@@ -66,40 +30,44 @@ export function useLocalStorage<T>(
 
   const remove = () => {
     state.value = defaultValue;
-    localStorage.removeItem(key);
-  };
-
-  const isExpired = (): boolean => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return true;
-
-    try {
-      const parsed: StorageValue<T> = JSON.parse(raw);
-      return !!parsed.expiresAt && Date.now() > parsed.expiresAt;
-    } catch {
-      return true;
-    }
+    if (typeof window !== "undefined") localStorage.removeItem(key);
   };
 
   return {
     state,
     set,
     remove,
-    isExpired,
+    isExpired: () => isStorageValueExpired(key),
   };
 }
 
-// const { state: token, set, remove } = useLocalStorage<string>(
-//   "token",
-//   "",
-//   { ttl: 1000 * 60 * 30 } // 30 phút
-// );
+function getSharedState<T>(
+  key: string,
+  defaultValue: T,
+  ttl: number | undefined,
+  deep: boolean,
+): Ref<T> {
+  if (typeof window === "undefined") return ref(defaultValue) as Ref<T>;
 
-// function login() {
-//   set("abc123");
-// }
+  const existing = clientEntries.get(key);
+  if (existing) return existing.state as Ref<T>;
 
-// function logout() {
-//   remove();
-// }
+  const state = ref(
+    readStorageValue(key, defaultValue, { allowLegacyValue: false }),
+  ) as Ref<T>;
 
+  clientEntries.set(key, { state });
+  watch(
+    state,
+    (value) => {
+      if (value === null || value === undefined) {
+        localStorage.removeItem(key);
+      } else {
+        writeStorageValue(key, value, ttl);
+      }
+    },
+    { deep, flush: "sync" },
+  );
+
+  return state;
+}

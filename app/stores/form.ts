@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { readKnownStores, writeKnownStores } from "~~/utils/known-stores";
 
 export const useFormStore = defineStore("form", () => {
   const storeId = ref("");
@@ -9,20 +10,11 @@ export const useFormStore = defineStore("form", () => {
 
   function loadKnownStores() {
     if (typeof window === "undefined") return;
-    const raw = localStorage.getItem("shopify_known_stores");
-    if (raw) {
-      try {
-        knownStores.value = JSON.parse(raw);
-      } catch (e) {
-        knownStores.value = [];
-      }
-    }
+    knownStores.value = readKnownStores();
   }
 
   function saveKnownStores() {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("shopify_known_stores", JSON.stringify(knownStores.value));
-    }
+    writeKnownStores(knownStores.value);
   }
 
   function addKnownStore(id: string) {

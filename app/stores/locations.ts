@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   LocationsResponse,
   ShopifyInventoryLevel,
@@ -32,8 +33,30 @@ export const useLocationStore = defineStore("locations", () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const activeStoreId = ref("");
-  const storeCache = ref<Record<string, LocationCacheEntry>>({});
   let requestSequence = 0;
+  const storeCache = usePerStoreCache<LocationCacheEntry>({
+    activeStoreId,
+    capture: () => ({
+      locations: [...locations.value],
+      inventoryLevels: [...inventoryLevels.value],
+      inventoryItemIdsKey: activeInventoryItemIdsKey.value,
+      hasFetchedAll: hasFetchedAll.value,
+    }),
+    restore: (cached) => {
+      locations.value = [...cached.locations];
+      inventoryLevels.value = [...cached.inventoryLevels];
+      activeInventoryItemIdsKey.value = cached.inventoryItemIdsKey;
+      hasFetchedAll.value = cached.hasFetchedAll;
+      error.value = null;
+    },
+    reset: resetState,
+    onStoreChange: () => {
+      requestSequence += 1;
+    },
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
 
   async function fetchAll(
     storeId: string,
@@ -47,7 +70,7 @@ export const useLocationStore = defineStore("locations", () => {
     }
 
     activateStore(storeId);
-    const cached = storeCache.value[storeId];
+    const cached = storeCache.get(storeId);
     if (!force && cached?.hasFetchedAll && !cached.inventoryItemIdsKey) {
       hydrate(storeId);
       return;
@@ -71,12 +94,12 @@ export const useLocationStore = defineStore("locations", () => {
       inventoryLevels.value = [];
       activeInventoryItemIdsKey.value = "";
       hasFetchedAll.value = true;
-      storeCache.value[storeId] = {
+      storeCache.set(storeId, {
         locations: [...nextLocations],
         inventoryLevels: [],
         inventoryItemIdsKey: "",
         hasFetchedAll: true,
-      };
+      });
     } catch (err) {
       if (requestId === requestSequence) {
         error.value = getAppErrorMessage(err, "Failed to fetch locations.");
@@ -108,7 +131,7 @@ export const useLocationStore = defineStore("locations", () => {
 
     activateStore(storeId);
     const inventoryItemIdsKey = normalizedIds.join(",");
-    const cached = storeCache.value[storeId];
+    const cached = storeCache.get(storeId);
     if (
       !force &&
       cached?.hasFetchedAll &&
@@ -141,12 +164,12 @@ export const useLocationStore = defineStore("locations", () => {
       inventoryLevels.value = nextInventoryLevels;
       activeInventoryItemIdsKey.value = inventoryItemIdsKey;
       hasFetchedAll.value = true;
-      storeCache.value[storeId] = {
+      storeCache.set(storeId, {
         locations: [...nextLocations],
         inventoryLevels: [...nextInventoryLevels],
         inventoryItemIdsKey,
         hasFetchedAll: true,
-      };
+      });
     } catch (err) {
       if (requestId === requestSequence) {
         error.value = getAppErrorMessage(
@@ -161,32 +184,12 @@ export const useLocationStore = defineStore("locations", () => {
     }
   }
 
-  function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
-    requestSequence += 1;
-    const cached = storeCache.value[storeId];
-    if (!cached) return false;
-
-    locations.value = [...cached.locations];
-    inventoryLevels.value = [...cached.inventoryLevels];
-    activeInventoryItemIdsKey.value = cached.inventoryItemIdsKey;
-    hasFetchedAll.value = cached.hasFetchedAll;
-    error.value = null;
-    return true;
-  }
-
-  function activateStore(storeId: string) {
-    if (activeStoreId.value === storeId) return;
-    if (!hydrate(storeId)) $reset();
-  }
-
-  function evictStore(storeId: string) {
-    delete storeCache.value[storeId];
-    if (activeStoreId.value === storeId) $reset();
-  }
-
   function $reset() {
     requestSequence += 1;
+    resetState();
+  }
+
+  function resetState() {
     locations.value = [];
     inventoryLevels.value = [];
     activeInventoryItemIdsKey.value = "";

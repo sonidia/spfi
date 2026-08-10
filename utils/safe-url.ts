@@ -3,7 +3,9 @@ export function getSafeExternalUrl(value: unknown): string | null {
 
   try {
     const url = new URL(value.trim());
-    return url.protocol === "https:" || url.protocol === "http:"
+    return (url.protocol === "https:" || url.protocol === "http:") &&
+      !url.username &&
+      !url.password
       ? url.toString()
       : null;
   } catch {

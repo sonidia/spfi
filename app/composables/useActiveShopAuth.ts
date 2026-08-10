@@ -1,6 +1,7 @@
 import { computed } from "vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
+import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 
 export function useActiveShopAuth() {
   const formStore = useFormStore();
@@ -8,10 +9,7 @@ export function useActiveShopAuth() {
   const storeId = computed(() => formStore.storeId);
   const token = computed(() => {
     if (!storeId.value) return "";
-    const data = credentialVault.getStoreData(storeId.value);
-    if (!data.accessToken) return "";
-    if (data.expiresTime && Date.now() >= data.expiresTime) return "";
-    return data.accessToken;
+    return resolveStoreAccessToken(credentialVault.getStoreData(storeId.value));
   });
 
   return {

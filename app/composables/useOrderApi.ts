@@ -242,7 +242,7 @@ export function useOrderApi() {
 
   function getFulfillmentOrders(auth: OrderAuth, id: string | number) {
     return $fetch<{ fulfillment_orders?: ShopifyFulfillmentOrder[] }>(
-      `/api/order/${id}/fulfillment_orders`,
+      `/api/order/${id}/fulfillment-orders`,
       queryOptions(auth),
     );
   }

@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   ProductsResponse,
   ShopifyProduct,
@@ -8,6 +9,11 @@ import type {
 import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
 import { getAppErrorMessage } from "~~/utils/error";
 
+interface ProductStoreCache {
+  products: ShopifyProduct[];
+  hasFetchedAll: boolean;
+}
+
 export const useProductStore = defineStore("product", () => {
   const products = ref<ShopifyProduct[]>([]);
   const hasFetchedAll = ref(false);
@@ -15,9 +21,25 @@ export const useProductStore = defineStore("product", () => {
   const error = ref<string | null>(null);
   const activeStoreId = ref("");
   let storeScopeVersion = 0;
-  const storeCache = ref<
-    Record<string, { products: ShopifyProduct[]; hasFetchedAll: boolean }>
-  >({});
+  const storeCache = usePerStoreCache<ProductStoreCache>({
+    activeStoreId,
+    capture: () => ({
+      products: [...products.value],
+      hasFetchedAll: hasFetchedAll.value,
+    }),
+    restore: (cached) => {
+      products.value = [...cached.products];
+      hasFetchedAll.value = cached.hasFetchedAll;
+      error.value = null;
+    },
+    reset: resetState,
+    onStoreChange: () => {
+      storeScopeVersion += 1;
+    },
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
 
   async function fetchAll(storeId: string, token: string, limit = 50) {
     if (!storeId || !token) {
@@ -37,10 +59,10 @@ export const useProductStore = defineStore("product", () => {
       });
 
       const nextProducts = response.products || [];
-      storeCache.value[storeId] = {
+      storeCache.set(storeId, {
         products: [...nextProducts],
         hasFetchedAll: true,
-      };
+      });
       if (isActiveRequest(storeId, requestScope)) {
         products.value = nextProducts;
         hasFetchedAll.value = true;
@@ -52,10 +74,6 @@ export const useProductStore = defineStore("product", () => {
     } finally {
       if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
     }
-  }
-
-  function activateStore(storeId: string) {
-    if (activeStoreId.value !== storeId) hydrate(storeId);
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
@@ -130,31 +148,16 @@ export const useProductStore = defineStore("product", () => {
     }
   }
 
-  function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
-    storeScopeVersion += 1;
-    const cached = storeCache.value[storeId];
-    if (!cached) {
-      $reset();
-      return false;
-    }
-    products.value = [...cached.products];
-    hasFetchedAll.value = cached.hasFetchedAll;
-    error.value = null;
-    return true;
-  }
-
   function $reset() {
     storeScopeVersion += 1;
+    resetState();
+  }
+
+  function resetState() {
     products.value = [];
     hasFetchedAll.value = false;
     error.value = null;
     isLoading.value = false;
-  }
-
-  function evictStore(storeId: string) {
-    delete storeCache.value[storeId];
-    if (activeStoreId.value === storeId) $reset();
   }
 
   return {

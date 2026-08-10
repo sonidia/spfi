@@ -1,5 +1,5 @@
 import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { getCurrentScope, onScopeDispose, ref, watch } from "vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useCustomerStore } from "~/stores/customers";
 import { useFormStore } from "~/stores/form";
@@ -8,6 +8,7 @@ import type {
   ShopifyCustomerInput,
   ShopifyCustomerInviteInput,
 } from "~~/types/shopify-customer";
+import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 
 export function useCustomers() {
   const customerStore = useCustomerStore();
@@ -27,9 +28,10 @@ export function useCustomers() {
   } = storeToRefs(customerStore);
   const searchQuery = ref(activeQuery.value);
 
-  watch(activeQuery, (query) => {
+  const stopActiveQueryWatch = watch(activeQuery, (query) => {
     searchQuery.value = query;
   });
+  if (getCurrentScope()) onScopeDispose(stopActiveQueryWatch);
 
   function getCredentials() {
     const storeId = formStore.storeId;
@@ -37,7 +39,7 @@ export function useCustomers() {
 
     return {
       storeId,
-      token: String(storeData?.accessToken || ""),
+      token: resolveStoreAccessToken(storeData),
     };
   }
 

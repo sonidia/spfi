@@ -16,6 +16,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import { resolveStoreTab } from "~~/types/store";
 import { getAppErrorMessage } from "~~/utils/error";
+import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
 import { getSheetUrls } from "~~/utils/sheets";
 import { useLoading } from "../composables/useLoading";
@@ -38,6 +39,7 @@ const shopProfileStore = useShopProfileStore();
 const route = useRoute();
 const router = useRouter();
 const { hydrateStoreData, loadStoreTabData } = useStoreTabData();
+const { state: activeStoreStorage } = useLocalStorage("active_store_id", "");
 
 const { loading: globalLoading } = useLoading();
 const isLayoutActive = ref(true);
@@ -162,7 +164,7 @@ function syncShopFromRoute(shouldFetch = false) {
   if (!queryShop) {
     queryShop =
       formStore.storeId ||
-      useLocalStorage("active_store_id", "").state.value ||
+      activeStoreStorage.value ||
       "";
     if (!queryShop) return;
     router.replace({ query: { ...route.query, shop: queryShop } });
@@ -170,7 +172,7 @@ function syncShopFromRoute(shouldFetch = false) {
 
   const didChangeShop = formStore.storeId !== queryShop;
   formStore.storeId = queryShop;
-  useLocalStorage("active_store_id", "").state.value = queryShop;
+  activeStoreStorage.value = queryShop;
 
   if (didChangeShop) {
     hydrateStoreData(queryShop);
@@ -190,7 +192,7 @@ function onSelectStore(id: string) {
   }
 
   formStore.storeId = id;
-  useLocalStorage("active_store_id", "").state.value = id;
+  activeStoreStorage.value = id;
 
   // Sync URL query param
   router.replace({ query: { ...route.query, shop: id } });
@@ -202,12 +204,7 @@ function onSelectStore(id: string) {
 // ── Resolve valid token for current storeId ──────────────────────────────────
 function resolveToken(sid: string): string | null {
   if (!sid) return null;
-  const data = credentialVault.getStoreData(sid);
-  const now = Date.now();
-  if (data?.accessToken && data?.expiresTime && now < data.expiresTime) {
-    return data.accessToken;
-  }
-  return null;
+  return resolveStoreAccessToken(credentialVault.getStoreData(sid)) || null;
 }
 
 // ── Fetch for the current page ───────────────────────────────────────────────

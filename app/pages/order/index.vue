@@ -14,7 +14,7 @@
       <!-- ════════════════════════════════════════ SCREEN: LIST -->
       <div v-else>
         <div class="page-meta">
-          {{ orders.length }} order{{ orders.length !== 1 ? "s" : "" }}
+          {{ orders.length }} loaded order{{ orders.length !== 1 ? "s" : "" }}
         </div>
         <div class="card table-card">
           <table class="orders-table">
@@ -152,9 +152,10 @@
                             <span class="popover-lbl">Tracking:</span>
                             <span class="popover-val">
                               <a
-                                v-if="order.fulfillments[0].tracking_url"
-                                :href="order.fulfillments[0].tracking_url"
+                                v-if="getSafeExternalUrl(order.fulfillments[0].tracking_url)"
+                                :href="getSafeExternalUrl(order.fulfillments[0].tracking_url) || undefined"
                                 target="_blank"
+                                rel="noopener noreferrer"
                                 class="order-link"
                               >
                                 {{ order.fulfillments[0].tracking_number }}
@@ -210,11 +211,16 @@ import {
   nilVal,
   transactionBadge,
 } from "~~/utils/order";
+import { buildOrderTransactionStatusMap } from "~~/utils/payment-transactions";
+import { getSafeExternalUrl } from "~~/utils/safe-url";
 
 definePageMeta({ layout: false });
 
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
+const transactionStatusByOrderId = computed(() =>
+  buildOrderTransactionStatusMap(paymentStore.balanceTransactions),
+);
 
 const orders = computed(() => orderStore.orders);
 const totalPages = computed(() =>
@@ -233,11 +239,9 @@ watch(totalPages, (pageCount) => {
 });
 
 function getTransactionStatus(orderId: number | string | null | undefined) {
-  if (!orderId) return null;
-  const tx = paymentStore.balanceTransactions.find(
-    (transaction) => String(transaction.source_order_id) === String(orderId),
-  );
-  return tx?.payout_status || null;
+  return orderId
+    ? transactionStatusByOrderId.value.get(String(orderId)) || null
+    : null;
 }
 
 </script>

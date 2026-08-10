@@ -145,6 +145,7 @@ test("address formatting returns text lines instead of HTML", () => {
 
 test("external links only accept HTTP and HTTPS URLs", () => {
   assert.equal(getSafeExternalUrl("javascript:alert(1)"), null);
+  assert.equal(getSafeExternalUrl("https://user:secret@example.com"), null);
   assert.equal(getSafeExternalUrl("data:text/html,payload"), null);
   assert.equal(
     getSafeExternalUrl("https://example.com/track?id=1"),

@@ -11,6 +11,7 @@ import type {
   StoreCheckResult,
   StoreLifecycleStatus,
 } from "~~/types/store-status";
+import { getSafeExternalUrl } from "~~/utils/safe-url";
 
 definePageMeta({ layout: false });
 
@@ -592,7 +593,7 @@ function getPlatformLabel(platform: CheckPlatform) {
 
 function getBatchRowHref(row: BatchCheckRow) {
   if (row.result?.normalizedUrl) {
-    return row.result.normalizedUrl;
+    return getSafeExternalUrl(row.result.normalizedUrl) || "";
   }
 
   const target = row.target.trim().replace(/^@/, "");
@@ -602,12 +603,12 @@ function getBatchRowHref(row: BatchCheckRow) {
   }
 
   if (/^https?:\/\//i.test(target)) {
-    return target;
+    return getSafeExternalUrl(target) || "";
   }
 
   const host = target.includes(".") ? target : `${target}.myshopify.com`;
 
-  return `https://${host}`;
+  return getSafeExternalUrl(`https://${host}`) || "";
 }
 
 function formatDate(value: string) {

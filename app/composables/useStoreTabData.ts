@@ -8,6 +8,7 @@ import { usePaymentStore } from "~/stores/payment";
 import { useProductStore } from "~/stores/product";
 import { useShopProfileStore } from "~/stores/shopProfile";
 import type { StoreTab } from "~~/types/store";
+import { getStoreTokenState, resolveStoreAccessToken } from "~~/utils/shop-auth";
 import {
   forgetStoreResource,
   getStoreResourceLoadedAt,
@@ -71,23 +72,12 @@ export function useStoreTabData() {
   }
 
   function hydrateStoreData(storeId: string) {
-    const hasOrders = orderStore.hydrate(storeId);
-    if (!hasOrders) orderStore.$reset();
-
-    const hasPayments = paymentStore.hydrate(storeId);
-    if (!hasPayments) paymentStore.$reset();
-
-    const hasProducts = productStore.hydrate(storeId);
-    if (!hasProducts) productStore.$reset();
-
-    const hasLocations = locationStore.hydrate(storeId);
-    if (!hasLocations) locationStore.$reset();
-
-    const hasCustomers = customerStore.hydrate(storeId);
-    if (!hasCustomers) customerStore.$reset();
-
-    const hasProfile = profileStore.hydrate(storeId);
-    if (!hasProfile) profileStore.$reset();
+    orderStore.hydrate(storeId);
+    paymentStore.hydrate(storeId);
+    productStore.hydrate(storeId);
+    locationStore.hydrate(storeId);
+    customerStore.hydrate(storeId);
+    profileStore.hydrate(storeId);
   }
 
   function ensureStoreScope(storeId: string) {
@@ -104,13 +94,14 @@ export function useStoreTabData() {
 
   function getToken(storeId: string) {
     const data = credentialVault.getStoreData(storeId);
-    if (!data.accessToken) {
+    const state = getStoreTokenState(data);
+    if (state === "missing") {
       return { token: "", error: MISSING_TOKEN_MESSAGE };
     }
-    if (data.expiresTime && Date.now() >= data.expiresTime) {
+    if (state === "expired") {
       return { token: "", error: EXPIRED_TOKEN_MESSAGE };
     }
-    return { token: data.accessToken, error: "" };
+    return { token: resolveStoreAccessToken(data), error: "" };
   }
 
   function setTabError(tab: StoreTab, message: string | null) {
