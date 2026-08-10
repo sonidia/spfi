@@ -214,7 +214,7 @@ const quickLinks = computed(() => [
     icon: "IconsBulking",
   },
   {
-    to: "/sheet",
+    to: "/settings#sheets",
     title: t("home.quickSheetTitle"),
     description: t("home.quickSheetDescription"),
     icon: "IconsCopy",

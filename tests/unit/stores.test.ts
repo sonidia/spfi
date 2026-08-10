@@ -1,7 +1,12 @@
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useDashboardStore } from "~/stores/dashboard";
+import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
+import { KNOWN_STORES_STORAGE_KEY } from "~~/utils/known-stores";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("credential vault store", () => {
   beforeEach(() => {
@@ -51,5 +56,35 @@ describe("order store", () => {
     expect(store.orders).toEqual([{ id: 1, name: "#1" }]);
     expect(store.pageSize).toBe(50);
     expect(store.currentPage).toBe(3);
+  });
+});
+
+describe("dashboard store", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+  });
+
+  it("reuses a live all-store snapshot until an explicit refresh", async () => {
+    localStorage.setItem(KNOWN_STORES_STORAGE_KEY, JSON.stringify(["shop-a"]));
+    const form = useFormStore();
+    const vault = useCredentialVaultStore();
+    await vault.saveStoreData("shop-a", {
+      domain: "shop-a.myshopify.com",
+      accessToken: "token",
+    });
+    const request = vi.fn().mockResolvedValue({ storeId: "shop-a" });
+    vi.stubGlobal("$fetch", request);
+
+    const dashboard = useDashboardStore();
+    await dashboard.load();
+    await dashboard.load();
+
+    expect(form.knownStores).toEqual(["shop-a"]);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(dashboard.hasLoaded).toBe(true);
+
+    await dashboard.load(true);
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });

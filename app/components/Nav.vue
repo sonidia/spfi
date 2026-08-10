@@ -40,12 +40,12 @@ onBeforeUnmount(() => {
         <span class="topbar-title">Spfi</span>
       </NuxtLink>
       <div class="nav-list">
-        <NuxtLink to="/dashboard">{{ t("nav.dashboard") }}</NuxtLink>
         <NuxtLink to="/setup">{{ t("nav.setup") }}</NuxtLink>
         <NuxtLink to="/manager">{{ t("nav.manager") }}</NuxtLink>
+        <NuxtLink to="/dashboard">{{ t("nav.dashboard") }}</NuxtLink>
         <NuxtLink :to="withActiveShop('/store')">{{ t("nav.store") }}</NuxtLink>
-        <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
         <NuxtLink to="/status">{{ t("nav.status") }}</NuxtLink>
+        <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
         <NuxtLink to="/settings">{{ t("nav.settings") }}</NuxtLink>
       </div>
       <div class="topbar-controls">
@@ -115,7 +115,6 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 700;
   padding: 6px 12px;
-  border-radius: 6px;
   transition:
     background 0.16s ease,
     box-shadow 0.16s ease,
@@ -140,24 +139,16 @@ onBeforeUnmount(() => {
     transform 0.16s ease;
 }
 
-.nav-list a:hover {
+.nav-list a:hover,
+.nav-list a.router-link-active {
   color: var(--green);
   transform: translateY(-1px);
 }
 
-.nav-list a:hover::after {
+.nav-list a:hover::after,
+.nav-list a.router-link-active::after {
   opacity: 1;
   transform: scaleX(1);
-}
-
-.nav-list a.router-link-active {
-  background: var(--green-soft);
-  color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
-}
-
-.nav-list a.router-link-active:hover::after {
-  opacity: 0;
 }
 
 .nav-list a:focus-visible {

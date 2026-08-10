@@ -2,7 +2,7 @@
 withDefaults(
   defineProps<{
     label: string;
-    value: string;
+    value?: string;
     detail: string;
     tone?: "green" | "blue" | "amber" | "violet" | "red";
     delay?: number;
@@ -10,6 +10,7 @@ withDefaults(
   }>(),
   {
     tone: "green",
+    value: "",
     delay: 0,
     loading: false,
   },
@@ -24,11 +25,12 @@ withDefaults(
   >
     <div class="metric-topline">
       <span class="metric-icon" aria-hidden="true"><slot /></span>
-      <span class="metric-spark"><i /><i /><i /><i /></span>
+      <p class="metric-label">{{ label }}</p>
     </div>
-    <p class="metric-label">{{ label }}</p>
     <div v-if="loading" class="metric-skeleton" aria-label="Loading metric" />
-    <p v-else class="metric-value">{{ value }}</p>
+    <p v-else class="metric-value">
+      <slot name="value">{{ value }}</slot>
+    </p>
     <p class="metric-detail">{{ detail }}</p>
   </article>
 </template>
@@ -38,8 +40,8 @@ withDefaults(
   --metric-accent: var(--green);
   --metric-soft: var(--green-soft);
   position: relative;
-  min-height: 156px;
-  padding: 17px;
+  min-height: 100px;
+  padding: 12px 13px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -89,60 +91,26 @@ withDefaults(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .metric-icon {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 9px;
   background: var(--metric-soft);
   color: var(--metric-accent);
 }
 
 .metric-icon :deep(svg) {
-  width: 18px;
-  height: 18px;
-}
-
-.metric-spark {
-  display: flex;
-  height: 26px;
-  align-items: flex-end;
-  gap: 3px;
-}
-
-.metric-spark i {
-  width: 3px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--metric-accent) 52%, transparent);
-  animation: spark-rise 1.8s ease-in-out infinite alternate;
-}
-
-.metric-spark i:nth-child(1) {
-  height: 31%;
-}
-
-.metric-spark i:nth-child(2) {
-  height: 62%;
-  animation-delay: 0.18s;
-}
-
-.metric-spark i:nth-child(3) {
-  height: 47%;
-  animation-delay: 0.34s;
-}
-
-.metric-spark i:nth-child(4) {
-  height: 84%;
-  animation-delay: 0.5s;
+  width: 15px;
+  height: 15px;
 }
 
 .metric-label {
-  margin-bottom: 3px;
-  color: var(--text-sub);
+  color: color-mix(in srgb, var(--metric-accent) 76%, var(--text-sub));
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -152,19 +120,21 @@ withDefaults(
 .metric-value {
   max-width: 100%;
   overflow: hidden;
-  color: var(--text);
-  font-size: clamp(20px, 2.2vw, 28px);
+  color: var(--metric-accent);
+  font-size: clamp(18px, 1.8vw, 23px);
   font-weight: 750;
   letter-spacing: -0.04em;
   line-height: 1.12;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
 }
 
 .metric-detail {
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 12px;
+  margin-top: 4px;
+  color: color-mix(in srgb, var(--metric-accent) 76%, var(--muted));
+  font-size: 10px;
+  text-align: center;
 }
 
 .metric-skeleton {
@@ -208,7 +178,6 @@ withDefaults(
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-metric,
-  .metric-spark i,
   .metric-skeleton {
     animation: none;
   }

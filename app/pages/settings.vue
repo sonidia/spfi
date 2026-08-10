@@ -263,17 +263,6 @@ async function clearSettings() {
         </div>
       </section>
 
-      <aside class="settings-card security-card">
-        <div class="security-icon"><ShieldCheck /></div>
-        <h2>{{ t("settings.securityTitle") }}</h2>
-        <p>{{ t("settings.securityDescription") }}</p>
-        <ul>
-          <li>{{ t("settings.localOnly") }}</li>
-          <li>{{ t("settings.encrypted") }}</li>
-          <li>{{ t("settings.noEnv") }}</li>
-        </ul>
-      </aside>
-
       <section class="settings-card retention-card">
         <div class="card-heading retention-heading">
           <div class="card-icon"><Database /></div>
@@ -365,6 +354,7 @@ async function clearSettings() {
   box-shadow: var(--shadow-soft);
 }
 
+.settings-card,
 .retention-card {
   grid-column: 1 / -1;
   overflow: hidden;
@@ -496,8 +486,7 @@ async function clearSettings() {
   border-bottom: 1px solid var(--border);
 }
 
-.card-icon,
-.security-icon {
+.card-icon {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
@@ -516,16 +505,14 @@ async function clearSettings() {
   height: 18px;
 }
 
-.card-heading h2,
-.security-card h2 {
+.card-heading h2 {
   margin: 0;
   color: var(--text);
   font-size: 16px;
   line-height: 1.35;
 }
 
-.card-heading p,
-.security-card p {
+.card-heading p {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 12px;
@@ -634,48 +621,6 @@ async function clearSettings() {
   justify-content: flex-end;
   gap: 8px;
   padding-top: 2px;
-}
-
-.security-card {
-  padding: 20px;
-}
-
-.security-icon {
-  width: 44px;
-  height: 44px;
-  margin-bottom: 14px;
-}
-
-.security-icon :deep(svg) {
-  width: 23px;
-  height: 23px;
-}
-
-.security-card ul {
-  display: grid;
-  gap: 9px;
-  margin: 18px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.security-card li {
-  position: relative;
-  padding-left: 17px;
-  color: var(--text-sub);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.security-card li::before {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 1px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--green);
 }
 
 @media (max-width: 760px) {

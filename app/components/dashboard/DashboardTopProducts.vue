@@ -3,11 +3,31 @@ import type { DashboardAggregate } from "~~/types/dashboard";
 
 const props = defineProps<{
   products: DashboardAggregate["topProducts"];
+  metric: "units" | "orders" | "revenue";
 }>();
 
-const maximumUnits = computed(() =>
-  Math.max(1, ...props.products.map((product) => product.units)),
+const maximumValue = computed(() =>
+  Math.max(1, ...props.products.map((product) => rankingValue(product))),
 );
+
+function rankingValue(product: DashboardAggregate["topProducts"][number]) {
+  if (props.metric === "orders") return product.orders;
+  if (props.metric === "revenue") return product.revenue[0]?.amount || 0;
+  return product.units;
+}
+
+function primaryLabel(product: DashboardAggregate["topProducts"][number]) {
+  if (props.metric === "orders") return `${product.orders} orders`;
+  if (props.metric === "revenue") return moneyLabel(product) || "No revenue";
+  return `${product.units} units`;
+}
+
+function secondaryLabel(product: DashboardAggregate["topProducts"][number]) {
+  if (props.metric === "orders") return `${product.units} units`;
+  if (props.metric === "revenue")
+    return `${product.units} units · ${product.orders} orders`;
+  return moneyLabel(product);
+}
 
 function moneyLabel(product: DashboardAggregate["topProducts"][number]) {
   return product.revenue
@@ -40,13 +60,15 @@ function moneyLabel(product: DashboardAggregate["topProducts"][number]) {
             <span>{{ product.storeName }}</span>
           </div>
           <div class="rank-values">
-            <strong>{{ product.units }} units</strong>
-            <span>{{ moneyLabel(product) }}</span>
+            <strong>{{ primaryLabel(product) }}</strong>
+            <span>{{ secondaryLabel(product) }}</span>
           </div>
         </div>
         <div class="rank-track" aria-hidden="true">
           <i
-            :style="{ width: `${Math.max(5, (product.units / maximumUnits) * 100)}%` }"
+            :style="{
+              width: `${Math.max(5, (rankingValue(product) / maximumValue) * 100)}%`,
+            }"
           />
         </div>
       </div>

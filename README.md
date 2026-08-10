@@ -26,14 +26,13 @@
 
 ## 🧭 Core Workflows
 
-| Route       | Workflow        | What it does                                                                                                     |
-| ----------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `/setup`    | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                          |
-| `/manager`  | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                       |
-| `/payment`  | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
-| `/sheet`    | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
-| `/status`   | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
-| `/settings` | Settings        | Stores Tracktaco credentials locally and controls the in-memory Pinia data lifetime.                             |
+| Route       | Workflow        | What it does                                                                                                |
+| ----------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `/setup`    | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                     |
+| `/manager`  | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                  |
+| `/payment`  | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs. |
+| `/status`   | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.             |
+| `/settings` | Settings        | Manages Tracktaco credentials, Pinia cache retention, and Google Sheets tabs and row previews.              |
 
 ## 🧰 Tech Stack
 
@@ -142,7 +141,11 @@ response aggregates the current calendar month's orders, daily revenue, top
 products, pending fulfillments, customer and product totals, Shopify Payments,
 and staff access. Totals remain separated by currency, date boundaries follow
 the viewer's timezone, and restricted resources degrade independently instead
-of hiding the rest of a store's dashboard.
+of hiding the rest of a store's dashboard. Dashboard snapshots live in Pinia and
+respect the configurable data-retention lifetime, so keep-alive navigation does
+not repeat network requests. The page also supports store/currency filters,
+debounced search, interactive ranking controls, and CSV, TSV, JSON, or printable
+HTML exports of the current filtered view.
 
 The optional local per-IP limits are disabled by default so they don't reduce
 Shopify throughput. A deployment that exposes the server publicly can enable

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { StoreDashboardSnapshot } from "../types/dashboard.ts";
-import { aggregateDashboardSnapshots } from "../utils/dashboard-aggregate.ts";
+import {
+  aggregateDashboardSnapshots,
+  filterDashboardAggregateCurrency,
+} from "../utils/dashboard-aggregate.ts";
 
 test("all-store aggregation sums matching currencies without mixing them", () => {
   const result = aggregateDashboardSnapshots([
@@ -22,6 +25,21 @@ test("all-store aggregation sums matching currencies without mixing them", () =>
     { currency: "THB", amount: 100 },
     { currency: "USD", amount: 50 },
   ]);
+});
+
+test("currency filtering keeps operational totals while narrowing every money series", () => {
+  const aggregate = aggregateDashboardSnapshots([
+    snapshot("alpha", "THB", 1200),
+    snapshot("beta", "USD", 45),
+  ]);
+  const result = filterDashboardAggregateCurrency(aggregate, "USD");
+
+  assert.deepEqual(result.revenue.month, [{ currency: "USD", amount: 45 }]);
+  assert.deepEqual(result.revenue.daily[0]?.values, [{ currency: "USD", amount: 45 }]);
+  assert.deepEqual(result.topProducts[0]?.revenue, []);
+  assert.deepEqual(result.topProducts[1]?.revenue, [{ currency: "USD", amount: 45 }]);
+  assert.equal(result.customerCount, 20);
+  assert.equal(result.pendingFulfillmentCount, 4);
 });
 
 function snapshot(

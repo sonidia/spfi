@@ -16,12 +16,14 @@ const props = withDefaults(
     modelValue?: SelectValue;
     options?: Option[];
     placeholder?: string;
+    ariaLabel?: string;
     disabled?: boolean;
     className?: string;
   }>(),
   {
     options: () => [],
     placeholder: "Select an option",
+    ariaLabel: undefined,
     disabled: false,
     className: "",
   },
@@ -161,9 +163,13 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
           : undefined
       "
       aria-haspopup="listbox"
+      :aria-label="ariaLabel"
       :disabled="disabled"
       @click="toggle"
     >
+      <span v-if="$slots.icon" class="trigger-icon" aria-hidden="true">
+        <slot name="icon" />
+      </span>
       <span class="trigger-copy">
         <span v-if="selectedOption" class="selected-label">{{ selectedOption.label }}</span>
         <span v-else class="placeholder">{{ placeholder }}</span>
@@ -213,7 +219,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 }
 
 .select-trigger {
-  width: 100%;
+  width: fit-content;
   min-height: 38px;
   display: flex;
   align-items: center;
@@ -252,6 +258,19 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
   min-width: 0;
   display: grid;
   gap: 1px;
+}
+
+.trigger-icon,
+.trigger-icon :deep(svg) {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+}
+
+.trigger-icon {
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-sub);
 }
 
 .selected-label,

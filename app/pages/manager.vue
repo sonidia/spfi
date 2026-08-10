@@ -12,7 +12,7 @@ import { getSheetUrls } from "~~/utils/sheets";
 
 const { SPF_SHEET_URL } = getSheetUrls();
 
-definePageMeta({ layout: false });
+definePageMeta({ layout: 'default' });
 
 const formStore = useFormStore();
 const { t } = useLocalization();

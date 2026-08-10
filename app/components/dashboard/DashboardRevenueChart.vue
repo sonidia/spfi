@@ -299,8 +299,8 @@ onBeforeUnmount(() => {
 
 .chart-legend {
   position: absolute;
-  top: -34px;
-  right: 0;
+  top: 0;
+  right: 10px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;

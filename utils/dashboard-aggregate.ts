@@ -168,6 +168,86 @@ export function aggregateDashboardSnapshots(
   };
 }
 
+export function filterDashboardAggregateCurrency(
+  dashboard: DashboardAggregate,
+  currency: string,
+): DashboardAggregate {
+  if (!currency || currency === "all") return dashboard;
+  const filterMoney = (rows: DashboardMoney[]) =>
+    rows.filter((row) => row.currency === currency);
+
+  return {
+    ...dashboard,
+    stores: dashboard.stores.map((store) => ({
+      ...store,
+      revenue: {
+        ...store.revenue,
+        today: filterMoney(store.revenue.today),
+        week: filterMoney(store.revenue.week),
+        month: filterMoney(store.revenue.month),
+        daily: store.revenue.daily.map((point) => ({
+          ...point,
+          values: filterMoney(point.values),
+        })),
+      },
+      topProducts: store.topProducts.map((product) => ({
+        ...product,
+        revenue: filterMoney(product.revenue),
+      })),
+      payments: {
+        ...store.payments,
+        balance: filterMoney(store.payments.balance),
+        payouts: {
+          ...store.payments.payouts,
+          total: filterMoney(store.payments.payouts.total),
+          pending: filterMoney(store.payments.payouts.pending),
+        },
+        transactions: {
+          ...store.payments.transactions,
+          gross: filterMoney(store.payments.transactions.gross),
+          fees: filterMoney(store.payments.transactions.fees),
+          net: filterMoney(store.payments.transactions.net),
+          recent: store.payments.transactions.recent.filter(
+            (transaction) => transaction.currency === currency,
+          ),
+        },
+      },
+    })),
+    revenue: {
+      ...dashboard.revenue,
+      today: filterMoney(dashboard.revenue.today),
+      week: filterMoney(dashboard.revenue.week),
+      month: filterMoney(dashboard.revenue.month),
+      daily: dashboard.revenue.daily.map((point) => ({
+        ...point,
+        values: filterMoney(point.values),
+      })),
+    },
+    topProducts: dashboard.topProducts.map((product) => ({
+      ...product,
+      revenue: filterMoney(product.revenue),
+    })),
+    recentTransactions: dashboard.recentTransactions.filter(
+      (transaction) => transaction.currency === currency,
+    ),
+    payments: {
+      ...dashboard.payments,
+      balance: filterMoney(dashboard.payments.balance),
+      payouts: {
+        ...dashboard.payments.payouts,
+        total: filterMoney(dashboard.payments.payouts.total),
+        pending: filterMoney(dashboard.payments.payouts.pending),
+      },
+      transactions: {
+        ...dashboard.payments.transactions,
+        gross: filterMoney(dashboard.payments.transactions.gross),
+        fees: filterMoney(dashboard.payments.transactions.fees),
+        net: filterMoney(dashboard.payments.transactions.net),
+      },
+    },
+  };
+}
+
 function addMoneyRows(target: Map<string, number>, rows: DashboardMoney[]) {
   for (const row of rows) {
     target.set(row.currency, (target.get(row.currency) || 0) + row.amount);
