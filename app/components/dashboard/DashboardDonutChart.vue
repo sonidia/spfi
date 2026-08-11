@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const props = defineProps<{
   segments: Array<{ label: string; value: number }>;
+  centerLabel: string;
+  ariaLabel: string;
 }>();
 
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -52,11 +54,11 @@ function draw(progress: number) {
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillStyle = text;
-  context.font = '700 27px "DM Sans", sans-serif';
+  context.font = "700 27px Inter, system-ui, sans-serif";
   context.fillText(String(total.value), center, center - 7);
   context.fillStyle = muted;
-  context.font = '600 10px "DM Sans", sans-serif';
-  context.fillText("MONTH ORDERS", center, center + 17);
+  context.font = "600 10px Inter, system-ui, sans-serif";
+  context.fillText(props.centerLabel, center, center + 17);
 }
 
 function animate() {
@@ -85,11 +87,7 @@ onBeforeUnmount(() => cancelAnimationFrame(animationFrame));
 
 <template>
   <div class="donut-layout">
-    <canvas
-      ref="canvas"
-      role="img"
-      :aria-label="`Order fulfillment chart, ${total} orders`"
-    />
+    <canvas ref="canvas" role="img" :aria-label="ariaLabel" />
     <div class="donut-legend">
       <div v-for="(segment, index) in segments" :key="segment.label">
         <i :style="{ background: colors[index] }" />

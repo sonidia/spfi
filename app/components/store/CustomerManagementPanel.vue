@@ -629,7 +629,7 @@ footer {
 .form-grid label > span {
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .form-grid input,
 .form-grid textarea {

@@ -22,8 +22,8 @@ const { t } = useLocalization();
 <style scoped>
 .theme-toggle {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border);

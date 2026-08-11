@@ -1,7 +1,4 @@
-import type { Ref } from "vue";
-
 interface PerStoreCacheOptions<T> {
-  activeStoreId: Ref<string>;
   capture: () => T;
   restore: (snapshot: T) => void;
   reset: () => void;
@@ -10,7 +7,6 @@ interface PerStoreCacheOptions<T> {
 }
 
 export function usePerStoreCache<T>({
-  activeStoreId,
   capture,
   restore,
   reset,
@@ -18,6 +14,7 @@ export function usePerStoreCache<T>({
   canRemember,
 }: PerStoreCacheOptions<T>) {
   const entries = new Map<string, T>();
+  let activeStoreId = "";
 
   function get(storeId: string) {
     return entries.get(storeId);
@@ -27,13 +24,13 @@ export function usePerStoreCache<T>({
     if (storeId) entries.set(storeId, snapshot);
   }
 
-  function remember(storeId = activeStoreId.value) {
+  function remember(storeId = activeStoreId) {
     if (!storeId || (canRemember && !canRemember(storeId))) return;
     set(storeId, capture());
   }
 
   function hydrate(storeId: string): boolean {
-    activeStoreId.value = storeId;
+    activeStoreId = storeId;
     onStoreChange?.();
 
     const snapshot = get(storeId);
@@ -47,15 +44,19 @@ export function usePerStoreCache<T>({
   }
 
   function activate(storeId: string): boolean {
-    return activeStoreId.value === storeId ? true : hydrate(storeId);
+    return activeStoreId === storeId ? true : hydrate(storeId);
   }
 
   function evict(storeId: string) {
     entries.delete(storeId);
-    if (activeStoreId.value === storeId) {
+    if (activeStoreId === storeId) {
       onStoreChange?.();
       reset();
     }
+  }
+
+  function isActive(storeId: string) {
+    return Boolean(storeId) && activeStoreId === storeId;
   }
 
   return {
@@ -63,6 +64,7 @@ export function usePerStoreCache<T>({
     evict,
     get,
     hydrate,
+    isActive,
     remember,
     set,
   };

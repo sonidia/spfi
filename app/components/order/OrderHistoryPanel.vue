@@ -175,7 +175,7 @@ header { padding: 14px 16px; }
 .heading h2 { color: var(--text); font-size: 15px; }
 .heading p { margin-top: 2px; color: var(--text-sub); font-size: 11px; }
 .tabs { display: flex; gap: 4px; padding: 0 16px 10px; border-bottom: 1px solid var(--border); }
-.tabs button { border: 0; border-radius: 6px; padding: 7px 10px; background: transparent; color: var(--text-sub); cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }
+.tabs button { border: 0; border-radius: 6px; padding: 7px 10px; background: transparent; color: var(--text-sub); cursor: pointer; font: inherit; font-size: 11px; font-weight: 600; }
 .tabs button.active { background: var(--green-soft); color: var(--green); }
 .history-list { display: grid; }
 .history-list article { padding: 11px 16px; border-bottom: 1px solid var(--border); }

@@ -4,7 +4,6 @@ import {
   requireShopifyCredentials,
   requireShopifyPayload,
   requireShopifyResourceId,
-  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
 import type {
   ProductImagesResponse,
@@ -18,24 +17,15 @@ interface ProductImageUpdateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
-  const imageId = requireShopifyResourceId(
-    event.context.params?.iid,
-    "Image",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
+  const imageId = requireShopifyResourceId(event.context.params?.iid, "Image");
   const body = (await readBody<ProductImageUpdateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const image = requireShopifyPayload<ShopifyProductImageInput>(
-    body.image,
-    "Image",
-  );
+  const image = requireShopifyPayload<ShopifyProductImageInput>(body.image, "Image");
   const requestBody = {
     image: {
       ...image,
-      id: requireShopifySafeResourceNumber(imageId, "Image"),
+      id: imageId,
     },
   };
 

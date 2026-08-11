@@ -24,6 +24,47 @@
           </div>
         </div>
 
+        <div
+          v-if="selectedProductCount"
+          class="bulk-toolbar"
+          role="region"
+          :aria-label="t('product.bulkActions')"
+        >
+          <strong>
+            {{ t("product.bulkSelected", { count: selectedProductCount }) }}
+          </strong>
+          <div class="bulk-toolbar-actions">
+            <button
+              class="btn-ghost-sm"
+              type="button"
+              :disabled="isBulkUpdating"
+              @click="runBulkPublication(true)"
+            >
+              {{
+                isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkPublish")
+              }}
+            </button>
+            <button
+              class="btn-ghost-sm"
+              type="button"
+              :disabled="isBulkUpdating"
+              @click="runBulkPublication(false)"
+            >
+              {{
+                isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkUnpublish")
+              }}
+            </button>
+            <button
+              class="btn-ghost-sm"
+              type="button"
+              :disabled="isBulkUpdating"
+              @click="clearBulkSelection"
+            >
+              {{ t("common.clear") }}
+            </button>
+          </div>
+        </div>
+
         <div class="product-workspace">
           <div
             ref="productList"
@@ -33,6 +74,15 @@
             <table class="products-table">
               <thead>
                 <tr>
+                  <th class="selection-column">
+                    <input
+                      ref="selectAllCheckbox"
+                      type="checkbox"
+                      :checked="allProductsSelected"
+                      :aria-label="t('product.selectAll')"
+                      @change="toggleAllProducts"
+                    />
+                  </th>
                   <th>{{ t("product.columnProduct") }}</th>
                   <th>{{ t("product.columnStatus") }}</th>
                   <th>{{ t("product.columnVariants") }}</th>
@@ -42,15 +92,30 @@
               </thead>
               <tbody>
                 <tr v-if="productPaddingTop" class="virtual-spacer" aria-hidden="true">
-                  <td :style="{ height: `${productPaddingTop}px` }" colspan="5" />
+                  <td :style="{ height: `${productPaddingTop}px` }" colspan="6" />
                 </tr>
                 <tr
                   v-for="{ item: prod, index } in visibleProducts"
                   :key="prod.id || index"
                   class="product-row"
-                  :class="{ selected: selectedProduct?.id === prod.id }"
+                  :class="{
+                    selected: selectedProduct?.id === prod.id,
+                    'is-bulk-selected': isProductBulkSelected(prod),
+                  }"
                   @click="selectProduct(prod)"
                 >
+                  <td class="selection-column" @click.stop>
+                    <input
+                      type="checkbox"
+                      :checked="isProductBulkSelected(prod)"
+                      :aria-label="
+                        t('product.selectProduct', {
+                          title: prod.title || String(prod.id),
+                        })
+                      "
+                      @change="toggleProductSelection(prod)"
+                    />
+                  </td>
                   <td>
                     <div class="product-info-cell">
                       <img
@@ -178,7 +243,7 @@
                   class="virtual-spacer"
                   aria-hidden="true"
                 >
-                  <td :style="{ height: `${productPaddingBottom}px` }" colspan="5" />
+                  <td :style="{ height: `${productPaddingBottom}px` }" colspan="6" />
                 </tr>
               </tbody>
             </table>
@@ -219,7 +284,7 @@
           <div class="field">
             <label class="field-label"
               >{{ t("product.fieldTitle") }}
-              <span aria-hidden="true" style="color: red">*</span>
+              <span class="required-marker" aria-hidden="true">*</span>
               <span class="sr-only">{{ t("a11y.required") }}</span></label
             >
             <input
@@ -324,7 +389,8 @@
         <div class="modal-body">
           <div class="field">
             <label class="field-label"
-              >{{ t("product.fieldTitle") }} <span style="color: red">*</span></label
+              >{{ t("product.fieldTitle") }}
+              <span class="required-marker" aria-hidden="true">*</span></label
             >
             <input v-model="editProduct.title" type="text" class="inp" />
           </div>
@@ -386,7 +452,7 @@
 
 <script setup lang="ts">
 import { Plus } from "@lucide/vue";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useFormStore } from "~/stores/form";
@@ -418,6 +484,15 @@ const {
   defaultViewportHeight: 600,
 });
 const selectedProductId = ref<ShopifyNumericId | null>(null);
+const selectedProductIds = ref<Set<string>>(new Set());
+const selectAllCheckbox = ref<HTMLInputElement | null>(null);
+const isBulkUpdating = ref(false);
+const selectedProductCount = computed(() => selectedProductIds.value.size);
+const allProductsSelected = computed(
+  () =>
+    products.value.length > 0 &&
+    products.value.every((product) => selectedProductIds.value.has(String(product.id))),
+);
 const selectedProduct = computed(() => {
   return (
     products.value.find((product) => product.id === selectedProductId.value) || null
@@ -459,6 +534,90 @@ const editProduct = ref({
 function selectProduct(prod: ShopifyProduct) {
   selectedProductId.value = prod.id;
 }
+
+function isProductBulkSelected(prod: ShopifyProduct) {
+  return selectedProductIds.value.has(String(prod.id));
+}
+
+function toggleProductSelection(prod: ShopifyProduct) {
+  const next = new Set(selectedProductIds.value);
+  const id = String(prod.id);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  selectedProductIds.value = next;
+}
+
+function toggleAllProducts() {
+  selectedProductIds.value = allProductsSelected.value
+    ? new Set()
+    : new Set(products.value.map((product) => String(product.id)));
+}
+
+function clearBulkSelection() {
+  selectedProductIds.value = new Set();
+}
+
+async function runBulkPublication(publish: boolean) {
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  if (!sid || !token) {
+    feedback.error(t("product.credentialsMissing"));
+    return;
+  }
+
+  const selected = products.value
+    .filter((product) => selectedProductIds.value.has(String(product.id)))
+    .map((product) => product.id);
+  if (!selected.length) return;
+
+  isBulkUpdating.value = true;
+  try {
+    const result = await productStore.setProductsPublished(
+      sid,
+      token,
+      selected,
+      publish,
+    );
+    selectedProductIds.value = new Set(result.failedIds.map(String));
+
+    if (result.failedIds.length) {
+      feedback.error(
+        t("product.bulkPublicationPartial", {
+          succeeded: result.succeeded,
+          failed: result.failedIds.length,
+        }),
+      );
+    } else {
+      feedback.success(
+        t(publish ? "product.bulkPublishSuccess" : "product.bulkUnpublishSuccess", {
+          count: result.succeeded,
+        }),
+      );
+    }
+  } finally {
+    isBulkUpdating.value = false;
+  }
+}
+
+watch(
+  [selectedProductCount, allProductsSelected],
+  () => {
+    void nextTick(() => {
+      if (selectAllCheckbox.value) {
+        selectAllCheckbox.value.indeterminate =
+          selectedProductCount.value > 0 && !allProductsSelected.value;
+      }
+    });
+  },
+  { immediate: true },
+);
+
+watch(products, (nextProducts) => {
+  const validIds = new Set(nextProducts.map((product) => String(product.id)));
+  selectedProductIds.value = new Set(
+    [...selectedProductIds.value].filter((id) => validIds.has(id)),
+  );
+});
 
 function isProductPublished(prod: ShopifyProduct) {
   return prod.status === "active" && Boolean(prod.published_at);
@@ -610,6 +769,9 @@ async function removeProduct(prodId: ShopifyNumericId) {
 
   const success = await productStore.deleteProduct(sid, token, prodId);
   if (success) {
+    const nextSelection = new Set(selectedProductIds.value);
+    nextSelection.delete(String(prodId));
+    selectedProductIds.value = nextSelection;
     feedback.success(t("product.deleted"));
   } else {
     feedback.error(productStore.error, t("product.deleteFailed"));
@@ -634,6 +796,31 @@ async function refreshProducts() {
 .page-meta {
   font-size: 13px;
   color: var(--text-sub);
+}
+
+.bulk-toolbar {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--green) 35%, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--green-soft);
+  color: var(--text);
+  padding: 8px 10px 8px 14px;
+}
+
+.bulk-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.required-marker {
+  color: var(--red);
 }
 
 .card {
@@ -681,20 +868,25 @@ async function refreshProducts() {
   overflow-wrap: anywhere;
 }
 
-.products-table th:nth-child(1) {
-  width: 46%;
+.products-table .selection-column {
+  width: 48px;
+  padding-inline: 16px 4px;
 }
 
 .products-table th:nth-child(2) {
+  width: 46%;
+}
+
+.products-table th:nth-child(3) {
   width: 18%;
 }
 
-.products-table th:nth-child(3),
-.products-table th:nth-child(4) {
+.products-table th:nth-child(4),
+.products-table th:nth-child(5) {
   width: 12%;
 }
 
-.products-table th:nth-child(5) {
+.products-table th:nth-child(6) {
   width: 12%;
 }
 
@@ -707,6 +899,16 @@ async function refreshProducts() {
 .product-row.selected,
 .product-row.selected:hover {
   background: var(--blue-soft);
+}
+
+.product-row.is-bulk-selected,
+.product-row.is-bulk-selected:hover {
+  background: color-mix(in srgb, var(--green-soft) 72%, var(--surface));
+}
+
+.product-row.selected.is-bulk-selected,
+.product-row.selected.is-bulk-selected:hover {
+  background: color-mix(in srgb, var(--blue-soft) 55%, var(--green-soft));
 }
 
 .product-info-cell {
@@ -1009,5 +1211,26 @@ async function refreshProducts() {
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .page-meta-header,
+  .bulk-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-meta-actions,
+  .bulk-toolbar-actions {
+    justify-content: flex-start;
+  }
+
+  .field-row {
+    flex-direction: column;
+  }
+
+  .checkbox-field {
+    padding-top: 0;
+  }
 }
 </style>

@@ -14,10 +14,8 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
   const hasFetchedProfile = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  const activeStoreId = ref("");
   let requestSequence = 0;
   const storeCache = usePerStoreCache<ShopProfileCache>({
-    activeStoreId,
     capture: () => ({
       shop: shop.value ? { ...shop.value } : null,
       hasFetchedProfile: hasFetchedProfile.value,
@@ -58,25 +56,16 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
         shop: nextShop ? { ...nextShop } : null,
         hasFetchedProfile: true,
       });
-      if (
-        requestId === requestSequence &&
-        activeStoreId.value === storeId
-      ) {
+      if (requestId === requestSequence && storeCache.isActive(storeId)) {
         shop.value = nextShop;
         hasFetchedProfile.value = true;
       }
     } catch (err) {
-      if (
-        requestId === requestSequence &&
-        activeStoreId.value === storeId
-      ) {
+      if (requestId === requestSequence && storeCache.isActive(storeId)) {
         error.value = getAppErrorMessage(err, "Failed to fetch shop profile.");
       }
     } finally {
-      if (
-        requestId === requestSequence &&
-        activeStoreId.value === storeId
-      ) {
+      if (requestId === requestSequence && storeCache.isActive(storeId)) {
         isLoading.value = false;
       }
     }
@@ -99,7 +88,7 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
     hasFetchedProfile,
     isLoading,
     error,
-    activeStoreId,
+    isStoreActive: storeCache.isActive,
     fetchProfile,
     hydrate,
     evictStore,

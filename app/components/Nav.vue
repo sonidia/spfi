@@ -1,13 +1,12 @@
 <script setup lang="ts">
+import { Command } from "@lucide/vue";
 const route = useRoute();
 const isScrolled = ref(false);
 const { t } = useLocalization();
 let pageScrollContainer: Element | null = null;
 
 function withActiveShop(path: string) {
-  const shop = Array.isArray(route.query.shop)
-    ? route.query.shop[0]
-    : route.query.shop;
+  const shop = Array.isArray(route.query.shop) ? route.query.shop[0] : route.query.shop;
 
   return shop ? { path, query: { shop } } : path;
 }
@@ -15,6 +14,10 @@ function withActiveShop(path: string) {
 function updateScrollState() {
   isScrolled.value =
     window.scrollY > 0 || Number(pageScrollContainer?.scrollTop || 0) > 0;
+}
+
+function openCommandPalette() {
+  window.dispatchEvent(new Event("spf:open-command-palette"));
 }
 
 onMounted(() => {
@@ -49,6 +52,15 @@ onBeforeUnmount(() => {
         <NuxtLink to="/settings">{{ t("nav.settings") }}</NuxtLink>
       </div>
       <div class="topbar-controls">
+        <button
+          class="command-trigger"
+          type="button"
+          :aria-label="t('command.open')"
+          :title="t('command.open')"
+          @click="openCommandPalette"
+        >
+          <Command />
+        </button>
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
@@ -91,7 +103,7 @@ onBeforeUnmount(() => {
 }
 .topbar-title {
   color: var(--text);
-  font-weight: 800;
+  font-weight: 600;
   font-size: 1.3rem;
   margin-left: 8px;
   text-shadow: 1px 1px 2px rgba(31, 122, 77, 0.2);
@@ -109,11 +121,29 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
 }
+.command-trigger {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-sub);
+  cursor: pointer;
+  padding: 0 7px;
+}
+
+.command-trigger > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--green);
+}
 .nav-list a {
   position: relative;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 6px 12px;
   transition:
     background 0.16s ease,

@@ -295,6 +295,16 @@ Expected header aliases for store auto-fill:
 
 ## 🛡️ Security Notes
 
+### API response contracts
+
+Collection-style `all` endpoints expose the same self-describing
+`success/data/meta` envelope. `meta.strategy` is `cursor`, `complete`, or
+`aggregate`; legacy top-level fields remain available for compatibility.
+
+REST-backed routes preserve Shopify `snake_case` fields and GraphQL-backed
+routes expose app `camelCase` fields. Shopify responses also send
+`X-SPF-Field-Convention`, so consumers do not need to infer the convention.
+
 - Do not commit `server/service_account.json`, `.env` files, logs, or generated build output.
 - Store credentials and proxy details should be treated as sensitive operational data.
 - Browser API calls are same-origin unless explicitly listed in `NUXT_ALLOWED_ORIGINS`.

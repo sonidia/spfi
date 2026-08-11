@@ -55,11 +55,9 @@ function normalizeTrackingSettings(
 }
 
 function readTrackingSettings(): TrackingProviderSettings {
-  const stored = readStorageValue<unknown>(
-    TRACKING_SETTINGS_STORAGE_KEY,
-    null,
-    { allowLegacyValue: true },
-  );
+  const stored = readStorageValue<unknown>(TRACKING_SETTINGS_STORAGE_KEY, null, {
+    allowLegacyValue: true,
+  });
   if (!isRecord(stored)) return emptyTrackingSettings();
   return normalizeTrackingSettings(stored);
 }
@@ -67,9 +65,7 @@ function readTrackingSettings(): TrackingProviderSettings {
 export const useCredentialVaultStore = defineStore("credentialVault", () => {
   const isInitialized = ref(false);
   const storeDataRevision = ref(0);
-  const trackingSettings = ref<TrackingProviderSettings>(
-    emptyTrackingSettings(),
-  );
+  const trackingSettings = ref<TrackingProviderSettings>(emptyTrackingSettings());
 
   function initialize() {
     if (typeof window === "undefined") return;
@@ -99,10 +95,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
     storeDataRevision.value += 1;
   }
 
-  async function patchStoreData(
-    storeId: string,
-    patch: Partial<StoreLocalData>,
-  ) {
+  async function patchStoreData(storeId: string, patch: Partial<StoreLocalData>) {
     ensureInitialized();
     writeStoredShop(storeId, {
       ...readStoredShop(storeId),
@@ -138,6 +131,7 @@ export const useCredentialVaultStore = defineStore("credentialVault", () => {
 
   return {
     isInitialized,
+    storeDataRevision,
     trackingSettings,
     initialize,
     getPublicStoreData,

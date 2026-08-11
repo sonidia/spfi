@@ -1,5 +1,9 @@
+<script setup lang="ts">
+const { t } = useLocalization();
+</script>
+
 <template>
-  <div class="intro" aria-label="Shopify status checker">
+  <div class="intro" :aria-label="t('status.introAria')">
     <div class="intro-mark" aria-hidden="true">
       <svg viewBox="0 0 48 48">
         <path
@@ -26,8 +30,8 @@
       </svg>
     </div>
     <div class="intro-copy">
-      <p class="app-title">Shop Status</p>
-      <p class="app-desc">Public Shopify diagnostics checker</p>
+      <p class="app-title">{{ t("status.introTitle") }}</p>
+      <p class="app-desc">{{ t("status.introDescription") }}</p>
     </div>
   </div>
 </template>
@@ -47,7 +51,11 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 14px;
-  background: linear-gradient(145deg, rgba(223, 244, 232, 0.88), rgba(226, 238, 249, 0.72));
+  background: linear-gradient(
+    145deg,
+    rgba(223, 244, 232, 0.88),
+    rgba(226, 238, 249, 0.72)
+  );
   color: var(--green);
 }
 
@@ -71,7 +79,7 @@
 .app-title {
   color: var(--green);
   font-size: 1.06rem;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1.1;
 }
 

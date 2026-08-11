@@ -2,18 +2,20 @@
 import { Clock, Filter, RotateCcw } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import type { Transaction } from "~/stores/payment";
 import type { ShopifyPaymentsBalanceTransactionSearchFilters } from "~~/types/shopify-payments-graphql";
 import { capitalize, fmtDate } from "~~/helpers";
-import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 const paymentStore = usePaymentStore();
 const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
 const feedback = useStoreFeedback();
+const { locale, t } = useLocalization();
+const { formatPaymentLabel } = useShopifyPaymentLabel();
 
 const transactionType = ref("");
 const payoutStatus = ref("");
@@ -31,26 +33,26 @@ const sinceId = ref("");
 const lastId = ref("");
 const currentPage = ref(1);
 const pageSize = ref(20);
-const payoutStatusOptions = [
-  { label: "All statuses", value: "" },
-  { label: "Pending / not paid out", value: "pending" },
-  { label: "Scheduled", value: "scheduled" },
-  { label: "In transit", value: "in_transit" },
-  { label: "Paid", value: "paid" },
-  { label: "Failed", value: "failed" },
-  { label: "Canceled", value: "canceled" },
-  { label: "Action required", value: "action_required" },
-];
-const taxExemptOptions = [
-  { label: "All", value: "" },
-  { label: "Exempt", value: "yes" },
-  { label: "Not exempt", value: "no" },
-];
-const testModeOptions = [
-  { label: "Live and test", value: "" },
-  { label: "Live only", value: "live" },
-  { label: "Test only", value: "test" },
-];
+const payoutStatusOptions = computed(() => [
+  { label: t("payment.allStatuses"), value: "" },
+  { label: t("payment.pendingNotPaidOut"), value: "pending" },
+  { label: t("payment.scheduled"), value: "scheduled" },
+  { label: t("payment.inTransit"), value: "in_transit" },
+  { label: t("payment.paid"), value: "paid" },
+  { label: t("payment.failed"), value: "failed" },
+  { label: t("payment.canceled"), value: "canceled" },
+  { label: t("payment.actionRequired"), value: "action_required" },
+]);
+const taxExemptOptions = computed(() => [
+  { label: t("payment.all"), value: "" },
+  { label: t("payment.exempt"), value: "yes" },
+  { label: t("payment.notExempt"), value: "no" },
+]);
+const testModeOptions = computed(() => [
+  { label: t("payment.liveAndTest"), value: "" },
+  { label: t("payment.liveOnly"), value: "live" },
+  { label: t("payment.testOnly"), value: "test" },
+]);
 
 const activeFilterCount = computed(
   () =>
@@ -103,9 +105,13 @@ function setTestMode(value: unknown) {
   testMode.value = value === "live" || value === "test" ? value : "";
 }
 
-async function applyFilters(successMessage = "Transaction filters applied.") {
+async function applyFilters(
+  successMessage = t("payment.filtersApplied", {
+    resource: t("payment.transactions"),
+  }),
+) {
   if (!isReady.value) {
-    feedback.warning("Select a store with valid credentials before filtering.");
+    feedback.warning(t("payment.credentialsRequired"));
     return;
   }
   const filters: ShopifyPaymentsBalanceTransactionSearchFilters = {
@@ -134,13 +140,15 @@ async function applyFilters(successMessage = "Transaction filters applied.") {
     errorMessage: paymentStore.error,
     warningMessage: paymentStore.graphqlWarning,
     successMessage,
-    fallbackError: "Failed to apply transaction filters.",
+    fallbackError: t("payment.filtersFailed", {
+      resource: t("payment.transactions"),
+    }),
   });
 }
 
 async function showPending() {
   payoutStatus.value = "pending";
-  await applyFilters("Pending transactions shown.");
+  await applyFilters(t("payment.pendingShown"));
 }
 
 async function resetFilters() {
@@ -158,7 +166,11 @@ async function resetFilters() {
   testMode.value = "";
   sinceId.value = "";
   lastId.value = "";
-  await applyFilters("Transaction filters reset.");
+  await applyFilters(
+    t("payment.filtersReset", {
+      resource: t("payment.transactions"),
+    }),
+  );
 }
 
 function getPayoutDate(payoutId: string | number | null) {
@@ -196,7 +208,7 @@ function payoutBadge(status: string) {
 function formatMoney(amount: string, currency: string) {
   const numericAmount = Number(amount || 0);
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(locale.value, {
       style: "currency",
       currency,
     }).format(numericAmount);
@@ -214,7 +226,7 @@ function updatePageSize(size: number) {
 <template>
   <div class="transactions-tab">
     <PaymentFilterPanel
-      title="Transaction filters"
+      :title="t('payment.transactionFilters')"
       :active-count="activeFilterCount"
       @submit="applyFilters()"
     >
@@ -222,15 +234,15 @@ function updatePageSize(size: number) {
         <CsvExportButton resource="payments" label="Export all CSV" />
       </template>
       <label class="payment-filter-field">
-        <span>Transaction type</span>
+        <span>{{ t("payment.transactionType") }}</span>
         <input
           v-model.trim="transactionType"
           class="payment-filter-input"
-          placeholder="charge, refund..."
+          :placeholder="t('payment.transactionTypePlaceholder')"
         />
       </label>
       <label class="payment-filter-field">
-        <span>Payout status</span>
+        <span>{{ t("payment.payoutStatus") }}</span>
         <BaseSelect
           class-name="filter-select"
           :model-value="payoutStatus"
@@ -239,19 +251,19 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Payout date</span>
+        <span>{{ t("payment.payoutDate") }}</span>
         <input v-model="payoutDate" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>Processed from</span>
+        <span>{{ t("payment.processedFrom") }}</span>
         <input v-model="processedFrom" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>Processed through</span>
+        <span>{{ t("payment.processedThrough") }}</span>
         <input v-model="processedThrough" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>Currency</span>
+        <span>{{ t("payment.currency") }}</span>
         <input
           v-model.trim="currency"
           class="payment-filter-input"
@@ -260,7 +272,7 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Card last 4</span>
+        <span>{{ t("payment.cardLast4") }}</span>
         <input
           v-model.trim="cardLast4"
           class="payment-filter-input"
@@ -270,7 +282,7 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Payment method</span>
+        <span>{{ t("payment.paymentMethod") }}</span>
         <input
           v-model.trim="paymentMethod"
           class="payment-filter-input"
@@ -278,16 +290,16 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Payments transfer ID</span>
+        <span>{{ t("payment.paymentsTransferId") }}</span>
         <input
           v-model.trim="transferId"
           class="payment-filter-input"
           inputmode="numeric"
-          placeholder="Transfer ID"
+          :placeholder="t('payment.transferIdPlaceholder')"
         />
       </label>
       <label class="payment-filter-field">
-        <span>Tax reporting</span>
+        <span>{{ t("payment.taxReporting") }}</span>
         <BaseSelect
           class-name="filter-select"
           :model-value="taxExempt"
@@ -296,7 +308,7 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Mode</span>
+        <span>{{ t("payment.mode") }}</span>
         <BaseSelect
           class-name="filter-select"
           :model-value="testMode"
@@ -305,7 +317,7 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>After transaction ID</span>
+        <span>{{ t("payment.afterTransactionId") }}</span>
         <input
           v-model.trim="sinceId"
           class="payment-filter-input"
@@ -314,11 +326,11 @@ function updatePageSize(size: number) {
         />
       </label>
       <div class="payment-filter-field payment-filter-checkbox">
-        <span>Transfers</span>
-        <BaseCheckbox v-model="hideTransfers" label="Hide transfers" />
+        <span>{{ t("payment.transfers") }}</span>
+        <BaseCheckbox v-model="hideTransfers" :label="t('payment.hideTransfers')" />
       </div>
       <label class="payment-filter-field">
-        <span>Before transaction ID</span>
+        <span>{{ t("payment.beforeTransactionId") }}</span>
         <input
           v-model.trim="lastId"
           class="payment-filter-input"
@@ -331,19 +343,21 @@ function updatePageSize(size: number) {
           <template #icon>
             <Clock />
           </template>
-          Show pending
+          {{ t("payment.showPending") }}
         </BaseButton>
         <BaseButton type="button" @click="resetFilters">
           <template #icon>
             <RotateCcw />
           </template>
-          Reset
+          {{ t("common.reset") }}
         </BaseButton>
         <BaseButton type="submit" variant="primary" :loading="paymentStore.isLoading">
           <template #icon>
             <Filter />
           </template>
-          {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
+          {{
+            paymentStore.isLoading ? t("payment.loading") : t("payment.applyFilters")
+          }}
         </BaseButton>
       </template>
     </PaymentFilterPanel>
@@ -351,16 +365,16 @@ function updatePageSize(size: number) {
     <table>
       <thead>
         <tr>
-          <th>Processed at</th>
-          <th>Payout date</th>
-          <th>Payout status</th>
-          <th>Order</th>
-          <th>Customer</th>
-          <th>Type</th>
-          <th>Mode</th>
-          <th class="right">Amount</th>
-          <th class="right">Fee</th>
-          <th class="right">Net</th>
+          <th aria-sort="descending">{{ t("payment.processedAt") }}</th>
+          <th>{{ t("payment.payoutDate") }}</th>
+          <th>{{ t("payment.payoutStatus") }}</th>
+          <th>{{ t("payment.order") }}</th>
+          <th>{{ t("payment.customer") }}</th>
+          <th>{{ t("payment.type") }}</th>
+          <th>{{ t("payment.mode") }}</th>
+          <th class="right">{{ t("payment.amount") }}</th>
+          <th class="right">{{ t("payment.fee") }}</th>
+          <th class="right">{{ t("payment.net") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -371,7 +385,7 @@ function updatePageSize(size: number) {
             <span class="badge" :class="payoutBadge(transaction.payout_status)">
               {{
                 transaction.payout_status === "paid"
-                  ? "Deposited"
+                  ? t("payment.deposited")
                   : capitalize(transaction.payout_status)
               }}
             </span>
@@ -388,21 +402,27 @@ function updatePageSize(size: number) {
           </td>
           <td class="td-customer">{{ getCustomerName(transaction) }}</td>
           <td class="td-type">
-            <strong>{{ formatShopifyPaymentLabel(transaction.type) }}</strong>
+            <strong>{{ formatPaymentLabel(transaction.type) }}</strong>
             <small v-if="transaction.source_type">
-              Source: {{ formatShopifyPaymentLabel(transaction.source_type) }}
+              {{
+                t("payment.source", {
+                  type: formatPaymentLabel(transaction.source_type),
+                })
+              }}
             </small>
             <details
               v-if="transaction.adjustment_order_transactions.length"
               class="adjustment-orders"
             >
               <summary>
-                {{ transaction.adjustment_order_transactions.length }}
-                adjusted
                 {{
-                  transaction.adjustment_order_transactions.length === 1
-                    ? "order"
-                    : "orders"
+                  t("payment.adjustedOrders", {
+                    count: transaction.adjustment_order_transactions.length,
+                    label:
+                      transaction.adjustment_order_transactions.length === 1
+                        ? t("payment.orderSingular")
+                        : t("payment.orderPlural"),
+                  })
                 }}
               </summary>
               <div
@@ -417,14 +437,20 @@ function updatePageSize(size: number) {
                 </NuxtLink>
                 <span v-else>{{ adjustment.order.name }}</span>
                 <span>
-                  {{ formatMoney(adjustment.net, transaction.currency) }} net
+                  {{
+                    t("payment.netSuffix", {
+                      amount: formatMoney(adjustment.net, transaction.currency),
+                    })
+                  }}
                 </span>
               </div>
             </details>
           </td>
           <td>
-            <span v-if="transaction.test" class="mode-badge">Test</span>
-            <span v-else>Live</span>
+            <span v-if="transaction.test" class="mode-badge">{{
+              t("payment.test")
+            }}</span>
+            <span v-else>{{ t("payment.live") }}</span>
           </td>
           <td class="right td-amount">
             {{ formatMoney(transaction.amount, transaction.currency) }}
@@ -444,11 +470,11 @@ function updatePageSize(size: number) {
       :page="currentPage"
       :page-size="pageSize"
       :total-items="sortedTransactions.length"
-      item-label="transactions"
+      :item-label="t('payment.transactions')"
       @update:page="currentPage = $event"
       @update:page-size="updatePageSize"
     />
-    <div v-else class="empty">No balance transactions found.</div>
+    <div v-else class="empty">{{ t("payment.noBalanceTransactions") }}</div>
   </div>
 </template>
 
@@ -531,6 +557,6 @@ function updatePageSize(size: number) {
   background: var(--amber-soft);
   color: var(--amber);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 </style>

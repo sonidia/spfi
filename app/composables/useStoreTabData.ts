@@ -50,10 +50,7 @@ export function useStoreTabData() {
     markStoreResourceLoaded(storeId, resource);
   }
 
-  function clearExpiredResources(
-    storeId: string,
-    resources: StoreDataResource[],
-  ) {
+  function clearExpiredResources(storeId: string, resources: StoreDataResource[]) {
     const expired = resources.filter((resource) =>
       isResourceExpired(storeId, resource),
     );
@@ -82,12 +79,12 @@ export function useStoreTabData() {
 
   function ensureStoreScope(storeId: string) {
     const isCurrentStore =
-      orderStore.activeStoreId === storeId &&
-      paymentStore.activeStoreId === storeId &&
-      productStore.activeStoreId === storeId &&
-      locationStore.activeStoreId === storeId &&
-      customerStore.activeStoreId === storeId &&
-      profileStore.activeStoreId === storeId;
+      orderStore.isStoreActive(storeId) &&
+      paymentStore.isStoreActive(storeId) &&
+      productStore.isStoreActive(storeId) &&
+      locationStore.isStoreActive(storeId) &&
+      customerStore.isStoreActive(storeId) &&
+      profileStore.isStoreActive(storeId);
 
     if (!isCurrentStore) hydrateStoreData(storeId);
   }
@@ -118,11 +115,7 @@ export function useStoreTabData() {
     }
   }
 
-  async function loadPaymentData(
-    storeId: string,
-    token: string,
-    force: boolean,
-  ) {
+  async function loadPaymentData(storeId: string, token: string, force: boolean) {
     if (force || !paymentStore.hasFetchedAll || paymentStore.error) {
       await paymentStore.fetchAll(storeId, token, force);
       return;
@@ -179,8 +172,7 @@ export function useStoreTabData() {
 
     if (tab === "orders") {
       const requests: Promise<unknown>[] = [];
-      const orderForce =
-        force || hadOrderError || isResourceExpired(storeId, "orders");
+      const orderForce = force || hadOrderError || isResourceExpired(storeId, "orders");
       const paymentForce =
         force || hadPaymentError || isResourceExpired(storeId, "payment");
       if (orderForce || !orderStore.hasFetchedAll) {
@@ -214,11 +206,7 @@ export function useStoreTabData() {
       const customerForce =
         force || hadCustomerError || isResourceExpired(storeId, "customers");
       if (customerForce || !customerStore.hasFetchedAll) {
-        await customerStore.fetchAll(
-          storeId,
-          token,
-          customerStore.activeQuery,
-        );
+        await customerStore.fetchAll(storeId, token, customerStore.activeQuery);
       }
       if (!customerStore.error) markResourceLoaded(storeId, "customers");
       return !customerStore.error;
@@ -229,8 +217,7 @@ export function useStoreTabData() {
       force || hadProfileError || isResourceExpired(storeId, "profile");
     const paymentForce =
       force || hadPaymentError || isResourceExpired(storeId, "payment");
-    const orderForce =
-      force || hadOrderError || isResourceExpired(storeId, "orders");
+    const orderForce = force || hadOrderError || isResourceExpired(storeId, "orders");
     if (profileForce || !profileStore.hasFetchedProfile) {
       requests.push(profileStore.fetchProfile(storeId, token));
     }

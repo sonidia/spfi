@@ -1,12 +1,11 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  callShopifyApiWithResponse,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+import { callShopifyApiWithResponse } from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
 import type { OrderListQuery, PaginatedOrdersResponse } from "~~/types/shopify-order";
 import { buildOrderListParams } from "~~/server/utils/shopify-order-query";
 import { getShopifyPageInfo } from "~~/server/utils/shopify-pagination";
+import { createApiSuccessResponse } from "~~/server/utils/api-response";
+import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
 
 interface OrderAllBody {
   storeId?: string;
@@ -16,12 +15,7 @@ interface OrderAllBody {
 
 export default defineEventHandler(async (event) => {
   const body = (await readBody<OrderAllBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
-
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
-  }
+  const { storeId, token } = requireShopifyCredentials(body);
 
   const response = await callShopifyApiWithResponse<OrdersResponse>({
     event,
@@ -32,8 +26,16 @@ export default defineEventHandler(async (event) => {
     preserveUnsafeIntegers: true,
   });
 
-  return {
-    orders: response.data.orders || [],
-    pageInfo: getShopifyPageInfo(response.headers),
-  } satisfies PaginatedOrdersResponse;
+  const orders = response.data.orders || [];
+  const pageInfo = getShopifyPageInfo(response.headers);
+
+  return createApiSuccessResponse(
+    { orders },
+    {
+      resource: "orders",
+      strategy: "cursor",
+      fieldConvention: "shopify-rest",
+      pagination: pageInfo,
+    },
+  ) satisfies PaginatedOrdersResponse;
 });

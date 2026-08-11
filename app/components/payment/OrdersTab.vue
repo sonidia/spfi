@@ -120,7 +120,7 @@ function changePageSize(pageSize: number) {
   color: white;
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 

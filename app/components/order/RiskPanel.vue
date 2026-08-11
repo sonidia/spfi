@@ -227,7 +227,7 @@ watch([() => props.orderId, isReady], ([, ready]) => {
 <style scoped>
 .risk-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
-header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
+header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
 .panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
 .panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
 h2 { color: var(--text); font-size: 15px; }
@@ -239,7 +239,7 @@ h2 { color: var(--text); font-size: 15px; }
 .risk-meter.is-medium .risk-track span { background: var(--amber); }
 .risk-meter.is-high .risk-track span { background: var(--red); }
 .risk-meter.is-pending .risk-track span { background: var(--text-muted); }
-.risk-scale { display: grid; grid-template-columns: repeat(3, 1fr); color: var(--text-sub); font-size: 11px; font-weight: 650; text-align: center; }
+.risk-scale { display: grid; grid-template-columns: repeat(3, 1fr); color: var(--text-sub); font-size: 11px; font-weight: 600; text-align: center; }
 .risk-overview p { color: var(--text); font-size: 12px; line-height: 1.45; }
 .recommendation { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text-sub); font-size: 11px; }
 .recommendation strong { color: var(--text); font-size: 11px; text-transform: capitalize; }

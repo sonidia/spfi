@@ -30,9 +30,7 @@ defineProps<{
         :class="{ 'is-wide': row.isMultiline }"
       >
         <span class="field-label">{{ row.label }}</span>
-        <pre v-if="row.isMultiline" class="field-value is-code">{{
-          row.value
-        }}</pre>
+        <pre v-if="row.isMultiline" class="field-value is-code">{{ row.value }}</pre>
         <span v-else class="field-value">{{ row.value }}</span>
       </div>
     </div>
@@ -70,7 +68,7 @@ defineProps<{
   margin: 0;
   color: var(--text-primary);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .profile-card-title :deep(svg) {
@@ -94,7 +92,7 @@ defineProps<{
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .field-grid {
@@ -118,7 +116,7 @@ defineProps<{
 .field-label {
   color: var(--text-sub);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .field-value {
@@ -137,7 +135,7 @@ defineProps<{
   background: var(--bg);
   padding: 10px;
   color: var(--text-primary);
-  font-family: "DM Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
   white-space: pre-wrap;

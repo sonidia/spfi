@@ -306,7 +306,7 @@ async function clearSettings() {
   background: var(--surface);
   color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .status-dot {
@@ -363,7 +363,7 @@ async function clearSettings() {
   background: var(--green-soft);
   color: var(--green);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -376,7 +376,7 @@ async function clearSettings() {
   margin-bottom: 16px;
   color: var(--text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .retention-slider {
@@ -522,7 +522,7 @@ async function clearSettings() {
   gap: 7px;
   color: var(--text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .field-label :deep(svg) {

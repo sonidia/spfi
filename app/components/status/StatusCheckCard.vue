@@ -86,7 +86,7 @@ const emit = defineEmits<{
   background: var(--blue-soft);
   color: var(--blue);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .check-card-toggle {

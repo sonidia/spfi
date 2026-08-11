@@ -16,6 +16,48 @@ export function parseJsonPreservingUnsafeIntegers(value: unknown) {
   }
 }
 
+/**
+ * Serializes Shopify request payloads without quoting decimal identifier
+ * strings. This keeps 64-bit REST IDs exact on the wire without ever routing
+ * them through JavaScript's lossy `number` representation.
+ */
+export function stringifyJsonPreservingIntegerIds(value: unknown) {
+  const originalJson = JSON.stringify(value);
+  if (originalJson === undefined) return undefined;
+
+  let markerPrefix = "__SPF_EXACT_INTEGER_ID__";
+  while (originalJson.includes(markerPrefix)) markerPrefix += "_";
+
+  const exactIntegerArrays = new WeakSet<object>();
+  const integerLiterals: string[] = [];
+  const json = JSON.stringify(value, function (key, item: unknown) {
+    const parentIsExactIntegerArray =
+      Array.isArray(this) && exactIntegerArrays.has(this);
+
+    if (Array.isArray(item) && isIdentifierKey(key)) {
+      exactIntegerArrays.add(item);
+    }
+
+    if (
+      typeof item === "string" &&
+      isUnsignedInteger(item) &&
+      (isIdentifierKey(key) || parentIsExactIntegerArray)
+    ) {
+      const marker = `${markerPrefix}${integerLiterals.length}__`;
+      integerLiterals.push(item);
+      return marker;
+    }
+
+    return item;
+  });
+
+  return integerLiterals.reduce(
+    (serialized, literal, index) =>
+      serialized.replace(JSON.stringify(`${markerPrefix}${index}__`), literal),
+    json,
+  );
+}
+
 export function quoteUnsafeIntegerLiterals(json: string) {
   let output = "";
   let index = 0;
@@ -35,9 +77,7 @@ export function quoteUnsafeIntegerLiterals(json: string) {
       const literal = match?.[0];
 
       if (literal) {
-        output += isUnsafeIntegerLiteral(literal)
-          ? JSON.stringify(literal)
-          : literal;
+        output += isUnsafeIntegerLiteral(literal) ? JSON.stringify(literal) : literal;
         index += literal.length;
         continue;
       }
@@ -50,8 +90,7 @@ export function quoteUnsafeIntegerLiterals(json: string) {
   return output;
 }
 
-const JSON_NUMBER_PREFIX =
-  /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/;
+const JSON_NUMBER_PREFIX = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/;
 
 function findJsonStringEnd(json: string, start: number) {
   let escaped = false;
@@ -75,6 +114,14 @@ function findJsonStringEnd(json: string, start: number) {
 
 function isDigit(value: string | undefined) {
   return Boolean(value && value >= "0" && value <= "9");
+}
+
+function isIdentifierKey(key: string) {
+  return /(?:^id$|_id$|_ids$|Id$|Ids$)/.test(key);
+}
+
+function isUnsignedInteger(value: string) {
+  return /^(?:0|[1-9]\d*)$/.test(value);
 }
 
 function isUnsafeIntegerLiteral(value: string) {

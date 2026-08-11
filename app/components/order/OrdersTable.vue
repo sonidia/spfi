@@ -412,7 +412,7 @@ function statusLabel(category: string, status: string) {
   color: var(--green);
   font: inherit;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 

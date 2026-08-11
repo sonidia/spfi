@@ -1,13 +1,9 @@
 <script lang="ts" setup>
-import { useSheetService, type ProxySheetRow } from "~/composables/useSheetService";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
-import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
-import { getSheetUrls } from "~~/utils/sheets";
-
-const { SPF_SHEET_URL } = getSheetUrls();
+import { resolveTokenExpiresAt } from "~~/utils/token-lifecycle";
 
 definePageMeta({ layout: false });
 
@@ -16,14 +12,9 @@ const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 const credentialVault = useCredentialVaultStore();
 const route = useRoute();
+const feedback = useStoreFeedback();
 
 // ── Local state ───────────────────────────────────────────────────────────────
-const newStoreId = ref("");
-const newDomain = ref("");
-const newSock = ref("");
-const newClientId = ref("");
-const newClientSecret = ref("");
-const isFindingShop = ref(false);
 const rotatingIds = ref<Record<string, boolean>>({});
 const testingProxies = ref<Record<string, boolean>>({});
 type ProxyCheckError = string | { message?: string };
@@ -37,39 +28,9 @@ type ProxyCheckResult = {
 const proxyResults = ref<
   Record<string, { success: boolean; ip?: string; duration?: number; error?: string }>
 >({});
-const genError = ref("");
-const genSuccess = ref("");
-const addMode = ref<"single" | "bulking">("single");
-
-function clearInputs() {
-  newDomain.value = "";
-  newSock.value = "";
-  newStoreId.value = "";
-  newClientId.value = "";
-  newClientSecret.value = "";
-  genError.value = "";
-  genSuccess.value = "";
-  resetSteps();
-}
-
 // ── Search and Sort state ──────────────────────────────────────────────────
 const searchQuery = ref("");
 const sortOrder = ref("expiry_desc"); // domain_asc, domain_desc, expiry_asc, expiry_desc
-
-// ── Progress steps for findShop ─────────────────────────────────────────────
-const findShopSteps = ref([
-  { id: "MASTER", label: "Searching master sheet", status: "pending" },
-  { id: "TOKEN_GEN", label: "Generating Shopify Token", status: "pending" },
-  { id: "DONE", label: "Finalizing store", status: "pending" },
-]);
-
-function resetSteps() {
-  findShopSteps.value.forEach((s) => (s.status = "pending"));
-}
-function setStep(id: string, status: "pending" | "active" | "done" | "error") {
-  const step = findShopSteps.value.find((s) => s.id === id);
-  if (step) step.status = status;
-}
 
 function toUserFriendlyMessage(error: unknown) {
   const rawMessage = getAppErrorMessage(error, "");
@@ -99,9 +60,6 @@ function toUserFriendlyMessage(error: unknown) {
 
   return rawMessage || "Thao tác chưa thành công. Vui lòng thử lại.";
 }
-
-const { readProxySheetRows, normalizeSpreadsheetId, buildRangeFromSheetName } =
-  useSheetService();
 
 // ── Load stores on mount ──────────────────────────────────────────────────────
 onMounted(() => {
@@ -256,164 +214,9 @@ async function saveEditedStore() {
     clientSecret: editClientSecret.value.trim(),
   });
 
-  genSuccess.value = `Store \"${id}\" updated successfully.`;
+  feedback.success(`Store \"${id}\" updated successfully.`);
   editError.value = "";
   closeEditModal();
-}
-
-async function addShop() {
-  const domains = newDomain.value
-    .split("\n")
-    .map((d) => d.trim())
-    .filter(Boolean);
-  if (!domains.length) return;
-
-  genError.value = "";
-  genSuccess.value = "";
-  resetSteps();
-  isFindingShop.value = true;
-
-  const manSock = newSock.value.trim();
-  const manSId = newStoreId.value.trim();
-  const manCId = newClientId.value.trim();
-  const manCSec = newClientSecret.value.trim();
-
-  let successCount = 0;
-  const errors: string[] = [];
-
-  try {
-    // 0. SPF cache setup
-    const spfUrl = SPF_SHEET_URL.trim();
-    const spfSheetNames: string[] = [...SPF_SHEET_TABS];
-    const spfRowsCache: Record<string, ProxySheetRow[]> = {};
-
-    for (const domain of domains) {
-      resetSteps();
-      setStep("MASTER", "active");
-
-      let sId = domains.length === 1 ? manSId : "";
-      let cId = domains.length === 1 ? manCId : "";
-      let cSec = domains.length === 1 ? manCSec : "";
-      let sock = domains.length === 1 ? manSock : "";
-
-      try {
-        if (!sId || !cId || !cSec) {
-          if (!spfUrl) {
-            throw new Error(
-              "Master sheet is not configured. Enter Store ID, Client ID, and Client Secret manually.",
-            );
-          }
-
-          const domainSearch = domain.toLowerCase();
-
-          // 1. Discovery Phase
-
-          let foundShop: ProxySheetRow | null = null;
-
-          for (const sheetName of spfSheetNames) {
-            if (!spfRowsCache[sheetName]) {
-              spfRowsCache[sheetName] = await readProxySheetRows({
-                spreadsheetId: normalizeSpreadsheetId(spfUrl),
-                range: buildRangeFromSheetName(sheetName),
-                dataRowStart: 2,
-                mapping: {
-                  domain: 6,
-                  proxyUrl: 5,
-                  credentials: 21,
-                },
-              });
-            }
-
-            foundShop =
-              spfRowsCache[sheetName].find(
-                (row) => row.domain.trim().toLowerCase() === domainSearch,
-              ) || null;
-
-            if (foundShop) break;
-          }
-
-          if (!foundShop) {
-            throw new Error(`Không tìm thấy shop nào với domain: ${domain}`);
-          }
-          setStep("MASTER", "done");
-
-          if (foundShop.proxyUrl && !sock) sock = foundShop.proxyUrl.trim();
-          if (foundShop.storeId && !sId) sId = foundShop.storeId;
-          if (foundShop.clientId && !cId) cId = foundShop.clientId;
-          if (foundShop.clientSecret && !cSec) cSec = foundShop.clientSecret;
-        } else {
-          setStep("MASTER", "done");
-        }
-
-        // 1.5 – Check if this store is already configured
-        if (sId && formStore.knownStores.includes(sId)) {
-          throw new Error(`Đã có sẵn store này (${sId}).`);
-        }
-
-        // 2. Token Generation Phase
-        if (!sId || !cId || !cSec) {
-          throw new Error("Missing Store ID, Client ID, or Secret.");
-        }
-
-        setStep("TOKEN_GEN", "active");
-        const res = await $fetch<ShopifyAccessTokenResponse>("/api/generate-token", {
-          method: "POST",
-          body: {
-            storeId: sId,
-            clientId: cId,
-            clientSecret: cSec,
-            sock: sock,
-          },
-        });
-
-        if (!res?.access_token) {
-          throw new Error("Failed to retrieve access token");
-        }
-        setStep("TOKEN_GEN", "done");
-
-        // 3. Storage Phase
-        setStep("DONE", "active");
-        const now = Date.now();
-        const expiresTime = now + 24 * 60 * 60 * 1000;
-        await credentialVault.saveStoreData(sId, {
-          clientId: cId,
-          clientSecret: cSec,
-          accessToken: res.access_token,
-          expiresTime,
-          domain: domain,
-          sock: sock,
-        });
-
-        formStore.addKnownStore(sId);
-        if (domains.length === 1) {
-          formStore.storeId = sId;
-        }
-
-        successCount++;
-        setStep("DONE", "done");
-      } catch (err) {
-        setStep("TOKEN_GEN", "error");
-        errors.push(`${domain}: ${toUserFriendlyMessage(err)}`);
-      }
-    }
-
-    if (errors.length) {
-      genError.value = errors.join("\n");
-    }
-    if (successCount > 0) {
-      genSuccess.value = `Successfully added ${successCount} store(s).`;
-      newDomain.value = "";
-      newStoreId.value = "";
-      newClientId.value = "";
-      newClientSecret.value = "";
-      newSock.value = "";
-    }
-  } finally {
-    isFindingShop.value = false;
-    if (domains.length > 1) {
-      resetSteps();
-    }
-  }
 }
 
 async function rotateToken(id: string) {
@@ -437,11 +240,9 @@ async function rotateToken(id: string) {
     });
 
     if (res?.access_token) {
-      const now = Date.now();
-      const expiresTime = now + 24 * 60 * 60 * 1000;
       await credentialVault.patchStoreData(id, {
         accessToken: res.access_token,
-        expiresTime,
+        expiresTime: resolveTokenExpiresAt(res),
       });
     } else {
       throw new Error("Failed to rotate token");
@@ -450,18 +251,6 @@ async function rotateToken(id: string) {
     alert("Rotate failed: " + toUserFriendlyMessage(e));
   } finally {
     rotatingIds.value[id] = false;
-  }
-}
-
-function handlePaste(event: ClipboardEvent) {
-  const text = event.clipboardData?.getData("text");
-  if (!text) return;
-  const parts = text.split(/[\/|]/).map((s) => s.trim());
-  if (parts.length >= 3) {
-    event.preventDefault();
-    newStoreId.value = parts[0] || "";
-    newClientId.value = parts[1] || "";
-    newClientSecret.value = parts[2] || "";
   }
 }
 
@@ -521,147 +310,11 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
     <template #icon>
       <IconsBulking />
     </template>
-    <template #actions>
-      <div class="mode-toggle">
-        <button
-          class="toggle-btn"
-          :class="{ active: addMode === 'single' }"
-          @click="addMode = 'single'"
-        >
-          <IconsCheck />
-          Single
-        </button>
-        <button
-          class="toggle-btn"
-          :class="{ active: addMode === 'bulking' }"
-          @click="addMode = 'bulking'"
-        >
-          <IconsBulking />
-          Bulking
-        </button>
-      </div>
-    </template>
-
     <div class="token-page">
       <!-- ── Add new store ── -->
-      <section class="card">
-        <div class="add-form" v-if="addMode === 'single'">
-          <div class="field field-50">
-            <label class="field-label">Shop domain/URL</label>
-            <input
-              v-if="addMode === 'single'"
-              v-model="newDomain"
-              type="text"
-              placeholder="Your store domain (e.g., myshop.store)"
-              class="inp domain_inp"
-              @keyup.enter="addShop"
-            />
-          </div>
-          <div class="field field-50">
-            <label class="field-label">Sock/Proxy</label>
-            <input
-              v-model="newSock"
-              type="text"
-              placeholder="IP:Port:User:Pass"
-              class="inp"
-            />
-          </div>
-          <div class="field field-33">
-            <label class="field-label">Store ID</label>
-            <input
-              v-model="newStoreId"
-              type="text"
-              placeholder="e.g. mystore"
-              class="inp"
-              @paste="handlePaste"
-            />
-          </div>
-
-          <div class="field field-33">
-            <label class="field-label">Client ID</label>
-            <input
-              v-model="newClientId"
-              type="text"
-              placeholder="Client ID"
-              class="inp"
-              @paste="handlePaste"
-            />
-          </div>
-          <div class="field field-33">
-            <label class="field-label">Client Secret</label>
-            <input
-              v-model="newClientSecret"
-              type="password"
-              placeholder="Client Secret"
-              class="inp"
-              @paste="handlePaste"
-            />
-          </div>
-        </div>
-
-        <div class="card-head" v-else>
-          <textarea
-            v-model="newDomain"
-            placeholder="Your store domains (one per line, e.g. myshop.store)"
-            class="inp domain_inp"
-            rows="25"
-          ></textarea>
-        </div>
-
-        <div class="form-actions-container" style="padding: 20px">
-          <!-- ── Step Progress Indicator ── -->
-          <div
-            v-if="
-              isFindingShop ||
-              findShopSteps.some((s) => s.status !== 'pending' && s.status !== 'done')
-            "
-            class="step-progress"
-            style="margin-bottom: 16px"
-          >
-            <div
-              v-for="step in findShopSteps"
-              :key="step.id"
-              class="step-item"
-              :class="'status-' + step.status"
-            >
-              <div class="step-icon">
-                <span v-if="step.status === 'active'" class="spinner-sm" />
-                <span v-else-if="step.status === 'done'">✓</span>
-                <span v-else-if="step.status === 'error'">✕</span>
-                <span v-else>○</span>
-              </div>
-              <span class="step-label">{{ step.label }}</span>
-            </div>
-          </div>
-          <div
-            v-if="genError"
-            class="alert alert-err"
-            style="margin-bottom: 16px; white-space: pre-wrap"
-          >
-            {{ genError }}
-          </div>
-          <div
-            v-if="genSuccess"
-            class="alert alert-ok"
-            style="margin-bottom: 16px; white-space: pre-wrap"
-          >
-            {{ genSuccess }}
-          </div>
-
-          <div class="modal-actions">
-            <button class="btn-ghost" @click="clearInputs" :disabled="isFindingShop">
-              <IconsRefresh />
-              Clear
-            </button>
-            <button class="btn-primary" :disabled="isFindingShop" @click="addShop">
-              <IconsSync v-if="isFindingShop" />
-              <IconsAdd v-else />
-              {{ isFindingShop ? "Processing…" : "Connect" }}
-            </button>
-          </div>
-        </div>
+      <section class="card add-store-card">
+        <StoreAddStoreForm :bulk-rows="25" />
       </section>
-
       <!-- ── Store list ── -->
       <section class="card" v-if="storeList.length">
         <div class="card-head">

@@ -21,6 +21,7 @@ useTokenRotation();
       <LoadingOverlay :visible="loading" />
     </ClientOnly>
     <BaseToast />
+    <CommandPalette />
     <BaseConfirmDialog
       :open="Boolean(confirmDialog.options.value)"
       :title="confirmDialog.options.value?.title || ''"
@@ -41,8 +42,6 @@ useTokenRotation();
 </template>
 
 <style>
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap");
-
 *,
 *::before,
 *::after {
@@ -93,9 +92,10 @@ useTokenRotation();
   --badge-pending-text: #9b6416;
   --radius: 8px;
   --radius-sm: 8px;
-  --font:
-    "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono",
+    monospace;
   --text-primary: var(--text);
   --text-secondary: var(--muted);
   --text-muted: #8b9991;
@@ -147,23 +147,13 @@ html[data-theme="dark"] {
 
 html,
 body {
-  font-family:
-    "DM Sans",
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--font);
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
   background:
-    linear-gradient(
-      180deg,
-      var(--body-gradient-start),
-      var(--body-gradient-end) 320px
-    ),
+    linear-gradient(180deg, var(--body-gradient-start), var(--body-gradient-end) 320px),
     var(--bg);
   transition:
     background 0.18s ease,
@@ -174,13 +164,26 @@ a {
   text-decoration: none;
 }
 
+button,
 select,
 input,
 textarea {
+  font: inherit;
   outline: none;
   background: var(--surface);
   color: var(--text);
   border-color: var(--border);
+}
+
+strong,
+b,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
 }
 
 input[type="checkbox"] {
@@ -249,19 +252,11 @@ input[type="checkbox"]:disabled {
 *::-webkit-scrollbar-thumb {
   border: 2px solid var(--bg);
   border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    rgba(31, 122, 77, 0.72),
-    rgba(39, 92, 145, 0.66)
-  );
+  background: linear-gradient(180deg, rgba(31, 122, 77, 0.72), rgba(39, 92, 145, 0.66));
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(31, 122, 77, 0.88),
-    rgba(39, 92, 145, 0.82)
-  );
+  background: linear-gradient(180deg, rgba(31, 122, 77, 0.88), rgba(39, 92, 145, 0.82));
 }
 
 *::-webkit-scrollbar-corner {
@@ -276,10 +271,25 @@ input[type="checkbox"]:disabled {
   flex-direction: column;
 }
 
+html[data-locale-direction="rtl"] {
+  direction: ltr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 .skip-link {
   position: fixed;
   top: 12px;
-  left: 12px;
+  inset-inline-start: 12px;
   z-index: 10000;
   padding: 10px 14px;
   border-radius: 8px;
@@ -374,38 +384,40 @@ html[data-theme="dark"] .expand-btn {
   color: var(--text);
 }
 
-html[data-theme="dark"] :is(
-  .table,
-  .data-table,
-  .sheet-table,
-  .product-table,
-  .products-table,
-  .orders-table,
-  .transactions-table,
-  .payout-table,
-  .customer-table,
-  .table-wrapper,
-  .table-card,
-  .list-row,
-  .product-row,
-  .order-row,
-  .transaction-row,
-  .customer-row
-) {
+html[data-theme="dark"]
+  :is(
+    .table,
+    .data-table,
+    .sheet-table,
+    .product-table,
+    .products-table,
+    .orders-table,
+    .transactions-table,
+    .payout-table,
+    .customer-table,
+    .table-wrapper,
+    .table-card,
+    .list-row,
+    .product-row,
+    .order-row,
+    .transaction-row,
+    .customer-row
+  ) {
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
 }
 
-html[data-theme="dark"] :is(
-  th,
-  .table-head,
-  .table-header,
-  .sheet-header,
-  .product-header,
-  .order-header,
-  .transaction-header
-) {
+html[data-theme="dark"]
+  :is(
+    th,
+    .table-head,
+    .table-header,
+    .sheet-header,
+    .product-header,
+    .order-header,
+    .transaction-header
+  ) {
   background: var(--surface-soft);
   border-color: var(--border);
   color: var(--text);

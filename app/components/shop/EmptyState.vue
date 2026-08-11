@@ -68,7 +68,7 @@ withDefaults(
   margin: 4px 0 0;
   color: var(--text-primary);
   font-size: 1.3rem;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .shop-empty-state p {
@@ -99,7 +99,7 @@ withDefaults(
   padding: 0 14px;
   font-family: inherit;
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
   transition:

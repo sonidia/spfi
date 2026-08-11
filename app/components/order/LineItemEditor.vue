@@ -422,7 +422,7 @@ header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
 .item-row label { display: grid; flex: 0 0 110px; gap: 4px; }
 .item-controls { display: flex; align-items: flex-end; justify-content: flex-end; gap: 8px; }
 .line-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
+label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
 input { width: 100%; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; background: var(--surface-raised); color: var(--text); font: inherit; }
 input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
 .custom-item-section { display: grid; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }

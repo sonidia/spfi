@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useLocalization } from "~/composables/useLocalization";
+
+const { t } = useLocalization();
+
 withDefaults(
   defineProps<{
     label: string;
@@ -27,7 +31,11 @@ withDefaults(
       <span class="metric-icon" aria-hidden="true"><slot /></span>
       <p class="metric-label">{{ label }}</p>
     </div>
-    <div v-if="loading" class="metric-skeleton" aria-label="Loading metric" />
+    <div
+      v-if="loading"
+      class="metric-skeleton"
+      :aria-label="t('dashboard.loadingMetric')"
+    />
     <p v-else class="metric-value">
       <slot name="value">{{ value }}</slot>
     </p>
@@ -112,7 +120,7 @@ withDefaults(
 .metric-label {
   color: color-mix(in srgb, var(--metric-accent) 76%, var(--text-sub));
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -122,7 +130,7 @@ withDefaults(
   overflow: hidden;
   color: var(--metric-accent);
   font-size: clamp(18px, 1.8vw, 23px);
-  font-weight: 750;
+  font-weight: 600;
   letter-spacing: -0.04em;
   line-height: 1.12;
   text-overflow: ellipsis;

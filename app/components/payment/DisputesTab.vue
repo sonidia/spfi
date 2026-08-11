@@ -2,6 +2,7 @@
 import { Filter, RotateCcw } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { usePaymentStore } from "~/stores/payment";
 import type {
@@ -9,26 +10,27 @@ import type {
   ShopifyPaymentsDisputeStatus,
 } from "~~/types/shopify-payments-graphql";
 import { fmtDate } from "~~/helpers";
-import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 const paymentStore = usePaymentStore();
 const { storeId, token, isReady } = useActiveShopAuth();
 const feedback = useStoreFeedback();
+const { locale, t } = useLocalization();
+const { formatPaymentLabel } = useShopifyPaymentLabel();
 
 const status = ref<"" | ShopifyPaymentsDisputeStatus>("");
 const initiatedFrom = ref("");
 const initiatedThrough = ref("");
 const currentPage = ref(1);
 const pageSize = ref(20);
-const statusOptions = [
-  { label: "All statuses", value: "" },
-  { label: "Needs response", value: "NEEDS_RESPONSE" },
-  { label: "Under review", value: "UNDER_REVIEW" },
-  { label: "Accepted", value: "ACCEPTED" },
-  { label: "Prevented", value: "PREVENTED" },
-  { label: "Won", value: "WON" },
-  { label: "Lost", value: "LOST" },
-];
+const statusOptions = computed(() => [
+  { label: t("payment.allStatuses"), value: "" },
+  { label: t("payment.needsResponse"), value: "NEEDS_RESPONSE" },
+  { label: t("payment.underReview"), value: "UNDER_REVIEW" },
+  { label: t("payment.accepted"), value: "ACCEPTED" },
+  { label: t("payment.prevented"), value: "PREVENTED" },
+  { label: t("payment.won"), value: "WON" },
+  { label: t("payment.lost"), value: "LOST" },
+]);
 
 const activeFilterCount = computed(
   () =>
@@ -70,9 +72,13 @@ function setStatus(value: unknown) {
       : "";
 }
 
-async function applyFilters(successMessage = "Dispute filters applied.") {
+async function applyFilters(
+  successMessage = t("payment.filtersApplied", {
+    resource: t("payment.disputes"),
+  }),
+) {
   if (!isReady.value) {
-    feedback.warning("Select a store with valid credentials before filtering.");
+    feedback.warning(t("payment.credentialsRequired"));
     return;
   }
   const filters: ShopifyPaymentsDisputeFilters = {
@@ -85,7 +91,9 @@ async function applyFilters(successMessage = "Dispute filters applied.") {
   feedback.requestResult({
     errorMessage: paymentStore.error,
     successMessage,
-    fallbackError: "Failed to apply dispute filters.",
+    fallbackError: t("payment.filtersFailed", {
+      resource: t("payment.disputes"),
+    }),
   });
 }
 
@@ -93,13 +101,17 @@ async function resetFilters() {
   status.value = "";
   initiatedFrom.value = "";
   initiatedThrough.value = "";
-  await applyFilters("Dispute filters reset.");
+  await applyFilters(
+    t("payment.filtersReset", {
+      resource: t("payment.disputes"),
+    }),
+  );
 }
 
 function formatMoney(amount: string, currency: string) {
   const numericAmount = Number(amount || 0);
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(locale.value, {
       style: "currency",
       currency,
     }).format(numericAmount);
@@ -125,12 +137,12 @@ function updatePageSize(size: number) {
 <template>
   <div class="disputes-tab">
     <PaymentFilterPanel
-      title="Dispute filters"
+      :title="t('payment.disputeFilters')"
       :active-count="activeFilterCount"
       @submit="applyFilters()"
     >
       <label class="payment-filter-field">
-        <span>Status</span>
+        <span>{{ t("payment.status") }}</span>
         <BaseSelect
           class-name="filter-select"
           :model-value="status"
@@ -139,11 +151,11 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Initiated from</span>
+        <span>{{ t("payment.initiatedFrom") }}</span>
         <input v-model="initiatedFrom" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>Initiated through</span>
+        <span>{{ t("payment.initiatedThrough") }}</span>
         <input v-model="initiatedThrough" class="payment-filter-input" type="date" />
       </label>
       <template #actions>
@@ -151,13 +163,15 @@ function updatePageSize(size: number) {
           <template #icon>
             <RotateCcw />
           </template>
-          Reset
+          {{ t("common.reset") }}
         </BaseButton>
         <BaseButton type="submit" variant="primary" :loading="paymentStore.isLoading">
           <template #icon>
             <Filter />
           </template>
-          {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
+          {{
+            paymentStore.isLoading ? t("payment.loading") : t("payment.applyFilters")
+          }}
         </BaseButton>
       </template>
     </PaymentFilterPanel>
@@ -165,12 +179,12 @@ function updatePageSize(size: number) {
     <table>
       <thead>
         <tr>
-          <th>Initiated</th>
-          <th>Order</th>
-          <th>Status</th>
-          <th>Type / reason</th>
-          <th>Evidence due</th>
-          <th class="right">Amount</th>
+          <th aria-sort="descending">{{ t("payment.initiated") }}</th>
+          <th>{{ t("payment.order") }}</th>
+          <th>{{ t("payment.status") }}</th>
+          <th>{{ t("payment.typeReason") }}</th>
+          <th>{{ t("payment.evidenceDue") }}</th>
+          <th class="right">{{ t("payment.amount") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -188,12 +202,12 @@ function updatePageSize(size: number) {
           </td>
           <td>
             <span class="status-badge" :class="`is-${dispute.status.toLowerCase()}`">
-              {{ formatShopifyPaymentLabel(dispute.status) }}
+              {{ formatPaymentLabel(dispute.status) }}
             </span>
           </td>
           <td>
-            <strong>{{ formatShopifyPaymentLabel(dispute.type) }}</strong>
-            <small>{{ formatShopifyPaymentLabel(dispute.reasonDetails.reason) }}</small>
+            <strong>{{ formatPaymentLabel(dispute.type) }}</strong>
+            <small>{{ formatPaymentLabel(dispute.reasonDetails.reason) }}</small>
           </td>
           <td
             class="td-date"
@@ -213,11 +227,11 @@ function updatePageSize(size: number) {
       :page="currentPage"
       :page-size="pageSize"
       :total-items="sortedDisputes.length"
-      item-label="disputes"
+      :item-label="t('payment.disputes')"
       @update:page="currentPage = $event"
       @update:page-size="updatePageSize"
     />
-    <div v-else class="empty">No Shopify Payments disputes found.</div>
+    <div v-else class="empty">{{ t("payment.noDisputes") }}</div>
   </div>
 </template>
 
@@ -238,7 +252,7 @@ td small {
   padding: 3px 8px;
   background: var(--surface-soft);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .status-badge.is-needs_response,

@@ -226,7 +226,7 @@ async function deleteOrder() {
 <style scoped>
 .management-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
-header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
+header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
 .panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
 .panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
 h2 { color: var(--text); font-size: 15px; }

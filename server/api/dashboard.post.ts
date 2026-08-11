@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, setResponseHeader } from "h3";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import { fetchStoreDashboard } from "~~/server/utils/shopify-dashboard";
+import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
 
 interface DashboardBody {
   storeId?: string;
@@ -10,12 +11,7 @@ interface DashboardBody {
 
 export default defineEventHandler(async (event) => {
   const body = (await readBody<DashboardBody>(event)) || {};
-  const storeId = String(body.storeId || "").trim();
-  const token = String(body.token || "").trim();
-
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
-  }
+  const { storeId, token } = requireShopifyCredentials(body);
 
   const timezoneOffsetMinutes = Number(body.timezoneOffsetMinutes || 0);
   if (
@@ -27,10 +23,12 @@ export default defineEventHandler(async (event) => {
   }
 
   setResponseHeader(event, "cache-control", "private, no-store");
-  return fetchStoreDashboard({
+  const dashboard = await fetchStoreDashboard({
     event,
     storeId,
     token,
     timezoneOffsetMinutes,
   });
+  setResponseHeader(event, "x-spf-field-convention", "app-camel-case");
+  return dashboard;
 });

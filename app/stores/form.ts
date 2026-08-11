@@ -1,9 +1,12 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { useLocalStorage } from "~/composables/useLocalStorage";
 import { readKnownStores, writeKnownStores } from "~~/utils/known-stores";
 
+const ACTIVE_STORE_STORAGE_KEY = "active_store_id";
+
 export const useFormStore = defineStore("form", () => {
-  const storeId = ref("");
+  const { state: storeId } = useLocalStorage(ACTIVE_STORE_STORAGE_KEY, "");
 
   // List of all store IDs that have a saved cookie
   const knownStores = ref<string[]>([]);
@@ -11,6 +14,13 @@ export const useFormStore = defineStore("form", () => {
   function loadKnownStores() {
     if (typeof window === "undefined") return;
     knownStores.value = readKnownStores();
+    if (storeId.value && !knownStores.value.includes(storeId.value)) {
+      storeId.value = "";
+    }
+  }
+
+  function setActiveStore(id: string) {
+    storeId.value = String(id || "").trim();
   }
 
   function saveKnownStores() {
@@ -31,13 +41,14 @@ export const useFormStore = defineStore("form", () => {
     if (typeof document !== "undefined") {
       document.cookie = `${id}=; Max-Age=0; path=/`;
     }
-    if (storeId.value === id) storeId.value = "";
+    if (storeId.value === id) setActiveStore("");
   }
 
   return {
     storeId,
     knownStores,
     loadKnownStores,
+    setActiveStore,
     addKnownStore,
     removeKnownStore,
   };

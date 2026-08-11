@@ -40,12 +40,10 @@ export const useCustomerStore = defineStore("customers", () => {
   const isLoadingDetail = ref(false);
   const isMutating = ref(false);
   const error = ref<string | null>(null);
-  const activeStoreId = ref("");
   let listRequestSequence = 0;
   let detailRequestSequence = 0;
   let addressRequestSequence = 0;
   const storeCache = usePerStoreCache<CustomerStoreCache>({
-    activeStoreId,
     capture: () => ({
       customers: [...customers.value],
       hasFetchedAll: hasFetchedAll.value,
@@ -70,12 +68,7 @@ export const useCustomerStore = defineStore("customers", () => {
   const evictStore = storeCache.evict;
   const persist = storeCache.remember;
 
-  async function fetchAll(
-    storeId: string,
-    token: string,
-    query = "",
-    limit = 250,
-  ) {
+  async function fetchAll(storeId: string, token: string, query = "", limit = 250) {
     if (!storeId || !token) {
       error.value = "Store ID and Access Token are required.";
       return false;
@@ -145,13 +138,10 @@ export const useCustomerStore = defineStore("customers", () => {
     }
 
     try {
-      const response = await $fetch<CustomerDetailResponse>(
-        `/api/customer/${id}`,
-        {
-          params: { storeId },
-          headers: { "x-shopify-access-token": token },
-        },
-      );
+      const response = await $fetch<CustomerDetailResponse>(`/api/customer/${id}`, {
+        params: { storeId },
+        headers: { "x-shopify-access-token": token },
+      });
 
       if (requestId !== detailRequestSequence) return false;
 
@@ -172,10 +162,7 @@ export const useCustomerStore = defineStore("customers", () => {
       return true;
     } catch (err) {
       if (requestId === detailRequestSequence) {
-        error.value = getAppErrorMessage(
-          err,
-          "Failed to fetch customer detail.",
-        );
+        error.value = getAppErrorMessage(err, "Failed to fetch customer detail.");
       }
       return false;
     } finally {
@@ -219,13 +206,10 @@ export const useCustomerStore = defineStore("customers", () => {
     customer: ShopifyCustomerInput,
   ) {
     return runMutation("Failed to update customer.", async () => {
-      const response = await $fetch<CustomerResponse>(
-        `/api/customer/${customerId}`,
-        {
-          method: "PUT",
-          body: { storeId, token, customer },
-        },
-      );
+      const response = await $fetch<CustomerResponse>(`/api/customer/${customerId}`, {
+        method: "PUT",
+        body: { storeId, token, customer },
+      });
       await fetchAll(storeId, token, activeQuery.value);
       await fetchById(storeId, token, customerId);
       return response.customer || null;
@@ -362,17 +346,14 @@ export const useCustomerStore = defineStore("customers", () => {
     customerInvite: ShopifyCustomerInviteInput = {},
   ) {
     return runMutation("Failed to send the customer invite.", () =>
-      $fetch<CustomerInviteResponse>(
-        `/api/customer/${customerId}/send-invite`,
-        {
-          method: "POST",
-          body: {
-            storeId,
-            token,
-            customer_invite: customerInvite,
-          },
+      $fetch<CustomerInviteResponse>(`/api/customer/${customerId}/send-invite`, {
+        method: "POST",
+        body: {
+          storeId,
+          token,
+          customer_invite: customerInvite,
         },
-      ),
+      }),
     );
   }
 
@@ -423,7 +404,7 @@ export const useCustomerStore = defineStore("customers", () => {
     isLoadingDetail,
     isMutating,
     error,
-    activeStoreId,
+    isStoreActive: storeCache.isActive,
     fetchAll,
     fetchById,
     createCustomer,

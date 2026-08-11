@@ -121,7 +121,7 @@ function toggle() {
 .checkbox-label {
   overflow: hidden;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

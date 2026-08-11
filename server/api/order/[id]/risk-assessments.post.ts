@@ -10,7 +10,10 @@ import type {
   ShopifyOrderRiskAssessment,
   ShopifyRiskFact,
 } from "~~/types/shopify-order";
-import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
+import {
+  requireShopifyCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 
 const ORDER_RISK_ASSESSMENT_CREATE_MUTATION = `#graphql
   mutation OrderRiskAssessmentCreate($input: OrderRiskAssessmentCreateInput!) {
@@ -58,15 +61,11 @@ interface CreateRiskAssessmentData {
 export default defineEventHandler(async (event) => {
   const id = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<CreateRiskAssessmentBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
+  const { storeId, token } = requireShopifyCredentials(body);
   const riskLevel = String(body.riskLevel || "") as RiskAssessmentLevel;
 
-  if (!storeId || !token || !RISK_LEVELS.has(riskLevel)) {
-    throw createApiErrorFromMessage(
-      "Order ID, Store ID, Access Token and a valid risk level are required.",
-      400,
-    );
+  if (!RISK_LEVELS.has(riskLevel)) {
+    throw createApiErrorFromMessage("A valid risk level is required.", 400);
   }
 
   const data = await callShopifyGraphql<CreateRiskAssessmentData>({

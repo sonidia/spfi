@@ -5,8 +5,8 @@
         <NuxtLink
           :to="{ path: '/store', query: { ...route.query, tab: 'orders' } }"
           class="order-back-link"
-          aria-label="Back to orders"
-          title="Back to orders"
+          :aria-label="t('order.backToOrders')"
+          :title="t('order.backToOrders')"
         >
           <ArrowLeft :size="16" aria-hidden="true" />
         </NuxtLink>
@@ -15,7 +15,7 @@
             currentOrder?.name,
             currentOrder?.order_number
               ? "#" + currentOrder.order_number
-              : "Loading...",
+              : t("common.loading"),
           )
         }}</span>
         <template
@@ -29,16 +29,22 @@
 
     <div class="page" id="app">
       <!-- Loading state -->
-      <div v-if="orderStore.isLoading" id="loading">Loading order...</div>
-      <div v-else-if="orderStore.error" id="loading" style="color: red">
+      <div v-if="orderStore.isLoading" id="loading" role="status">
+        {{ t("order.loadingDetail") }}
+      </div>
+      <div v-else-if="orderStore.error" id="loading" class="order-error">
         {{ orderStore.error }}
       </div>
 
       <!-- ════════════════════════════════════════ SCREEN: ORDER DETAIL -->
       <template v-else-if="currentOrder">
         <div class="page-meta">
-          {{ fmtDateTime(currentOrder.created_at) || "—" }} from
-          {{ getSource(currentOrder) }}
+          {{
+            t("order.createdFrom", {
+              date: fmtDateTime(currentOrder.created_at) || "—",
+              source: getSource(currentOrder),
+            })
+          }}
         </div>
 
         <div class="grid">
@@ -52,10 +58,7 @@
 
             <!-- Fulfillments -->
             <template
-              v-if="
-                currentOrder.fulfillments &&
-                currentOrder.fulfillments.length > 0
-              "
+              v-if="currentOrder.fulfillments && currentOrder.fulfillments.length > 0"
             >
               <div
                 v-for="(f, fi) in currentOrder.fulfillments"
@@ -75,15 +78,12 @@
                         gap: 6px;
                       "
                     >
-                      <PackageCheck :size="16" aria-hidden="true" /> Fulfilled
+                      <PackageCheck :size="16" aria-hidden="true" />
+                      {{ t("order.fulfilled") }}
                     </span>
                     <span
                       v-else
-                      style="
-                        color: var(--text-sub);
-                        font-weight: 600;
-                        font-size: 14px;
-                      "
+                      style="color: var(--text-sub); font-weight: 600; font-size: 14px"
                     >
                       {{ capitalize(f.status || "") }}
                     </span>
@@ -97,7 +97,7 @@
                       "
                     >
                       <MapPin :size="14" aria-hidden="true" />
-                      {{ serviceName(nilVal(f.service, "Manual")) }}
+                      {{ serviceName(nilVal(f.service, t("order.manualService"))) }}
                     </span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 8px">
@@ -110,7 +110,6 @@
                       style="font-size: 13px; color: var(--text-sub)"
                       >{{ f.name }}</span
                     >
-                    <button class="kebab">···</button>
                   </div>
                 </div>
 
@@ -131,15 +130,21 @@
                     {{ fmtDate(f.created_at) }}
                   </div>
                   <div v-if="nilVal(f.created_at)" class="tracking-row">
-                    <BadgeCheck :size="14" aria-hidden="true" /> Deliver by
-                    {{ getDeliverBy(f.created_at) }}
+                    <BadgeCheck :size="14" aria-hidden="true" />
+                    {{
+                      t("order.deliverBy", {
+                        date: getDeliverBy(f.created_at),
+                      })
+                    }}
                   </div>
                   <div v-if="nilVal(f.tracking_number)" class="tracking-row">
                     <Link2 :size="14" aria-hidden="true" />
                     {{
                       nilVal(f.tracking_company)
-                        ? f.tracking_company + " tracking: "
-                        : "Tracking: "
+                        ? t("order.trackingWithCompany", {
+                            company: f.tracking_company || "",
+                          })
+                        : t("order.tracking")
                     }}
                     <a
                       v-if="getSafeExternalUrl(f.tracking_url)"
@@ -163,10 +168,7 @@
                     <div class="product-name">
                       {{ item.name || item.title || "—" }}
                     </div>
-                    <div
-                      v-if="nilVal(item.variant_title)"
-                      class="product-variant"
-                    >
+                    <div v-if="nilVal(item.variant_title)" class="product-variant">
                       {{ item.variant_title }}
                     </div>
                     <div v-if="nilVal(item.sku)" class="product-sku">
@@ -174,17 +176,13 @@
                     </div>
                   </div>
                   <div class="product-price">
-                    {{
-                      fmtMoney(item.price, nilVal(currentOrder.currency, "CAD"))
-                    }}
+                    {{ fmtMoney(item.price, nilVal(currentOrder.currency, "CAD")) }}
                     × {{ item.quantity || 1 }}
                   </div>
                   <div class="product-total">
                     {{
                       fmtMoney(
-                        (
-                          Number(item.price || 0) * (item.quantity || 1)
-                        ).toFixed(2),
+                        (Number(item.price || 0) * (item.quantity || 1)).toFixed(2),
                         nilVal(currentOrder.currency, "CAD"),
                       )
                     }}
@@ -208,7 +206,8 @@
                         gap: 6px;
                       "
                     >
-                      <Package :size="16" aria-hidden="true" /> Unfulfilled
+                      <Package :size="16" aria-hidden="true" />
+                      {{ t("order.unfulfilled") }}
                     </span>
                   </div>
                 </div>
@@ -222,10 +221,7 @@
                     <div class="product-name">
                       {{ item.name || item.title || "—" }}
                     </div>
-                    <div
-                      v-if="nilVal(item.variant_title)"
-                      class="product-variant"
-                    >
+                    <div v-if="nilVal(item.variant_title)" class="product-variant">
                       {{ item.variant_title }}
                     </div>
                     <div v-if="nilVal(item.sku)" class="product-sku">
@@ -233,17 +229,13 @@
                     </div>
                   </div>
                   <div class="product-price">
-                    {{
-                      fmtMoney(item.price, nilVal(currentOrder.currency, "CAD"))
-                    }}
+                    {{ fmtMoney(item.price, nilVal(currentOrder.currency, "CAD")) }}
                     × {{ item.quantity || 1 }}
                   </div>
                   <div class="product-total">
                     {{
                       fmtMoney(
-                        (
-                          Number(item.price || 0) * (item.quantity || 1)
-                        ).toFixed(2),
+                        (Number(item.price || 0) * (item.quantity || 1)).toFixed(2),
                         nilVal(currentOrder.currency, "CAD"),
                       )
                     }}
@@ -261,21 +253,19 @@
                     aria-hidden="true"
                     style="color: var(--green)"
                   />
-                  <span class="card-title" style="color: var(--green)"
-                    >Paid</span
-                  >
+                  <span class="card-title" style="color: var(--green)">
+                    {{ t("order.paid") }}
+                  </span>
                 </div>
               </div>
               <div class="payment-rows">
                 <div class="payment-row">
-                  <span
-                    >Subtotal
-                    <span style="font-size: 12px; color: var(--text-sub)"
-                      >{{ getItemCount(currentOrder) }} item{{
-                        getItemCount(currentOrder) !== 1 ? "s" : ""
-                      }}</span
-                    ></span
-                  >
+                  <span>
+                    {{ t("order.subtotal") }}
+                    <span style="font-size: 12px; color: var(--text-sub)">
+                      {{ formatItemCount(getItemCount(currentOrder)) }}
+                    </span>
+                  </span>
                   <span>{{
                     fmtMoney(
                       getSubtotal(currentOrder),
@@ -287,7 +277,7 @@
                   v-if="parseFloat(getDiscount(currentOrder)) > 0"
                   class="payment-row"
                 >
-                  <span>Discount</span>
+                  <span>{{ t("order.discount") }}</span>
                   <span
                     >-{{
                       fmtMoney(
@@ -299,39 +289,32 @@
                 </div>
                 <div class="payment-row">
                   <span
-                    >Shipping
+                    >{{ t("order.shipping") }}
                     <span style="font-size: 12px; color: var(--text-sub)">{{
                       nilVal(
                         currentOrder.shipping_lines?.[0]?.title,
-                        "Shipping",
+                        t("order.shipping"),
                       )
                     }}</span></span
                   >
                   <span>{{
                     fmtMoney(
                       nilVal(
-                        currentOrder.total_shipping_price_set?.shop_money
-                          ?.amount,
+                        currentOrder.total_shipping_price_set?.shop_money?.amount,
                         "0.00",
                       ),
                       nilVal(currentOrder.currency, "CAD"),
                     )
                   }}</span>
                 </div>
-                <div
-                  v-if="parseFloat(getTax(currentOrder)) > 0"
-                  class="payment-row"
-                >
-                  <span>Tax</span>
+                <div v-if="parseFloat(getTax(currentOrder)) > 0" class="payment-row">
+                  <span>{{ t("order.tax") }}</span>
                   <span>{{
-                    fmtMoney(
-                      getTax(currentOrder),
-                      nilVal(currentOrder.currency, "CAD"),
-                    )
+                    fmtMoney(getTax(currentOrder), nilVal(currentOrder.currency, "CAD"))
                   }}</span>
                 </div>
                 <div class="payment-row total">
-                  <span>Total</span>
+                  <span>{{ t("order.total") }}</span>
                   <span>{{
                     fmtMoney(
                       nilVal(
@@ -343,7 +326,9 @@
                   }}</span>
                 </div>
                 <div class="payment-row paid-row">
-                  <span><span class="paid-badge-inline">Paid</span></span>
+                  <span
+                    ><span class="paid-badge-inline">{{ t("order.paid") }}</span></span
+                  >
                   <span>{{
                     fmtMoney(
                       nilVal(
@@ -370,10 +355,12 @@
             <!-- Notes (only if there is a note) -->
             <div v-if="nilVal(currentOrder.note)" class="card">
               <div class="card-header">
-                <div class="card-title-row"><FileText class="card-title-icon" aria-hidden="true" /><span class="card-title">Notes</span></div>
-                <button class="icon-btn" type="button" aria-label="Edit note">
-                  <Pencil :size="16" aria-hidden="true" />
-                </button>
+                <div class="card-title-row">
+                  <FileText class="card-title-icon" aria-hidden="true" /><span
+                    class="card-title"
+                    >{{ t("order.notes") }}</span
+                  >
+                </div>
               </div>
               <div class="sidebar-body">
                 <span class="sidebar-value">{{ currentOrder.note }}</span>
@@ -383,55 +370,49 @@
             <!-- Customer -->
             <div class="card">
               <div class="card-header">
-                <div class="card-title-row"><User class="card-title-icon" aria-hidden="true" /><span class="card-title">Customer</span></div>
-                <button
-                  class="icon-btn"
-                  type="button"
-                  aria-label="Customer actions"
-                >
-                  <Ellipsis :size="16" aria-hidden="true" />
-                </button>
+                <div class="card-title-row">
+                  <User class="card-title-icon" aria-hidden="true" /><span
+                    class="card-title"
+                    >{{ t("order.customer") }}</span
+                  >
+                </div>
               </div>
               <div class="sidebar-body">
                 <div class="sidebar-section">
-                  <a
+                  <span
                     v-if="getCustomerName(currentOrder)"
-                    href="#"
-                    class="sidebar-link"
+                    class="sidebar-value"
                     style="font-weight: 500"
-                    >{{ getCustomerName(currentOrder) }}</a
+                    >{{ getCustomerName(currentOrder) }}</span
                   >
-                  <span v-else class="sidebar-sub">Guest</span>
+                  <span v-else class="sidebar-sub">{{ t("order.guest") }}</span>
                   <div class="sidebar-sub" style="margin-top: 2px">
-                    {{ nilVal(currentOrder.customer?.orders_count, 1) }} order{{
-                      nilVal(currentOrder.customer?.orders_count, 1) !== 1
-                        ? "s"
-                        : ""
+                    {{
+                      formatCustomerOrderCount(
+                        nilVal(currentOrder.customer?.orders_count, 1),
+                      )
                     }}
                   </div>
                 </div>
                 <div class="sidebar-section">
-                  <div class="sidebar-label">Contact information</div>
+                  <div class="sidebar-label">{{ t("order.contactInformation") }}</div>
                   <a
                     v-if="getCustomerEmail(currentOrder)"
                     :href="'mailto:' + getCustomerEmail(currentOrder)"
                     class="sidebar-link"
                     >{{ getCustomerEmail(currentOrder) }}</a
                   >
-                  <div v-else class="sidebar-sub">No email</div>
+                  <div v-else class="sidebar-sub">{{ t("order.noEmail") }}</div>
                   <div class="sidebar-sub" style="margin-top: 2px">
                     {{
                       nilVal(currentOrder.customer?.phone) ||
                       nilVal(currentOrder.phone) ||
-                      "No phone number"
+                      t("order.noPhone")
                     }}
                   </div>
                 </div>
-                <div
-                  v-if="currentOrder.shipping_address"
-                  class="sidebar-section"
-                >
-                  <div class="sidebar-label">Shipping address</div>
+                <div v-if="currentOrder.shipping_address" class="sidebar-section">
+                  <div class="sidebar-label">{{ t("order.shippingAddress") }}</div>
                   <OrderAddressLines
                     class="sidebar-value"
                     :address="currentOrder.shipping_address"
@@ -443,11 +424,11 @@
                     rel="noopener noreferrer"
                     class="sidebar-link"
                     style="display: inline-block; margin-top: 4px"
-                    >View map</a
+                    >{{ t("order.viewMap") }}</a
                   >
                 </div>
                 <div class="sidebar-section">
-                  <div class="sidebar-label">Billing address</div>
+                  <div class="sidebar-label">{{ t("order.billingAddress") }}</div>
                   <div
                     v-if="
                       addressSame(
@@ -457,14 +438,16 @@
                     "
                     class="sidebar-sub"
                   >
-                    Same as shipping address
+                    {{ t("order.sameAsShippingAddress") }}
                   </div>
                   <OrderAddressLines
                     v-else-if="currentOrder.billing_address"
                     class="sidebar-value"
                     :address="currentOrder.billing_address"
                   />
-                  <div v-else class="sidebar-sub">No billing address</div>
+                  <div v-else class="sidebar-sub">
+                    {{ t("order.noBillingAddress") }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -472,24 +455,32 @@
             <!-- Conversion summary -->
             <div class="card">
               <div class="card-header">
-                <div class="card-title-row"><Activity class="card-title-icon" aria-hidden="true" /><span class="card-title">Conversion summary</span></div>
+                <div class="card-title-row">
+                  <Activity class="card-title-icon" aria-hidden="true" /><span
+                    class="card-title"
+                    >{{ t("order.conversionSummary") }}</span
+                  >
+                </div>
               </div>
               <div class="sidebar-body">
                 <div
                   v-if="nilVal(currentOrder.customer?.orders_count, 1) === 1"
                   class="conversion-item"
                 >
-                  <User :size="14" aria-hidden="true" /> This is their 1st order
+                  <User :size="14" aria-hidden="true" />
+                  {{ t("order.firstOrder") }}
                 </div>
                 <div class="conversion-item">
                   <Clock3 :size="14" aria-hidden="true" />
-                  <template v-if="!nilVal(currentOrder.referring_site)"
-                    >1st session was direct to your store</template
-                  >
+                  <template v-if="!nilVal(currentOrder.referring_site)">
+                    {{ t("order.directFirstSession") }}
+                  </template>
                   <template v-else>
                     <a
                       v-if="getSafeExternalUrl(currentOrder.referring_site)"
-                      :href="getSafeExternalUrl(currentOrder.referring_site) || undefined"
+                      :href="
+                        getSafeExternalUrl(currentOrder.referring_site) || undefined
+                      "
                       target="_blank"
                       rel="noopener noreferrer"
                       class="sidebar-link"
@@ -504,7 +495,7 @@
         </div>
       </template>
 
-      <div v-else id="loading">Order not found.</div>
+      <div v-else id="loading">{{ t("order.notFound") }}</div>
     </div>
   </NuxtLayout>
 </template>
@@ -517,13 +508,11 @@ import {
   CalendarDays,
   Clock3,
   CreditCard,
-  Ellipsis,
   FileText,
   Link2,
   MapPin,
   Package,
   PackageCheck,
-  Pencil,
   Truck,
   User,
 } from "@lucide/vue";
@@ -559,25 +548,19 @@ const orderStore = useOrderStore();
 const route = useRoute();
 const router = useRouter();
 const { storeId, token, isReady } = useActiveShopAuth();
+const { t } = useLocalization();
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const currentOrder = computed(() => {
   const orderId = route.params.id;
-  return (
-    orderStore.orders.find((order) => order.id.toString() === orderId) || null
-  );
+  return orderStore.orders.find((order) => order.id.toString() === orderId) || null;
 });
 
 watch(
   [() => route.params.id, isReady],
   ([orderId, ready]) => {
     if (!ready || !orderId) return;
-    void orderStore.fetchById(
-      storeId.value,
-      token.value,
-      String(orderId),
-      true,
-    );
+    void orderStore.fetchById(storeId.value, token.value, String(orderId), true);
   },
   { immediate: true },
 );
@@ -587,6 +570,19 @@ function returnToOrders() {
     path: "/store",
     query: { ...route.query, tab: "orders" },
   });
+}
+
+function formatItemCount(count: number) {
+  return t(count === 1 ? "order.itemCountOne" : "order.itemCountMany", {
+    count,
+  });
+}
+
+function formatCustomerOrderCount(count: number) {
+  return t(
+    count === 1 ? "order.customerOrderCountOne" : "order.customerOrderCountMany",
+    { count },
+  );
 }
 </script>
 
@@ -816,7 +812,7 @@ function returnToOrders() {
 .product-sku {
   font-size: 11px;
   color: var(--text-sub);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   word-break: break-all;
   margin-top: 2px;
 }
@@ -952,6 +948,10 @@ function returnToOrders() {
   padding: 60px 20px;
   color: var(--text-sub);
   font-size: 15px;
+}
+
+.order-error {
+  color: var(--red) !important;
 }
 
 @media (max-width: 700px) {

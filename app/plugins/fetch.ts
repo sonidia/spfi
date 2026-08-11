@@ -1,5 +1,6 @@
 ﻿import { defineNuxtPlugin } from "#imports";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useFormStore } from "~/stores/form";
 import { useRateLimitStore } from "~/stores/rateLimit";
 
 function readStoreId(source: unknown): string | null {
@@ -13,6 +14,7 @@ function readStoreId(source: unknown): string | null {
 
 export default defineNuxtPlugin(() => {
   const credentialVault = useCredentialVaultStore();
+  const formStore = useFormStore();
   const rateLimit = useRateLimitStore();
   const customFetch = $fetch.create({
     onRequest({ request, options }) {
@@ -26,7 +28,7 @@ export default defineNuxtPlugin(() => {
         readStoreId(options.params);
 
       if (!storeId) {
-        storeId = useLocalStorage("active_store_id", "").state.value;
+        storeId = formStore.storeId || null;
       }
 
       if (storeId) {

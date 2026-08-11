@@ -6,6 +6,7 @@ import {
   SlidersHorizontal,
   Store,
 } from "@lucide/vue";
+import { useLocalization } from "~/composables/useLocalization";
 
 const props = defineProps<{
   stores: Array<{ id: string; label: string }>;
@@ -19,21 +20,23 @@ const props = defineProps<{
   progress: number;
 }>();
 
+const { t } = useLocalization();
+
 const storeOptions = computed(() => [
-  { label: "All stores", value: "all" },
+  { label: t("dashboard.allStores"), value: "all" },
   ...props.stores.map((store) => ({ label: store.label, value: store.id })),
 ]);
 const currencyOptions = computed(() => [
-  { label: "All currencies", value: "all" },
+  { label: t("dashboard.allCurrencies"), value: "all" },
   ...props.currencies.map((currency) => ({ label: currency, value: currency })),
 ]);
-const sortOptions = [
-  { label: "Revenue: high first", value: "revenue-desc" },
-  { label: "Orders: high first", value: "orders-desc" },
-  { label: "Pending: high first", value: "pending-desc" },
-  { label: "Customers: high first", value: "customers-desc" },
-  { label: "Store name: A–Z", value: "name-asc" },
-];
+const sortOptions = computed(() => [
+  { label: t("dashboard.sortRevenueDesc"), value: "revenue-desc" },
+  { label: t("dashboard.sortOrdersDesc"), value: "orders-desc" },
+  { label: t("dashboard.sortPendingDesc"), value: "pending-desc" },
+  { label: t("dashboard.sortCustomersDesc"), value: "customers-desc" },
+  { label: t("dashboard.sortNameAsc"), value: "name-asc" },
+]);
 
 const emit = defineEmits<{
   "update:search": [value: string];
@@ -53,15 +56,15 @@ function selectValue(value: unknown, fallback: string) {
 </script>
 
 <template>
-  <section class="dashboard-toolbar" aria-label="Dashboard filters">
+  <section class="dashboard-toolbar" :aria-label="t('dashboard.filters')">
     <div class="dashboard-toolbar-filters">
       <label class="dashboard-search-control">
         <Search aria-hidden="true" />
-        <span class="sr-only">Search dashboard</span>
+        <span class="sr-only">{{ t("dashboard.searchDashboard") }}</span>
         <input
           :value="search"
           type="search"
-          placeholder="Search stores, products, orders, users…"
+          :placeholder="t('dashboard.searchPlaceholder')"
           @input="emit('update:search', inputValue($event))"
         />
       </label>
@@ -71,7 +74,7 @@ function selectValue(value: unknown, fallback: string) {
           class-name="dashboard-toolbar-select"
           :model-value="storeId"
           :options="storeOptions"
-          aria-label="Filter by store"
+          :aria-label="t('dashboard.filterByStore')"
           @change="emit('update:storeId', selectValue($event, 'all'))"
         >
           <template #icon><Store /></template>
@@ -81,7 +84,7 @@ function selectValue(value: unknown, fallback: string) {
           class-name="dashboard-toolbar-select"
           :model-value="currency"
           :options="currencyOptions"
-          aria-label="Filter by currency"
+          :aria-label="t('dashboard.filterByCurrency')"
           @change="emit('update:currency', selectValue($event, 'all'))"
         >
           <template #icon><CircleDollarSign /></template>
@@ -91,7 +94,7 @@ function selectValue(value: unknown, fallback: string) {
           class-name="dashboard-toolbar-select"
           :model-value="storeSort"
           :options="sortOptions"
-          aria-label="Sort stores"
+          :aria-label="t('dashboard.sortStores')"
           @change="emit('update:storeSort', selectValue($event, 'revenue-desc'))"
         >
           <template #icon><SlidersHorizontal /></template>
@@ -103,7 +106,7 @@ function selectValue(value: unknown, fallback: string) {
           :disabled="!isFiltered"
           @click="emit('reset')"
         >
-          <RotateCcw /> Reset
+          <RotateCcw /> {{ t("common.reset") }}
         </button>
       </div>
     </div>
@@ -208,7 +211,7 @@ function selectValue(value: unknown, fallback: string) {
   border-radius: 9px;
   background: var(--surface);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 :deep(.dashboard-toolbar-select .select-trigger:hover:not(:disabled)) {
@@ -219,7 +222,7 @@ function selectValue(value: unknown, fallback: string) {
 
 :deep(.dashboard-toolbar-select .selected-label) {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 :deep(.dashboard-toolbar-select .trigger-icon),
@@ -257,7 +260,7 @@ function selectValue(value: unknown, fallback: string) {
   cursor: pointer;
   font: inherit;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .dashboard-reset-filters:hover:not(:disabled) {

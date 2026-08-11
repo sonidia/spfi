@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, Filter } from "@lucide/vue";
 import { computed, ref, useId } from "vue";
+import { useLocalization } from "~/composables/useLocalization";
 
 const props = withDefaults(
   defineProps<{
@@ -8,7 +9,7 @@ const props = withDefaults(
     activeCount?: number;
   }>(),
   {
-    title: "Filters",
+    title: "",
     activeCount: 0,
   },
 );
@@ -19,9 +20,9 @@ defineEmits<{
 
 const isOpen = ref(false);
 const panelId = useId();
-const activeLabel = computed(() =>
-  props.activeCount === 1 ? "1 active filter" : `${props.activeCount} active filters`,
-);
+const { t } = useLocalization();
+const visibleTitle = computed(() => props.title || t("filter.filters"));
+const activeLabel = computed(() => t("filter.active", { count: props.activeCount }));
 </script>
 
 <template>
@@ -32,19 +33,18 @@ const activeLabel = computed(() =>
         type="button"
         :aria-expanded="isOpen"
         :aria-controls="panelId"
+        :aria-label="`${visibleTitle}. ${activeLabel}`"
         @click="isOpen = !isOpen"
       >
         <Filter aria-hidden="true" />
-        <span>{{ isOpen ? "Hide filters" : "Filter" }}</span>
+        <span>{{ isOpen ? t("filter.hide") : t("filter.show") }}</span>
         <span v-if="activeCount" class="payment-filter-count">
           {{ activeCount }}
         </span>
         <ChevronDown class="payment-filter-chevron" :class="{ 'is-open': isOpen }" />
       </button>
 
-      <div class="payment-filter-title">
-       
-      </div>
+      <div class="payment-filter-title">{{ visibleTitle }}</div>
 
       <div v-if="$slots.toolbar" class="payment-filter-toolbar">
         <slot name="toolbar" />
@@ -94,7 +94,7 @@ const activeLabel = computed(() =>
   cursor: pointer;
   font: inherit;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .payment-filter-toggle:hover {
@@ -181,7 +181,7 @@ const activeLabel = computed(() =>
 .payment-filter-field > span:first-child {
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .payment-filter-input {

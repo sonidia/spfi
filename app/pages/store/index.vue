@@ -25,10 +25,10 @@
             class="shop-empty-action primary"
           >
             <IconsAdd />
-            Add store
+            {{ t("profile.addStore") }}
           </NuxtLink>
           <span v-else class="shop-empty-hint">
-            Pick a store from the left sidebar.
+            {{ t("profile.pickStoreHint") }}
           </span>
         </template>
       </ShopEmptyState>
@@ -36,8 +36,8 @@
       <!-- LOADING STATE -->
       <ShopEmptyState
         v-else-if="isPaymentTab && paymentStore.isLoading && !hasPaymentData"
-        title="Loading payment data"
-        description="Fetching transactions, payouts, and store finance details."
+        :title="t('store.loadingPaymentData')"
+        :description="t('store.loadingPaymentDescription')"
         loading
       >
         <template #icon>
@@ -68,7 +68,7 @@
             class="shop-empty-action primary"
           >
             <IconsAdd />
-            Add store
+            {{ t("profile.addStore") }}
           </NuxtLink>
           <button
             v-else-if="formStore.storeId"
@@ -77,10 +77,10 @@
             @click="refreshCurrentStore"
           >
             <IconsRefresh />
-            Refresh payment
+            {{ t("store.refreshPayment") }}
           </button>
           <span v-else class="shop-empty-hint">
-            Pick a store from the left sidebar.
+            {{ t("profile.pickStoreHint") }}
           </span>
         </template>
       </ShopEmptyState>
@@ -94,14 +94,6 @@
         >
           {{ paymentStore.error }}
         </div>
-        <!-- <div
-          v-else-if="isPaymentTab && paymentStore.graphqlWarning"
-          class="payment-alert payment-warning"
-          role="status"
-        >
-          {{ paymentStore.graphqlWarning }}
-        </div> -->
-
 
         <StoreProductsTab v-if="activeTab === 'products'" />
 
@@ -127,6 +119,7 @@
 import { computed, onActivated, onDeactivated, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCustomerStore } from "~/stores/customers";
@@ -150,7 +143,7 @@ const route = useRoute();
 const { token: activeToken } = useActiveShopAuth();
 const { loadStoreTabData } = useStoreTabData();
 const feedback = useStoreFeedback();
-const { state: activeStoreStorage } = useLocalStorage("active_store_id", "");
+const { t } = useLocalization();
 
 const activeTab = computed<StoreTab>(() => resolveStoreTab(route.query.tab));
 const isPageActive = ref(true);
@@ -160,7 +153,7 @@ function setActiveTab(tab: StoreTab) {
     path: "/store",
     query: {
       ...route.query,
-      shop: route.query.shop || activeStoreStorage.value || undefined,
+      shop: route.query.shop || formStore.storeId || undefined,
       tab: tab === "transactions" ? undefined : tab,
     },
   });
@@ -168,15 +161,15 @@ function setActiveTab(tab: StoreTab) {
 
 async function refreshCurrentStore() {
   if (!formStore.storeId) {
-    feedback.warning("Select a store before refreshing payment data.");
+    feedback.warning(t("store.selectBeforeRefresh"));
     return;
   }
 
   await loadStoreTabData(activeTab.value, formStore.storeId, true);
   feedback.requestResult({
     errorMessage: paymentStore.error,
-    successMessage: "Payment data refreshed.",
-    fallbackError: "Failed to refresh payment data.",
+    successMessage: t("store.paymentDataRefreshed"),
+    fallbackError: t("store.paymentDataRefreshFailed"),
   });
 }
 
@@ -186,17 +179,13 @@ const balances = computed(() => {
   return Array.isArray(b) ? b : [b];
 });
 
-const transactionsCount = computed(
-  () => paymentStore.balanceTransactions.length,
-);
+const transactionsCount = computed(() => paymentStore.balanceTransactions.length);
 const payoutsCount = computed(() => paymentStore.payouts.length);
 const isPaymentTab = computed(() =>
   ["transactions", "payouts", "disputes"].includes(activeTab.value),
 );
 const showsStoreSummary = computed(() =>
-  ["transactions", "payouts", "disputes", "orders"].includes(
-    activeTab.value,
-  ),
+  ["transactions", "payouts", "disputes", "orders"].includes(activeTab.value),
 );
 const hasPaymentData = computed(
   () =>
@@ -218,39 +207,36 @@ const activeTabError = computed(() => {
 const activeTabLabel = computed(
   () =>
     ({
-      transactions: "Money movement and fees",
-      payouts: "Settlement schedule",
-      disputes: "Chargebacks and evidence deadlines",
-      orders: "Sales connected to payments",
-      products: "Store catalog",
-      customers: "Customer directory",
-      profile: "Shop details and credentials",
+      transactions: t("store.moneyMovement"),
+      payouts: t("store.settlementSchedule"),
+      disputes: t("store.disputesDeadlines"),
+      orders: t("store.salesConnected"),
+      products: t("store.catalog"),
+      customers: t("store.customerDirectory"),
+      profile: t("store.profileDetails"),
     })[activeTab.value],
 );
 const paymentEmptyState = computed(() => {
   if (!formStore.knownStores.length) {
     return {
       kind: "no-stores",
-      title: "No stores connected yet",
-      description:
-        "Connect a Shopify store first, then payment activity will appear here automatically.",
+      title: t("store.noStoresTitle"),
+      description: t("store.noStoresPaymentDescription"),
     };
   }
 
   if (!formStore.storeId) {
     return {
       kind: "no-selection",
-      title: "Choose a store to view payments",
-      description:
-        "Select a store from the sidebar to load balance transactions, payouts, orders, and products.",
+      title: t("store.choosePaymentStoreTitle"),
+      description: t("store.choosePaymentStoreDescription"),
     };
   }
 
   return {
     kind: "empty-data",
-    title: "No payment activity found",
-    description:
-      "This store has no fetched payment rows yet. Refresh to pull the latest Shopify data.",
+    title: t("store.noPaymentActivityTitle"),
+    description: t("store.noPaymentActivityDescription"),
   };
 });
 
@@ -272,7 +258,7 @@ watch(
 );
 
 watch([activeTabError, activeTab], ([message]) => {
-  if (message) feedback.error(message, "Store data could not load.");
+  if (message) feedback.error(message, t("store.dataLoadFailed"));
 });
 </script>
 
@@ -290,9 +276,8 @@ watch([activeTabError, activeTab], ([message]) => {
   background: var(--red-soft);
   color: var(--red);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
-
 
 @keyframes fadeIn {
   from {
@@ -426,7 +411,7 @@ watch([activeTabError, activeTab], ([message]) => {
   background: var(--blue);
   color: var(--bg) !important;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -0.3px;
   padding: 2px 5px;
   border-radius: 3px;
@@ -568,6 +553,4 @@ watch([activeTabError, activeTab], ([message]) => {
   color: var(--text-muted);
   font-size: 13px;
 }
-
-
 </style>

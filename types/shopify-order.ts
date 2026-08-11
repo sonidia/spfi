@@ -4,6 +4,7 @@ import type {
   ShopifyOrder,
   ShopifyRefund,
 } from "./shopify";
+import type { ApiContractMeta, ApiSuccessResponse } from "./api-contract";
 
 export type ShopifyOrderPayload = Record<string, unknown>;
 
@@ -33,10 +34,18 @@ export interface ShopifyPageInfo {
   hasPreviousPage: boolean;
 }
 
-export interface PaginatedOrdersResponse {
+interface PaginatedOrdersData {
   orders: ShopifyOrder[];
-  pageInfo: ShopifyPageInfo;
 }
+
+interface PaginatedOrdersMeta extends ApiContractMeta<"orders", "cursor"> {
+  pagination: ShopifyPageInfo;
+}
+
+export type PaginatedOrdersResponse = ApiSuccessResponse<
+  PaginatedOrdersData,
+  PaginatedOrdersMeta
+>;
 
 export type OrderCountQuery = Pick<
   OrderListQuery,

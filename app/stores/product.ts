@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
-  ProductsResponse,
+  ProductsListResponse,
   ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductInput,
@@ -15,15 +15,19 @@ interface ProductStoreCache {
   hasFetchedAll: boolean;
 }
 
+export interface BulkProductPublicationResult {
+  total: number;
+  succeeded: number;
+  failedIds: ShopifyNumericId[];
+}
+
 export const useProductStore = defineStore("product", () => {
   const products = ref<ShopifyProduct[]>([]);
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  const activeStoreId = ref("");
   let storeScopeVersion = 0;
   const storeCache = usePerStoreCache<ProductStoreCache>({
-    activeStoreId,
     capture: () => ({
       products: [...products.value],
       hasFetchedAll: hasFetchedAll.value,
@@ -54,12 +58,12 @@ export const useProductStore = defineStore("product", () => {
     error.value = null;
 
     try {
-      const response = await $fetch<ProductsResponse>("/api/product/all", {
+      const response = await $fetch<ProductsListResponse>("/api/product/all", {
         method: "POST",
         body: { storeId, token, limit },
       });
 
-      const nextProducts = response.products || [];
+      const nextProducts = response.data.products;
       storeCache.set(storeId, {
         products: [...nextProducts],
         hasFetchedAll: true,
@@ -78,7 +82,7 @@ export const useProductStore = defineStore("product", () => {
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
-    return activeStoreId.value === storeId && storeScopeVersion === requestScope;
+    return storeCache.isActive(storeId) && storeScopeVersion === requestScope;
   }
 
   async function createProduct(
@@ -114,10 +118,7 @@ export const useProductStore = defineStore("product", () => {
     isLoading.value = true;
     error.value = null;
     try {
-      await $fetch(`/api/product/${id}`, {
-        method: "PUT",
-        body: { storeId, token, product },
-      });
+      await updateProductRequest(storeId, token, id, product);
       await fetchAll(storeId, token);
       return true;
     } catch (err) {
@@ -126,6 +127,59 @@ export const useProductStore = defineStore("product", () => {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  async function setProductsPublished(
+    storeId: string,
+    token: string,
+    productIds: ShopifyNumericId[],
+    publish: boolean,
+  ): Promise<BulkProductPublicationResult> {
+    const uniqueIds = Array.from(
+      new Map(
+        productIds
+          .map((id) => [String(id), id] as const)
+          .filter(([id]) => /^\d+$/.test(id)),
+      ).values(),
+    );
+    const result: BulkProductPublicationResult = {
+      total: uniqueIds.length,
+      succeeded: 0,
+      failedIds: [],
+    };
+
+    if (!storeId || !token || !uniqueIds.length) return result;
+
+    activateStore(storeId);
+    const requestScope = storeScopeVersion;
+    isLoading.value = true;
+    error.value = null;
+
+    for (const id of uniqueIds) {
+      try {
+        await updateProductRequest(storeId, token, id, {
+          ...(publish ? { status: "active" as const } : {}),
+          published_at: publish ? new Date().toISOString() : null,
+          ...(publish ? { published_scope: "web" as const } : {}),
+        });
+        result.succeeded += 1;
+      } catch (err) {
+        result.failedIds.push(id);
+        if (isActiveRequest(storeId, requestScope)) {
+          error.value = getAppErrorMessage(
+            err,
+            publish ? "Bulk publish failed." : "Bulk unpublish failed.",
+          );
+        }
+      }
+    }
+
+    if (isActiveRequest(storeId, requestScope)) {
+      await fetchAll(storeId, token);
+      isLoading.value = false;
+    }
+
+    return result;
   }
 
   async function deleteProduct(storeId: string, token: string, id: ShopifyNumericId) {
@@ -164,13 +218,26 @@ export const useProductStore = defineStore("product", () => {
     hasFetchedAll,
     isLoading,
     error,
-    activeStoreId,
+    isStoreActive: storeCache.isActive,
     fetchAll,
     createProduct,
     updateProduct,
+    setProductsPublished,
     deleteProduct,
     hydrate,
     evictStore,
     $reset,
   };
 });
+
+function updateProductRequest(
+  storeId: string,
+  token: string,
+  id: ShopifyNumericId,
+  product: ShopifyProductUpdateInput,
+) {
+  return $fetch(`/api/product/${encodeURIComponent(String(id))}`, {
+    method: "PUT",
+    body: { storeId, token, product },
+  });
+}

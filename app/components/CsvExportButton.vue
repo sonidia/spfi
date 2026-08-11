@@ -10,17 +10,19 @@ const props = withDefaults(
   }>(),
   {
     filters: () => ({}),
-    label: "Export CSV",
+    label: "",
   },
 );
 
 const { storeId, token, isReady } = useActiveShopAuth();
 const { error, exportCsv, isExporting } = useDataExport();
 const feedback = useStoreFeedback();
+const { t } = useLocalization();
+const visibleLabel = computed(() => props.label || t("export.csv"));
 
 async function download() {
   if (!isReady.value) {
-    feedback.warning("Select a store with valid credentials before exporting.");
+    feedback.warning(t("export.credentialsRequired"));
     return;
   }
 
@@ -30,14 +32,17 @@ async function download() {
     token.value,
     props.filters,
   );
-  if (succeeded) feedback.success(`${props.label} downloaded.`);
-  else feedback.error(error.value, `Failed to export ${props.resource}.`);
+  if (succeeded) {
+    feedback.success(t("export.downloaded", { label: visibleLabel.value }));
+  } else {
+    feedback.error(error.value, t("export.failed", { resource: props.resource }));
+  }
 }
 </script>
 
 <template>
   <BaseButton :loading="isExporting" :disabled="!isReady" @click="download">
     <template #icon><Download /></template>
-    {{ isExporting ? "Exporting…" : label }}
+    {{ isExporting ? t("export.exporting") : visibleLabel }}
   </BaseButton>
 </template>

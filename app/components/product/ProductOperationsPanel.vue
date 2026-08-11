@@ -625,7 +625,7 @@ label > span,
 legend {
   color: var(--text-sub);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 input,
 select {

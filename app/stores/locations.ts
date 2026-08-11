@@ -17,11 +17,7 @@ interface LocationCacheEntry {
 
 function normalizeInventoryItemIds(ids: Array<number | string | null | undefined>) {
   return Array.from(
-    new Set(
-      ids
-        .map((id) => String(id || "").trim())
-        .filter((id) => /^\d+$/.test(id)),
-    ),
+    new Set(ids.map((id) => String(id || "").trim()).filter((id) => /^\d+$/.test(id))),
   );
 }
 
@@ -32,10 +28,8 @@ export const useLocationStore = defineStore("locations", () => {
   const hasFetchedAll = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  const activeStoreId = ref("");
   let requestSequence = 0;
   const storeCache = usePerStoreCache<LocationCacheEntry>({
-    activeStoreId,
     capture: () => ({
       locations: [...locations.value],
       inventoryLevels: [...inventoryLevels.value],
@@ -58,12 +52,7 @@ export const useLocationStore = defineStore("locations", () => {
   const hydrate = storeCache.hydrate;
   const evictStore = storeCache.evict;
 
-  async function fetchAll(
-    storeId: string,
-    token: string,
-    force = false,
-    limit = 250,
-  ) {
+  async function fetchAll(storeId: string, token: string, force = false, limit = 250) {
     if (!storeId || !token) {
       error.value = "Store ID and Access Token are required.";
       return;
@@ -172,10 +161,7 @@ export const useLocationStore = defineStore("locations", () => {
       });
     } catch (err) {
       if (requestId === requestSequence) {
-        error.value = getAppErrorMessage(
-          err,
-          "Failed to fetch inventory locations.",
-        );
+        error.value = getAppErrorMessage(err, "Failed to fetch inventory locations.");
       }
     } finally {
       if (requestId === requestSequence) {
@@ -205,7 +191,7 @@ export const useLocationStore = defineStore("locations", () => {
     hasFetchedAll,
     isLoading,
     error,
-    activeStoreId,
+    isStoreActive: storeCache.isActive,
     fetchAll,
     fetchForInventoryItems,
     hydrate,

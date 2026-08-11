@@ -19,7 +19,8 @@ import {
 } from "~~/utils/dashboard-aggregate";
 
 definePageMeta({ layout: false });
-useHead({ title: "Dashboard · Spfi" });
+const { locale, t } = useLocalization();
+useHead(() => ({ title: t("dashboard.pageTitle") }));
 
 const {
   stores: cachedStores,
@@ -46,16 +47,16 @@ const chartRangeOptions = [
   { value: "14d", label: "14D" },
   { value: "month", label: "MTD" },
 ] as const;
-const productSortOptions = [
-  { value: "units", label: "Units" },
-  { value: "orders", label: "Orders" },
-  { value: "revenue", label: "Revenue" },
-] as const;
-const queueSortOptions = [
-  { value: "oldest", label: "Oldest" },
-  { value: "newest", label: "Newest" },
-  { value: "value", label: "Value" },
-] as const;
+const productSortOptions = computed(() => [
+  { value: "units" as const, label: t("dashboard.sortUnits") },
+  { value: "orders" as const, label: t("dashboard.sortOrders") },
+  { value: "revenue" as const, label: t("dashboard.sortRevenue") },
+]);
+const queueSortOptions = computed(() => [
+  { value: "oldest" as const, label: t("dashboard.sortOldest") },
+  { value: "newest" as const, label: t("dashboard.sortNewest") },
+  { value: "value" as const, label: t("dashboard.sortValue") },
+]);
 
 const storeOptions = computed(() =>
   cachedStores.value
@@ -157,18 +158,18 @@ const chartPoints = computed(() => {
 });
 const fulfillmentSegments = computed(() => [
   {
-    label: "Fulfilled",
+    label: t("dashboard.fulfilled"),
     value: aggregate.value.fulfillmentBreakdown.fulfilled,
   },
-  { label: "Partial", value: aggregate.value.fulfillmentBreakdown.partial },
   {
-    label: "Unfulfilled",
+    label: t("dashboard.partial"),
+    value: aggregate.value.fulfillmentBreakdown.partial,
+  },
+  {
+    label: t("dashboard.unfulfilled"),
     value: aggregate.value.fulfillmentBreakdown.unfulfilled,
   },
 ]);
-const warningCount = computed(() =>
-  stores.value.reduce((total, store) => total + store.warnings.length, 0),
-);
 const isFiltered = computed(
   () =>
     selectedStoreId.value !== "all" ||
@@ -179,11 +180,13 @@ const isFiltered = computed(
 const filterDescription = computed(() => {
   const storeLabel =
     selectedStoreId.value === "all"
-      ? "All stores"
+      ? t("dashboard.allStores")
       : storeOptions.value.find((store) => store.id === selectedStoreId.value)?.label ||
         selectedStoreId.value;
   const currencyLabel =
-    selectedCurrency.value === "all" ? "all currencies" : selectedCurrency.value;
+    selectedCurrency.value === "all"
+      ? t("dashboard.allCurrencies")
+      : selectedCurrency.value;
   return `${storeLabel}, ${currencyLabel}`;
 });
 
@@ -229,18 +232,18 @@ function setChartRange(value: (typeof chartRangeOptions)[number]["value"]) {
   chartRange.value = value;
 }
 
-function setProductSort(value: (typeof productSortOptions)[number]["value"]) {
+function setProductSort(value: "units" | "orders" | "revenue") {
   productSort.value = value;
 }
 
-function setQueueSort(value: (typeof queueSortOptions)[number]["value"]) {
+function setQueueSort(value: "oldest" | "newest" | "value") {
   queueSort.value = value;
 }
 
 function formatMoney(rows: DashboardMoney[], compact = true) {
   if (!rows.length) return "—";
   const visible = rows.slice(0, 2).map((row) =>
-    new Intl.NumberFormat(undefined, {
+    new Intl.NumberFormat(locale.value, {
       style: "currency",
       currency: row.currency,
       notation: compact ? "compact" : "standard",
@@ -251,13 +254,13 @@ function formatMoney(rows: DashboardMoney[], compact = true) {
 }
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat(undefined, { notation: "compact" }).format(value);
+  return new Intl.NumberFormat(locale.value, { notation: "compact" }).format(value);
 }
 
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale.value, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -267,7 +270,10 @@ function formatDate(value: string) {
 
 function formatUpdatedAt(value: number | null) {
   return value
-    ? new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    ? new Date(value).toLocaleTimeString(locale.value, {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : "";
 }
 
@@ -314,9 +320,9 @@ onActivated(ensureLoaded);
   <main class="dashboard-page">
     <section v-if="!isLoading && totalStores === 0" class="dashboard-empty-state">
       <span><LayoutDashboard /></span>
-      <h2>Connect a store to activate the dashboard</h2>
-      <p>Your all-store metrics will appear here after a Shopify store is added.</p>
-      <NuxtLink to="/manager">Open Store Manager</NuxtLink>
+      <h2>{{ t("dashboard.emptyTitle") }}</h2>
+      <p>{{ t("dashboard.emptyDescription") }}</p>
+      <NuxtLink to="/manager">{{ t("dashboard.openManager") }}</NuxtLink>
     </section>
 
     <template v-else>
@@ -348,22 +354,32 @@ onActivated(ensureLoaded);
               :disabled="isLoading"
               :title="
                 lastUpdated
-                  ? `Cached at ${formatUpdatedAt(lastUpdated)}`
-                  : 'Refresh all stores'
+                  ? t('dashboard.cachedAt', { time: formatUpdatedAt(lastUpdated) })
+                  : t('dashboard.refreshAll')
               "
               @click="refresh"
             >
               <RefreshCw :class="{ 'is-spinning': isLoading }" />
-              {{ isLoading ? `${completedStores}/${totalStores}` : "Refresh" }}
+              {{
+                isLoading ? `${completedStores}/${totalStores}` : t("common.refresh")
+              }}
             </button>
           </div>
         </template>
       </DashboardToolbar>
 
-      <section class="dashboard-metric-grid" aria-label="Business overview">
+      <section
+        class="dashboard-metric-grid"
+        :aria-label="t('dashboard.businessOverview')"
+      >
         <DashboardMetricCard
-          label="Total stores"
-          :detail="`${cachedStores.length} reporting · ${cachedFailures.length} need attention`"
+          :label="t('dashboard.totalStores')"
+          :detail="
+            t('dashboard.reportingDetail', {
+              reporting: cachedStores.length,
+              attention: cachedFailures.length,
+            })
+          "
           :loading="isLoading && !cachedStores.length"
           tone="blue"
         >
@@ -373,8 +389,12 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="Revenue today"
-          :detail="`${formatNumber(aggregate.revenue.orderCountToday)} revenue orders`"
+          :label="t('dashboard.revenueToday')"
+          :detail="
+            t('dashboard.revenueOrders', {
+              count: formatNumber(aggregate.revenue.orderCountToday),
+            })
+          "
           :loading="isLoading && !stores.length"
           tone="green"
         >
@@ -395,8 +415,12 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="This week"
-          :detail="`${formatNumber(aggregate.revenue.orderCountWeek)} orders since Monday`"
+          :label="t('dashboard.thisWeek')"
+          :detail="
+            t('dashboard.ordersSinceMonday', {
+              count: formatNumber(aggregate.revenue.orderCountWeek),
+            })
+          "
           :loading="isLoading && !stores.length"
           tone="blue"
           :delay="55"
@@ -418,8 +442,12 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="This month"
-          :detail="`${formatNumber(aggregate.revenue.orderCountMonth)} paid or partially paid`"
+          :label="t('dashboard.thisMonth')"
+          :detail="
+            t('dashboard.paidOrders', {
+              count: formatNumber(aggregate.revenue.orderCountMonth),
+            })
+          "
           :loading="isLoading && !stores.length"
           tone="violet"
           :delay="110"
@@ -441,8 +469,8 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="Pending fulfillment"
-          detail="Open unshipped and partial orders"
+          :label="t('dashboard.pendingFulfillment')"
+          :detail="t('dashboard.pendingFulfillmentDetail')"
           :loading="isLoading && !stores.length"
           tone="amber"
           :delay="165"
@@ -453,8 +481,12 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="Customers"
-          :detail="`${formatNumber(aggregate.productCount)} products across catalogues`"
+          :label="t('dashboard.customers')"
+          :detail="
+            t('dashboard.catalogueDetail', {
+              count: formatNumber(aggregate.productCount),
+            })
+          "
           :loading="isLoading && !stores.length"
           tone="blue"
           :delay="220"
@@ -465,8 +497,13 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="Payout balance"
-          :detail="`${aggregate.payments.availableStores}/${stores.length || totalStores} stores with Payments`"
+          :label="t('dashboard.payoutBalance')"
+          :detail="
+            t('dashboard.paymentStoresDetail', {
+              available: aggregate.payments.availableStores,
+              total: stores.length || totalStores,
+            })
+          "
           :loading="isLoading && !stores.length"
           tone="green"
           :delay="275"
@@ -488,8 +525,8 @@ onActivated(ensureLoaded);
           </template>
         </DashboardMetricCard>
         <DashboardMetricCard
-          label="Users & staff"
-          :detail="`${stores.length} stores reporting access data`"
+          :label="t('dashboard.usersAndStaff')"
+          :detail="t('dashboard.accessStoresDetail', { count: stores.length })"
           :loading="isLoading && !stores.length"
           tone="violet"
           :delay="330"
@@ -501,28 +538,16 @@ onActivated(ensureLoaded);
         </DashboardMetricCard>
       </section>
 
-      <section v-if="failures.length || warningCount" class="dashboard-health-strip">
-        <div>
-          <strong>{{
-            failures.length
-              ? `${failures.length} store issue${failures.length === 1 ? "" : "s"}`
-              : "Partial access"
-          }}</strong>
-          <span>
-            {{ warningCount }} restricted resource{{ warningCount === 1 ? "" : "s" }}.
-            Other dashboard data remains available.
-          </span>
-        </div>
-        <NuxtLink to="/manager">Review stores</NuxtLink>
-      </section>
-
       <section class="dashboard-chart-grid">
         <article class="dashboard-panel dashboard-revenue-panel">
           <header class="dashboard-panel-header">
             <div>
-              <h2><CircleDollarSign /> Daily revenue</h2>
+              <h2><CircleDollarSign /> {{ t("dashboard.dailyRevenue") }}</h2>
             </div>
-            <div class="dashboard-segmented-control" aria-label="Revenue chart range">
+            <div
+              class="dashboard-segmented-control"
+              :aria-label="t('dashboard.revenueChartRange')"
+            >
               <button
                 v-for="option in chartRangeOptions"
                 :key="option.value"
@@ -540,10 +565,18 @@ onActivated(ensureLoaded);
         <article class="dashboard-panel dashboard-flow-panel">
           <header class="dashboard-panel-header">
             <div>
-              <h2><PackageCheck /> Fulfillment mix</h2>
+              <h2><PackageCheck /> {{ t("dashboard.fulfillmentMix") }}</h2>
             </div>
           </header>
-          <DashboardDonutChart :segments="fulfillmentSegments" />
+          <DashboardDonutChart
+            :segments="fulfillmentSegments"
+            :center-label="t('dashboard.monthOrdersUpper')"
+            :ariaLabel="
+              t('dashboard.orderFulfillmentChart', {
+                count: aggregate.revenue.orderCountMonth,
+              })
+            "
+          />
         </article>
       </section>
 
@@ -551,9 +584,12 @@ onActivated(ensureLoaded);
         <article class="dashboard-panel">
           <header class="dashboard-panel-header">
             <div>
-              <h2><ShoppingBag /> Top products</h2>
+              <h2><ShoppingBag /> {{ t("dashboard.topProducts") }}</h2>
             </div>
-            <div class="dashboard-segmented-control" aria-label="Product ranking">
+            <div
+              class="dashboard-segmented-control"
+              :aria-label="t('dashboard.productRanking')"
+            >
               <button
                 v-for="option in productSortOptions"
                 :key="option.value"
@@ -571,25 +607,27 @@ onActivated(ensureLoaded);
         <article class="dashboard-panel">
           <header class="dashboard-panel-header">
             <div>
-              <h2><WalletCards /> Payments pulse</h2>
+              <h2><WalletCards /> {{ t("dashboard.paymentsPulse") }}</h2>
             </div>
-            <NuxtLink to="/store?tab=transactions">Explore →</NuxtLink>
+            <NuxtLink to="/store?tab=transactions">
+              {{ t("dashboard.explore") }}
+            </NuxtLink>
           </header>
           <div class="payment-pulse-grid">
             <div>
-              <span>Month gross</span>
+              <span>{{ t("dashboard.monthGross") }}</span>
               <strong>{{ formatMoney(aggregate.payments.transactions.gross) }}</strong>
             </div>
             <div>
-              <span>Fees</span>
+              <span>{{ t("dashboard.fees") }}</span>
               <strong>{{ formatMoney(aggregate.payments.transactions.fees) }}</strong>
             </div>
             <div>
-              <span>Net</span>
+              <span>{{ t("dashboard.net") }}</span>
               <strong>{{ formatMoney(aggregate.payments.transactions.net) }}</strong>
             </div>
             <div>
-              <span>Pending payouts</span>
+              <span>{{ t("dashboard.pendingPayouts") }}</span>
               <strong>{{ aggregate.payments.payouts.pendingCount }}</strong>
             </div>
           </div>
@@ -618,7 +656,7 @@ onActivated(ensureLoaded);
             </NuxtLink>
           </div>
           <div v-else class="dashboard-list-placeholder">
-            No payment transactions this month.
+            {{ t("dashboard.noTransactions") }}
           </div>
         </article>
       </section>
@@ -626,9 +664,12 @@ onActivated(ensureLoaded);
       <section class="dashboard-panel dashboard-table-panel">
         <header class="dashboard-panel-header">
           <div>
-            <h2><PackageCheck /> Pending fulfillments</h2>
+            <h2><PackageCheck /> {{ t("dashboard.pendingFulfillment") }}</h2>
           </div>
-          <div class="dashboard-segmented-control" aria-label="Fulfillment sorting">
+          <div
+            class="dashboard-segmented-control"
+            :aria-label="t('dashboard.fulfillmentSorting')"
+          >
             <button
               v-for="option in queueSortOptions"
               :key="option.value"
@@ -644,11 +685,21 @@ onActivated(ensureLoaded);
           <table class="dashboard-data-table">
             <thead>
               <tr>
-                <th>Order</th>
-                <th>Store</th>
-                <th>Waiting</th>
-                <th>Status</th>
-                <th class="numeric">Total</th>
+                <th>{{ t("dashboard.columnOrder") }}</th>
+                <th>{{ t("dashboard.columnStore") }}</th>
+                <th
+                  :aria-sort="
+                    queueSort === 'oldest'
+                      ? 'ascending'
+                      : queueSort === 'newest'
+                        ? 'descending'
+                        : 'none'
+                  "
+                >
+                  {{ t("dashboard.columnWaiting") }}
+                </th>
+                <th>{{ t("dashboard.columnStatus") }}</th>
+                <th class="numeric">{{ t("dashboard.columnTotal") }}</th>
               </tr>
             </thead>
             <tbody>
@@ -682,16 +733,18 @@ onActivated(ensureLoaded);
             </tbody>
           </table>
         </div>
-        <div v-else class="dashboard-list-placeholder">Fulfillment queue is clear.</div>
+        <div v-else class="dashboard-list-placeholder">
+          {{ t("dashboard.queueClear") }}
+        </div>
       </section>
 
       <section class="dashboard-bottom-grid">
         <article class="dashboard-panel">
           <header class="dashboard-panel-header">
             <div>
-              <h2><Store /> Portfolio performance</h2>
+              <h2><Store /> {{ t("dashboard.portfolioPerformance") }}</h2>
             </div>
-            <span>{{ visibleStores.length }} visible</span>
+            <span>{{ t("dashboard.visible", { count: visibleStores.length }) }}</span>
           </header>
           <div class="store-performance-list">
             <NuxtLink
@@ -707,11 +760,17 @@ onActivated(ensureLoaded);
               </span>
               <span>
                 <strong>{{ formatMoney(store.revenue.month) }}</strong>
-                <small>{{ store.revenue.orderCountMonth }} month orders</small>
+                <small>
+                  {{
+                    t("dashboard.monthOrders", {
+                      count: store.revenue.orderCountMonth,
+                    })
+                  }}
+                </small>
               </span>
               <span>
                 <strong>{{ store.pendingFulfillments.count }}</strong>
-                <small>pending</small>
+                <small>{{ t("dashboard.pending") }}</small>
               </span>
               <span
                 class="store-health-dot"
@@ -729,9 +788,9 @@ onActivated(ensureLoaded);
                 <strong>{{ failure.label }}</strong>
                 <small>{{ failure.message }}</small>
               </span>
-              <NuxtLink :to="{ path: '/manager', query: { edit: failure.storeId } }"
-                >Fix access</NuxtLink
-              >
+              <NuxtLink :to="{ path: '/manager', query: { edit: failure.storeId } }">{{
+                t("dashboard.fixAccess")
+              }}</NuxtLink>
             </div>
           </div>
         </article>
@@ -739,9 +798,9 @@ onActivated(ensureLoaded);
         <article class="dashboard-panel">
           <header class="dashboard-panel-header">
             <div>
-              <h2><UserRoundCog /> Store users</h2>
+              <h2><UserRoundCog /> {{ t("dashboard.storeUsers") }}</h2>
             </div>
-            <span>{{ aggregate.userCount }} known</span>
+            <span>{{ t("dashboard.known", { count: aggregate.userCount }) }}</span>
           </header>
           <div v-if="allUsers.length" class="dashboard-user-grid">
             <NuxtLink
@@ -759,14 +818,13 @@ onActivated(ensureLoaded);
             </NuxtLink>
           </div>
           <div v-else class="dashboard-list-placeholder">
-            User information is restricted.
+            {{ t("dashboard.userRestricted") }}
           </div>
         </article>
       </section>
 
       <footer class="dashboard-footnote">
-        <ShoppingBag /> Revenue includes paid, partially paid and partially refunded
-        orders. Each currency remains separate.
+        <ShoppingBag /> {{ t("dashboard.footnote") }}
       </footer>
     </template>
   </main>

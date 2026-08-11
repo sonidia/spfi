@@ -56,14 +56,12 @@ export const useOrderStore = defineStore("order", () => {
   const error = ref<string | null>(null);
   const mutationError = ref<string | null>(null);
   const riskError = ref<string | null>(null);
-  const activeStoreId = ref("");
   let storeScopeVersion = 0;
   const currentPage = ref(1);
   const pageSize = ref(20);
   const pageInfo = ref<ShopifyPageInfo>({ ...EMPTY_PAGE_INFO });
   const activeQuery = ref<OrderListQuery>({ status: "any" });
   const storeCache = usePerStoreCache<OrderStoreCache>({
-    activeStoreId,
     capture: () => ({
       orders: [...orders.value],
       orderCount: orderCount.value,
@@ -129,12 +127,12 @@ export const useOrderStore = defineStore("order", () => {
       if (!isActiveRequest(storeId, requestScope)) return;
 
       const snapshot: OrderStoreCache = {
-        orders: response.orders,
+        orders: response.data.orders,
         orderCount: countResponse.count,
         hasFetchedAll: true,
         currentPage: force ? 1 : currentPage.value,
         pageSize: pageSize.value,
-        pageInfo: { ...response.pageInfo },
+        pageInfo: { ...response.meta.pagination },
         activeQuery: { ...normalizedQuery },
       };
       storeCache.set(storeId, snapshot);
@@ -188,7 +186,7 @@ export const useOrderStore = defineStore("order", () => {
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
-    return activeStoreId.value === storeId && storeScopeVersion === requestScope;
+    return storeCache.isActive(storeId) && storeScopeVersion === requestScope;
   }
 
   function setPage(page: number) {
@@ -483,7 +481,7 @@ export const useOrderStore = defineStore("order", () => {
     mutationError.value = null;
     try {
       const result = await operation();
-      if (activeStoreId.value === storeId) rememberStore(storeId);
+      if (storeCache.isActive(storeId)) rememberStore(storeId);
       return result;
     } catch (err) {
       mutationError.value = getAppErrorMessage(err, fallback);
@@ -552,8 +550,8 @@ export const useOrderStore = defineStore("order", () => {
       );
       if (!isActiveRequest(storeId, requestScope)) return;
 
-      orders.value = [...response.orders];
-      pageInfo.value = { ...response.pageInfo };
+      orders.value = [...response.data.orders];
+      pageInfo.value = { ...response.meta.pagination };
       currentPage.value = nextPage;
       rememberStore(storeId);
     } catch (err) {
@@ -576,7 +574,7 @@ export const useOrderStore = defineStore("order", () => {
     forgetStoreResource(storeId, "payment");
     await paymentStore.fetchBalanceTransactions(storeId, token, true);
     if (
-      paymentStore.activeStoreId === storeId &&
+      paymentStore.isStoreActive(storeId) &&
       paymentStore.hasFetchedBalanceTransactions &&
       !paymentStore.error
     ) {
@@ -639,7 +637,7 @@ export const useOrderStore = defineStore("order", () => {
     error,
     mutationError,
     riskError,
-    activeStoreId,
+    isStoreActive: storeCache.isActive,
     currentPage,
     pageSize,
     pageInfo,

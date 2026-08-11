@@ -189,7 +189,7 @@ function moveFocus(event: KeyboardEvent) {
   margin-left: auto;
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 @media (max-width: 600px) {

@@ -1,11 +1,11 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
 import type { OrderCancelInput } from "~~/types/shopify-order";
-import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
+import {
+  requireShopifyCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 
 interface CancelOrderBody extends OrderCancelInput {
   storeId?: string;
@@ -15,14 +15,7 @@ interface CancelOrderBody extends OrderCancelInput {
 export default defineEventHandler(async (event) => {
   const id = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<CancelOrderBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Order ID, Store ID and Access Token are required.",
-      400,
-    );
-  }
+  const { storeId, token } = requireShopifyCredentials(body);
 
   const requestBody: OrderCancelInput = {
     ...(body.amount ? { amount: body.amount } : {}),

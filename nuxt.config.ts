@@ -7,6 +7,14 @@ import {
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   modules: ["@pinia/nuxt", "@nuxt/eslint"],
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        // Node's native TypeScript test runner needs explicit source extensions.
+        allowImportingTsExtensions: true,
+      },
+    },
+  },
   app: {
     head: {
       script: [
@@ -30,6 +38,13 @@ export default defineNuxtConfig({
     tokenRateLimitPerMinute: DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
   },
   nitro: {
+    typescript: {
+      tsConfig: {
+        compilerOptions: {
+          allowImportingTsExtensions: true,
+        },
+      },
+    },
     externals: {
       external: ["papaparse"],
       traceInclude: ["./node_modules/papaparse/papaparse.js"],

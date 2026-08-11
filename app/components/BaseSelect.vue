@@ -278,7 +278,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
   overflow: hidden;
   color: var(--text);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

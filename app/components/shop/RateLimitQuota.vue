@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useLocalization } from "~/composables/useLocalization";
 import { useRateLimitStore } from "~/stores/rateLimit";
 
 defineProps<{
@@ -10,6 +11,7 @@ const CIRCLE_RADIUS = 17;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
 const rateLimit = useRateLimitStore();
+const { locale, t } = useLocalization();
 const now = ref(Date.now());
 let clock: ReturnType<typeof setInterval> | null = null;
 
@@ -46,25 +48,27 @@ const tone = computed(() => {
 });
 const resetText = computed(() => {
   if (!rateLimit.isKnown || rateLimit.resetAt === null) {
-    return "Waiting for request";
+    return t("quota.waiting");
   }
 
   const seconds = Math.max(0, Math.ceil((rateLimit.resetAt - now.value) / 1_000));
-  if (seconds === 0) return "Refreshed";
-  return `Resets in ${seconds}s`;
+  if (seconds === 0) return t("quota.refreshed");
+  return t("quota.resetsIn", { seconds });
 });
 const accessibleLabel = computed(() => {
   if (!rateLimit.isKnown || effectiveRemaining.value === null) {
-    return "Request quota is waiting for the first API response";
+    return t("quota.accessibleWaiting");
   }
 
-  return `${formatNumber(effectiveRemaining.value)} of ${formatNumber(
-    rateLimit.limit || 0,
-  )} requests remaining, ${percentage.value} percent`;
+  return t("quota.accessibleRemaining", {
+    remaining: formatNumber(effectiveRemaining.value),
+    limit: formatNumber(rateLimit.limit || 0),
+    percent: percentage.value,
+  });
 });
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value);
+  return new Intl.NumberFormat(locale.value).format(value);
 }
 </script>
 
@@ -78,7 +82,7 @@ function formatNumber(value: number) {
       <div
         class="quota-ring"
         role="meter"
-        aria-label="Request quota remaining"
+        :aria-label="t('quota.remaining')"
         aria-valuemin="0"
         aria-valuemax="100"
         :aria-valuenow="rateLimit.isKnown ? percentage : undefined"
@@ -103,7 +107,7 @@ function formatNumber(value: number) {
       <div class="quota-heading">
         <span class="quota-title">
           <span class="quota-status-dot" aria-hidden="true" />
-          Request quota
+          {{ t("quota.title") }}
         </span>
         <strong>{{ rateLimit.isKnown ? `${percentage}%` : "—" }}</strong>
       </div>
@@ -111,7 +115,7 @@ function formatNumber(value: number) {
       <div
         class="quota-progress"
         role="meter"
-        aria-label="Request quota remaining"
+        :aria-label="t('quota.remaining')"
         aria-valuemin="0"
         aria-valuemax="100"
         :aria-valuenow="rateLimit.isKnown ? percentage : undefined"
@@ -121,10 +125,14 @@ function formatNumber(value: number) {
 
       <div class="quota-meta">
         <span v-if="rateLimit.isKnown && effectiveRemaining !== null">
-          Remain {{ formatNumber(effectiveRemaining) }} /
-          {{ formatNumber(rateLimit.limit || 0) }} requests
+          {{
+            t("quota.inlineRemaining", {
+              remaining: formatNumber(effectiveRemaining),
+              limit: formatNumber(rateLimit.limit || 0),
+            })
+          }}
         </span>
-        <span v-else>No quota data yet</span>
+        <span v-else>{{ t("quota.noData") }}</span>
         <span>{{ resetText }}</span>
       </div>
     </template>
@@ -177,7 +185,7 @@ function formatNumber(value: number) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .quota-status-dot {
@@ -231,7 +239,7 @@ function formatNumber(value: number) {
   place-items: center;
   color: var(--quota-color);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 

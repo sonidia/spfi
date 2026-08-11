@@ -14,6 +14,7 @@ import {
 } from "./callShopifyApi";
 import { getShopifyAdminApiBase } from "./shopify-api-version";
 import { parseJsonPreservingUnsafeIntegers } from "./lossless-json";
+import { getAxiosHeaderValue } from "./http-headers";
 import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
@@ -73,6 +74,7 @@ export async function callShopifyGraphql<
   retryTransport = true,
   maxThrottleRetries = DEFAULT_MAX_GRAPHQL_THROTTLE_RETRIES,
 }: CallShopifyGraphqlOptions<TVariables>): Promise<TData> {
+  setResponseHeader(event, "x-spf-field-convention", "app-camel-case");
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
   }
@@ -130,7 +132,7 @@ export async function callShopifyGraphql<
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 429) {
           const retryDelayMs = parseRetryAfterMs(
-            getAxiosResponseHeader(error.response.headers, "retry-after"),
+            getAxiosHeaderValue(error.response.headers, "retry-after"),
           );
           if (retryDelayMs !== null) {
             if (throttleRetryCount >= normalizeMaxThrottleRetries(maxThrottleRetries)) {
@@ -209,7 +211,7 @@ function forwardGraphqlThrottleHeaders(
   headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
   extensions?: ShopifyGraphqlExtensions,
 ) {
-  const apiVersion = getAxiosResponseHeader(headers, "x-shopify-api-version");
+  const apiVersion = getAxiosHeaderValue(headers, "x-shopify-api-version");
   if (apiVersion !== undefined && apiVersion !== null) {
     setResponseHeader(event, "x-shopify-api-version", String(apiVersion));
   }
@@ -226,17 +228,6 @@ function forwardGraphqlThrottleHeaders(
   for (const [name, value] of Object.entries(responseHeaders)) {
     if (value !== null) setResponseHeader(event, name, String(value));
   }
-}
-
-function getAxiosResponseHeader(
-  headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
-  name: string,
-) {
-  if (typeof headers.get === "function") {
-    return headers.get(name);
-  }
-
-  return headers[name];
 }
 
 export function toShopifyGid(resource: string, id: string | number) {

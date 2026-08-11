@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
-import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
+  requireShopifyCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 
 interface TrackingInfo {
   number?: string;
@@ -33,16 +33,8 @@ export default defineEventHandler(async (event) => {
   const appConfig = useAppConfig();
   const id = requireShopifyResourceId(event.context.params?.id, "Fulfillment");
   const body = (await readBody<FulfillmentUpdateBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
+  const { storeId, token } = requireShopifyCredentials(body);
   const fulfillmentInfo = body.fulfillment;
-
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Fulfillment ID, Store ID and Access Token are required.",
-      400,
-    );
-  }
 
   const trackingNumber = fulfillmentInfo?.tracking_info?.number;
   const trackingUrl = `${appConfig.tracking.url}${trackingNumber || ""}`;

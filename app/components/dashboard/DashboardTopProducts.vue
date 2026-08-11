@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { useLocalization } from "~/composables/useLocalization";
 import type { DashboardAggregate } from "~~/types/dashboard";
 
 const props = defineProps<{
   products: DashboardAggregate["topProducts"];
   metric: "units" | "orders" | "revenue";
 }>();
+
+const { locale, t } = useLocalization();
 
 const maximumValue = computed(() =>
   Math.max(1, ...props.products.map((product) => rankingValue(product))),
@@ -17,15 +20,21 @@ function rankingValue(product: DashboardAggregate["topProducts"][number]) {
 }
 
 function primaryLabel(product: DashboardAggregate["topProducts"][number]) {
-  if (props.metric === "orders") return `${product.orders} orders`;
-  if (props.metric === "revenue") return moneyLabel(product) || "No revenue";
-  return `${product.units} units`;
+  if (props.metric === "orders")
+    return t("dashboard.ordersCount", { count: product.orders });
+  if (props.metric === "revenue")
+    return moneyLabel(product) || t("dashboard.noRevenue");
+  return t("dashboard.unitsCount", { count: product.units });
 }
 
 function secondaryLabel(product: DashboardAggregate["topProducts"][number]) {
-  if (props.metric === "orders") return `${product.units} units`;
+  if (props.metric === "orders")
+    return t("dashboard.unitsCount", { count: product.units });
   if (props.metric === "revenue")
-    return `${product.units} units · ${product.orders} orders`;
+    return t("dashboard.unitsOrdersDetail", {
+      units: product.units,
+      orders: product.orders,
+    });
   return moneyLabel(product);
 }
 
@@ -33,7 +42,7 @@ function moneyLabel(product: DashboardAggregate["topProducts"][number]) {
   return product.revenue
     .slice(0, 2)
     .map((value) =>
-      new Intl.NumberFormat(undefined, {
+      new Intl.NumberFormat(locale.value, {
         style: "currency",
         currency: value.currency,
         notation: "compact",
@@ -74,7 +83,7 @@ function moneyLabel(product: DashboardAggregate["topProducts"][number]) {
       </div>
     </div>
   </div>
-  <div v-else class="dashboard-list-empty">No product sales this month.</div>
+  <div v-else class="dashboard-list-empty">{{ t("dashboard.noProductSales") }}</div>
 </template>
 
 <style scoped>
@@ -94,7 +103,7 @@ function moneyLabel(product: DashboardAggregate["topProducts"][number]) {
 
 .rank-index {
   color: var(--text-muted);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 

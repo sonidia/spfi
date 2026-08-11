@@ -41,6 +41,7 @@ function animateTo(target: number) {
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
     displayedValue.value = target;
+    isAnimating.value = false;
     return;
   }
 
@@ -104,6 +105,10 @@ onBeforeUnmount(() => {
   display: inline-block;
   font-variant-numeric: tabular-nums;
   transform-origin: left bottom;
+}
+
+:global(html[data-locale-direction="rtl"]) .dashboard-animated-number {
+  transform-origin: right bottom;
 }
 
 .dashboard-animated-number.is-counting {

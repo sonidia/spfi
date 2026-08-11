@@ -41,10 +41,8 @@ test("transaction status lookup uses an order-indexed map", () => {
 });
 
 test("per-store cache restores and evicts isolated snapshots", () => {
-  const activeStoreId = ref("");
   const value = ref(0);
   const cache = usePerStoreCache({
-    activeStoreId,
     capture: () => ({ value: value.value }),
     restore: (snapshot) => {
       value.value = snapshot.value;
@@ -54,7 +52,7 @@ test("per-store cache restores and evicts isolated snapshots", () => {
     },
   });
 
-  activeStoreId.value = "a";
+  cache.activate("a");
   value.value = 7;
   cache.remember();
   value.value = 9;

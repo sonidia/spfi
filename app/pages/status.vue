@@ -3,6 +3,7 @@ import {
   getSocks5ProxyInputError,
   isSocks5ProxyInput,
 } from "~/composables/useSocks5ProxyInput";
+import { useLocalization } from "~/composables/useLocalization";
 import type {
   BatchStatus,
   CheckPlatform,
@@ -31,6 +32,7 @@ interface BatchCheckRow extends BatchCheckInput {
 }
 
 const route = useRoute();
+const { locale, t } = useLocalization();
 
 const routeTarget = computed<string>(() => {
   const targetQuery = route.query.target;
@@ -58,18 +60,18 @@ const checkingLineNumbers = ref<number[]>([]);
 const focusedCheckingLineNumber = ref<number | null>(null);
 const expandedCheckKeys = ref<Set<string>>(new Set());
 
-const severityLabel: Record<CheckSeverity, string> = {
-  ok: "OK",
-  warning: "Review",
-  danger: "Risk",
-  neutral: "Unknown",
-};
+const severityLabel = computed<Record<CheckSeverity, string>>(() => ({
+  ok: t("status.severityOk"),
+  warning: t("status.severityReview"),
+  danger: t("status.severityRisk"),
+  neutral: t("status.severityUnknown"),
+}));
 
-const proxyModeOptions: { value: ProxyMode; label: string }[] = [
-  { value: "common-proxy", label: "Common proxy" },
-  { value: "separate-proxy", label: "Separate proxy" },
-  { value: "no-proxy", label: "No proxy" },
-];
+const proxyModeOptions = computed<Array<{ value: ProxyMode; label: string }>>(() => [
+  { value: "common-proxy", label: t("status.commonProxy") },
+  { value: "separate-proxy", label: t("status.separateProxy") },
+  { value: "no-proxy", label: t("status.noProxy") },
+]);
 
 function setProxyMode(mode: ProxyMode) {
   proxyMode.value = mode;
@@ -122,8 +124,11 @@ const batchProgressPercent = computed(() =>
 
 const batchProgressLabel = computed(() =>
   batchStats.value.total
-    ? `${batchCompletedCount.value}/${batchStats.value.total} completed`
-    : "Ready",
+    ? t("status.completed", {
+        completed: batchCompletedCount.value,
+        total: batchStats.value.total,
+      })
+    : t("status.ready"),
 );
 
 const isBatchProgressVisible = computed(
@@ -198,7 +203,7 @@ function parseBatchInput(): BatchCheckInput[] {
     .filter((line) => line.value && !line.value.startsWith("#"));
 
   if (!lines.length) {
-    throw new Error("Paste at least 1 URL/domain to batch check.");
+    throw new Error(t("status.noBatchTargets"));
   }
 
   if (proxyMode.value === "common-proxy") {
@@ -221,15 +226,18 @@ function parseBatchInput(): BatchCheckInput[] {
       const parsed = parseSeparateProxyLine(line.value);
 
       if (!parsed.target || !parsed.proxy) {
-        throw new Error(
-          `Line ${line.lineNumber}: SOCKS5 proxy and URL/domain are required.`,
-        );
+        throw new Error(t("status.lineProxyRequired", { line: line.lineNumber }));
       }
 
       const proxyError = getSocks5ProxyInputError(parsed.proxy);
 
       if (proxyError) {
-        throw new Error(`Line ${line.lineNumber}: ${proxyError}`);
+        throw new Error(
+          t("status.lineError", {
+            line: line.lineNumber,
+            message: proxyError,
+          }),
+        );
       }
 
       return {
@@ -280,14 +288,16 @@ function parseSeparateProxyLine(line: string) {
 
 function getBatchRowProxyDisplay(row: BatchCheckRow) {
   if (!row.proxy) {
-    return "Direct";
+    return t("status.direct");
   }
 
   if (row.result?.proxyIp) {
     return row.result.proxyIp;
   }
 
-  return row.status === "queued" || row.status === "checking" ? "Checking" : "Unknown";
+  return row.status === "queued" || row.status === "checking"
+    ? t("status.checking")
+    : t("status.unknown");
 }
 
 function resetExpandedChecks() {
@@ -335,7 +345,7 @@ function markPendingBatchRowsAsStopped() {
       ? {
           ...row,
           status: "error",
-          errorMessage: "Batch check stopped.",
+          errorMessage: t("status.batchStopped"),
         }
       : row,
   );
@@ -397,7 +407,9 @@ function scrollBatchTextareaLineIntoView(lineNumber: number) {
 
   textarea.scrollTo({
     top: nextScrollTop,
-    behavior: "smooth",
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
   });
 }
 
@@ -418,7 +430,7 @@ function stopBatchCheck() {
   batchAbortController.value?.abort();
   markPendingBatchRowsAsStopped();
   resetCheckingLines();
-  batchErrorMessage.value = "Batch check stopped.";
+  batchErrorMessage.value = t("status.batchStopped");
   isBatchChecking.value = false;
 }
 
@@ -438,7 +450,7 @@ async function runBatchCheck() {
     result.value = null;
     activeBatchRowId.value = null;
     resetCheckingLines();
-    batchErrorMessage.value = getErrorMessage(error, "Could not parse batch input.");
+    batchErrorMessage.value = getErrorMessage(error, t("status.parseFailed"));
     return;
   }
 
@@ -495,8 +507,8 @@ async function runBatchCheck() {
           status: "error",
           errorMessage:
             abortController.signal.aborted || isAbortError(error)
-              ? "Batch check stopped."
-              : getErrorMessage(error, "Could not check this row."),
+              ? t("status.batchStopped")
+              : getErrorMessage(error, t("status.rowCheckFailed")),
         });
       } finally {
         blurCheckingLine(row.lineNumber);
@@ -526,27 +538,27 @@ function selectBatchRow(row: BatchCheckRow) {
 }
 
 function getStoreStatusLabel(status: StoreLifecycleStatus) {
-  return status;
+  return status === "alive" ? t("status.alive") : t("status.dead");
 }
 
 function getBatchRowStatus(row: BatchCheckRow) {
   if (row.status === "queued") {
-    return "Queued";
+    return t("status.queued");
   }
 
   if (row.status === "checking") {
-    return "Checking";
+    return t("status.checking");
   }
 
   if (row.status === "error") {
-    return "Error";
+    return t("status.error");
   }
 
   if (row.result?.storeStatus) {
     return getStoreStatusLabel(row.result.storeStatus);
   }
 
-  return row.result?.verdict.status === "alive" ? "alive" : "dead";
+  return row.result?.verdict.status === "alive" ? t("status.alive") : t("status.dead");
 }
 
 function getBatchRowSeverity(row: BatchCheckRow) {
@@ -594,7 +606,7 @@ function getBatchRowHref(row: BatchCheckRow) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale.value, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -602,11 +614,7 @@ function formatDate(value: string) {
 </script>
 
 <template>
-  <AdminPageShell
-    title="Check Status"
-    sub="Batch check public storefront signals"
-    size="fluid"
-  >
+  <AdminPageShell :title="t('status.title')" :sub="t('status.subtitle')" size="fluid">
     <template #icon>
       <IconsCheck />
     </template>
@@ -621,7 +629,11 @@ function formatDate(value: string) {
             <div class="batch-form">
               <div class="batch-topbar">
                 <div class="batch-topbar-left">
-                  <div class="mode-toggle" role="group" aria-label="Proxy mode">
+                  <div
+                    class="mode-toggle"
+                    role="group"
+                    :aria-label="t('status.proxyMode')"
+                  >
                     <button
                       v-for="option in proxyModeOptions"
                       :key="option.value"
@@ -639,8 +651,8 @@ function formatDate(value: string) {
                 <div class="batch-topbar-right">
                   <StatusBatchRunButton
                     :busy="isBatchChecking"
-                    label="Check Shopify"
-                    busy-label="Checking Shopify"
+                    :label="t('status.checkShopify')"
+                    :busy-label="t('status.checkingShopify')"
                     @run="runBatchCheck"
                     @stop="stopBatchCheck"
                   />
@@ -696,11 +708,15 @@ function formatDate(value: string) {
 
           <section v-if="batchRows.length" class="batch-results" aria-live="polite">
             <div class="batch-results-heading">
-              <h2>{{ batchStats.total }} rows</h2>
+              <h2>{{ t("status.rows", { count: batchStats.total }) }}</h2>
               <div class="batch-result-stats">
-                <span class="is-ok">Alive {{ batchStats.alive }}</span>
-                <span class="is-danger">Dead {{ batchStats.dead }}</span>
-                <span>Error {{ batchStats.errors }}</span>
+                <span class="is-ok"
+                  >{{ t("status.alive") }} {{ batchStats.alive }}</span
+                >
+                <span class="is-danger"
+                  >{{ t("status.dead") }} {{ batchStats.dead }}</span
+                >
+                <span>{{ t("status.error") }} {{ batchStats.errors }}</span>
               </div>
             </div>
 
@@ -711,12 +727,14 @@ function formatDate(value: string) {
               >
                 <thead>
                   <tr>
-                    <th scope="col">Line</th>
-                    <th scope="col">Platform</th>
-                    <th scope="col">URL</th>
-                    <th v-if="isBatchProxyColumnVisible" scope="col">Proxy</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Message</th>
+                    <th scope="col">{{ t("status.line") }}</th>
+                    <th scope="col">{{ t("status.platform") }}</th>
+                    <th scope="col">{{ t("status.url") }}</th>
+                    <th v-if="isBatchProxyColumnVisible" scope="col">
+                      {{ t("status.proxy") }}
+                    </th>
+                    <th scope="col">{{ t("status.status") }}</th>
+                    <th scope="col">{{ t("status.message") }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -757,7 +775,11 @@ function formatDate(value: string) {
                       <span class="batch-status">{{ getBatchRowStatus(row) }}</span>
                     </td>
                     <td class="batch-message">
-                      {{ row.result?.verdict.summary || row.errorMessage || "Waiting" }}
+                      {{
+                        row.result?.verdict.summary ||
+                        row.errorMessage ||
+                        t("status.waiting")
+                      }}
                     </td>
                   </tr>
                 </tbody>
@@ -768,30 +790,30 @@ function formatDate(value: string) {
 
         <section v-if="result" class="result-layout" aria-live="polite">
           <aside class="summary-panel" :class="`is-${result.verdict.severity}`">
-            <p class="eyebrow">Store status</p>
+            <p class="eyebrow">{{ t("status.storeStatus") }}</p>
             <h2>
-              {{ result.verdict.status }}
+              {{ getStoreStatusLabel(result.storeStatus) }}
             </h2>
             <p>{{ result.verdict.summary }}</p>
             <dl>
               <div>
-                <dt>Platform</dt>
+                <dt>{{ t("status.platform") }}</dt>
                 <dd>{{ getPlatformLabel(result.platform) }}</dd>
               </div>
               <div>
-                <dt>Host</dt>
+                <dt>{{ t("status.host") }}</dt>
                 <dd>{{ result.host }}</dd>
               </div>
               <div>
-                <dt>URL</dt>
+                <dt>{{ t("status.url") }}</dt>
                 <dd>{{ result.normalizedUrl }}</dd>
               </div>
               <div v-if="result.proxyIp">
-                <dt>Proxy IP</dt>
+                <dt>{{ t("status.proxyIp") }}</dt>
                 <dd>{{ result.proxyIp }}</dd>
               </div>
               <div>
-                <dt>Checked</dt>
+                <dt>{{ t("status.checked") }}</dt>
                 <dd>{{ formatDate(result.checkedAt) }}</dd>
               </div>
             </dl>

@@ -275,16 +275,16 @@ const assuranceItems = computed(() => [
 
 const metricItems = computed(() => [
   {
-    value: "Dashboard",
-    label: "Cross-store operating view",
+    value: t("home.metricStoresValue"),
+    label: t("home.metricStoresLabel"),
   },
   {
-    value: "7 views",
-    label: "Profile, order, product, customer, and payment tabs",
+    value: t("home.metricTokensValue"),
+    label: t("home.metricTokensLabel"),
   },
   {
-    value: "Realtime",
-    label: "Request quota and cache controls",
+    value: t("home.metricOrdersValue"),
+    label: t("home.metricOrdersLabel"),
   },
 ]);
 
@@ -351,7 +351,7 @@ const faqItems = computed(() => [
   margin: 0;
   color: var(--green);
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0;
   background: var(--green-soft);
   color: var(--green);
@@ -391,7 +391,7 @@ const faqItems = computed(() => [
   gap: 8px;
   border-radius: 8px;
   padding: 0 15px;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -486,14 +486,14 @@ const faqItems = computed(() => [
 .signal-row span {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .panel-pill {
   border-radius: 999px;
   padding: 4px 9px;
   font-size: 0.74rem;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .panel-pill.is-ok {
@@ -787,7 +787,7 @@ const faqItems = computed(() => [
 .metric-card span {
   color: var(--muted);
   font-size: 0.85rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .motivation-card {
@@ -904,9 +904,9 @@ const faqItems = computed(() => [
   border-radius: 8px;
   background: var(--surface);
   color: var(--blue);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
@@ -952,7 +952,7 @@ const faqItems = computed(() => [
   list-style: none;
   padding: 0 20px;
   color: var(--text);
-  font-weight: 800;
+  font-weight: 600;
   text-align: left;
 }
 

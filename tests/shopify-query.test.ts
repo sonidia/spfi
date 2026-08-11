@@ -89,6 +89,25 @@ test("Shopify Link headers expose opaque next and previous cursors", () => {
   });
 });
 
+test("invalid Shopify pagination links use the standard error envelope", () => {
+  assert.throws(
+    () =>
+      getShopifyPageInfo({
+        link: '<not-a-valid-url>; rel="next"',
+      }),
+    (error: unknown) => {
+      const apiError = error as {
+        statusCode?: number;
+        data?: { success?: boolean; error?: { message?: string } };
+      };
+      assert.equal(apiError.statusCode, 502);
+      assert.equal(apiError.data?.success, false);
+      assert.match(apiError.data?.error?.message || "", /pagination/i);
+      return true;
+    },
+  );
+});
+
 test("cursor pagination preserves fields but drops incompatible filters", () => {
   assert.deepEqual(
     buildShopifyCursorPageParams(

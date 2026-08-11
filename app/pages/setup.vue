@@ -255,7 +255,7 @@ const copyScopes = async () => {
 .setup-guide {
   display: grid;
   gap: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  font-family: var(--font);
   color: var(--text);
   line-height: 1.6;
 }
@@ -346,7 +346,7 @@ const copyScopes = async () => {
 
 /* Code */
 .code-inline {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   background: var(--surface-soft);
   color: var(--red);
@@ -500,7 +500,7 @@ const copyScopes = async () => {
 }
 
 .scope-code {
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text);
   line-height: 1.8;
@@ -558,7 +558,7 @@ const copyScopes = async () => {
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
@@ -742,7 +742,7 @@ const copyScopes = async () => {
   gap: 4px;
   color: var(--green);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }

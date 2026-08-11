@@ -444,7 +444,7 @@ function formatOrderTotal(value: string, currency = "USD") {
   background: var(--blue-soft);
   color: var(--blue);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .avatar.is-large {
@@ -460,7 +460,7 @@ function formatOrderTotal(value: string, currency = "USD") {
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .status-pill.is-subscribed {
@@ -501,7 +501,7 @@ function formatOrderTotal(value: string, currency = "USD") {
 .detail-kicker {
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -588,7 +588,7 @@ function formatOrderTotal(value: string, currency = "USD") {
 
 .order-total {
   color: var(--green);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .empty-orders {

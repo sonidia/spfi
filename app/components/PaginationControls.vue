@@ -23,6 +23,7 @@ const emit = defineEmits<{
   "update:page": [page: number];
   "update:pageSize": [pageSize: number];
 }>();
+const { t } = useLocalization();
 
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(props.totalItems / props.pageSize)),
@@ -54,15 +55,17 @@ function updatePageSize(value: unknown) {
 </script>
 
 <template>
-  <nav class="pagination" aria-label="Pagination">
+  <nav class="pagination" :aria-label="t('pagination.label')">
     <div class="pagination-summary" aria-live="polite">
       <strong>{{ firstItem }}–{{ lastItem }}</strong>
-      <span>of {{ totalItems }} {{ itemLabel }}</span>
+      <span>
+        {{ t("pagination.summary", { total: totalItems, items: itemLabel }) }}
+      </span>
     </div>
 
     <div class="pagination-actions">
       <label class="page-size">
-        <span>Rows</span>
+        <span>{{ t("pagination.rows") }}</span>
         <BaseSelect
           class-name="page-size-select"
           :model-value="pageSize"
@@ -71,12 +74,14 @@ function updatePageSize(value: unknown) {
         />
       </label>
 
-      <span class="page-indicator"> Page {{ safePage }} of {{ totalPages }} </span>
+      <span class="page-indicator">
+        {{ t("pagination.pageOf", { page: safePage, total: totalPages }) }}
+      </span>
 
       <BaseButton
         icon-only
-        aria-label="Previous page"
-        title="Previous page"
+        :aria-label="t('pagination.previous')"
+        :title="t('pagination.previous')"
         :disabled="loading || !canGoPrevious"
         @click="emit('update:page', safePage - 1)"
       >
@@ -87,8 +92,8 @@ function updatePageSize(value: unknown) {
       </BaseButton>
       <BaseButton
         icon-only
-        aria-label="Next page"
-        title="Next page"
+        :aria-label="t('pagination.next')"
+        :title="t('pagination.next')"
         :disabled="loading || !canGoNext"
         @click="emit('update:page', safePage + 1)"
       >

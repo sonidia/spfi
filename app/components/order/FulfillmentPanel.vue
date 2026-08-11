@@ -244,7 +244,7 @@ h2 { color: var(--text); font-size: 15px; }
 header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
 .fulfillment-body { border-top: 1px solid var(--border); background: var(--surface-soft); }
 .group + .group { border-top: 1px solid var(--border); }
-.group-title { padding: 10px 16px 4px; color: var(--text-sub); font-size: 11px; font-weight: 700; }
+.group-title { padding: 10px 16px 4px; color: var(--text-sub); font-size: 11px; font-weight: 600; }
 .item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; }
 .item-row > div { display: grid; min-width: 0; }
 .item-row strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -252,7 +252,7 @@ header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
 .item-row label { display: grid; flex: 0 0 90px; gap: 4px; }
 .tracking-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; padding: 14px 16px; border-top: 1px solid var(--border); }
 label { display: grid; gap: 5px; }
-label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
+label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
 input { width: 100%; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; background: var(--surface-raised); color: var(--text); font: inherit; }
 input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
 .full { grid-column: 1 / -1; }

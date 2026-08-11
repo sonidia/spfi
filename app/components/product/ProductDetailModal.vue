@@ -428,7 +428,7 @@ onUnmounted(() => {
   margin: 0;
   color: var(--text);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -555,7 +555,7 @@ onUnmounted(() => {
   margin-bottom: 8px;
   color: var(--text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .detail-section-sub {
@@ -615,7 +615,7 @@ onUnmounted(() => {
 .inventory-count {
   color: var(--green);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 

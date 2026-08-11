@@ -69,7 +69,7 @@ label > span,
 .field-label {
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 input,
 select {
@@ -221,13 +221,13 @@ select:focus {
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .transaction-table .right {
   text-align: right;
 }
 .transaction-kind {
-  font-weight: 700;
+  font-weight: 600;
   text-transform: capitalize;
 }
 .transaction-status {
@@ -237,7 +237,7 @@ select:focus {
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: capitalize;
 }
 .transaction-status.success {
@@ -252,7 +252,7 @@ select:focus {
   color: var(--text-sub);
   font: inherit;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 .details-button:hover:not(:disabled) {
@@ -285,7 +285,7 @@ select:focus {
 .transaction-detail dt {
   color: var(--text-sub);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .transaction-detail dd {
   overflow-wrap: anywhere;

@@ -1,4 +1,4 @@
-import { createError } from "h3";
+import { createStandardApiErrorFromMessage } from "./api-error.ts";
 
 export interface ShopifyPageInfo {
   nextCursor: string | null;
@@ -63,18 +63,18 @@ function getCursorFromUrl(rawUrl: string): string {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw createError({
-      statusCode: 502,
-      statusMessage: "Shopify returned an invalid pagination link.",
-    });
+    throw createStandardApiErrorFromMessage(
+      "Shopify returned an invalid pagination link.",
+      502,
+    );
   }
 
   const cursor = url.searchParams.get("page_info");
   if (!cursor) {
-    throw createError({
-      statusCode: 502,
-      statusMessage: "Shopify pagination link is missing page_info.",
-    });
+    throw createStandardApiErrorFromMessage(
+      "Shopify pagination link is missing page_info.",
+      502,
+    );
   }
 
   return cursor;

@@ -8,6 +8,7 @@ import type {
   DashboardTransactionSummary,
   StoreDashboardSnapshot,
 } from "~~/types/dashboard";
+import { moneyRowsFromMap } from "./dashboard-money.ts";
 
 export function aggregateDashboardSnapshots(
   stores: StoreDashboardSnapshot[],
@@ -137,9 +138,9 @@ export function aggregateDashboardSnapshots(
   }
 
   const revenue: DashboardRevenueSummary = {
-    today: moneyRows(today),
-    week: moneyRows(week),
-    month: moneyRows(month),
+    today: moneyRowsFromMap(today),
+    week: moneyRowsFromMap(week),
+    month: moneyRowsFromMap(month),
     orderCountToday,
     orderCountWeek,
     orderCountMonth,
@@ -152,7 +153,7 @@ export function aggregateDashboardSnapshots(
         date,
         orders: entry.orders,
         orderCounts: countRows(entry.orderCounts),
-        values: moneyRows(entry.money),
+        values: moneyRowsFromMap(entry.money),
       })),
   };
 
@@ -200,21 +201,21 @@ export function aggregateDashboardSnapshots(
     fulfillmentBreakdown,
     payments: {
       availableStores,
-      balance: moneyRows(balance),
+      balance: moneyRowsFromMap(balance),
       payouts: {
         ...payouts,
         currencyCounts: [...payoutCounts.entries()]
           .map(([currency, counts]) => ({ currency, ...counts }))
           .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency)),
-        total: moneyRows(payoutTotal),
-        pending: moneyRows(payoutPending),
+        total: moneyRowsFromMap(payoutTotal),
+        pending: moneyRowsFromMap(payoutPending),
       },
       transactions: {
         ...transactions,
         currencyCounts: countRows(transactionCounts),
-        gross: moneyRows(transactionGross),
-        fees: moneyRows(transactionFees),
-        net: moneyRows(transactionNet),
+        gross: moneyRowsFromMap(transactionGross),
+        fees: moneyRowsFromMap(transactionFees),
+        net: moneyRowsFromMap(transactionNet),
         recent: [],
       },
     },
@@ -356,13 +357,4 @@ function countRows(source: Map<string, number>) {
   return [...source.entries()]
     .map(([currency, count]) => ({ currency, count }))
     .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
-}
-
-function moneyRows(source: Map<string, number>): DashboardMoney[] {
-  return [...source.entries()]
-    .map(([currency, amount]) => ({
-      currency,
-      amount: Math.round((amount + Number.EPSILON) * 100) / 100,
-    }))
-    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 }

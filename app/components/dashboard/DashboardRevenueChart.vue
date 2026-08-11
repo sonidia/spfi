@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { useLocalization } from "~/composables/useLocalization";
 import type { DashboardRevenuePoint } from "~~/types/dashboard";
 
 const props = defineProps<{
   points: DashboardRevenuePoint[];
 }>();
 
+const { locale, t } = useLocalization();
 const canvas = ref<HTMLCanvasElement | null>(null);
 const chartShell = ref<HTMLElement | null>(null);
 const hoveredIndex = ref<number | null>(null);
@@ -37,7 +39,7 @@ function valueFor(point: DashboardRevenuePoint, currency: string) {
 }
 
 function formatCompact(value: number, currency?: string) {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(locale.value, {
     style: currency ? "currency" : "decimal",
     currency,
     notation: "compact",
@@ -79,7 +81,7 @@ function draw(progress = 1) {
   const maxValue = Math.max(1, ...values);
   const niceMax = niceCeiling(maxValue);
 
-  context.font = '11px "DM Sans", sans-serif';
+  context.font = "11px Inter, system-ui, sans-serif";
   context.textBaseline = "middle";
   context.lineWidth = 1;
   for (let index = 0; index <= 4; index += 1) {
@@ -153,9 +155,10 @@ function draw(progress = 1) {
     const point = props.points[index];
     if (!point) continue;
     context.fillText(
-      new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
-        new Date(`${point.date}T12:00:00`),
-      ),
+      new Intl.DateTimeFormat(locale.value, {
+        month: "short",
+        day: "numeric",
+      }).format(new Date(`${point.date}T12:00:00`)),
       pointX(index),
       height - 15,
     );
@@ -254,18 +257,24 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="chartShell" class="revenue-chart-shell">
-    <div v-if="currencies.length" class="chart-legend" aria-label="Currencies">
+    <div
+      v-if="currencies.length"
+      class="chart-legend"
+      :aria-label="t('dashboard.currencies')"
+    >
       <span v-for="(currency, index) in currencies" :key="currency">
         <i :style="{ background: palette[index] }" />{{ currency }}
       </span>
     </div>
-    <div v-if="!points.length" class="chart-empty">No revenue data this month.</div>
+    <div v-if="!points.length" class="chart-empty">
+      {{ t("dashboard.noRevenueData") }}
+    </div>
     <canvas
       v-else
       ref="canvas"
       class="revenue-canvas"
       role="img"
-      :aria-label="`Daily revenue chart with ${points.length} days`"
+      :aria-label="t('dashboard.dailyRevenueChart', { count: points.length })"
       @pointermove="handlePointer"
       @pointerleave="clearPointer"
     />
@@ -276,7 +285,7 @@ onBeforeUnmount(() => {
       aria-live="polite"
     >
       <strong>{{ tooltipPoint.date }}</strong>
-      <span>{{ tooltipPoint.orders }} orders</span>
+      <span>{{ t("dashboard.ordersCount", { count: tooltipPoint.orders }) }}</span>
       <span v-for="value in tooltipPoint.values" :key="value.currency">
         {{ formatCompact(value.amount, value.currency) }}
       </span>
@@ -307,7 +316,7 @@ onBeforeUnmount(() => {
   gap: 8px 12px;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .chart-legend span {

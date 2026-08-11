@@ -1,29 +1,31 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useLocalization } from "~/composables/useLocalization";
 import { usePaymentStore } from "~/stores/payment";
-import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 const paymentStore = usePaymentStore();
 const account = computed(() => paymentStore.paymentsAccount);
+const { t } = useLocalization();
+const { formatPaymentLabel } = useShopifyPaymentLabel();
 
 const schedule = computed(() => {
   const value = account.value?.payoutSchedule;
-  if (!value) return "Unavailable";
+  if (!value) return t("payment.unavailable");
 
-  const interval = formatShopifyPaymentLabel(value.interval);
+  const interval = formatPaymentLabel(value.interval);
   if (value.weeklyAnchor) {
-    return `${interval} · ${formatShopifyPaymentLabel(value.weeklyAnchor)}`;
+    return `${interval} · ${formatPaymentLabel(value.weeklyAnchor)}`;
   }
   if (value.monthlyAnchor) {
-    return `${interval} · day ${value.monthlyAnchor}`;
+    return `${interval} · ${t("payment.dayOfMonth", { day: value.monthlyAnchor })}`;
   }
   return interval;
 });
 
 function bankAccountLabel(index: number) {
   const bank = account.value?.bankAccounts[index];
-  if (!bank) return "Bank account";
-  return bank.bankName || `Bank account ${index + 1}`;
+  if (!bank) return t("payment.bankAccount");
+  return bank.bankName || t("payment.bankAccountNumber", { number: index + 1 });
 }
 </script>
 
@@ -31,35 +33,41 @@ function bankAccountLabel(index: number) {
   <section v-if="account" class="account-summary">
     <div class="account-facts">
       <article>
-        <span>Payments account</span>
-        <strong>{{ account.activated ? "Activated" : "Not activated" }}</strong>
+        <span>{{ t("payment.paymentsAccount") }}</span>
+        <strong>{{
+          account.activated ? t("payment.activated") : t("payment.notActivated")
+        }}</strong>
         <small>{{ account.country }} · {{ account.defaultCurrency }}</small>
       </article>
       <article>
-        <span>Payout schedule</span>
+        <span>{{ t("payment.payoutSchedule") }}</span>
         <strong>{{ schedule }}</strong>
-        <small>{{ account.payoutStatementDescriptor || "No payout descriptor" }}</small>
+        <small>{{
+          account.payoutStatementDescriptor || t("payment.noPayoutDescriptor")
+        }}</small>
       </article>
       <article>
-        <span>Charge descriptor</span>
+        <span>{{ t("payment.chargeDescriptor") }}</span>
         <strong>
           {{
             account.chargeStatementDescriptors?.default ||
             account.chargeStatementDescriptors?.prefix ||
-            "Not configured"
+            t("payment.notConfigured")
           }}
         </strong>
         <small v-if="account.accountOpenerName">
-          Opened by {{ account.accountOpenerName }}
+          {{ t("payment.openedBy", { name: account.accountOpenerName }) }}
         </small>
-        <small v-else>Account opener unavailable</small>
+        <small v-else>{{ t("payment.accountOpenerUnavailable") }}</small>
       </article>
     </div>
 
     <div class="bank-accounts">
       <div class="section-heading">
-        <strong>Bank accounts</strong>
-        <span>{{ account.bankAccounts.length }} configured</span>
+        <strong>{{ t("payment.bankAccounts") }}</strong>
+        <span>{{
+          t("payment.configuredCount", { count: account.bankAccounts.length })
+        }}</span>
       </div>
       <div v-if="account.bankAccounts.length" class="bank-list">
         <article
@@ -73,11 +81,11 @@ function bankAccountLabel(index: number) {
           </div>
           <small>
             {{ bank.currency }} · {{ bank.country }} ·
-            {{ formatShopifyPaymentLabel(bank.status) }}
+            {{ formatPaymentLabel(bank.status) }}
           </small>
         </article>
       </div>
-      <p v-else class="empty-bank">No bank account was returned by Shopify.</p>
+      <p v-else class="empty-bank">{{ t("payment.noBankAccount") }}</p>
     </div>
   </section>
 </template>

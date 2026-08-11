@@ -1,10 +1,14 @@
 import { mount } from "@vue/test-utils";
+import { createPinia } from "pinia";
 import { describe, expect, it } from "vitest";
 import PaymentFilterPanel from "~/components/payment/FilterPanel.vue";
 
 describe("PaymentFilterPanel", () => {
   it("hides filter fields until the filter button is opened", async () => {
     const wrapper = mount(PaymentFilterPanel, {
+      global: {
+        plugins: [createPinia()],
+      },
       props: {
         title: "Transaction filters",
         activeCount: 2,

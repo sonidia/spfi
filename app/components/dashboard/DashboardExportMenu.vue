@@ -5,51 +5,55 @@ import {
   useDashboardExport,
   type DashboardExportFormat,
 } from "~/composables/useDashboardExport";
+import { useLocalization } from "~/composables/useLocalization";
 
 const props = defineProps<{
   dashboard: DashboardAggregate;
   filterDescription: string;
 }>();
 
+const { t } = useLocalization();
 const { exportDashboard } = useDashboardExport();
-const options: Array<{
-  format: DashboardExportFormat;
-  label: string;
-  detail: string;
-  icon: typeof FileSpreadsheet;
-}> = [
+const options = computed<
+  Array<{
+    format: DashboardExportFormat;
+    label: string;
+    detail: string;
+    icon: typeof FileSpreadsheet;
+  }>
+>(() => [
   {
     format: "csv",
-    label: "Overview CSV",
-    detail: "Spreadsheet-ready store summary",
+    label: t("dashboard.exportOverviewCsv"),
+    detail: t("dashboard.exportOverviewCsvDetail"),
     icon: FileSpreadsheet,
   },
   {
     format: "tsv",
-    label: "Excel TSV",
-    detail: "Tab-separated UTF-8 workbook data",
+    label: t("dashboard.exportExcelTsv"),
+    detail: t("dashboard.exportExcelTsvDetail"),
     icon: FileSpreadsheet,
   },
   {
     format: "json",
-    label: "Full JSON",
-    detail: "Complete filtered dashboard payload",
+    label: t("dashboard.exportJson"),
+    detail: t("dashboard.exportJsonDetail"),
     icon: Braces,
   },
   {
     format: "html",
-    label: "HTML report",
-    detail: "Printable standalone report",
+    label: t("dashboard.exportHtml"),
+    detail: t("dashboard.exportHtmlDetail"),
     icon: CodeXml,
   },
-];
+]);
 </script>
 
 <template>
   <BasePopover align="right">
     <template #trigger="{ triggerProps }">
       <button v-bind="triggerProps" class="dashboard-export-trigger" type="button">
-        <Download /> Export <ChevronDown />
+        <Download /> {{ t("dashboard.export") }} <ChevronDown />
       </button>
     </template>
     <template #default="{ close }">
@@ -89,7 +93,7 @@ const options: Array<{
   cursor: pointer;
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .dashboard-export-trigger:hover {

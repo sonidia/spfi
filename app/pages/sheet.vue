@@ -373,7 +373,7 @@ onMounted(initializeDefaultSheets);
   background: var(--surface-soft);
   color: var(--muted);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .sheet-card-body {

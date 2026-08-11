@@ -14,15 +14,15 @@
             <path d="M13 4l-6 6 6 6" />
           </svg>
         </NuxtLink>
-        <span class="page-title">Payout details</span>
+        <span class="page-title">{{ t("payment.payoutDetails") }}</span>
         <span
           class="badge"
           :class="currentPayout.status === 'paid' ? 'badge-paid' : ''"
         >
           {{
             currentPayout.status === "paid"
-              ? "Deposited"
-              : capitalize(currentPayout.status)
+              ? t("payment.deposited")
+              : formatPaymentLabel(currentPayout.status)
           }}
         </span>
       </div>
@@ -39,22 +39,22 @@
             <path d="M13 4l-6 6 6 6" />
           </svg>
         </NuxtLink>
-        <span class="page-title">Loading...</span>
+        <span class="page-title">{{ t("common.loading") }}</span>
       </div>
     </template>
 
     <section class="page">
       <div v-if="paymentStore.isLoading" class="empty">
-        Loading payout details…
+        {{ t("payment.loadingPayoutDetails") }}
       </div>
       <div v-else-if="!currentPayout" class="empty">
-        Payout not found or failed to load.
+        {{ t("payment.payoutNotFound") }}
       </div>
       <div v-else class="screen">
         <div class="page-header" style="justify-content: flex-end">
           <button class="btn btn-secondary" type="button" @click="exportTransactions">
             <Download />
-            Export
+            {{ t("payment.export") }}
           </button>
         </div>
 
@@ -62,47 +62,43 @@
         <div class="card">
           <div class="overview-card">
             <div class="overview-left">
-              <div class="overview-label">Total</div>
+              <div class="overview-label">{{ t("payment.total") }}</div>
               <div>
                 <span class="overview-amount">{{
                   formatMoney(currentPayout.amount, currentPayout.currency)
                 }}</span>
-                <span class="overview-currency">{{
-                  currentPayout.currency
-                }}</span>
+                <span class="overview-currency">{{ currentPayout.currency }}</span>
               </div>
-              <div class="overview-provider">Shopify Payments</div>
+              <div class="overview-provider">
+                {{ t("payment.providerShopifyPayments") }}
+              </div>
               <div class="overview-meta">
                 <div class="meta-item">
-                  <label>Business entity</label>
+                  <label>{{ t("payment.businessEntity") }}</label>
                   <span>{{
                     currentPayoutMetadata?.businessEntity.displayName ||
-                    "Unavailable"
+                    t("payment.unavailable")
                   }}</span>
                 </div>
                 <div class="meta-item">
-                  <label>Direction</label>
+                  <label>{{ t("payment.direction") }}</label>
                   <span>{{
-                    formatShopifyPaymentLabel(
-                      currentPayoutMetadata?.transactionType,
-                    ) || "Unavailable"
+                    formatPaymentLabel(currentPayoutMetadata?.transactionType) ||
+                    t("payment.unavailable")
                   }}</span>
                 </div>
                 <div class="meta-item">
-                  <label>Issued</label>
+                  <label>{{ t("payment.issued") }}</label>
                   <span>{{
                     currentPayoutMetadata?.issuedAt
                       ? fmtDate(currentPayoutMetadata.issuedAt)
                       : currentPayout.date
                         ? fmtDate(currentPayout.date)
-                        : "N/A"
+                        : "—"
                   }}</span>
                 </div>
-                <div
-                  v-if="currentPayoutMetadata?.externalTraceId"
-                  class="meta-item"
-                >
-                  <label>Bank trace ID</label>
+                <div v-if="currentPayoutMetadata?.externalTraceId" class="meta-item">
+                  <label>{{ t("payment.bankTraceId") }}</label>
                   <span class="trace-id">{{
                     currentPayoutMetadata.externalTraceId
                   }}</span>
@@ -110,7 +106,7 @@
               </div>
             </div>
             <div class="overview-right">
-              <div class="summary-title">Summary</div>
+              <div class="summary-title">{{ t("payment.summary") }}</div>
               <div
                 v-for="row in currentPayoutSummaryRows"
                 :key="row.label"
@@ -131,50 +127,32 @@
         <!-- Transactions Table Card -->
         <div class="card">
           <div class="table-header">
-            <button class="tab-btn active">All</button>
-            <button class="tab-btn">Charge</button>
-            <div class="table-actions">
-              <button class="icon-btn">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <circle cx="9" cy="9" r="6" />
-                  <path d="m15 15 3 3" />
-                </svg>
-              </button>
-              <button class="icon-btn">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M3 5h14M6 10h8M9 15h2" />
-                </svg>
-              </button>
-            </div>
+            <button
+              v-for="option in transactionFilterOptions"
+              :key="option.value"
+              class="tab-btn"
+              :class="{ active: transactionTypeFilter === option.value }"
+              type="button"
+              :aria-pressed="transactionTypeFilter === option.value"
+              @click="transactionTypeFilter = option.value"
+            >
+              {{ option.label }}
+            </button>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Order</th>
-                <th>Type</th>
-                <th>Payment method</th>
-                <th class="right">Amount</th>
-                <th class="right">Fee</th>
-                <th class="right">Net</th>
+                <th aria-sort="descending">{{ t("payment.date") }}</th>
+                <th>{{ t("payment.order") }}</th>
+                <th>{{ t("payment.type") }}</th>
+                <th>{{ t("payment.paymentMethod") }}</th>
+                <th class="right">{{ t("payment.amount") }}</th>
+                <th class="right">{{ t("payment.fee") }}</th>
+                <th class="right">{{ t("payment.net") }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tx in currentPayoutTransactions" :key="tx.id">
+              <tr v-for="tx in displayedPayoutTransactions" :key="tx.id">
                 <td class="td-date">{{ fmtDate(tx.processed_at) }}</td>
                 <td class="td-order">
                   <NuxtLink
@@ -187,20 +165,27 @@
                   <span v-else>—</span>
                 </td>
                 <td class="td-type">
-                  <strong>{{ formatShopifyPaymentLabel(tx.type) }}</strong>
+                  <strong>{{ formatPaymentLabel(tx.type) }}</strong>
                   <small v-if="tx.source_type">
-                    Source: {{ formatShopifyPaymentLabel(tx.source_type) }}
+                    {{
+                      t("payment.source", {
+                        type: formatPaymentLabel(tx.source_type),
+                      })
+                    }}
                   </small>
                   <details
                     v-if="tx.adjustment_order_transactions.length"
                     class="adjustment-orders"
                   >
                     <summary>
-                      {{ tx.adjustment_order_transactions.length }} adjusted
                       {{
-                        tx.adjustment_order_transactions.length === 1
-                          ? "order"
-                          : "orders"
+                        t("payment.adjustedOrders", {
+                          count: tx.adjustment_order_transactions.length,
+                          label:
+                            tx.adjustment_order_transactions.length === 1
+                              ? t("payment.orderSingular")
+                              : t("payment.orderPlural"),
+                        })
                       }}
                     </summary>
                     <div
@@ -220,7 +205,7 @@
                 <td>
                   <span class="payment-method">
                     <span class="card-brand">{{
-                      tx.type === "charge" ? "Card" : "—"
+                      tx.type === "charge" ? t("payment.card") : "—"
                     }}</span>
                   </span>
                 </td>
@@ -241,8 +226,8 @@
               </tr>
             </tbody>
           </table>
-          <div v-if="currentPayoutTransactions.length === 0" class="empty">
-            No transactions for this payout.
+          <div v-if="displayedPayoutTransactions.length === 0" class="empty">
+            {{ t("payment.noTransactionsForPayout") }}
           </div>
           <div class="pagination">
             <button class="pag-btn" disabled>&#8592;</button>
@@ -256,15 +241,15 @@
 
 <script setup lang="ts">
 import { Download } from "@lucide/vue";
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "../../../stores/form";
 import type { Transaction } from "../../../stores/payment";
 import { usePaymentStore } from "../../../stores/payment";
 import { resolveStoreAccessToken } from "~~/utils/shop-auth";
-import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 definePageMeta({ layout: false });
 
@@ -273,6 +258,9 @@ const formStore = useFormStore();
 const paymentStore = usePaymentStore();
 const credentialVault = useCredentialVaultStore();
 const feedback = useStoreFeedback();
+const { locale, t } = useLocalization();
+const { formatPaymentLabel } = useShopifyPaymentLabel();
+const transactionTypeFilter = ref<"all" | "charge">("all");
 
 const payoutId = String(
   Array.isArray(route.params.id) ? route.params.id[0] : route.params.id || "",
@@ -310,9 +298,27 @@ const currentPayoutTransactions = computed(() => {
     .filter((t) => t.type !== "payout");
 });
 
-const currentPayoutSummaryRows = computed(() => {
+const displayedPayoutTransactions = computed(() =>
+  transactionTypeFilter.value === "charge"
+    ? currentPayoutTransactions.value.filter(
+        (transaction) => transaction.type === "charge",
+      )
+    : currentPayoutTransactions.value,
+);
+
+const transactionFilterOptions = computed<
+  Array<{ label: string; value: "all" | "charge" }>
+>(() => [
+  { label: t("payment.all"), value: "all" },
+  { label: t("payment.charge"), value: "charge" },
+]);
+
+const currentPayoutSummaryRows = computed<
+  Array<{ label: string; value: string; neg: boolean; chevron?: boolean }>
+>(() => {
   if (!currentPayout.value || !currentPayout.value.summary) return [];
   const s = currentPayout.value.summary;
+  const currency = currentPayout.value.currency;
 
   const charges = parseFloat(s.charges_gross_amount || "0");
   const refunds = parseFloat(s.refunds_gross_amount || "0");
@@ -326,29 +332,29 @@ const currentPayoutSummaryRows = computed(() => {
   const rows = [];
   if (charges) {
     rows.push({
-      label: "Charges",
-      value: `$${charges.toFixed(2)}`,
+      label: t("payment.charges"),
+      value: formatMoney(String(charges), currency),
       neg: false,
     });
   }
   if (refunds) {
     rows.push({
-      label: "Refunds",
-      value: `-$${Math.abs(refunds).toFixed(2)}`,
+      label: t("payment.refunds"),
+      value: formatMoney(String(-Math.abs(refunds)), currency),
       neg: true,
     });
   }
   if (adjustments) {
     rows.push({
-      label: "Adjustments",
-      value: `${adjustments < 0 ? "-$" : "$"}${Math.abs(adjustments).toFixed(2)}`,
+      label: t("payment.adjustments"),
+      value: formatMoney(String(adjustments), currency),
       neg: adjustments < 0,
     });
   }
   if (fees) {
     rows.push({
-      label: "Fees",
-      value: `-$${Math.abs(fees).toFixed(2)}`,
+      label: t("payment.fee"),
+      value: formatMoney(String(-Math.abs(fees)), currency),
       neg: true,
       chevron: true,
     });
@@ -360,18 +366,11 @@ const currentPayoutSummaryRows = computed(() => {
 function fmtDate(dateStr: string) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
+  return new Intl.DateTimeFormat(locale.value, {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
-}
-
-function capitalize(s: string) {
-  if (!s) return "";
-  return (
-    String(s).charAt(0).toUpperCase() + String(s).slice(1).replace(/_/g, " ")
-  );
+  }).format(d);
 }
 
 function getOrderName(tx: Transaction) {
@@ -382,11 +381,11 @@ function getOrderName(tx: Transaction) {
 
 function exportTransactions() {
   if (!currentPayout.value) {
-    feedback.warning("Payout details are not ready to export.");
+    feedback.warning(t("payment.payoutExportNotReady"));
     return;
   }
 
-  const rows = currentPayoutTransactions.value.map((transaction) => [
+  const rows = displayedPayoutTransactions.value.map((transaction) => [
     transaction.id,
     transaction.processed_at,
     getOrderName(transaction) || "",
@@ -409,18 +408,19 @@ function exportTransactions() {
   link.download = `payout-${currentPayout.value.id}-transactions.csv`;
   link.click();
   URL.revokeObjectURL(url);
-  feedback.success("Payout transactions exported.");
+  feedback.success(t("payment.payoutTransactionsExported"));
 }
 
 function formatCsvCell(value: unknown) {
   const text = String(value ?? "");
-  return `"${text.replace(/"/g, '""')}"`;
+  const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
 }
 
 function formatMoney(amount: string, currency: string) {
   const numericAmount = Number(amount || 0);
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(locale.value, {
       style: "currency",
       currency,
     }).format(numericAmount);
@@ -547,7 +547,7 @@ function formatMoney(amount: string, currency: string) {
 }
 .overview-amount {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.5px;
   color: var(--text);
 }
@@ -583,7 +583,7 @@ function formatMoney(amount: string, currency: string) {
 }
 .trace-id {
   overflow-wrap: anywhere;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px !important;
 }
 .text-muted {
@@ -642,23 +642,6 @@ function formatMoney(amount: string, currency: string) {
 .tab-btn.active {
   background: var(--surface-soft);
   color: var(--text);
-}
-.table-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
-}
-.icon-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: var(--text-sub);
 }
 
 table {
@@ -721,7 +704,7 @@ td.right {
   background: var(--blue);
   color: white !important;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 2px 5px;
   border-radius: 3px;
   text-transform: uppercase;

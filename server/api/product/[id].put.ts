@@ -4,7 +4,6 @@ import {
   requireShopifyCredentials,
   requireShopifyPayload,
   requireShopifyResourceId,
-  requireShopifySafeResourceNumber,
 } from "~~/server/utils/shopify-admin-request";
 import { normalizeShopifyProductUpdate } from "~~/server/utils/shopify-product-update";
 import type { ProductsResponse } from "~~/types/shopify";
@@ -17,10 +16,7 @@ interface ProductUpdateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductUpdateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
   const product = requireShopifyPayload<ShopifyProductUpdateInput>(
@@ -30,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const requestBody = {
     product: {
       ...normalizeShopifyProductUpdate(product),
-      id: requireShopifySafeResourceNumber(productId, "Product"),
+      id: productId,
     },
   };
 

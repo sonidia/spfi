@@ -54,7 +54,7 @@
   background: var(--blue-soft);
   color: var(--blue);
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .mode-toggle {
@@ -80,7 +80,7 @@
   justify-content: center;
   font-family: inherit;
   font-size: 0.76rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .mode-option:hover,
@@ -139,6 +139,7 @@
 
 .batch-highlight-layer,
 .batch-textarea {
+  font-family: var(--font-mono);
   font-size: 0.9rem;
   line-height: 1.5;
   overflow-wrap: normal;
@@ -200,7 +201,7 @@
   padding: 12px 14px;
   background: var(--red-soft);
   color: var(--red);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .batch-results {
@@ -247,7 +248,7 @@
   background: var(--surface-soft);
   color: var(--muted);
   font-size: 0.76rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .batch-result-stats .is-ok {
@@ -306,7 +307,7 @@
   background: rgba(238, 244, 240, 0.86);
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .batch-table td {
@@ -361,7 +362,7 @@
 
 .batch-target-link {
   color: var(--blue);
-  font-weight: 700;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -431,7 +432,7 @@
   margin: 0;
   color: var(--green);
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -460,7 +461,7 @@
 .summary-panel dt {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .summary-panel dd {

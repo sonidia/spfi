@@ -5,11 +5,7 @@ import {
   requireCustomerPayload,
   requireCustomerResourceId,
 } from "~~/server/utils/shopify-customer-request";
-import { requireShopifySafeResourceNumber } from "~~/server/utils/shopify-admin-request";
-import type {
-  CustomerResponse,
-  ShopifyCustomerInput,
-} from "~~/types/shopify-customer";
+import type { CustomerResponse, ShopifyCustomerInput } from "~~/types/shopify-customer";
 
 interface CustomerUpdateBody {
   storeId?: string;
@@ -18,10 +14,7 @@ interface CustomerUpdateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
   const body = (await readBody<CustomerUpdateBody>(event)) || {};
   const { storeId, token } = requireCustomerCredentials(body);
   const customer = requireCustomerPayload<ShopifyCustomerInput>(
@@ -31,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const requestBody = {
     customer: {
       ...customer,
-      id: requireShopifySafeResourceNumber(customerId, "Customer"),
+      id: customerId,
     },
   };
 

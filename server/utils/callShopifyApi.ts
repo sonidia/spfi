@@ -13,11 +13,21 @@ import type {
   RawAxiosResponseHeaders,
 } from "axios";
 import { SocksProxyAgent } from "socks-proxy-agent";
-import { parseJsonPreservingUnsafeIntegers } from "./lossless-json";
+import {
+  parseJsonPreservingUnsafeIntegers,
+  stringifyJsonPreservingIntegerIds,
+} from "./lossless-json";
 import { getShopifyAdminApiBase } from "./shopify-api-version";
 import { StoreStatusInputError } from "./status-checker-errors";
 import { resolvePublicProxyUrls } from "./public-proxy";
 import { readRuntimeBoolean } from "./runtime-config";
+import { getAxiosHeaderValue } from "./http-headers";
+import {
+  buildStandardApiErrorEnvelope,
+  createStandardApiErrorFromMessage,
+  type ApiErrorDetails,
+  type StandardApiError,
+} from "./api-error";
 import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
@@ -28,8 +38,6 @@ import {
 } from "./shopify-throttle";
 type ShopifyApiMethod = "GET" | "POST" | "PUT" | "DELETE";
 type ShopifyQueryParams = Record<string, unknown>;
-type ApiErrorDetails = Record<string, unknown> | unknown[];
-
 export type StoreCookieData = {
   domain?: string;
   sock?: string;
@@ -46,16 +54,6 @@ export type ProxyInputMeta = {
   passwordLength: number;
   hasInvisibleChars: boolean;
 };
-
-export interface StandardApiError {
-  success: false;
-  error: {
-    message: string;
-    code?: string;
-    status?: number;
-    details?: ApiErrorDetails;
-  };
-}
 
 export interface CallShopifyApiOptions<TBody = unknown> {
   event: H3Event;
@@ -466,6 +464,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   preserveUnsafeIntegers = true,
   forwardResponseHeaders = true,
 }: CallShopifyApiOptions<TBody>): Promise<ShopifyApiResponse<TResponse>> {
+  setResponseHeader(event, "x-spf-field-convention", "shopify-rest");
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
   }
@@ -495,10 +494,10 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   for (const proxyUrl of proxyVariants) {
     try {
       const agent = createProxyAgent(proxyUrl);
-      const requestConfig: AxiosRequestConfig<TBody> = {
+      const requestConfig: AxiosRequestConfig<string> = {
         url: `${baseURL}${path.startsWith("/") ? path : `/${path}`}`,
         method,
-        data: body,
+        data: body === undefined ? undefined : stringifyJsonPreservingIntegerIds(body),
         params,
         headers: {
           "X-Shopify-Access-Token": accessToken,
@@ -508,16 +507,17 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
         httpsAgent: agent,
         proxy: false,
         timeout: timeoutMs,
+        transformRequest: [(data) => data],
         ...(preserveUnsafeIntegers
           ? { transformResponse: [parseJsonPreservingUnsafeIntegers] }
           : {}),
       };
-      const response = await requestWithRateLimitRetry<TResponse, TBody>(
+      const response = await requestWithRateLimitRetry<TResponse, string>(
         requestConfig,
         throttleKey,
       );
       const proactiveDelayMs = getRestCallLimitDelayMs(
-        getAxiosResponseHeader(response.headers, "x-shopify-shop-api-call-limit"),
+        getAxiosHeaderValue(response.headers, "x-shopify-shop-api-call-limit"),
       );
       if (proactiveDelayMs !== null) {
         blockShopifyThrottle(throttleKey, proactiveDelayMs);
@@ -562,7 +562,7 @@ async function requestWithRateLimitRetry<TResponse, TBody>(
       }
 
       const retryDelayMs = parseRetryAfterMs(
-        getAxiosResponseHeader(error.response.headers, "retry-after"),
+        getAxiosHeaderValue(error.response.headers, "retry-after"),
       );
 
       // A resource throttle can also return 429, but without a retry window.
@@ -585,22 +585,11 @@ function forwardShopifyResponseHeaders(
   headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
 ) {
   for (const headerName of ["x-shopify-shop-api-call-limit", "x-shopify-api-version"]) {
-    const value = getAxiosResponseHeader(headers, headerName);
+    const value = getAxiosHeaderValue(headers, headerName);
     if (value !== undefined && value !== null && String(value).trim()) {
       setResponseHeader(event, headerName, String(value));
     }
   }
-}
-
-function getAxiosResponseHeader(
-  headers: AxiosResponseHeaders | RawAxiosResponseHeaders,
-  name: string,
-) {
-  if (typeof headers.get === "function") {
-    return headers.get(name);
-  }
-
-  return headers[name];
 }
 
 export async function resolveShopifyProxyVariants(
@@ -754,11 +743,7 @@ export function createApiErrorFromMessage(
   status = 500,
   details?: ApiErrorDetails,
 ): ReturnType<typeof createError> {
-  return createError({
-    statusCode: status,
-    statusMessage: message,
-    data: buildStandardApiError(message, status, undefined, details),
-  });
+  return createStandardApiErrorFromMessage(message, status, details);
 }
 
 export function toStandardApiError(
@@ -771,6 +756,15 @@ export function toStandardApiError(
     getErrorCode(error),
     getErrorDetails(error),
   );
+}
+
+export function buildStandardApiError(
+  message: string,
+  status?: number,
+  code?: string,
+  details?: ApiErrorDetails,
+): StandardApiError {
+  return buildStandardApiErrorEnvelope(message, status, code, details);
 }
 
 function formatResponseData(data: unknown): string {
@@ -825,21 +819,4 @@ function getErrorDetails(error: unknown): ApiErrorDetails | undefined {
   }
 
   return undefined;
-}
-
-export function buildStandardApiError(
-  message: string,
-  status?: number,
-  code?: string,
-  details?: ApiErrorDetails,
-): StandardApiError {
-  return {
-    success: false,
-    error: {
-      message,
-      ...(code ? { code } : {}),
-      ...(status ? { status } : {}),
-      ...(details ? { details } : {}),
-    },
-  };
 }

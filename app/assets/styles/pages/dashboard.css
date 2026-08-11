@@ -19,7 +19,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   transition:
     transform 0.18s ease,
     opacity 0.18s ease;
@@ -81,7 +81,7 @@
   border-radius: 9px;
   background: var(--green);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dashboard-metric-grid {
@@ -95,7 +95,7 @@
   margin-left: 4px;
   color: var(--muted);
   font-size: 8px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -121,7 +121,7 @@
 .dashboard-health-strip a {
   flex: 0 0 auto;
   color: var(--amber);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .dashboard-chart-grid,
@@ -165,7 +165,7 @@
   gap: 7px;
   color: var(--text);
   font-size: 17px;
-  font-weight: 750;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -180,7 +180,7 @@
 .dashboard-panel-header > a {
   color: var(--muted);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dashboard-panel-header > a {
@@ -192,7 +192,7 @@
   margin-bottom: 2px;
   color: var(--green);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -217,7 +217,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   transition:
     background 0.18s ease,
     color 0.18s ease,
@@ -252,7 +252,7 @@
 .payment-pulse-grid span {
   color: var(--muted);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -352,7 +352,7 @@
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -375,12 +375,12 @@
 
 .dashboard-data-table a {
   color: var(--blue);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .dashboard-data-table .numeric {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
   text-align: right;
 }
 
@@ -391,7 +391,7 @@
   background: var(--amber-soft);
   color: var(--amber);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
@@ -434,7 +434,7 @@
   background: linear-gradient(135deg, var(--green-soft), var(--blue-soft));
   color: var(--green);
   font-size: 10px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .store-performance-row > span:not(.store-avatar, .store-health-dot) {
@@ -484,7 +484,7 @@
 .store-performance-row.is-failed a {
   color: var(--red);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .dashboard-user-grid {
@@ -521,7 +521,7 @@
   background: var(--blue-soft);
   color: var(--blue);
   font-size: 9px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .dashboard-user > div {

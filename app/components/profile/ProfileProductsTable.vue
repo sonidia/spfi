@@ -130,7 +130,7 @@ function formatProductDate(value: string | undefined) {
   margin: 0;
   color: var(--text-primary);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .field-count {
@@ -143,7 +143,7 @@ function formatProductDate(value: string | undefined) {
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .table-wrap {
@@ -163,7 +163,7 @@ function formatProductDate(value: string | undefined) {
   color: var(--text-sub);
   text-align: left;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -202,7 +202,7 @@ function formatProductDate(value: string | undefined) {
   background: var(--bg);
   color: var(--text-muted);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -214,7 +214,7 @@ function formatProductDate(value: string | undefined) {
 
 .product-title {
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -234,7 +234,7 @@ function formatProductDate(value: string | undefined) {
   background: var(--badge-archived);
   color: var(--badge-archived-text);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
@@ -260,7 +260,7 @@ function formatProductDate(value: string | undefined) {
   color: var(--text-sub);
   padding: 2px 7px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .empty-state {

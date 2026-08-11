@@ -509,6 +509,11 @@ export interface ProductsResponse {
   product?: ShopifyProduct;
 }
 
+export type ProductsListResponse = import("./api-contract").ApiSuccessResponse<
+  { products: ShopifyProduct[] },
+  import("./api-contract").ApiContractMeta<"products", "complete">
+>;
+
 export interface CustomersResponse {
   customers?: ShopifyCustomer[];
   customer?: ShopifyCustomer;
@@ -572,12 +577,17 @@ export interface OrderEventsResponse {
   events: ShopifyOrderEvent[];
 }
 
-export interface PaymentsOverviewResponse {
+export interface PaymentsOverviewData {
   balance: ShopifyBalance | ShopifyBalance[] | null;
   payouts: ShopifyPayout[];
   balanceTransactions: ShopifyBalanceTransaction[];
   transactionsByPayout: Record<string, ShopifyBalanceTransaction[]>;
 }
+
+export type PaymentsOverviewResponse = import("./api-contract").ApiSuccessResponse<
+  PaymentsOverviewData,
+  import("./api-contract").ApiContractMeta<"payments", "aggregate">
+>;
 
 export interface PayoutsResponse {
   payouts: ShopifyPayout[];

@@ -1,9 +1,8 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
+import { createApiSuccessResponse } from "~~/server/utils/api-response";
+import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
 import { groupTransactionsByPayout } from "~~/server/utils/shopify-payment-query";
 import type {
   PaymentsOverviewResponse,
@@ -23,12 +22,7 @@ interface BalanceResponse {
 
 export default defineEventHandler(async (event) => {
   const body = (await readBody<PaymentAllBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
-
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
-  }
+  const { storeId, token } = requireShopifyCredentials(body);
 
   const [balanceRes, payouts, balanceTransactions] = await Promise.all([
     callShopifyApi<BalanceResponse>({
@@ -55,10 +49,16 @@ export default defineEventHandler(async (event) => {
     }),
   ]);
 
-  return {
+  const data = {
     balance: balanceRes.balance ?? null,
     payouts,
     balanceTransactions,
     transactionsByPayout: groupTransactionsByPayout(balanceTransactions),
-  } satisfies PaymentsOverviewResponse;
+  };
+
+  return createApiSuccessResponse(data, {
+    resource: "payments",
+    strategy: "aggregate",
+    fieldConvention: "shopify-rest",
+  }) satisfies PaymentsOverviewResponse;
 });

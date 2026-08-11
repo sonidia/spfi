@@ -6,7 +6,10 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import type { OrderCaptureInput } from "~~/types/shopify-order";
-import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
+import {
+  requireShopifyCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 
 interface CaptureBody extends OrderCaptureInput {
   storeId?: string;
@@ -30,19 +33,15 @@ interface CaptureData {
 export default defineEventHandler(async (event) => {
   const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<CaptureBody>(event)) || ({} as CaptureBody);
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
+  const { storeId, token } = requireShopifyCredentials(body);
   const amount = String(body.amount || "").trim();
   const parentTransactionId = String(body.parentTransactionId || "").trim();
   const currency = String(body.currency || "")
     .trim()
     .toUpperCase();
 
-  if (!storeId || !token || !parentTransactionId) {
-    throw createApiErrorFromMessage(
-      "Order ID, Store ID, Access Token and parent transaction are required.",
-      400,
-    );
+  if (!parentTransactionId) {
+    throw createApiErrorFromMessage("Parent transaction is required.", 400);
   }
   if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
     throw createApiErrorFromMessage("Capture amount must be greater than zero.", 400);

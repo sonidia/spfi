@@ -14,9 +14,7 @@ const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
 const email = ref("");
 const lineItems = ref([{ variantId: "", quantity: 1 }]);
-const inventoryBehaviour = ref<OrderCreateOptions["inventory_behaviour"]>(
-  "bypass",
-);
+const inventoryBehaviour = ref<OrderCreateOptions["inventory_behaviour"]>("bypass");
 const sendReceipt = ref(false);
 const sendFulfillmentReceipt = ref(false);
 const validationError = ref("");
@@ -53,8 +51,7 @@ function setInventoryBehaviour(value: unknown) {
       String(value),
     )
   ) {
-    inventoryBehaviour.value =
-      value as OrderCreateOptions["inventory_behaviour"];
+    inventoryBehaviour.value = value as OrderCreateOptions["inventory_behaviour"];
   }
 }
 
@@ -62,10 +59,10 @@ async function submit() {
   validationError.value = "";
   const normalizedItems = lineItems.value
     .map((item) => ({
-      variant_id: Number(item.variantId),
+      variant_id: item.variantId.trim(),
       quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)),
     }))
-    .filter((item) => Number.isFinite(item.variant_id) && item.variant_id > 0);
+    .filter((item) => /^\d+$/.test(String(item.variant_id)));
 
   if (!isReady.value) {
     validationError.value = "The active store token is missing or expired.";
@@ -99,13 +96,23 @@ async function submit() {
 
 <template>
   <div class="modal-backdrop" @click.self="emit('close')">
-    <section class="order-modal" role="dialog" aria-modal="true" aria-labelledby="create-order-title">
+    <section
+      class="order-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-order-title"
+    >
       <header>
         <div>
           <span class="eyebrow">Orders</span>
           <h2 id="create-order-title">Create order</h2>
         </div>
-        <button class="icon-button" type="button" aria-label="Close" @click="emit('close')">
+        <button
+          class="icon-button"
+          type="button"
+          aria-label="Close"
+          @click="emit('close')"
+        >
           <X :size="19" />
         </button>
       </header>
@@ -119,7 +126,12 @@ async function submit() {
         <div class="line-items">
           <div class="section-heading">
             <span>Line items</span>
-            <button type="button" class="icon-command" title="Add line item" @click="addLineItem">
+            <button
+              type="button"
+              class="icon-command"
+              title="Add line item"
+              @click="addLineItem"
+            >
               <IconsAdd />
             </button>
           </div>
@@ -162,7 +174,11 @@ async function submit() {
           <span>Send fulfillment confirmation</span>
         </label>
 
-        <div v-if="validationError || orderStore.mutationError" class="form-error" role="alert">
+        <div
+          v-if="validationError || orderStore.mutationError"
+          class="form-error"
+          role="alert"
+        >
           {{ validationError || orderStore.mutationError }}
         </div>
       </div>
@@ -222,30 +238,122 @@ footer {
   padding: 16px 18px;
 }
 
-header { border-bottom: 1px solid var(--border); }
-footer { justify-content: flex-end; border-top: 1px solid var(--border); }
-h2 { font-size: 18px; color: var(--text); }
-.eyebrow { color: var(--text-sub); font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.modal-body { display: grid; gap: 14px; padding: 18px; }
-.field { display: grid; gap: 6px; min-width: 0; }
-.field > span, .section-heading > span { color: var(--text-sub); font-size: 12px; font-weight: 700; }
-input { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; background: var(--surface-raised); color: var(--text); font: inherit; }
-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
-.line-items { display: grid; gap: 8px; }
-.section-heading { justify-content: space-between; }
-.line-item-row { align-items: end; gap: 8px; }
-.line-item-row .field:first-child { flex: 1; }
-.quantity-field { width: 110px; }
-.icon-button, .icon-command { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-sub); cursor: pointer; }
-.icon-button { border: 0; font-size: 24px; }
-.icon-command.is-danger { color: var(--red); }
-.icon-command:disabled { opacity: 0.4; cursor: not-allowed; }
-.check-row { display: flex; align-items: center; gap: 9px; color: var(--text); font-size: 13px; }
-.check-row input { width: 16px; height: 16px; }
-.form-error { padding: 10px 12px; border: 1px solid rgba(180, 49, 43, 0.22); border-radius: 6px; background: var(--red-soft); color: var(--red); font-size: 12px; }
+header {
+  border-bottom: 1px solid var(--border);
+}
+footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+}
+h2 {
+  font-size: 18px;
+  color: var(--text);
+}
+.eyebrow {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.modal-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.field > span,
+.section-heading > span {
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 600;
+}
+input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+.line-items {
+  display: grid;
+  gap: 8px;
+}
+.section-heading {
+  justify-content: space-between;
+}
+.line-item-row {
+  align-items: end;
+  gap: 8px;
+}
+.line-item-row .field:first-child {
+  flex: 1;
+}
+.quantity-field {
+  width: 110px;
+}
+.icon-button,
+.icon-command {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.icon-button {
+  border: 0;
+  font-size: 24px;
+}
+.icon-command.is-danger {
+  color: var(--red);
+}
+.icon-command:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-size: 13px;
+}
+.check-row input {
+  width: 16px;
+  height: 16px;
+}
+.form-error {
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 49, 43, 0.22);
+  border-radius: 6px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12px;
+}
 
 @media (max-width: 520px) {
-  .line-item-row { align-items: stretch; flex-wrap: wrap; }
-  .quantity-field { width: calc(100% - 42px); }
+  .line-item-row {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .quantity-field {
+    width: calc(100% - 42px);
+  }
 }
 </style>

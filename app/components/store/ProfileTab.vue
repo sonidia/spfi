@@ -10,24 +10,20 @@
         <IconsCheck v-else />
       </template>
       <template #actions>
-        <NuxtLink
-          v-if="noStores"
-          to="/manager"
-          class="shop-empty-action primary"
-        >
+        <NuxtLink v-if="noStores" to="/manager" class="shop-empty-action primary">
           <IconsAdd />
-          Add store
+          {{ t("profile.addStore") }}
         </NuxtLink>
         <span v-else class="shop-empty-hint">
-          Pick a store from the left sidebar.
+          {{ t("profile.pickStoreHint") }}
         </span>
       </template>
     </ShopEmptyState>
 
     <ShopEmptyState
       v-else-if="profileStore.isLoading && !shop"
-      title="Loading profile"
-      description="Fetching shop information from Shopify."
+      :title="t('profile.loadingTitle')"
+      :description="t('profile.loadingDescription')"
       loading
     >
       <template #icon>
@@ -41,12 +37,9 @@
           <div class="profile-hero-copy">
             <div class="hero-kicker-row">
               <h2>{{ shopTitle }}</h2>
-              <span
-                class="connection-pill"
-                :class="`is-${tokenStatus.toLowerCase()}`"
-              >
+              <span class="connection-pill" :class="`is-${tokenStatusCode}`">
                 <i />
-                {{ tokenStatus }} token
+                {{ t("profile.tokenLabel", { status: tokenStatusLabel }) }}
               </span>
             </div>
             <div class="profile-actions">
@@ -57,15 +50,11 @@
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Open storefront
+                {{ t("profile.openStorefront") }}
                 <IconsArrowRight />
               </a>
-              <button
-                class="profile-action"
-                type="button"
-                @click="openCredentialModal"
-              >
-                Manage credentials
+              <button class="profile-action" type="button" @click="openCredentialModal">
+                {{ t("profile.manageCredentials") }}
               </button>
             </div>
           </div>
@@ -73,41 +62,39 @@
 
         <div class="profile-metrics">
           <div class="metric-item">
-            <span>Currency</span>
+            <span>{{ t("profile.currency") }}</span>
             <strong>{{ shop?.currency || "-" }}</strong>
           </div>
           <div class="metric-item">
-            <span>Plan</span>
-            <strong>{{
-              shop?.plan_display_name || shop?.plan_name || "-"
-            }}</strong>
+            <span>{{ t("profile.plan") }}</span>
+            <strong>{{ shop?.plan_display_name || shop?.plan_name || "-" }}</strong>
           </div>
         </div>
 
-        <section class="finance-summary" aria-label="Store finance summary">
+        <section class="finance-summary" :aria-label="t('profile.financeSummary')">
           <article
             v-for="balanceItem in formattedBalances"
             :key="balanceItem.currency"
             class="summary-card is-balance"
           >
-            <span>Available balance</span>
+            <span>{{ t("profile.availableBalance") }}</span>
             <strong>{{ balanceItem.formatted }}</strong>
             <small>{{ balanceItem.currency }}</small>
           </article>
           <article class="summary-card">
-            <span>Transactions</span>
+            <span>{{ t("profile.transactions") }}</span>
             <strong>{{ transactionsCount }}</strong>
-            <small>Balance activity</small>
+            <small>{{ t("profile.balanceActivity") }}</small>
           </article>
           <article class="summary-card">
-            <span>Payouts</span>
+            <span>{{ t("profile.payouts") }}</span>
             <strong>{{ payoutsCount }}</strong>
-            <small>Settlement records</small>
+            <small>{{ t("profile.settlementRecords") }}</small>
           </article>
           <article class="summary-card">
-            <span>Orders</span>
+            <span>{{ t("profile.orders") }}</span>
             <strong>{{ ordersCount }}</strong>
-            <small>Connected sales</small>
+            <small>{{ t("profile.connectedSales") }}</small>
           </article>
         </section>
       </section>
@@ -118,7 +105,7 @@
 
       <div class="profile-detail-grid">
         <ProfileFieldGrid
-          title="Access & security"
+          :title="t('profile.accessSecurity')"
           :icon="KeyRound"
           :rows="connectionRows"
         >
@@ -130,12 +117,12 @@
               @click="openCredentialModal"
             >
               <Pencil aria-hidden="true" />
-              Edit credentials
+              {{ t("profile.editCredentials") }}
             </button>
           </template>
         </ProfileFieldGrid>
         <ProfileFieldGrid
-          title="Shop information"
+          :title="t('profile.shopInformation')"
           :icon="Store"
           :rows="shopRows"
         />
@@ -153,13 +140,15 @@
         >
           <div class="credential-modal-head">
             <div class="credential-modal-title-block">
-              <h3 id="credential-modal-title">Edit credentials</h3>
+              <h3 id="credential-modal-title">
+                {{ t("profile.editCredentials") }}
+              </h3>
             </div>
             <button
               class="credential-close"
               type="button"
-              title="Close"
-              aria-label="Close"
+              :title="t('common.close')"
+              :aria-label="t('common.close')"
               @click="closeCredentialModal"
             >
               <X aria-hidden="true" />
@@ -169,7 +158,7 @@
           <div class="credential-modal-body">
             <div class="credential-form">
               <div class="credential-field is-half">
-                <label>Domain</label>
+                <label>{{ t("profile.domain") }}</label>
                 <input
                   v-model="editDomain"
                   class="credential-input"
@@ -178,7 +167,7 @@
                 />
               </div>
               <div class="credential-field is-half">
-                <label>Sock/Proxy</label>
+                <label>{{ t("profile.proxy") }}</label>
                 <input
                   v-model="editSock"
                   class="credential-input"
@@ -187,7 +176,7 @@
                 />
               </div>
               <div class="credential-field is-third">
-                <label>Store ID</label>
+                <label>{{ t("store.storeId") }}</label>
                 <input
                   class="credential-input"
                   :value="formStore.storeId"
@@ -196,40 +185,33 @@
                 />
               </div>
               <div class="credential-field is-third">
-                <label>Client ID</label>
+                <label>{{ t("store.clientId") }}</label>
                 <input
                   v-model="editClientId"
                   class="credential-input"
                   type="text"
-                  placeholder="Client ID"
+                  :placeholder="t('store.clientId')"
                 />
               </div>
               <div class="credential-field is-third">
-                <label>Client Secret</label>
+                <label>{{ t("store.clientSecret") }}</label>
                 <input
                   v-model="editClientSecret"
                   class="credential-input"
                   type="text"
-                  placeholder="Client Secret"
+                  :placeholder="t('store.clientSecret')"
                 />
               </div>
             </div>
 
-            <div
-              v-if="editError"
-              class="alert alert-err credential-modal-alert"
-            >
+            <div v-if="editError" class="alert alert-err credential-modal-alert">
               {{ editError }}
             </div>
           </div>
 
           <div class="credential-modal-actions">
-            <button
-              class="profile-action"
-              type="button"
-              @click="closeCredentialModal"
-            >
-              Cancel
+            <button class="profile-action" type="button" @click="closeCredentialModal">
+              {{ t("common.cancel") }}
             </button>
             <button
               class="profile-action primary"
@@ -237,7 +219,7 @@
               @click="saveCredentialEdits"
             >
               <IconsCheck />
-              Save
+              {{ t("common.save") }}
             </button>
           </div>
         </div>
@@ -266,21 +248,21 @@ const credentialVault = useCredentialVaultStore();
 const profileStore = useShopProfileStore();
 const paymentStore = usePaymentStore();
 const orderStore = useOrderStore();
+const { locale, t } = useLocalization();
 
 const shop = computed(() => profileStore.shop);
 const noStores = computed(() => formStore.knownStores.length === 0);
 const profileEmptyState = computed(() => {
   if (noStores.value) {
     return {
-      title: "No stores connected yet",
-      description:
-        "Connect a Shopify store first, then its profile details will appear here.",
+      title: t("profile.noStoresTitle"),
+      description: t("profile.noStoresDescription"),
     };
   }
 
   return {
-    title: "Select a shop",
-    description: "Choose a store from the sidebar to view its profile details.",
+    title: t("profile.selectShopTitle"),
+    description: t("profile.selectShopDescription"),
   };
 });
 
@@ -290,11 +272,16 @@ const currentStoreData = computed<StoreLocalData>(() => {
   return credentialVault.getStoreData(formStore.storeId);
 });
 
-const tokenStatus = computed(() => {
+const tokenStatusCode = computed(() => {
   const data = currentStoreData.value;
-  if (!data.accessToken) return "Missing";
-  if (data.expiresTime && Date.now() >= data.expiresTime) return "Expired";
-  return "Valid";
+  if (!data.accessToken) return "missing";
+  if (data.expiresTime && Date.now() >= data.expiresTime) return "expired";
+  return "valid";
+});
+const tokenStatusLabel = computed(() => {
+  if (tokenStatusCode.value === "missing") return t("profile.tokenMissing");
+  if (tokenStatusCode.value === "expired") return t("profile.tokenExpired");
+  return t("profile.tokenValid");
 });
 
 const balances = computed(() => {
@@ -303,16 +290,14 @@ const balances = computed(() => {
   return Array.isArray(balance) ? balance : [balance];
 });
 
-const transactionsCount = computed(
-  () => paymentStore.balanceTransactions.length,
-);
+const transactionsCount = computed(() => paymentStore.balanceTransactions.length);
 const payoutsCount = computed(() => paymentStore.payouts.length);
 const ordersCount = computed(() => orderStore.orders.length);
 const formattedBalances = computed(() => {
   if (!balances.value.length) {
     return [
       {
-        currency: "Store currency",
+        currency: t("profile.storeCurrency"),
         formatted: "—",
       },
     ];
@@ -323,7 +308,7 @@ const formattedBalances = computed(() => {
     try {
       return {
         currency: balanceItem.currency,
-        formatted: new Intl.NumberFormat("en-US", {
+        formatted: new Intl.NumberFormat(locale.value, {
           style: "currency",
           currency: balanceItem.currency,
         }).format(amount),
@@ -365,7 +350,7 @@ async function saveCredentialEdits() {
   if (!storeId) return;
 
   if (!editClientId.value.trim() || !editClientSecret.value.trim()) {
-    editError.value = "Client ID and Client Secret cannot be empty.";
+    editError.value = t("profile.credentialsRequired");
     return;
   }
 
@@ -382,15 +367,12 @@ async function saveCredentialEdits() {
     closeCredentialModal();
   } catch (error) {
     editError.value =
-      error instanceof Error ? error.message : "Unable to save credentials.";
+      error instanceof Error ? error.message : t("profile.credentialsSaveFailed");
   }
 }
 const shopTitle = computed(() => {
   return (
-    shop.value?.name ||
-    currentStoreData.value.domain ||
-    formStore.storeId ||
-    "Shop"
+    shop.value?.name || currentStoreData.value.domain || formStore.storeId || "Shop"
   );
 });
 
@@ -413,32 +395,32 @@ const shopUrl = computed(() => {
 const connectionRows = computed<ProfileFieldRow[]>(() => [
   {
     key: "storeId",
-    label: "Store ID",
+    label: t("store.storeId"),
     value: formStore.storeId || "-",
   },
   {
     key: "domain",
-    label: "Configured domain",
+    label: t("profile.configuredDomain"),
     value: currentStoreData.value.domain || "-",
   },
   {
     key: "tokenStatus",
-    label: "Token status",
-    value: `${tokenStatus.value} - ${formatProfileTimestamp(currentStoreData.value.expiresTime)}`,
+    label: t("profile.tokenStatus"),
+    value: `${tokenStatusLabel.value} - ${formatProfileTimestamp(currentStoreData.value.expiresTime)}`,
   },
   {
     key: "clientId",
-    label: "Client ID",
+    label: t("store.clientId"),
     value: currentStoreData.value.clientId || "-",
   },
   {
     key: "clientSecret",
-    label: "Client secret",
+    label: t("store.clientSecret"),
     value: currentStoreData.value.clientSecret || "-",
   },
   {
     key: "proxy",
-    label: "Proxy",
+    label: t("profile.proxy"),
     value: currentStoreData.value.sock || "-",
   },
 ]);
@@ -505,7 +487,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
   color: var(--text-sub);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -537,7 +519,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   margin: 0;
   color: var(--text-sub);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -562,7 +544,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -616,7 +598,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 .summary-card small {
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .summary-card strong {
@@ -653,7 +635,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 .metric-item span {
   color: var(--text-sub);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -676,7 +658,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -743,14 +725,14 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   margin: 0;
   color: var(--text-primary);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .credential-modal-title-block p {
   margin: 1px 0 0;
   color: var(--text-sub);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -805,7 +787,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   margin-bottom: 4px;
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 

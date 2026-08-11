@@ -59,7 +59,7 @@ const emit = defineEmits<{
   cursor: pointer;
   font-family: inherit;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .batch-run button:disabled {

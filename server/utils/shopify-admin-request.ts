@@ -19,18 +19,13 @@ export function requireShopifyCredentials(
   const token = normalizeShopifyRequestValue(input.token);
 
   if (!storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Store ID and Access Token are required.",
-      400,
-    );
+    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
   }
 
   return { storeId, token };
 }
 
-export function getShopifyQueryCredentials(
-  event: H3Event,
-): ShopifyApiCredentials {
+export function getShopifyQueryCredentials(event: H3Event): ShopifyApiCredentials {
   const query = getQuery(event);
 
   if (normalizeShopifyRequestValue(query.token)) {
@@ -46,43 +41,17 @@ export function getShopifyQueryCredentials(
   });
 }
 
-export function requireShopifyResourceId(
-  value: unknown,
-  resourceName: string,
-) {
+export function requireShopifyResourceId(value: unknown, resourceName: string) {
   const id = normalizeShopifyRequestValue(value);
 
   if (!isShopifyNumericId(id)) {
-    throw createApiErrorFromMessage(
-      `A numeric ${resourceName} ID is required.`,
-      400,
-    );
+    throw createApiErrorFromMessage(`A numeric ${resourceName} ID is required.`, 400);
   }
 
   return id;
 }
 
-export function requireShopifySafeResourceNumber(
-  value: unknown,
-  resourceName: string,
-) {
-  const id = requireShopifyResourceId(value, resourceName);
-  const numberValue = Number(id);
-
-  if (!Number.isSafeInteger(numberValue)) {
-    throw createApiErrorFromMessage(
-      `${resourceName} ID exceeds JavaScript's safe integer range.`,
-      400,
-    );
-  }
-
-  return numberValue;
-}
-
-export function requireShopifyExactResourceId(
-  value: unknown,
-  resourceName: string,
-) {
+export function requireShopifyExactResourceId(value: unknown, resourceName: string) {
   const firstValue = Array.isArray(value) ? value[0] : value;
 
   if (typeof firstValue === "number" && !Number.isSafeInteger(firstValue)) {
@@ -100,37 +69,25 @@ export function requireShopifyPayload<T extends object>(
   payloadName: string,
 ): T {
   if (!isRecord(value)) {
-    throw createApiErrorFromMessage(
-      `${payloadName} payload is required.`,
-      400,
-    );
+    throw createApiErrorFromMessage(`${payloadName} payload is required.`, 400);
   }
 
   return value as T;
 }
 
-export function requireShopifyInteger(
-  value: unknown,
-  fieldName: string,
-): number {
+export function requireShopifyInteger(value: unknown, fieldName: string): number {
   if (
     value === null ||
     value === undefined ||
     (typeof value === "string" && !value.trim())
   ) {
-    throw createApiErrorFromMessage(
-      `${fieldName} must be a safe integer.`,
-      400,
-    );
+    throw createApiErrorFromMessage(`${fieldName} must be a safe integer.`, 400);
   }
 
   const numberValue = Number(value);
 
   if (!Number.isSafeInteger(numberValue)) {
-    throw createApiErrorFromMessage(
-      `${fieldName} must be a safe integer.`,
-      400,
-    );
+    throw createApiErrorFromMessage(`${fieldName} must be a safe integer.`, 400);
   }
 
   return numberValue;

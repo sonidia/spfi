@@ -15,6 +15,7 @@ import type {
   ShopifyPayout,
   ShopifyShop,
 } from "~~/types/shopify";
+import { addMoneyAmount, moneyRowsFromMap } from "../../utils/dashboard-money.ts";
 
 export interface DashboardPeriod {
   timezoneOffsetMinutes: number;
@@ -138,7 +139,7 @@ export function aggregateOrderAnalytics(
     };
     dayEntry.orders += 1;
     addCount(dayEntry.orderCounts, currency);
-    addMoney(dayEntry.money, currency, amount);
+    addMoneyAmount(dayEntry.money, currency, amount);
     daily.set(dateKey, dayEntry);
 
     const revenueCount = revenueCounts.get(currency) || {
@@ -148,16 +149,16 @@ export function aggregateOrderAnalytics(
     };
     orderCountMonth += 1;
     revenueCount.month += 1;
-    addMoney(month, currency, amount);
+    addMoneyAmount(month, currency, amount);
     if (createdIso >= period.weekStartIso) {
       orderCountWeek += 1;
       revenueCount.week += 1;
-      addMoney(week, currency, amount);
+      addMoneyAmount(week, currency, amount);
     }
     if (createdIso >= period.todayStartIso) {
       orderCountToday += 1;
       revenueCount.today += 1;
-      addMoney(today, currency, amount);
+      addMoneyAmount(today, currency, amount);
     }
     revenueCounts.set(currency, revenueCount);
 
@@ -187,7 +188,7 @@ export function aggregateOrderAnalytics(
       currencyStat.units += quantity;
       currencyStat.orderIds.add(String(order.id));
       entry.stats.set(currency, currencyStat);
-      addMoney(entry.money, currency, finiteAmount(item.price) * quantity);
+      addMoneyAmount(entry.money, currency, finiteAmount(item.price) * quantity);
       products.set(key, entry);
     }
   }
@@ -202,7 +203,7 @@ export function aggregateOrderAnalytics(
       date,
       orders: entry?.orders || 0,
       orderCounts: countRows(entry?.orderCounts),
-      values: moneyFromMap(entry?.money),
+      values: moneyRowsFromMap(entry?.money),
     };
   });
   const productRows = [...products.values()].map(
@@ -216,15 +217,15 @@ export function aggregateOrderAnalytics(
           count: entry.orderIds.size,
         }))
         .sort((a, b) => b.units - a.units || a.currency.localeCompare(b.currency)),
-      revenue: moneyFromMap(money),
+      revenue: moneyRowsFromMap(money),
     }),
   );
 
   return {
     revenue: {
-      today: moneyFromMap(today),
-      week: moneyFromMap(week),
-      month: moneyFromMap(month),
+      today: moneyRowsFromMap(today),
+      week: moneyRowsFromMap(week),
+      month: moneyRowsFromMap(month),
       orderCountToday,
       orderCountWeek,
       orderCountMonth,
@@ -279,11 +280,11 @@ export function aggregatePaymentAnalytics(
       failedCount: 0,
     };
     counts.count += 1;
-    addMoney(payoutTotal, currency, amount);
+    addMoneyAmount(payoutTotal, currency, amount);
     if (PENDING_PAYOUT_STATUSES.has(status)) {
       pendingCount += 1;
       counts.pendingCount += 1;
-      addMoney(payoutPending, currency, amount);
+      addMoneyAmount(payoutPending, currency, amount);
     } else if (status === "paid") {
       paidCount += 1;
       counts.paidCount += 1;
@@ -307,9 +308,9 @@ export function aggregatePaymentAnalytics(
   for (const transaction of realTransactions) {
     const currency = normalizeCurrency(transaction.currency);
     addCount(transactionCounts, currency);
-    addMoney(gross, currency, finiteAmount(transaction.amount));
-    addMoney(fees, currency, finiteAmount(transaction.fee));
-    addMoney(net, currency, finiteAmount(transaction.net));
+    addMoneyAmount(gross, currency, finiteAmount(transaction.amount));
+    addMoneyAmount(fees, currency, finiteAmount(transaction.fee));
+    addMoneyAmount(net, currency, finiteAmount(transaction.net));
   }
 
   const balanceRows = Array.isArray(balance) ? balance : balance ? [balance] : [];
@@ -327,15 +328,15 @@ export function aggregatePaymentAnalytics(
       currencyCounts: [...payoutCounts.entries()]
         .map(([currency, counts]) => ({ currency, ...counts }))
         .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency)),
-      total: moneyFromMap(payoutTotal),
-      pending: moneyFromMap(payoutPending),
+      total: moneyRowsFromMap(payoutTotal),
+      pending: moneyRowsFromMap(payoutPending),
     },
     transactions: {
       count: realTransactions.length,
       currencyCounts: countRows(transactionCounts),
-      gross: moneyFromMap(gross),
-      fees: moneyFromMap(fees),
-      net: moneyFromMap(net),
+      gross: moneyRowsFromMap(gross),
+      fees: moneyRowsFromMap(fees),
+      net: moneyRowsFromMap(net),
       recent: realTransactions.slice(0, 8).map((transaction) => ({
         id: String(transaction.id),
         type: String(transaction.type || "transaction"),
@@ -463,10 +464,6 @@ function finiteAmount(value: unknown) {
   return Number.isFinite(amount) ? amount : 0;
 }
 
-function addMoney(target: Map<string, number>, currency: string, amount: number) {
-  target.set(currency, (target.get(currency) || 0) + amount);
-}
-
 function addCount(target: Map<string, number>, currency: string, count = 1) {
   target.set(currency, (target.get(currency) || 0) + count);
 }
@@ -476,17 +473,6 @@ function countRows(source?: Map<string, number>) {
   return [...source.entries()]
     .map(([currency, count]) => ({ currency, count }))
     .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
-}
-
-function moneyFromMap(source?: Map<string, number>): DashboardMoney[] {
-  if (!source) return [];
-  return [...source.entries()]
-    .map(([currency, amount]) => ({ currency, amount: roundMoney(amount) }))
-    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function selectTopProducts(products: DashboardTopProduct[]) {

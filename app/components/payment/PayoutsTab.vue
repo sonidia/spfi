@@ -2,6 +2,7 @@
 import { Filter, RotateCcw } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { usePaymentStore } from "~/stores/payment";
 import type {
@@ -9,12 +10,13 @@ import type {
   ShopifyPayoutStatus,
 } from "~~/types/shopify-payment";
 import { capitalize, fmtDate } from "~~/helpers";
-import { formatShopifyPaymentLabel } from "~~/utils/shopify-payment";
 
 const paymentStore = usePaymentStore();
 const router = useRouter();
 const { storeId, token, isReady } = useActiveShopAuth();
 const feedback = useStoreFeedback();
+const { locale, t } = useLocalization();
+const { formatPaymentLabel } = useShopifyPaymentLabel();
 
 const status = ref<"" | ShopifyPayoutStatus>("");
 const date = ref("");
@@ -24,14 +26,14 @@ const sinceId = ref("");
 const lastId = ref("");
 const currentPage = ref(1);
 const pageSize = ref(20);
-const statusOptions = [
-  { label: "All statuses", value: "" },
-  { label: "Scheduled", value: "scheduled" },
-  { label: "In transit", value: "in_transit" },
-  { label: "Paid", value: "paid" },
-  { label: "Failed", value: "failed" },
-  { label: "Canceled", value: "canceled" },
-];
+const statusOptions = computed(() => [
+  { label: t("payment.allStatuses"), value: "" },
+  { label: t("payment.scheduled"), value: "scheduled" },
+  { label: t("payment.inTransit"), value: "in_transit" },
+  { label: t("payment.paid"), value: "paid" },
+  { label: t("payment.failed"), value: "failed" },
+  { label: t("payment.canceled"), value: "canceled" },
+]);
 
 const activeFilterCount = computed(
   () =>
@@ -71,9 +73,13 @@ function setStatus(value: unknown) {
       : "";
 }
 
-async function applyFilters(successMessage = "Payout filters applied.") {
+async function applyFilters(
+  successMessage = t("payment.filtersApplied", {
+    resource: t("payment.payouts"),
+  }),
+) {
   if (!isReady.value) {
-    feedback.warning("Select a store with valid credentials before filtering.");
+    feedback.warning(t("payment.credentialsRequired"));
     return;
   }
   const filters: ShopifyPayoutFilters = {
@@ -89,7 +95,9 @@ async function applyFilters(successMessage = "Payout filters applied.") {
   feedback.requestResult({
     errorMessage: paymentStore.error,
     successMessage,
-    fallbackError: "Failed to apply payout filters.",
+    fallbackError: t("payment.filtersFailed", {
+      resource: t("payment.payouts"),
+    }),
   });
 }
 
@@ -100,7 +108,11 @@ async function resetFilters() {
   dateMax.value = "";
   sinceId.value = "";
   lastId.value = "";
-  await applyFilters("Payout filters reset.");
+  await applyFilters(
+    t("payment.filtersReset", {
+      resource: t("payment.payouts"),
+    }),
+  );
 }
 
 function getPayoutProcessedDate(payoutId: string | number) {
@@ -122,7 +134,7 @@ function statusBadge(statusValue: string) {
 function formatMoney(amount: string, currency: string) {
   const numericAmount = Number(amount || 0);
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(locale.value, {
       style: "currency",
       currency,
     }).format(numericAmount);
@@ -146,12 +158,12 @@ function updatePageSize(size: number) {
     <PaymentAccountSummary />
 
     <PaymentFilterPanel
-      title="Payout filters"
+      :title="t('payment.payoutFilters')"
       :active-count="activeFilterCount"
       @submit="applyFilters()"
     >
       <label class="payment-filter-field">
-        <span>Status</span>
+        <span>{{ t("payment.status") }}</span>
         <BaseSelect
           class-name="filter-select"
           :model-value="status"
@@ -160,19 +172,19 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Exact date</span>
+        <span>{{ t("payment.exactDate") }}</span>
         <input v-model="date" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>From</span>
+        <span>{{ t("payment.from") }}</span>
         <input v-model="dateMin" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>Through</span>
+        <span>{{ t("payment.through") }}</span>
         <input v-model="dateMax" class="payment-filter-input" type="date" />
       </label>
       <label class="payment-filter-field">
-        <span>After payout ID</span>
+        <span>{{ t("payment.afterPayoutId") }}</span>
         <input
           v-model.trim="sinceId"
           class="payment-filter-input"
@@ -181,7 +193,7 @@ function updatePageSize(size: number) {
         />
       </label>
       <label class="payment-filter-field">
-        <span>Before payout ID</span>
+        <span>{{ t("payment.beforePayoutId") }}</span>
         <input
           v-model.trim="lastId"
           class="payment-filter-input"
@@ -194,13 +206,15 @@ function updatePageSize(size: number) {
           <template #icon>
             <RotateCcw />
           </template>
-          Reset
+          {{ t("common.reset") }}
         </BaseButton>
         <BaseButton type="submit" variant="primary" :loading="paymentStore.isLoading">
           <template #icon>
             <Filter />
           </template>
-          {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
+          {{
+            paymentStore.isLoading ? t("payment.loading") : t("payment.applyFilters")
+          }}
         </BaseButton>
       </template>
     </PaymentFilterPanel>
@@ -208,13 +222,13 @@ function updatePageSize(size: number) {
     <table>
       <thead>
         <tr>
-          <th>Payout date</th>
-          <th>Status</th>
-          <th>Direction</th>
-          <th>Business entity</th>
-          <th>Bank trace</th>
-          <th>Transaction date</th>
-          <th class="right">Amount</th>
+          <th aria-sort="descending">{{ t("payment.payoutDate") }}</th>
+          <th>{{ t("payment.status") }}</th>
+          <th>{{ t("payment.direction") }}</th>
+          <th>{{ t("payment.businessEntity") }}</th>
+          <th>{{ t("payment.bankTrace") }}</th>
+          <th>{{ t("payment.transactionDate") }}</th>
+          <th class="right">{{ t("payment.amount") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -226,14 +240,16 @@ function updatePageSize(size: number) {
           <td class="td-date">{{ fmtDate(payout.date) }}</td>
           <td>
             <span class="badge" :class="statusBadge(payout.status)">
-              {{ payout.status === "paid" ? "Deposited" : capitalize(payout.status) }}
+              {{
+                payout.status === "paid"
+                  ? t("payment.deposited")
+                  : capitalize(payout.status)
+              }}
             </span>
           </td>
           <td>
             {{
-              formatShopifyPaymentLabel(
-                getPayoutMetadata(payout.id)?.transactionType,
-              ) || "—"
+              formatPaymentLabel(getPayoutMetadata(payout.id)?.transactionType) || "—"
             }}
           </td>
           <td>
@@ -255,11 +271,11 @@ function updatePageSize(size: number) {
       :page="currentPage"
       :page-size="pageSize"
       :total-items="sortedPayouts.length"
-      item-label="payouts"
+      :item-label="t('payment.payouts')"
       @update:page="currentPage = $event"
       @update:page-size="updatePageSize"
     />
-    <div v-else class="empty">No payouts found.</div>
+    <div v-else class="empty">{{ t("payment.noPayouts") }}</div>
   </div>
 </template>
 
@@ -278,7 +294,7 @@ function updatePageSize(size: number) {
   max-width: 180px;
   overflow-wrap: anywhere;
   color: var(--text-sub);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 </style>

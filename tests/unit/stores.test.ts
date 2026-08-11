@@ -4,6 +4,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDashboardStore } from "~/stores/dashboard";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
+import { useProductStore } from "~/stores/product";
 import { KNOWN_STORES_STORAGE_KEY } from "~~/utils/known-stores";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -56,6 +57,34 @@ describe("order store", () => {
     expect(store.orders).toEqual([{ id: 1, name: "#1" }]);
     expect(store.pageSize).toBe(50);
     expect(store.currentPage).toBe(3);
+  });
+});
+
+describe("product store", () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it("bulk publishes exact product IDs and refreshes the list once", async () => {
+    const request = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/product/all") {
+        return Promise.resolve({ data: { products: [] } });
+      }
+      return Promise.resolve({});
+    });
+    vi.stubGlobal("$fetch", request);
+
+    const store = useProductStore();
+    const result = await store.setProductsPublished(
+      "shop-a",
+      "token",
+      ["9007199254740993", 42, "9007199254740993"],
+      true,
+    );
+
+    expect(result).toEqual({ total: 2, succeeded: 2, failedIds: [] });
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(request.mock.calls[0]?.[0]).toBe("/api/product/9007199254740993");
+    expect(request.mock.calls[1]?.[0]).toBe("/api/product/42");
+    expect(request.mock.calls[2]?.[0]).toBe("/api/product/all");
   });
 });
 

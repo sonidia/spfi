@@ -6,7 +6,10 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import type { OrderManualPaymentInput } from "~~/types/shopify-order";
-import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
+import {
+  requireShopifyCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 
 interface ManualPaymentBody extends OrderManualPaymentInput {
   storeId?: string;
@@ -40,8 +43,7 @@ interface ManualPaymentData {
 export default defineEventHandler(async (event) => {
   const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<ManualPaymentBody>(event)) || ({} as ManualPaymentBody);
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
+  const { storeId, token } = requireShopifyCredentials(body);
   const amount = String(body.amount || "").trim();
   const currency = String(body.currency || "")
     .trim()
@@ -49,12 +51,6 @@ export default defineEventHandler(async (event) => {
   const paymentMethodName = String(body.paymentMethodName || "").trim();
   const processedAt = normalizeProcessedAt(body.processedAt);
 
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Order ID, Store ID and Access Token are required.",
-      400,
-    );
-  }
   if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
     throw createApiErrorFromMessage(
       "Manual payment amount must be greater than zero.",
