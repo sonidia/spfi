@@ -1,5 +1,6 @@
 ﻿import { defineNuxtPlugin } from "#imports";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useRateLimitStore } from "~/stores/rateLimit";
 
 function readStoreId(source: unknown): string | null {
   if (!source || typeof source !== "object" || !("storeId" in source)) {
@@ -12,12 +13,12 @@ function readStoreId(source: unknown): string | null {
 
 export default defineNuxtPlugin(() => {
   const credentialVault = useCredentialVaultStore();
+  const rateLimit = useRateLimitStore();
   const customFetch = $fetch.create({
     onRequest({ request, options }) {
       if (typeof window === "undefined") return;
 
-      const url = request.toString();
-      if (!url.startsWith("/api")) return;
+      if (!isInternalApiRequest(request)) return;
 
       let storeId =
         readStoreId(options.body) ||
@@ -45,6 +46,16 @@ export default defineNuxtPlugin(() => {
         }
       }
     },
+    onResponse({ request, response }) {
+      if (isInternalApiRequest(request)) {
+        rateLimit.updateFromHeaders(response.headers);
+      }
+    },
+    onResponseError({ request, response }) {
+      if (isInternalApiRequest(request)) {
+        rateLimit.updateFromHeaders(response.headers);
+      }
+    },
   });
 
   globalThis.$fetch = customFetch;
@@ -55,3 +66,29 @@ export default defineNuxtPlugin(() => {
     },
   };
 });
+
+function isInternalApiRequest(request: unknown) {
+  if (typeof window === "undefined") return false;
+
+  const rawUrl = readRequestUrl(request);
+  if (!rawUrl) return false;
+
+  try {
+    const url = new URL(rawUrl, window.location.origin);
+    return (
+      url.origin === window.location.origin &&
+      (url.pathname === "/api" || url.pathname.startsWith("/api/"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function readRequestUrl(request: unknown) {
+  if (typeof request === "string") return request;
+  if (request instanceof URL) return request.toString();
+  if (typeof Request !== "undefined" && request instanceof Request) {
+    return request.url;
+  }
+  return null;
+}

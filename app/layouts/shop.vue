@@ -657,6 +657,8 @@ async function deleteStoreOption(id: string) {
           </div>
         </template>
       </div>
+
+      <ShopRateLimitQuota :collapsed="isSidebarCollapsed" />
     </aside>
 
     <!-- Main Content Area -->

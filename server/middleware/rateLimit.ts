@@ -82,12 +82,14 @@ export default defineEventHandler((event) => {
     event,
     readRuntimeBoolean(config.trustProxyHeaders),
   );
-  const results = [
-    ...(apiLimit > 0 ? [consume(state.api, ip, apiLimit, now)] : []),
-    ...(isTokenRequest && tokenLimit > 0
-      ? [consume(state.token, ip, tokenLimit, now)]
-      : []),
-  ];
+  const apiResult = apiLimit > 0 ? consume(state.api, ip, apiLimit, now) : null;
+  const tokenResult =
+    isTokenRequest && tokenLimit > 0
+      ? consume(state.token, ip, tokenLimit, now)
+      : null;
+  const results = [apiResult, tokenResult].filter(
+    (result): result is NonNullable<typeof result> => result !== null,
+  );
   const rejectedResult = results.find((result) => !result.allowed) || null;
   const headerResult = results.reduce((mostConstrained, result) =>
     result.remaining / result.limit <
@@ -103,6 +105,18 @@ export default defineEventHandler((event) => {
     "X-RateLimit-Reset",
     Math.ceil(headerResult.resetAt / 1000),
   );
+
+  // Generic headers describe the most constrained policy for this route.
+  // Dedicated headers keep the app-wide API meter stable on token requests.
+  if (apiResult) {
+    setResponseHeader(event, "X-RateLimit-Api-Limit", apiResult.limit);
+    setResponseHeader(event, "X-RateLimit-Api-Remaining", apiResult.remaining);
+    setResponseHeader(
+      event,
+      "X-RateLimit-Api-Reset",
+      Math.ceil(apiResult.resetAt / 1000),
+    );
+  }
 
   if (!rejectedResult) return;
 
