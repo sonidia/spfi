@@ -7,7 +7,6 @@ import {
   Link2,
   Save,
   Settings2,
-  ShieldCheck,
   Trash2,
 } from "@lucide/vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
@@ -46,11 +45,7 @@ const retentionLabel = computed(() => {
   const hour = 60 * minute;
   const day = 24 * hour;
   const value =
-    ttlMs >= day
-      ? ttlMs / day
-      : ttlMs >= hour
-        ? ttlMs / hour
-        : ttlMs / minute;
+    ttlMs >= day ? ttlMs / day : ttlMs >= hour ? ttlMs / hour : ttlMs / minute;
   const unit = ttlMs >= day ? "day" : ttlMs >= hour ? "hour" : "minute";
 
   return new Intl.NumberFormat(locale.value, {
@@ -120,8 +115,7 @@ async function saveSettings() {
     });
     toast.success(t("settings.saved"));
   } catch (error) {
-    formError.value =
-      error instanceof Error ? error.message : t("settings.required");
+    formError.value = error instanceof Error ? error.message : t("settings.required");
   } finally {
     isSaving.value = false;
   }
@@ -146,166 +140,159 @@ async function clearSettings() {
     formError.value = "";
     toast.success(t("settings.cleared"));
   } catch (error) {
-    formError.value =
-      error instanceof Error ? error.message : t("settings.required");
+    formError.value = error instanceof Error ? error.message : t("settings.required");
   }
 }
 </script>
 
 <template>
-  <main class="settings-page">
-    <PageHeader :title="t('settings.title')" :sub="t('settings.subtitle')">
+  <AdminPageShell
+    :title="t('settings.title')"
+    :sub="t('settings.subtitle')"
+    size="wide"
+  >
+    <template #icon>
       <Settings2 />
-      <template #actions>
-        <span
-          class="configuration-status"
-          :class="{ 'is-configured': isConfigured }"
-        >
-          <span class="status-dot" aria-hidden="true"></span>
-          {{
-            isConfigured
-              ? t("settings.configured")
-              : t("settings.notConfigured")
-          }}
-        </span>
-      </template>
-    </PageHeader>
+    </template>
+    <template #actions>
+      <span class="configuration-status" :class="{ 'is-configured': isConfigured }">
+        <span class="status-dot" aria-hidden="true"></span>
+        {{ isConfigured ? t("settings.configured") : t("settings.notConfigured") }}
+      </span>
+    </template>
 
-    <div class="settings-grid">
-      <section class="settings-card provider-card">
-        <div class="card-heading">
-          <div class="card-icon"><KeyRound /></div>
-          <div>
-            <h2>{{ t("settings.providerTitle") }}</h2>
-            <p>{{ t("settings.providerDescription") }}</p>
+    <div class="settings-page">
+      <div class="settings-grid">
+        <section class="settings-card provider-card">
+          <div class="card-heading">
+            <div class="card-icon"><KeyRound /></div>
+            <div>
+              <h2>{{ t("settings.providerTitle") }}</h2>
+              <p>{{ t("settings.providerDescription") }}</p>
+            </div>
           </div>
-        </div>
 
-        <div class="settings-form">
-          <label class="field">
-            <span class="field-label">
-              <Link2 />
-              {{ t("settings.endpointLabel") }}
-            </span>
-            <input
-              v-model="endpoint"
-              type="url"
-              inputmode="url"
-              autocomplete="url"
-              spellcheck="false"
-              maxlength="2048"
-              :placeholder="t('settings.endpointPlaceholder')"
-            />
-            <span class="field-hint">{{ t("settings.endpointHint") }}</span>
-          </label>
-
-          <label class="field">
-            <span class="field-label">
-              <KeyRound />
-              {{ t("settings.apiKeyLabel") }}
-            </span>
-            <span class="secret-input">
+          <div class="settings-form">
+            <label class="field">
+              <span class="field-label">
+                <Link2 />
+                {{ t("settings.endpointLabel") }}
+              </span>
               <input
-                v-model="apiKey"
-                :type="showApiKey ? 'text' : 'password'"
-                autocomplete="new-password"
+                v-model="endpoint"
+                type="url"
+                inputmode="url"
+                autocomplete="url"
                 spellcheck="false"
-                maxlength="4096"
-                :placeholder="t('settings.apiKeyPlaceholder')"
+                maxlength="2048"
+                :placeholder="t('settings.endpointPlaceholder')"
               />
-              <button
-                type="button"
-                class="secret-toggle"
-                :aria-label="
-                  showApiKey
-                    ? t('settings.hideApiKey')
-                    : t('settings.showApiKey')
-                "
-                :title="
-                  showApiKey
-                    ? t('settings.hideApiKey')
-                    : t('settings.showApiKey')
-                "
-                @click="showApiKey = !showApiKey"
+              <span class="field-hint">{{ t("settings.endpointHint") }}</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">
+                <KeyRound />
+                {{ t("settings.apiKeyLabel") }}
+              </span>
+              <span class="secret-input">
+                <input
+                  v-model="apiKey"
+                  :type="showApiKey ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  spellcheck="false"
+                  maxlength="4096"
+                  :placeholder="t('settings.apiKeyPlaceholder')"
+                />
+                <button
+                  type="button"
+                  class="secret-toggle"
+                  :aria-label="
+                    showApiKey ? t('settings.hideApiKey') : t('settings.showApiKey')
+                  "
+                  :title="
+                    showApiKey ? t('settings.hideApiKey') : t('settings.showApiKey')
+                  "
+                  @click="showApiKey = !showApiKey"
+                >
+                  <EyeOff v-if="showApiKey" />
+                  <Eye v-else />
+                </button>
+              </span>
+              <span class="field-hint">{{ t("settings.apiKeyHint") }}</span>
+            </label>
+
+            <p v-if="formError" class="form-error" role="alert">
+              {{ formError }}
+            </p>
+
+            <div class="form-actions">
+              <BaseButton
+                variant="danger-ghost"
+                size="medium"
+                :disabled="!isConfigured || isSaving"
+                @click="clearSettings"
               >
-                <EyeOff v-if="showApiKey" />
-                <Eye v-else />
-              </button>
-            </span>
-            <span class="field-hint">{{ t("settings.apiKeyHint") }}</span>
-          </label>
-
-          <p v-if="formError" class="form-error" role="alert">
-            {{ formError }}
-          </p>
-
-          <div class="form-actions">
-            <BaseButton
-              variant="danger-ghost"
-              size="medium"
-              :disabled="!isConfigured || isSaving"
-              @click="clearSettings"
-            >
-              <template #icon><Trash2 /></template>
-              {{ t("settings.clear") }}
-            </BaseButton>
-            <BaseButton
-              variant="primary"
-              size="medium"
-              :loading="isSaving"
-              :disabled="!hasChanges"
-              @click="saveSettings"
-            >
-              <template #icon><Save /></template>
-              {{ t("settings.save") }}
-            </BaseButton>
+                <template #icon><Trash2 /></template>
+                {{ t("settings.clear") }}
+              </BaseButton>
+              <BaseButton
+                variant="primary"
+                size="medium"
+                :loading="isSaving"
+                :disabled="!hasChanges"
+                @click="saveSettings"
+              >
+                <template #icon><Save /></template>
+                {{ t("settings.save") }}
+              </BaseButton>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="settings-card retention-card">
-        <div class="card-heading retention-heading">
-          <div class="card-icon"><Database /></div>
-          <div>
-            <h2>{{ t("settings.retentionTitle") }}</h2>
-            <p>{{ t("settings.retentionDescription") }}</p>
+        <section class="settings-card retention-card">
+          <div class="card-heading retention-heading">
+            <div class="card-icon"><Database /></div>
+            <div>
+              <h2>{{ t("settings.retentionTitle") }}</h2>
+              <p>{{ t("settings.retentionDescription") }}</p>
+            </div>
+            <output class="retention-value" for="pinia-retention">
+              {{ retentionLabel }}
+            </output>
           </div>
-          <output class="retention-value" for="pinia-retention">
-            {{ retentionLabel }}
-          </output>
-        </div>
 
-        <div class="retention-control">
-          <label class="retention-label" for="pinia-retention">
-            {{ t("settings.retentionCurrent") }}
-          </label>
-          <input
-            id="pinia-retention"
-            v-model.number="retentionIndex"
-            class="retention-slider"
-            type="range"
-            min="0"
-            :max="PINIA_RETENTION_PRESETS.length - 1"
-            step="1"
-            :style="{ '--retention-progress': retentionProgress }"
-            :aria-valuetext="retentionLabel"
-          />
-          <div class="retention-endpoints" aria-hidden="true">
-            <span>{{ t("settings.retentionNoCache") }}</span>
-            <span>{{ t("settings.retentionUntilRefresh") }}</span>
+          <div class="retention-control">
+            <label class="retention-label" for="pinia-retention">
+              {{ t("settings.retentionCurrent") }}
+            </label>
+            <input
+              id="pinia-retention"
+              v-model.number="retentionIndex"
+              class="retention-slider"
+              type="range"
+              min="0"
+              :max="PINIA_RETENTION_PRESETS.length - 1"
+              step="1"
+              :style="{ '--retention-progress': retentionProgress }"
+              :aria-valuetext="retentionLabel"
+            />
+            <div class="retention-endpoints" aria-hidden="true">
+              <span>{{ t("settings.retentionNoCache") }}</span>
+              <span>{{ t("settings.retentionUntilRefresh") }}</span>
+            </div>
+            <p class="retention-hint">{{ t("settings.retentionHint") }}</p>
           </div>
-          <p class="retention-hint">{{ t("settings.retentionHint") }}</p>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
-  </main>
+  </AdminPageShell>
 </template>
 
 <style scoped>
 .settings-page {
-  width: min(100%, 1040px);
-  margin: 0 auto;
-  padding: 28px 20px 56px;
+  display: grid;
+  gap: 18px;
 }
 
 .configuration-status {
@@ -630,10 +617,6 @@ async function clearSettings() {
 }
 
 @media (max-width: 520px) {
-  .settings-page {
-    padding-inline: 14px;
-  }
-
   .form-actions {
     align-items: stretch;
     flex-direction: column-reverse;

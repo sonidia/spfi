@@ -121,9 +121,8 @@ function formatNumber(value: number) {
 
       <div class="quota-meta">
         <span v-if="rateLimit.isKnown && effectiveRemaining !== null">
-          {{ formatNumber(effectiveRemaining) }} /
-          {{ formatNumber(rateLimit.limit || 0) }}
-          requests
+          Remain {{ formatNumber(effectiveRemaining) }} /
+          {{ formatNumber(rateLimit.limit || 0) }} requests
         </span>
         <span v-else>No quota data yet</span>
         <span>{{ resetText }}</span>

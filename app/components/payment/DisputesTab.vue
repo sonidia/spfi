@@ -30,11 +30,15 @@ const statusOptions = [
   { label: "Lost", value: "LOST" },
 ];
 
+const activeFilterCount = computed(
+  () =>
+    [status.value, initiatedFrom.value, initiatedThrough.value].filter(Boolean).length,
+);
+
 const sortedDisputes = computed(() =>
   [...paymentStore.visibleDisputes].sort(
     (left, right) =>
-      new Date(right.initiatedAt).getTime() -
-      new Date(left.initiatedAt).getTime(),
+      new Date(right.initiatedAt).getTime() - new Date(left.initiatedAt).getTime(),
   ),
 );
 const totalPages = computed(() =>
@@ -73,12 +77,8 @@ async function applyFilters(successMessage = "Dispute filters applied.") {
   }
   const filters: ShopifyPaymentsDisputeFilters = {
     ...(status.value ? { status: status.value } : {}),
-    ...(initiatedFrom.value
-      ? { initiated_at_min: initiatedFrom.value }
-      : {}),
-    ...(initiatedThrough.value
-      ? { initiated_at_max: initiatedThrough.value }
-      : {}),
+    ...(initiatedFrom.value ? { initiated_at_min: initiatedFrom.value } : {}),
+    ...(initiatedThrough.value ? { initiated_at_max: initiatedThrough.value } : {}),
   };
   currentPage.value = 1;
   await paymentStore.fetchDisputes(storeId.value, token.value, filters);
@@ -124,8 +124,12 @@ function updatePageSize(size: number) {
 
 <template>
   <div class="disputes-tab">
-    <form class="filter-toolbar" @submit.prevent="applyFilters()">
-      <label>
+    <PaymentFilterPanel
+      title="Dispute filters"
+      :active-count="activeFilterCount"
+      @submit="applyFilters()"
+    >
+      <label class="payment-filter-field">
         <span>Status</span>
         <BaseSelect
           class-name="filter-select"
@@ -134,33 +138,29 @@ function updatePageSize(size: number) {
           @update:model-value="setStatus"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Initiated from</span>
-        <input v-model="initiatedFrom" type="date" />
+        <input v-model="initiatedFrom" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Initiated through</span>
-        <input v-model="initiatedThrough" type="date" />
+        <input v-model="initiatedThrough" class="payment-filter-input" type="date" />
       </label>
-      <div class="filter-actions">
+      <template #actions>
         <BaseButton type="button" @click="resetFilters">
           <template #icon>
             <RotateCcw />
           </template>
           Reset
         </BaseButton>
-        <BaseButton
-          type="submit"
-          variant="primary"
-          :loading="paymentStore.isLoading"
-        >
+        <BaseButton type="submit" variant="primary" :loading="paymentStore.isLoading">
           <template #icon>
             <Filter />
           </template>
           {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
         </BaseButton>
-      </div>
-    </form>
+      </template>
+    </PaymentFilterPanel>
 
     <table>
       <thead>
@@ -222,53 +222,9 @@ function updatePageSize(size: number) {
 </template>
 
 <style scoped>
-.filter-toolbar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
-  gap: 10px;
-  align-items: end;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-soft);
-}
-
-.filter-toolbar label {
-  display: grid;
-  gap: 4px;
-}
-
-.filter-toolbar label span,
 td small {
   color: var(--text-sub);
   font-size: 11px;
-}
-
-.filter-toolbar input {
-  height: 34px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-}
-
-.filter-toolbar :deep(.select-trigger) {
-  min-height: 34px;
-  padding: 0 8px;
-  background: var(--surface);
-  font-size: 12px;
-}
-
-.filter-toolbar :deep(.selected-label) {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.filter-actions {
-  display: flex;
-  gap: 6px;
 }
 
 td strong,
@@ -298,11 +254,5 @@ td small {
 .status-badge.is-lost,
 .is-overdue {
   color: var(--red);
-}
-
-@media (max-width: 800px) {
-  .filter-toolbar {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 </style>

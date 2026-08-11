@@ -1,7 +1,6 @@
 .token-page {
-  min-width: 58rem;
-  margin: 0 auto;
-  padding: 28px 20px 48px;
+  display: grid;
+  gap: 20px;
   font-size: 14px;
 }
 /* Card */
@@ -9,7 +8,6 @@
   background: var(--surface);
   border-radius: var(--radius, 8px);
   box-shadow: var(--shadow);
-  margin-bottom: 20px;
 }
 
 .card-head {

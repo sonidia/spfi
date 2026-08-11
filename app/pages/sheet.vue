@@ -14,7 +14,7 @@ import {
   type StoredSheet,
 } from "~~/utils/sheets";
 
-definePageMeta({ layout: 'default' });
+definePageMeta({ layout: false });
 
 const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
@@ -176,121 +176,138 @@ onMounted(initializeDefaultSheets);
 </script>
 
 <template>
-  <section id="sheets" class="settings-sheet-card">
-    <header class="sheet-card-heading">
-      <span class="sheet-card-icon"><FileSpreadsheet /></span>
-      <div>
-        <h2>Google Sheets</h2>
-        <p>Manage saved spreadsheets, select tabs and preview row data.</p>
-      </div>
-      <span class="sheet-count">{{ recentSheets.length }} saved</span>
-    </header>
-
-    <div class="sheet-card-body">
-      <form class="sheet-add-form" @submit.prevent="addAndLoadSheet">
-        <label>
-          <span class="sr-only">Google Sheet URL or spreadsheet ID</span>
-          <input
-            v-model="sheetInputValue"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Google Sheet URL or Spreadsheet ID…"
-          />
-        </label>
-        <BaseButton
-          type="submit"
-          variant="primary"
-          size="medium"
-          :loading="sheetLoading"
-          :disabled="!sheetInputValue.trim()"
-        >
-          <template #icon><Plus /></template>
-          Import sheet
-        </BaseButton>
-      </form>
-
-      <p v-if="sheetError" class="sheet-alert" role="alert">{{ sheetError }}</p>
-
-      <div v-if="recentSheets.length" class="sheet-list">
-        <article v-for="sheet in recentSheets" :key="sheet.source" class="sheet-row">
-          <span class="sheet-row-icon"><FileSpreadsheet /></span>
-          <div class="sheet-copy">
-            <strong>{{ sheet.label }}</strong>
-            <span>
-              <a :href="sheet.source" target="_blank" rel="noopener noreferrer">
-                {{ truncateUrl(sheet.source) }} <ExternalLink />
-              </a>
-              <small v-if="sheet.ranges.length">
-                {{ sheet.ranges.length }} tab{{ sheet.ranges.length === 1 ? "" : "s" }}
-              </small>
-            </span>
-          </div>
-          <div class="sheet-actions">
-            <BaseSelect
-              v-if="sheet.ranges.length"
-              class-name="sheet-tab-select"
-              :model-value="getSelectedSheetName(sheet)"
-              :options="sheet.ranges.map((range) => ({ label: range, value: range }))"
-              :aria-label="`Select tab for ${sheet.label}`"
-              @change="setSelectedSheetName(sheet.source, $event)"
-            >
-              <template #icon><TableProperties /></template>
-            </BaseSelect>
-            <BaseButton size="medium" @click="loadSheetViewerData(sheet)">
-              <template #icon><TableProperties /></template>
-              View
-            </BaseButton>
-            <BaseButton
-              variant="danger-ghost"
-              size="medium"
-              @click="removeRecentSheet(sheet.source)"
-            >
-              <template #icon><Trash2 /></template>
-              Delete
-            </BaseButton>
-          </div>
-        </article>
-      </div>
-
-      <div v-else-if="!sheetLoading" class="sheet-empty">
-        <FileSpreadsheet />
-        <strong>No saved sheets</strong>
-        <span>Import a Google Sheet URL or spreadsheet ID to get started.</span>
-      </div>
-
-      <div v-if="sheetLoading" class="sheet-loading" aria-live="polite">
-        Loading sheet data…
-      </div>
-    </div>
-  </section>
-
-  <SheetDataModal
-    :open="isSheetModalOpen"
-    :title="sheetModalTitle"
-    @close="isSheetModalOpen = false"
+  <AdminPageShell
+    title="Google Sheets"
+    sub="Manage saved spreadsheets, selected tabs, and row previews"
+    size="wide"
   >
-    <div class="sheet-table-wrap">
-      <table v-if="sheetFilteredRows?.length">
-        <thead>
-          <tr>
-            <th v-for="(header, index) in sheetHeaders" :key="index">
-              {{ header }}
-              <span v-if="index === 0" class="sheet-badge">
-                {{ sheetFilteredRows.length }} rows
+    <template #icon>
+      <FileSpreadsheet />
+    </template>
+    <template #actions>
+      <span class="sheet-count">{{ recentSheets.length }} saved</span>
+    </template>
+
+    <section id="sheets" class="settings-sheet-card">
+      <header class="sheet-card-heading">
+        <span class="sheet-card-icon"><FileSpreadsheet /></span>
+        <div>
+          <h2>Google Sheets</h2>
+          <p>Manage saved spreadsheets, select tabs and preview row data.</p>
+        </div>
+        <span class="sheet-count">{{ recentSheets.length }} saved</span>
+      </header>
+
+      <div class="sheet-card-body">
+        <form class="sheet-add-form" @submit.prevent="addAndLoadSheet">
+          <label>
+            <span class="sr-only">Google Sheet URL or spreadsheet ID</span>
+            <input
+              v-model="sheetInputValue"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Google Sheet URL or Spreadsheet ID…"
+            />
+          </label>
+          <BaseButton
+            type="submit"
+            variant="primary"
+            size="medium"
+            :loading="sheetLoading"
+            :disabled="!sheetInputValue.trim()"
+          >
+            <template #icon><Plus /></template>
+            Import sheet
+          </BaseButton>
+        </form>
+
+        <p v-if="sheetError" class="sheet-alert" role="alert">{{ sheetError }}</p>
+
+        <div v-if="recentSheets.length" class="sheet-list">
+          <article v-for="sheet in recentSheets" :key="sheet.source" class="sheet-row">
+            <span class="sheet-row-icon"><FileSpreadsheet /></span>
+            <div class="sheet-copy">
+              <strong>{{ sheet.label }}</strong>
+              <span>
+                <a :href="sheet.source" target="_blank" rel="noopener noreferrer">
+                  {{ truncateUrl(sheet.source) }} <ExternalLink />
+                </a>
+                <small v-if="sheet.ranges.length">
+                  {{ sheet.ranges.length }} tab{{
+                    sheet.ranges.length === 1 ? "" : "s"
+                  }}
+                </small>
               </span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, rowIndex) in sheetFilteredRows" :key="rowIndex">
-            <td v-for="(cell, cellIndex) in row" :key="cellIndex">{{ cell }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-else class="sheet-empty-modal">No data to display.</div>
-    </div>
-  </SheetDataModal>
+            </div>
+            <div class="sheet-actions">
+              <BaseSelect
+                v-if="sheet.ranges.length"
+                class-name="sheet-tab-select"
+                :model-value="getSelectedSheetName(sheet)"
+                :options="sheet.ranges.map((range) => ({ label: range, value: range }))"
+                :aria-label="`Select tab for ${sheet.label}`"
+                @change="setSelectedSheetName(sheet.source, $event)"
+              >
+                <template #icon><TableProperties /></template>
+              </BaseSelect>
+              <BaseButton size="medium" @click="loadSheetViewerData(sheet)">
+                <template #icon><TableProperties /></template>
+                View
+              </BaseButton>
+              <BaseButton
+                variant="danger-ghost"
+                size="medium"
+                @click="removeRecentSheet(sheet.source)"
+              >
+                <template #icon><Trash2 /></template>
+                Delete
+              </BaseButton>
+            </div>
+          </article>
+        </div>
+
+        <div v-else-if="!sheetLoading" class="sheet-empty">
+          <FileSpreadsheet />
+          <strong>No saved sheets</strong>
+          <span>Import a Google Sheet URL or spreadsheet ID to get started.</span>
+        </div>
+
+        <div v-if="sheetLoading" class="sheet-loading" aria-live="polite">
+          Loading sheet data…
+        </div>
+      </div>
+    </section>
+
+    <SheetDataModal
+      :open="isSheetModalOpen"
+      :title="sheetModalTitle"
+      @close="isSheetModalOpen = false"
+    >
+      <div class="sheet-table-wrap">
+        <table v-if="sheetFilteredRows?.length">
+          <thead>
+            <tr>
+              <th v-for="(header, index) in sheetHeaders" :key="index">
+                {{ header }}
+                <span v-if="index === 0" class="sheet-badge">
+                  {{ sheetFilteredRows.length }} rows
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, rowIndex) in sheetFilteredRows" :key="rowIndex">
+              <td v-for="(cell, cellIndex) in row" :key="cellIndex">
+                {{ cell }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="sheet-empty-modal">No data to display.</div>
+      </div>
+    </SheetDataModal>
+  </AdminPageShell>
 </template>
 
 <style scoped>

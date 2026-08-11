@@ -52,6 +52,26 @@ const testModeOptions = [
   { label: "Test only", value: "test" },
 ];
 
+const activeFilterCount = computed(
+  () =>
+    [
+      transactionType.value,
+      payoutStatus.value,
+      payoutDate.value,
+      processedFrom.value,
+      processedThrough.value,
+      currency.value,
+      cardLast4.value,
+      paymentMethod.value,
+      transferId.value,
+      taxExempt.value,
+      hideTransfers.value ? "hide-transfers" : "",
+      testMode.value,
+      sinceId.value,
+      lastId.value,
+    ].filter(Boolean).length,
+);
+
 const sortedTransactions = computed(() =>
   [...paymentStore.visibleBalanceTransactions].sort(
     (left, right) =>
@@ -193,12 +213,23 @@ function updatePageSize(size: number) {
 
 <template>
   <div class="transactions-tab">
-    <form class="filter-toolbar" @submit.prevent="applyFilters()">
-      <label>
+    <PaymentFilterPanel
+      title="Transaction filters"
+      :active-count="activeFilterCount"
+      @submit="applyFilters()"
+    >
+      <template #toolbar>
+        <CsvExportButton resource="payments" label="Export all CSV" />
+      </template>
+      <label class="payment-filter-field">
         <span>Transaction type</span>
-        <input v-model.trim="transactionType" placeholder="charge, refund…" />
+        <input
+          v-model.trim="transactionType"
+          class="payment-filter-input"
+          placeholder="charge, refund..."
+        />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Payout status</span>
         <BaseSelect
           class-name="filter-select"
@@ -207,44 +238,55 @@ function updatePageSize(size: number) {
           @update:model-value="setPayoutStatus"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Payout date</span>
-        <input v-model="payoutDate" type="date" />
+        <input v-model="payoutDate" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Processed from</span>
-        <input v-model="processedFrom" type="date" />
+        <input v-model="processedFrom" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Processed through</span>
-        <input v-model="processedThrough" type="date" />
+        <input v-model="processedThrough" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Currency</span>
-        <input v-model.trim="currency" maxlength="4" placeholder="USD" />
+        <input
+          v-model.trim="currency"
+          class="payment-filter-input"
+          maxlength="4"
+          placeholder="USD"
+        />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Card last 4</span>
         <input
           v-model.trim="cardLast4"
+          class="payment-filter-input"
           inputmode="numeric"
           maxlength="4"
           placeholder="4242"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Payment method</span>
-        <input v-model.trim="paymentMethod" placeholder="Visa" />
+        <input
+          v-model.trim="paymentMethod"
+          class="payment-filter-input"
+          placeholder="Visa"
+        />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Payments transfer ID</span>
         <input
           v-model.trim="transferId"
+          class="payment-filter-input"
           inputmode="numeric"
           placeholder="Transfer ID"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Tax reporting</span>
         <BaseSelect
           class-name="filter-select"
@@ -253,7 +295,7 @@ function updatePageSize(size: number) {
           @update:model-value="setTaxExempt"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Mode</span>
         <BaseSelect
           class-name="filter-select"
@@ -262,17 +304,29 @@ function updatePageSize(size: number) {
           @update:model-value="setTestMode"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>After transaction ID</span>
-        <input v-model.trim="sinceId" inputmode="numeric" placeholder="since_id" />
+        <input
+          v-model.trim="sinceId"
+          class="payment-filter-input"
+          inputmode="numeric"
+          placeholder="since_id"
+        />
       </label>
-      <BaseCheckbox v-model="hideTransfers" label="Hide transfers" />
-      <label>
+      <div class="payment-filter-field payment-filter-checkbox">
+        <span>Transfers</span>
+        <BaseCheckbox v-model="hideTransfers" label="Hide transfers" />
+      </div>
+      <label class="payment-filter-field">
         <span>Before transaction ID</span>
-        <input v-model.trim="lastId" inputmode="numeric" placeholder="last_id" />
+        <input
+          v-model.trim="lastId"
+          class="payment-filter-input"
+          inputmode="numeric"
+          placeholder="last_id"
+        />
       </label>
-      <div class="filter-actions">
-        <CsvExportButton resource="payments" label="Export all CSV" />
+      <template #actions>
         <BaseButton type="button" class="filter-action-pending" @click="showPending">
           <template #icon>
             <Clock />
@@ -291,8 +345,8 @@ function updatePageSize(size: number) {
           </template>
           {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
         </BaseButton>
-      </div>
-    </form>
+      </template>
+    </PaymentFilterPanel>
 
     <table>
       <thead>
@@ -399,59 +453,6 @@ function updatePageSize(size: number) {
 </template>
 
 <style scoped>
-.filter-toolbar {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
-  gap: 10px;
-  align-items: end;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-soft);
-}
-
-.filter-toolbar label {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.filter-toolbar label span {
-  color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.filter-toolbar input {
-  min-width: 0;
-  height: 34px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-}
-
-.filter-toolbar :deep(.select-trigger) {
-  min-height: 34px;
-  padding: 0 8px;
-  background: var(--surface);
-  font-size: 12px;
-}
-
-.filter-toolbar :deep(.selected-label) {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.filter-actions {
-  display: flex;
-  gap: 6px;
-  grid-column: 1 / -1;
-  justify-content: flex-end;
-}
-
 .filter-action-pending {
   border-color: color-mix(in srgb, var(--amber) 35%, var(--border));
   background: var(--amber-soft);
@@ -531,26 +532,5 @@ function updatePageSize(size: number) {
   color: var(--amber);
   font-size: 11px;
   font-weight: 700;
-}
-
-@media (max-width: 1050px) {
-  .filter-toolbar {
-    grid-template-columns: repeat(2, minmax(150px, 1fr));
-  }
-
-  .filter-actions {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 620px) {
-  .filter-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-actions {
-    grid-column: auto;
-    flex-wrap: wrap;
-  }
 }
 </style>

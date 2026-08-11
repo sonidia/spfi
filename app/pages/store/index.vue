@@ -94,13 +94,13 @@
         >
           {{ paymentStore.error }}
         </div>
-        <div
+        <!-- <div
           v-else-if="isPaymentTab && paymentStore.graphqlWarning"
           class="payment-alert payment-warning"
           role="status"
         >
           {{ paymentStore.graphqlWarning }}
-        </div>
+        </div> -->
 
 
         <StoreProductsTab v-if="activeTab === 'products'" />

@@ -1,77 +1,76 @@
 <template>
-  <div class="setup-guide">
-    <PageHeader :title="t('setup.title')" :sub="t('setup.subtitle')">
+  <AdminPageShell :title="t('setup.title')" :sub="t('setup.subtitle')" size="narrow">
+    <template #icon>
       <IconsHero />
-    </PageHeader>
+    </template>
 
-    <div class="steps">
-      <!-- STEP 1 -->
-      <div class="step-card">
-        <div class="step-header">
-          <span class="step-badge">01</span>
-          <h2>{{ t("setup.stepStoreIdTitle") }}</h2>
-        </div>
-        <div class="step-body">
-          <p>
-            {{ t("setup.stepStoreIdBody") }}
-            <span class="tag">{{ t("setup.storeId") }}</span
-            >.
-          </p>
-          <div class="example-block">
-            <div class="example-label">{{ t("setup.example") }}</div>
-            <div class="example-content">
-              <code class="code-inline">3ute8a-h4.myshopify.com</code>
-              <span class="arrow">→</span>
-              <span class="example-result"
-                >{{ t("setup.storeId") }}:
-                <code class="code-inline highlight">3ute8a-h4</code></span
-              >
+    <div class="setup-guide">
+      <div class="steps">
+        <!-- STEP 1 -->
+        <div class="step-card">
+          <div class="step-header">
+            <span class="step-badge">01</span>
+            <h2>{{ t("setup.stepStoreIdTitle") }}</h2>
+          </div>
+          <div class="step-body">
+            <p>
+              {{ t("setup.stepStoreIdBody") }}
+              <span class="tag">{{ t("setup.storeId") }}</span
+              >.
+            </p>
+            <div class="example-block">
+              <div class="example-label">{{ t("setup.example") }}</div>
+              <div class="example-content">
+                <code class="code-inline">3ute8a-h4.myshopify.com</code>
+                <span class="arrow">→</span>
+                <span class="example-result"
+                  >{{ t("setup.storeId") }}:
+                  <code class="code-inline highlight">3ute8a-h4</code></span
+                >
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- STEP 2 -->
-      <div class="step-card">
-        <div class="step-header">
-          <span class="step-badge">02</span>
-          <h2>{{ t("setup.stepCreateAppTitle") }}</h2>
+        <!-- STEP 2 -->
+        <div class="step-card">
+          <div class="step-header">
+            <span class="step-badge">02</span>
+            <h2>{{ t("setup.stepCreateAppTitle") }}</h2>
+          </div>
+          <div class="step-body">
+            <ol class="steps-list">
+              <li>{{ t("setup.createAppOpenApps") }} <span class="tag">Apps</span></li>
+              <li>
+                {{ t("setup.createAppDevelop") }}
+                <span class="tag">Develop apps</span>
+              </li>
+              <li>{{ t("setup.createAppDashboard") }}</li>
+              <li>{{ t("setup.createAppCreate") }}</li>
+              <li>
+                {{ t("setup.createAppName") }}
+                <code class="code-inline">fitblend.store</code>
+              </li>
+            </ol>
+          </div>
         </div>
-        <div class="step-body">
-          <ol class="steps-list">
-            <li>
-              {{ t("setup.createAppOpenApps") }} <span class="tag">Apps</span>
-            </li>
-            <li>
-              {{ t("setup.createAppDevelop") }}
-              <span class="tag">Develop apps</span>
-            </li>
-            <li>{{ t("setup.createAppDashboard") }}</li>
-            <li>{{ t("setup.createAppCreate") }}</li>
-            <li>
-              {{ t("setup.createAppName") }}
-              <code class="code-inline">fitblend.store</code>
-            </li>
-          </ol>
-        </div>
-      </div>
 
-      <!-- STEP 3 -->
-      <div class="step-card">
-        <div class="step-header">
-          <span class="step-badge">03</span>
-          <h2>
-            {{ t("setup.stepConfigureTitle") }}
-            <span class="tab-label">{{ t("setup.tabVersions") }}</span>
-          </h2>
-        </div>
-        <div class="step-body">
-          <div class="config-grid">
-            <div class="config-row">
-              <span class="config-key">{{ t("setup.redirectUrl") }}</span>
-              <code class="code-inline">https://admin.shopify.com</code>
-            </div>
-            <!-- <div class="config-row">
+        <!-- STEP 3 -->
+        <div class="step-card">
+          <div class="step-header">
+            <span class="step-badge">03</span>
+            <h2>
+              {{ t("setup.stepConfigureTitle") }}
+              <span class="tab-label">{{ t("setup.tabVersions") }}</span>
+            </h2>
+          </div>
+          <div class="step-body">
+            <div class="config-grid">
+              <div class="config-row">
+                <span class="config-key">{{ t("setup.redirectUrl") }}</span>
+                <code class="code-inline">https://admin.shopify.com</code>
+              </div>
+              <!-- <div class="config-row">
               <span class="config-key">App URL</span>
               <code class="code-inline">http://localhost/new-install</code>
             </div>
@@ -79,157 +78,158 @@
               <span class="config-key">Embed in admin</span>
               <span class="badge-off">Bỏ tick</span>
             </div> -->
-            <div class="config-row">
-              <span class="config-key">{{ t("setup.apiVersion") }}</span>
-              <code class="code-inline highlight">2026-07</code>
+              <div class="config-row">
+                <span class="config-key">{{ t("setup.apiVersion") }}</span>
+                <code class="code-inline highlight">2026-07</code>
+              </div>
             </div>
-          </div>
 
-          <div class="scope-block">
-            <div>
-              <div class="scope-label">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
+            <div class="scope-block">
+              <div>
+                <div class="scope-label">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  {{ t("setup.scopes") }}
+                </div>
+                <button
+                  class="copy-button"
+                  :class="{ copied }"
+                  @click="copyScopes"
+                  :title="t('setup.copyScopes')"
                 >
+                  <IconsCopy v-if="!copied" class="copy-icon" />
+                  <span v-else class="copy-success">
+                    <IconsCheck />
+                    {{ t("common.done") }}
+                  </span>
+                </button>
+              </div>
+
+              <div class="scope-wrapper">
+                <div class="scope-box" :class="{ expanded: isExpanded }">
+                  <pre class="scope-code">{{ scopes }}</pre>
+                </div>
+
+                <div v-if="!isExpanded" class="fade-overlay">
+                  <button class="expand-btn" @click="isExpanded = true">
+                    <IconsArrowRight class="expand-icon" />
+                    {{ t("setup.expand") }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="action-hint">
+              <div class="action-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path
-                    d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                    d="M5 12h14M12 5l7 7-7 7"
                     stroke="currentColor"
                     stroke-width="1.5"
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   />
                 </svg>
-                {{ t("setup.scopes") }}
               </div>
-              <button
-                class="copy-button"
-                :class="{ copied }"
-                @click="copyScopes"
-                :title="t('setup.copyScopes')"
-              >
-                <IconsCopy v-if="!copied" class="copy-icon" />
-                <span v-else class="copy-success">
-                  <IconsCheck />
-                  {{ t("common.done") }}
-                </span>
-              </button>
+              {{ t("setup.releaseHint") }}
+              <span class="tag">Release → Release</span>
             </div>
+          </div>
+        </div>
 
-            <div class="scope-wrapper">
-              <div class="scope-box" :class="{ expanded: isExpanded }">
-                <pre class="scope-code">{{ scopes }}</pre>
+        <!-- STEP 4 -->
+        <div class="step-card">
+          <div class="step-header">
+            <span class="step-badge">04</span>
+            <h2>
+              {{ t("setup.stepCredentialsTitle") }}
+              <span class="tab-label">{{ t("setup.tabSettings") }}</span>
+            </h2>
+          </div>
+          <div class="step-body">
+            <div class="credential-list">
+              <div class="credential-item">
+                <div class="credential-icon">ID</div>
+                <div>
+                  <div class="credential-name">{{ t("setup.clientId") }}</div>
+                  <div class="credential-hint">{{ t("setup.copyAndSave") }}</div>
+                </div>
               </div>
-
-              <div v-if="!isExpanded" class="fade-overlay">
-                <button class="expand-btn" @click="isExpanded = true">
-                  <IconsArrowRight class="expand-icon" />
-                  {{ t("setup.expand") }}
-                </button>
+              <div class="credential-item">
+                <div class="credential-icon">SK</div>
+                <div>
+                  <div class="credential-name">{{ t("setup.clientSecret") }}</div>
+                  <div class="credential-hint">{{ t("setup.copyAndSave") }}</div>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="action-hint">
-            <div class="action-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M5 12h14M12 5l7 7-7 7"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </div>
-            {{ t("setup.releaseHint") }}
-            <span class="tag">Release → Release</span>
+        <!-- STEP 5 -->
+        <div class="step-card">
+          <div class="step-header">
+            <span class="step-badge">05</span>
+            <h2>
+              {{ t("setup.stepInstallTitle") }}
+              <span class="tab-label">{{ t("setup.firstTab") }}</span>
+            </h2>
           </div>
-        </div>
-      </div>
-
-      <!-- STEP 4 -->
-      <div class="step-card">
-        <div class="step-header">
-          <span class="step-badge">04</span>
-          <h2>
-            {{ t("setup.stepCredentialsTitle") }}
-            <span class="tab-label">{{ t("setup.tabSettings") }}</span>
-          </h2>
-        </div>
-        <div class="step-body">
-          <div class="credential-list">
-            <div class="credential-item">
-              <div class="credential-icon">ID</div>
-              <div>
-                <div class="credential-name">{{ t("setup.clientId") }}</div>
-                <div class="credential-hint">{{ t("setup.copyAndSave") }}</div>
-              </div>
-            </div>
-            <div class="credential-item">
-              <div class="credential-icon">SK</div>
-              <div>
-                <div class="credential-name">{{ t("setup.clientSecret") }}</div>
-                <div class="credential-hint">{{ t("setup.copyAndSave") }}</div>
-              </div>
-            </div>
+          <div class="step-body">
+            <ol class="steps-list">
+              <li>{{ t("setup.installApp") }}</li>
+              <li>{{ t("setup.chooseStore") }}</li>
+            </ol>
           </div>
         </div>
       </div>
 
-      <!-- STEP 5 -->
-      <div class="step-card">
-        <div class="step-header">
-          <span class="step-badge">05</span>
-          <h2>
-            {{ t("setup.stepInstallTitle") }}
-            <span class="tab-label">{{ t("setup.firstTab") }}</span>
-          </h2>
+      <!-- NOTE -->
+      <div class="note-card">
+        <div class="note-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <polyline
+              points="14,2 14,8 20,8"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </div>
-        <div class="step-body">
-          <ol class="steps-list">
-            <li>{{ t("setup.installApp") }}</li>
-            <li>{{ t("setup.chooseStore") }}</li>
-          </ol>
+        <div>
+          <div class="note-title">{{ t("setup.noteTitle") }}</div>
+          <code class="code-inline note-format">store_id/client_id/client_secret</code>
         </div>
       </div>
     </div>
-
-    <!-- NOTE -->
-    <div class="note-card">
-      <div class="note-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <polyline
-            points="14,2 14,8 20,8"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </div>
-      <div>
-        <div class="note-title">{{ t("setup.noteTitle") }}</div>
-        <code class="code-inline note-format"
-          >store_id/client_id/client_secret</code
-        >
-      </div>
-    </div>
-  </div>
+  </AdminPageShell>
 </template>
 
 <script setup>
 import { ref } from "vue";
+
+definePageMeta({ layout: false });
 
 const isExpanded = ref(false);
 const copied = ref(false);
@@ -253,11 +253,9 @@ const copyScopes = async () => {
 
 <style scoped>
 .setup-guide {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 48px 24px;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  display: grid;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   color: var(--text);
   line-height: 1.6;
 }

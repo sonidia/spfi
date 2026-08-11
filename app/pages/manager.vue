@@ -1,8 +1,5 @@
 <script lang="ts" setup>
-import {
-  useSheetService,
-  type ProxySheetRow,
-} from "~/composables/useSheetService";
+import { useSheetService, type ProxySheetRow } from "~/composables/useSheetService";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
@@ -12,7 +9,7 @@ import { getSheetUrls } from "~~/utils/sheets";
 
 const { SPF_SHEET_URL } = getSheetUrls();
 
-definePageMeta({ layout: 'default' });
+definePageMeta({ layout: false });
 
 const formStore = useFormStore();
 const { t } = useLocalization();
@@ -38,10 +35,7 @@ type ProxyCheckResult = {
 };
 
 const proxyResults = ref<
-  Record<
-    string,
-    { success: boolean; ip?: string; duration?: number; error?: string }
-  >
+  Record<string, { success: boolean; ip?: string; duration?: number; error?: string }>
 >({});
 const genError = ref("");
 const genSuccess = ref("");
@@ -170,9 +164,7 @@ function getStoreInfo(id: string): StoreInfo {
   };
 }
 
-const storeList = computed<StoreInfo[]>(() =>
-  formStore.knownStores.map(getStoreInfo),
-);
+const storeList = computed<StoreInfo[]>(() => formStore.knownStores.map(getStoreInfo));
 
 const filteredStoreList = computed(() => {
   let list = [...storeList.value];
@@ -183,10 +175,8 @@ const filteredStoreList = computed(() => {
   }
 
   list.sort((a, b) => {
-    if (sortOrder.value === "domain_asc")
-      return a.domain.localeCompare(b.domain);
-    if (sortOrder.value === "domain_desc")
-      return b.domain.localeCompare(a.domain);
+    if (sortOrder.value === "domain_asc") return a.domain.localeCompare(b.domain);
+    if (sortOrder.value === "domain_desc") return b.domain.localeCompare(a.domain);
 
     const timeA = credentialVault.getStoreData(a.id).expiresTime || 0;
     const timeB = credentialVault.getStoreData(b.id).expiresTime || 0;
@@ -366,18 +356,15 @@ async function addShop() {
         }
 
         setStep("TOKEN_GEN", "active");
-        const res = await $fetch<ShopifyAccessTokenResponse>(
-          "/api/generate-token",
-          {
-            method: "POST",
-            body: {
-              storeId: sId,
-              clientId: cId,
-              clientSecret: cSec,
-              sock: sock,
-            },
+        const res = await $fetch<ShopifyAccessTokenResponse>("/api/generate-token", {
+          method: "POST",
+          body: {
+            storeId: sId,
+            clientId: cId,
+            clientSecret: cSec,
+            sock: sock,
           },
-        );
+        });
 
         if (!res?.access_token) {
           throw new Error("Failed to retrieve access token");
@@ -439,18 +426,15 @@ async function rotateToken(id: string) {
 
   rotatingIds.value[id] = true;
   try {
-    const res = await $fetch<ShopifyAccessTokenResponse>(
-      "/api/generate-token",
-      {
-        method: "POST",
-        body: {
-          storeId: id,
-          clientId: data.clientId,
-          clientSecret: data.clientSecret,
-          sock: data.sock,
-        },
+    const res = await $fetch<ShopifyAccessTokenResponse>("/api/generate-token", {
+      method: "POST",
+      body: {
+        storeId: id,
+        clientId: data.clientId,
+        clientSecret: data.clientSecret,
+        sock: data.sock,
       },
-    );
+    });
 
     if (res?.access_token) {
       const now = Date.now();
@@ -529,372 +513,357 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
 </script>
 
 <template>
-  <div class="token-page">
-    <PageHeader
-      title="Shop Management"
-      sub="Manage your Shopify store access tokens and credentials"
-    >
+  <AdminPageShell
+    title="Shop Management"
+    sub="Manage your Shopify store access tokens and credentials"
+    size="wide"
+  >
+    <template #icon>
       <IconsBulking />
-      <template #actions>
-        <div class="mode-toggle">
-          <button
-            class="toggle-btn"
-            :class="{ active: addMode === 'single' }"
-            @click="addMode = 'single'"
-          >
-            <IconsCheck />
-            Single
-          </button>
-          <button
-            class="toggle-btn"
-            :class="{ active: addMode === 'bulking' }"
-            @click="addMode = 'bulking'"
-          >
-            <IconsBulking />
-            Bulking
-          </button>
-        </div>
-      </template>
-    </PageHeader>
-
-    <!-- ── Add new store ── -->
-    <section class="card">
-      <div class="add-form" v-if="addMode === 'single'">
-        <div class="field field-50">
-          <label class="field-label">Shop domain/URL</label>
-          <input
-            v-if="addMode === 'single'"
-            v-model="newDomain"
-            type="text"
-            placeholder="Your store domain (e.g., myshop.store)"
-            class="inp domain_inp"
-            @keyup.enter="addShop"
-          />
-        </div>
-        <div class="field field-50">
-          <label class="field-label">Sock/Proxy</label>
-          <input
-            v-model="newSock"
-            type="text"
-            placeholder="IP:Port:User:Pass"
-            class="inp"
-          />
-        </div>
-        <div class="field field-33">
-          <label class="field-label">Store ID</label>
-          <input
-            v-model="newStoreId"
-            type="text"
-            placeholder="e.g. mystore"
-            class="inp"
-            @paste="handlePaste"
-          />
-        </div>
-
-        <div class="field field-33">
-          <label class="field-label">Client ID</label>
-          <input
-            v-model="newClientId"
-            type="text"
-            placeholder="Client ID"
-            class="inp"
-            @paste="handlePaste"
-          />
-        </div>
-        <div class="field field-33">
-          <label class="field-label">Client Secret</label>
-          <input
-            v-model="newClientSecret"
-            type="password"
-            placeholder="Client Secret"
-            class="inp"
-            @paste="handlePaste"
-          />
-        </div>
-      </div>
-
-      <div class="card-head" v-else>
-        <textarea
-          v-model="newDomain"
-          placeholder="Your store domains (one per line, e.g. myshop.store)"
-          class="inp domain_inp"
-          rows="25"
-        ></textarea>
-      </div>
-
-      <div class="form-actions-container" style="padding: 20px">
-        <!-- ── Step Progress Indicator ── -->
-        <div
-          v-if="
-            isFindingShop ||
-            findShopSteps.some(
-              (s) => s.status !== 'pending' && s.status !== 'done',
-            )
-          "
-          class="step-progress"
-          style="margin-bottom: 16px"
+    </template>
+    <template #actions>
+      <div class="mode-toggle">
+        <button
+          class="toggle-btn"
+          :class="{ active: addMode === 'single' }"
+          @click="addMode = 'single'"
         >
-          <div
-            v-for="step in findShopSteps"
-            :key="step.id"
-            class="step-item"
-            :class="'status-' + step.status"
-          >
-            <div class="step-icon">
-              <span v-if="step.status === 'active'" class="spinner-sm" />
-              <span v-else-if="step.status === 'done'">✓</span>
-              <span v-else-if="step.status === 'error'">✕</span>
-              <span v-else>○</span>
-            </div>
-            <span class="step-label">{{ step.label }}</span>
-          </div>
-        </div>
-        <div
-          v-if="genError"
-          class="alert alert-err"
-          style="margin-bottom: 16px; white-space: pre-wrap"
+          <IconsCheck />
+          Single
+        </button>
+        <button
+          class="toggle-btn"
+          :class="{ active: addMode === 'bulking' }"
+          @click="addMode = 'bulking'"
         >
-          {{ genError }}
-        </div>
-        <div
-          v-if="genSuccess"
-          class="alert alert-ok"
-          style="margin-bottom: 16px; white-space: pre-wrap"
-        >
-          {{ genSuccess }}
-        </div>
-
-        <div class="modal-actions">
-          <button
-            class="btn-ghost"
-            @click="clearInputs"
-            :disabled="isFindingShop"
-          >
-            <IconsRefresh />
-            Clear
-          </button>
-          <button
-            class="btn-primary"
-            :disabled="isFindingShop"
-            @click="addShop"
-          >
-            <IconsSync v-if="isFindingShop" />
-            <IconsAdd v-else />
-            {{ isFindingShop ? "Processing…" : "Connect" }}
-          </button>
-        </div>
+          <IconsBulking />
+          Bulking
+        </button>
       </div>
-    </section>
+    </template>
 
-    <!-- ── Store list ── -->
-    <section class="card" v-if="storeList.length">
-      <div class="card-head">
-        <div class="card-head-title">
-          <span class="card-title">Configured Stores</span>
-          <span class="count-badge">{{ filteredStoreList.length }}</span>
-        </div>
-        <div class="card-head-actions">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search domain..."
-            class="search-inp"
-          />
-          <BasePopover align="right">
-            <template #trigger="{ isOpen, triggerProps }">
-              <button
-                v-bind="triggerProps"
-                type="button"
-                class="btn-sort"
-                :class="{ 'is-active': isOpen }"
-                aria-label="Sort stores"
-              >
-                <IconsSort />
-              </button>
-            </template>
-            <template #default="{ close }">
-              <div class="popover-menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="popover-item"
-                  :class="{ active: sortOrder === 'domain_asc' }"
-                  @click="
-                    sortOrder = 'domain_asc';
-                    close();
-                  "
-                >
-                  Domain (A-Z)
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="popover-item"
-                  :class="{ active: sortOrder === 'domain_desc' }"
-                  @click="
-                    sortOrder = 'domain_desc';
-                    close();
-                  "
-                >
-                  Domain (Z-A)
-                </button>
-                <div class="popover-divider"></div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="popover-item"
-                  :class="{ active: sortOrder === 'expiry_asc' }"
-                  @click="
-                    sortOrder = 'expiry_asc';
-                    close();
-                  "
-                >
-                  Expiry (Oldest)
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="popover-item"
-                  :class="{ active: sortOrder === 'expiry_desc' }"
-                  @click="
-                    sortOrder = 'expiry_desc';
-                    close();
-                  "
-                >
-                  Expiry (Newest)
-                </button>
-              </div>
-            </template>
-          </BasePopover>
-        </div>
-      </div>
-      <div class="store-row" v-for="store in filteredStoreList" :key="store.id">
-        <div class="store-id">{{ store.domain || "(No domain)" }}</div>
-        <div class="store-meta">
-          <span v-if="!store.hasToken" class="tag tag-warn">No token</span>
-          <span v-else-if="store.expired" class="tag tag-err">Expired</span>
-          <span v-else class="tag tag-ok">
-            <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            Valid
-          </span>
-          <span v-if="store.expiryLabel" class="expiry">{{
-            store.expiryLabel
-          }}</span>
-
-          <!-- proxy check result tooltip-like tag -->
-          <span
-            v-if="proxyResults[store.id]"
-            class="tag"
-            :class="proxyResults[store.id]?.success ? 'tag-ok' : 'tag-err'"
-          >
-            {{
-              proxyResults[store.id]?.success
-                ? `${proxyResults[store.id]?.ip} (${proxyResults[store.id]?.duration}ms)`
-                : "Proxy Fail"
-            }}
-          </span>
-        </div>
-        <div class="store-actions">
-          <button
-            class="btn-outline"
-            :disabled="testingProxies[store.id]"
-            @click="testProxy(store.id)"
-          >
-            <IconsSync v-if="testingProxies[store.id]" />
-            <IconsCheck v-else />
-            {{ testingProxies[store.id] ? "Testing…" : "Check" }}
-          </button>
-          <button
-            class="btn-outline"
-            :disabled="rotatingIds[store.id]"
-            @click="rotateToken(store.id)"
-          >
-            <IconsSync />
-            {{ rotatingIds[store.id] ? "Rotating…" : "Rotate" }}
-          </button>
-          <button class="btn-outline" @click="openEditModal(store.id)">
-            <IconsMore />
-            Edit
-          </button>
-          <button class="btn-danger" @click="deleteStore(store.id)">
-            <IconsDelete />
-            Delete
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <div v-else class="empty-state">
-      No stores configured yet. Add one below.
-    </div>
-
-    <div
-      v-if="showEditModal"
-      class="modal-backdrop"
-      @click.self="closeEditModal"
-    >
-      <div class="modal-card">
-        <div class="modal-head">
-          <h3 class="modal-title">Edit Store</h3>
-          <button class="btn-ghost" @click="closeEditModal">✕</button>
-        </div>
-
-        <div class="modal-body">
-          <div class="field field-2">
-            <label class="field-label">Sock (Proxy URL)</label>
+    <div class="token-page">
+      <!-- ── Add new store ── -->
+      <section class="card">
+        <div class="add-form" v-if="addMode === 'single'">
+          <div class="field field-50">
+            <label class="field-label">Shop domain/URL</label>
             <input
-              v-model="editSock"
+              v-if="addMode === 'single'"
+              v-model="newDomain"
               type="text"
-              class="inp"
+              placeholder="Your store domain (e.g., myshop.store)"
+              class="inp domain_inp"
+              @keyup.enter="addShop"
+            />
+          </div>
+          <div class="field field-50">
+            <label class="field-label">Sock/Proxy</label>
+            <input
+              v-model="newSock"
+              type="text"
               placeholder="IP:Port:User:Pass"
-            />
-          </div>
-          <div class="field field-1">
-            <label class="field-label">Domain</label>
-            <input
-              v-model="editDomain"
-              type="text"
               class="inp"
-              placeholder="myshop.store"
             />
           </div>
-          <div class="field field-1">
+          <div class="field field-33">
             <label class="field-label">Store ID</label>
-            <input class="inp" :value="editingStoreId" disabled />
+            <input
+              v-model="newStoreId"
+              type="text"
+              placeholder="e.g. mystore"
+              class="inp"
+              @paste="handlePaste"
+            />
           </div>
-          <div class="field field-1">
+
+          <div class="field field-33">
             <label class="field-label">Client ID</label>
-            <input v-model="editClientId" type="text" class="inp" />
+            <input
+              v-model="newClientId"
+              type="text"
+              placeholder="Client ID"
+              class="inp"
+              @paste="handlePaste"
+            />
           </div>
-          <div class="field field-1">
+          <div class="field field-33">
             <label class="field-label">Client Secret</label>
-            <input v-model="editClientSecret" type="text" class="inp" />
+            <input
+              v-model="newClientSecret"
+              type="password"
+              placeholder="Client Secret"
+              class="inp"
+              @paste="handlePaste"
+            />
           </div>
         </div>
 
-        <div v-if="editError" class="alert alert-err modal-alert">
-          {{ editError }}
+        <div class="card-head" v-else>
+          <textarea
+            v-model="newDomain"
+            placeholder="Your store domains (one per line, e.g. myshop.store)"
+            class="inp domain_inp"
+            rows="25"
+          ></textarea>
         </div>
 
-        <div class="modal-actions_2">
-          <button class="btn-outline" @click="closeEditModal">
-            <IconsArrowRight class="icon-left" />
-            Cancel
-          </button>
-          <button class="btn-primary" @click="saveEditedStore">
-            <IconsCheck />
-            Save
-          </button>
+        <div class="form-actions-container" style="padding: 20px">
+          <!-- ── Step Progress Indicator ── -->
+          <div
+            v-if="
+              isFindingShop ||
+              findShopSteps.some((s) => s.status !== 'pending' && s.status !== 'done')
+            "
+            class="step-progress"
+            style="margin-bottom: 16px"
+          >
+            <div
+              v-for="step in findShopSteps"
+              :key="step.id"
+              class="step-item"
+              :class="'status-' + step.status"
+            >
+              <div class="step-icon">
+                <span v-if="step.status === 'active'" class="spinner-sm" />
+                <span v-else-if="step.status === 'done'">✓</span>
+                <span v-else-if="step.status === 'error'">✕</span>
+                <span v-else>○</span>
+              </div>
+              <span class="step-label">{{ step.label }}</span>
+            </div>
+          </div>
+          <div
+            v-if="genError"
+            class="alert alert-err"
+            style="margin-bottom: 16px; white-space: pre-wrap"
+          >
+            {{ genError }}
+          </div>
+          <div
+            v-if="genSuccess"
+            class="alert alert-ok"
+            style="margin-bottom: 16px; white-space: pre-wrap"
+          >
+            {{ genSuccess }}
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-ghost" @click="clearInputs" :disabled="isFindingShop">
+              <IconsRefresh />
+              Clear
+            </button>
+            <button class="btn-primary" :disabled="isFindingShop" @click="addShop">
+              <IconsSync v-if="isFindingShop" />
+              <IconsAdd v-else />
+              {{ isFindingShop ? "Processing…" : "Connect" }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Store list ── -->
+      <section class="card" v-if="storeList.length">
+        <div class="card-head">
+          <div class="card-head-title">
+            <span class="card-title">Configured Stores</span>
+            <span class="count-badge">{{ filteredStoreList.length }}</span>
+          </div>
+          <div class="card-head-actions">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search domain..."
+              class="search-inp"
+            />
+            <BasePopover align="right">
+              <template #trigger="{ isOpen, triggerProps }">
+                <button
+                  v-bind="triggerProps"
+                  type="button"
+                  class="btn-sort"
+                  :class="{ 'is-active': isOpen }"
+                  aria-label="Sort stores"
+                >
+                  <IconsSort />
+                </button>
+              </template>
+              <template #default="{ close }">
+                <div class="popover-menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="popover-item"
+                    :class="{ active: sortOrder === 'domain_asc' }"
+                    @click="
+                      sortOrder = 'domain_asc';
+                      close();
+                    "
+                  >
+                    Domain (A-Z)
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="popover-item"
+                    :class="{ active: sortOrder === 'domain_desc' }"
+                    @click="
+                      sortOrder = 'domain_desc';
+                      close();
+                    "
+                  >
+                    Domain (Z-A)
+                  </button>
+                  <div class="popover-divider"></div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="popover-item"
+                    :class="{ active: sortOrder === 'expiry_asc' }"
+                    @click="
+                      sortOrder = 'expiry_asc';
+                      close();
+                    "
+                  >
+                    Expiry (Oldest)
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="popover-item"
+                    :class="{ active: sortOrder === 'expiry_desc' }"
+                    @click="
+                      sortOrder = 'expiry_desc';
+                      close();
+                    "
+                  >
+                    Expiry (Newest)
+                  </button>
+                </div>
+              </template>
+            </BasePopover>
+          </div>
+        </div>
+        <div class="store-row" v-for="store in filteredStoreList" :key="store.id">
+          <div class="store-id">{{ store.domain || "(No domain)" }}</div>
+          <div class="store-meta">
+            <span v-if="!store.hasToken" class="tag tag-warn">No token</span>
+            <span v-else-if="store.expired" class="tag tag-err">Expired</span>
+            <span v-else class="tag tag-ok">
+              <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Valid
+            </span>
+            <span v-if="store.expiryLabel" class="expiry">{{ store.expiryLabel }}</span>
+
+            <!-- proxy check result tooltip-like tag -->
+            <span
+              v-if="proxyResults[store.id]"
+              class="tag"
+              :class="proxyResults[store.id]?.success ? 'tag-ok' : 'tag-err'"
+            >
+              {{
+                proxyResults[store.id]?.success
+                  ? `${proxyResults[store.id]?.ip} (${proxyResults[store.id]?.duration}ms)`
+                  : "Proxy Fail"
+              }}
+            </span>
+          </div>
+          <div class="store-actions">
+            <button
+              class="btn-outline"
+              :disabled="testingProxies[store.id]"
+              @click="testProxy(store.id)"
+            >
+              <IconsSync v-if="testingProxies[store.id]" />
+              <IconsCheck v-else />
+              {{ testingProxies[store.id] ? "Testing…" : "Check" }}
+            </button>
+            <button
+              class="btn-outline"
+              :disabled="rotatingIds[store.id]"
+              @click="rotateToken(store.id)"
+            >
+              <IconsSync />
+              {{ rotatingIds[store.id] ? "Rotating…" : "Rotate" }}
+            </button>
+            <button class="btn-outline" @click="openEditModal(store.id)">
+              <IconsMore />
+              Edit
+            </button>
+            <button class="btn-danger" @click="deleteStore(store.id)">
+              <IconsDelete />
+              Delete
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div v-else class="empty-state">No stores configured yet. Add one below.</div>
+
+      <div v-if="showEditModal" class="modal-backdrop" @click.self="closeEditModal">
+        <div class="modal-card">
+          <div class="modal-head">
+            <h3 class="modal-title">Edit Store</h3>
+            <button class="btn-ghost" @click="closeEditModal">✕</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="field field-2">
+              <label class="field-label">Sock (Proxy URL)</label>
+              <input
+                v-model="editSock"
+                type="text"
+                class="inp"
+                placeholder="IP:Port:User:Pass"
+              />
+            </div>
+            <div class="field field-1">
+              <label class="field-label">Domain</label>
+              <input
+                v-model="editDomain"
+                type="text"
+                class="inp"
+                placeholder="myshop.store"
+              />
+            </div>
+            <div class="field field-1">
+              <label class="field-label">Store ID</label>
+              <input class="inp" :value="editingStoreId" disabled />
+            </div>
+            <div class="field field-1">
+              <label class="field-label">Client ID</label>
+              <input v-model="editClientId" type="text" class="inp" />
+            </div>
+            <div class="field field-1">
+              <label class="field-label">Client Secret</label>
+              <input v-model="editClientSecret" type="text" class="inp" />
+            </div>
+          </div>
+
+          <div v-if="editError" class="alert alert-err modal-alert">
+            {{ editError }}
+          </div>
+
+          <div class="modal-actions_2">
+            <button class="btn-outline" @click="closeEditModal">
+              <IconsArrowRight class="icon-left" />
+              Cancel
+            </button>
+            <button class="btn-primary" @click="saveEditedStore">
+              <IconsCheck />
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </AdminPageShell>
 </template>
 
 <style scoped src="../assets/styles/pages/manager.css"></style>

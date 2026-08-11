@@ -218,8 +218,7 @@ const en = {
   "financial.manualPaymentRecorded": "Manual payment recorded.",
   "financial.paymentCaptured": "Payment captured.",
   "financial.partialRefundCreated": "Partial refund created.",
-  "financial.loadTransactionDetailsFailed":
-    "Failed to load transaction details.",
+  "financial.loadTransactionDetailsFailed": "Failed to load transaction details.",
   "nav.setup": "Setup",
   "nav.manager": "Manager",
   "nav.dashboard": "Dashboard",
@@ -231,8 +230,7 @@ const en = {
   "nav.settings": "Settings",
   "nav.language": "Language",
   "settings.title": "Settings",
-  "settings.subtitle":
-    "Configure local integrations and in-memory data behavior",
+  "settings.subtitle": "Configure local integrations and in-memory data behavior",
   "settings.configured": "Configured",
   "settings.notConfigured": "Not configured",
   "settings.providerTitle": "Tracktaco",
@@ -244,8 +242,7 @@ const en = {
     "Enter the full public HTTPS endpoint that returns a trackingNr value.",
   "settings.apiKeyLabel": "API key",
   "settings.apiKeyPlaceholder": "Enter the Tracktaco API key",
-  "settings.apiKeyHint":
-    "Saved in this browser and used only for tracking requests.",
+  "settings.apiKeyHint": "Saved in this browser and used only for tracking requests.",
   "settings.showApiKey": "Show API key",
   "settings.hideApiKey": "Hide API key",
   "settings.save": "Save settings",
@@ -370,12 +367,11 @@ const en = {
     "Variant title and a valid non-negative price are required.",
   "product.variantUpdated": "Variant updated.",
   "product.variantCreated": "Variant created.",
-  "product.deleteVariantConfirm": "Delete variant \"{title}\"?",
+  "product.deleteVariantConfirm": 'Delete variant "{title}"?',
   "product.variantDeleted": "Variant deleted.",
   "product.validImageUrl": "Enter a valid http(s) image URL.",
   "product.productImageAdded": "Product image added.",
-  "product.imagePositionRequired":
-    "Image position must be a positive integer.",
+  "product.imagePositionRequired": "Image position must be a positive integer.",
   "product.imageSaved": "Image position and variant assignments saved.",
   "product.deleteImageConfirm": "Delete this product image?",
   "product.imageDeleted": "Product image deleted.",
@@ -392,8 +388,7 @@ const en = {
   "product.position": "Position",
   "product.assignedVariants": "Assigned variants",
   "product.inventory": "Inventory",
-  "product.inventoryDescription":
-    "Set an absolute quantity or apply an adjustment.",
+  "product.inventoryDescription": "Set an absolute quantity or apply an adjustment.",
   "product.variant": "Variant",
   "product.location": "Location",
   "product.operation": "Operation",
@@ -407,7 +402,7 @@ const en = {
   "home.eyebrow": "Shopify Operations Console",
   "home.heroTitle": "Telescope the storefront from one desk",
   "home.heroSub":
-    "A compact workspace for connecting shops, rotating tokens, checking public store status, and reading data without jumping between tools.",
+    "A compact workspace for dashboards, store operations, payment review, status checks, sheet data, and live request quota visibility.",
   "home.openManager": "Open Manager",
   "home.checkStatus": "Check Status",
   "home.previewAria": "Operations preview",
@@ -422,23 +417,20 @@ const en = {
   "home.previewTabs": "4 tabs",
   "home.workflowsAria": "Primary workflows",
   "home.quickSetupTitle": "Setup Guide",
-  "home.quickSetupDescription":
-    "Follow the app creation and credential checklist.",
+  "home.quickSetupDescription": "Follow the app creation and credential checklist.",
   "home.quickManagerTitle": "Shop Management",
-  "home.quickManagerDescription":
-    "Add stores, rotate tokens, and test proxies.",
+  "home.quickManagerDescription": "Add stores, rotate tokens, and test proxies.",
   "home.quickSheetTitle": "Sheets",
   "home.quickSheetDescription": "Open sheet tabs and inspect rows quickly.",
   "home.quickStatusTitle": "Status Checker",
   "home.quickStatusDescription": "Batch check Shopify storefront availability.",
   "home.motivationEyebrow": "Motivation",
-  "home.motivationTitle":
-    "Keep repetitive Shopify ops calm, visible, and fast.",
+  "home.motivationTitle": "Keep repetitive Shopify ops calm, visible, and fast.",
   "home.motivationBody":
-    "Spfi is built for the small but expensive moments: switching between stores, checking whether storefronts are reachable, and pulling the right sheet data while orders keep moving.",
+    "Spfi is built for the small but expensive moments: switching stores, reviewing payments, checking storefront health, and pulling the right sheet data while orders keep moving.",
   "home.motivationTabsTitle": "Fewer tab jumps",
   "home.motivationTabsDescription":
-    "Move between setup, profiles, payments, sheets, and status checks from one predictable place.",
+    "Move between dashboard, setup, profiles, orders, payments, sheets, and status checks from one predictable place.",
   "home.motivationChecksTitle": "Cleaner store checks",
   "home.motivationChecksDescription":
     "Run quick storefront checks with proxy context so blocked or unhealthy shops are easier to spot.",
@@ -446,8 +438,7 @@ const en = {
   "home.motivationCopyDescription":
     "Use saved shop profiles and sheet lookups to reduce the repeated handoff work around orders.",
   "home.assuranceEyebrow": "Operational Assurance",
-  "home.assuranceTitle":
-    "Security, speed, and recovery stay close to the workflow.",
+  "home.assuranceTitle": "Security, speed, and recovery stay close to the workflow.",
   "home.assuranceBody":
     "The console keeps shop data local, limits risky API bursts, and gives operators a clear route from setup to verification.",
   "home.assuranceVaultTitle": "Local credential storage",
@@ -455,7 +446,7 @@ const en = {
     "Client Secrets and Access Tokens are saved in this browser so shop workflows open without an unlock step.",
   "home.assuranceRateTitle": "API abuse guardrails",
   "home.assuranceRateDescription":
-    "Server routes are protected by per-IP rate limits, with stricter limits around token generation.",
+    "Server routes expose live rate-limit headers so the sidebar quota meter can show remaining request capacity as calls complete.",
   "home.assuranceFlowTitle": "Store-aware continuity",
   "home.assuranceFlowDescription":
     "Pinia keeps the active store state alive while moving between layouts and pages.",
@@ -493,8 +484,7 @@ const en = {
     "Yes. The Status Checker is designed for running multiple storefront availability checks in one focused view.",
   "home.ctaAria": "Open workspace",
   "home.ctaEyebrow": "Ready Desk",
-  "home.ctaTitle":
-    "Start with the manager, then branch into the task you need.",
+  "home.ctaTitle": "Start with the manager, then branch into the task you need.",
   "setup.title": "Setup Guide",
   "setup.subtitle": "Follow the steps below to connect your Shopify store",
   "setup.stepStoreIdTitle": "Get Store ID",
@@ -633,7 +623,7 @@ const vi: Record<MessageKey, string> = {
   "product.variantRequired": "Can tieu de bien the va gia hop le khong am.",
   "product.variantUpdated": "Da cap nhat bien the.",
   "product.variantCreated": "Da tao bien the.",
-  "product.deleteVariantConfirm": "Xoa bien the \"{title}\"?",
+  "product.deleteVariantConfirm": 'Xoa bien the "{title}"?',
   "product.variantDeleted": "Da xoa bien the.",
   "product.validImageUrl": "Nhap URL hinh anh http(s) hop le.",
   "product.productImageAdded": "Da them hinh anh san pham.",
@@ -833,8 +823,7 @@ const vi: Record<MessageKey, string> = {
   "financial.manualPaymentRecorded": "Đã ghi nhận thanh toán thủ công.",
   "financial.paymentCaptured": "Đã capture thanh toán.",
   "financial.partialRefundCreated": "Đã tạo hoàn tiền một phần.",
-  "financial.loadTransactionDetailsFailed":
-    "Không thể tải chi tiết giao dịch.",
+  "financial.loadTransactionDetailsFailed": "Không thể tải chi tiết giao dịch.",
   "nav.setup": "Thiết lập",
   "nav.manager": "Quản lý",
   "nav.dashboard": "Tổng quan",
@@ -846,8 +835,7 @@ const vi: Record<MessageKey, string> = {
   "nav.settings": "Cài đặt",
   "nav.language": "Ngôn ngữ",
   "settings.title": "Cài đặt",
-  "settings.subtitle":
-    "Cấu hình tích hợp cục bộ và cách lưu dữ liệu trong bộ nhớ",
+  "settings.subtitle": "Cấu hình tích hợp cục bộ và cách lưu dữ liệu trong bộ nhớ",
   "settings.configured": "Đã cấu hình",
   "settings.notConfigured": "Chưa cấu hình",
   "settings.providerTitle": "Tracktaco",
@@ -885,7 +873,7 @@ const vi: Record<MessageKey, string> = {
   "theme.switchToLight": "Chuyển sang giao diện sáng",
   "theme.switchToDark": "Chuyển sang giao diện tối",
   "home.eyebrow": "Bảng điều khiển vận hành Shopify",
-  "home.heroTitle": "Quan sát storefront từ một bàn làm việc",
+  "home.heroTitle": "Quan sát storefront từ một chỗ",
   "home.heroSub":
     "Workspace gọn để kết nối shop, xoay token, kiểm tra trạng thái storefront và đọc dữ liệu Google Sheet mà không phải nhảy qua nhiều công cụ.",
   "home.openManager": "Mở Quản lý",
@@ -902,8 +890,7 @@ const vi: Record<MessageKey, string> = {
   "home.previewTabs": "4 tab",
   "home.workflowsAria": "Luồng công việc chính",
   "home.quickSetupTitle": "Hướng dẫn thiết lập",
-  "home.quickSetupDescription":
-    "Theo dõi checklist tạo app và chuẩn bị credentials.",
+  "home.quickSetupDescription": "Theo dõi checklist tạo app và chuẩn bị credentials.",
   "home.quickManagerTitle": "Quản lý shop",
   "home.quickManagerDescription": "Thêm store, xoay token và kiểm tra proxy.",
   "home.quickSheetTitle": "Sheets",
@@ -1053,8 +1040,7 @@ const es: Record<MessageKey, string> = {
   "home.quickSetupTitle": "Guía de configuración",
   "home.quickSetupDescription": "Sigue el checklist de app y credenciales.",
   "home.quickManagerTitle": "Gestión de tiendas",
-  "home.quickManagerDescription":
-    "Añade tiendas, rota tokens y prueba proxies.",
+  "home.quickManagerDescription": "Añade tiendas, rota tokens y prueba proxies.",
   "home.quickSheetDescription": "Abre pestañas de sheet y revisa filas rápido.",
   "home.quickStatusTitle": "Comprobador de estado",
   "home.quickStatusDescription":
@@ -1128,8 +1114,7 @@ const es: Record<MessageKey, string> = {
   "setup.createAppOpenApps": "Abre",
   "setup.createAppDevelop": "Elige",
   "setup.createAppCreate": "Click en Create app",
-  "setup.createAppName":
-    "Nombra la app con el dominio de la tienda, por ejemplo:",
+  "setup.createAppName": "Nombra la app con el dominio de la tienda, por ejemplo:",
   "setup.stepConfigureTitle": "Configurar App",
   "setup.tabVersions": "Pestaña Versions",
   "setup.apiVersion": "API version (valor por defecto disponible)",
@@ -1221,8 +1206,7 @@ const zh: Record<MessageKey, string> = {
   "home.assuranceRateDescription":
     "服务端路由按 IP rate limit，generate token 更严格。",
   "home.assuranceFlowTitle": "店铺上下文连续性",
-  "home.assuranceFlowDescription":
-    "Pinia 在 layout 和页面切换时保持当前店铺状态。",
+  "home.assuranceFlowDescription": "Pinia 在 layout 和页面切换时保持当前店铺状态。",
   "home.metricsEyebrow": "工作区信号",
   "home.metricStoresValue": "多店铺",
   "home.metricStoresLabel": "持久店铺上下文",
@@ -1233,18 +1217,15 @@ const zh: Record<MessageKey, string> = {
   "home.flowEyebrow": "日常流程",
   "home.flowTitle": "从访问到验证的更短闭环。",
   "home.flowConnectTitle": "连接店铺",
-  "home.flowConnectDescription":
-    "添加店铺凭据、准备 token，并保持 profile 数据就绪。",
+  "home.flowConnectDescription": "添加店铺凭据、准备 token，并保持 profile 数据就绪。",
   "home.flowCheckTitle": "检查表面状态",
-  "home.flowCheckDescription":
-    "在深入订单前确认 storefront 和 endpoint 响应正常。",
+  "home.flowCheckDescription": "在深入订单前确认 storefront 和 endpoint 响应正常。",
   "home.flowDataTitle": "使用源数据",
   "home.flowDataDescription":
     "打开 sheet、检查行，然后进入 product、order 或 payment 工作流。",
   "home.faqTitle": "打开工作区前的常见问题。",
   "home.faqFirstQuestion": "应该先打开哪里？",
-  "home.faqFirstAnswer":
-    "准备店铺或凭据时先打开管理。只需要快速健康检查时用状态页。",
+  "home.faqFirstAnswer": "准备店铺或凭据时先打开管理。只需要快速健康检查时用状态页。",
   "home.faqAdminQuestion": "这会替代 Shopify Admin 吗？",
   "home.faqAdminAnswer":
     "不会。它把重复的运营检查放在一起，然后带你回到正确的店铺数据。",
@@ -1326,18 +1307,14 @@ const ja: Record<MessageKey, string> = {
   "home.previewSheet": "Sheet 検索",
   "home.workflowsAria": "主要ワークフロー",
   "home.quickSetupTitle": "セットアップガイド",
-  "home.quickSetupDescription":
-    "App 作成と credentials の checklist を進めます。",
+  "home.quickSetupDescription": "App 作成と credentials の checklist を進めます。",
   "home.quickManagerTitle": "ショップ管理",
-  "home.quickManagerDescription":
-    "ストア追加、token ローテーション、proxy テスト。",
+  "home.quickManagerDescription": "ストア追加、token ローテーション、proxy テスト。",
   "home.quickSheetDescription": "Sheet タブを開き、行をすばやく確認します。",
   "home.quickStatusTitle": "ステータスチェッカー",
-  "home.quickStatusDescription":
-    "Shopify storefront の可用性を一括確認します。",
+  "home.quickStatusDescription": "Shopify storefront の可用性を一括確認します。",
   "home.motivationEyebrow": "目的",
-  "home.motivationTitle":
-    "繰り返しの Shopify 運用を落ち着いて、見える形で、速く。",
+  "home.motivationTitle": "繰り返しの Shopify 運用を落ち着いて、見える形で、速く。",
   "home.motivationBody":
     "Spfi は小さいけれど高コストな瞬間のためのものです。ストア切り替え、到達性確認、注文が動く中で正しい sheet データを取り出します。",
   "home.motivationTabsTitle": "タブ移動を少なく",

@@ -33,10 +33,21 @@ const statusOptions = [
   { label: "Canceled", value: "canceled" },
 ];
 
+const activeFilterCount = computed(
+  () =>
+    [
+      status.value,
+      date.value,
+      dateMin.value,
+      dateMax.value,
+      sinceId.value,
+      lastId.value,
+    ].filter(Boolean).length,
+);
+
 const sortedPayouts = computed(() =>
   [...paymentStore.visiblePayouts].sort(
-    (left, right) =>
-      new Date(right.date).getTime() - new Date(left.date).getTime(),
+    (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime(),
   ),
 );
 const totalPages = computed(() =>
@@ -93,11 +104,8 @@ async function resetFilters() {
 }
 
 function getPayoutProcessedDate(payoutId: string | number) {
-  const transactions =
-    paymentStore.transactionsByPayout[String(payoutId)] || [];
-  const charge = transactions.find(
-    (transaction) => transaction.type === "charge",
-  );
+  const transactions = paymentStore.transactionsByPayout[String(payoutId)] || [];
+  const charge = transactions.find((transaction) => transaction.type === "charge");
   return charge ? fmtDate(charge.processed_at) : "—";
 }
 
@@ -137,8 +145,12 @@ function updatePageSize(size: number) {
   <div class="payouts-tab">
     <PaymentAccountSummary />
 
-    <form class="filter-toolbar" @submit.prevent="applyFilters()">
-      <label>
+    <PaymentFilterPanel
+      title="Payout filters"
+      :active-count="activeFilterCount"
+      @submit="applyFilters()"
+    >
+      <label class="payment-filter-field">
         <span>Status</span>
         <BaseSelect
           class-name="filter-select"
@@ -147,45 +159,51 @@ function updatePageSize(size: number) {
           @update:model-value="setStatus"
         />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Exact date</span>
-        <input v-model="date" type="date" />
+        <input v-model="date" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>From</span>
-        <input v-model="dateMin" type="date" />
+        <input v-model="dateMin" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Through</span>
-        <input v-model="dateMax" type="date" />
+        <input v-model="dateMax" class="payment-filter-input" type="date" />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>After payout ID</span>
-        <input v-model.trim="sinceId" inputmode="numeric" placeholder="since_id" />
+        <input
+          v-model.trim="sinceId"
+          class="payment-filter-input"
+          inputmode="numeric"
+          placeholder="since_id"
+        />
       </label>
-      <label>
+      <label class="payment-filter-field">
         <span>Before payout ID</span>
-        <input v-model.trim="lastId" inputmode="numeric" placeholder="last_id" />
+        <input
+          v-model.trim="lastId"
+          class="payment-filter-input"
+          inputmode="numeric"
+          placeholder="last_id"
+        />
       </label>
-      <div class="filter-actions">
+      <template #actions>
         <BaseButton type="button" @click="resetFilters">
           <template #icon>
             <RotateCcw />
           </template>
           Reset
         </BaseButton>
-        <BaseButton
-          type="submit"
-          variant="primary"
-          :loading="paymentStore.isLoading"
-        >
+        <BaseButton type="submit" variant="primary" :loading="paymentStore.isLoading">
           <template #icon>
             <Filter />
           </template>
           {{ paymentStore.isLoading ? "Loading…" : "Apply filters" }}
         </BaseButton>
-      </div>
-    </form>
+      </template>
+    </PaymentFilterPanel>
 
     <table>
       <thead>
@@ -246,57 +264,6 @@ function updatePageSize(size: number) {
 </template>
 
 <style scoped>
-.filter-toolbar {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(120px, 1fr)) auto;
-  gap: 10px;
-  align-items: end;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-soft);
-}
-
-.filter-toolbar label {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.filter-toolbar label span {
-  color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.filter-toolbar input {
-  min-width: 0;
-  height: 34px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-}
-
-.filter-toolbar :deep(.select-trigger) {
-  min-height: 34px;
-  padding: 0 8px;
-  background: var(--surface);
-  font-size: 12px;
-}
-
-.filter-toolbar :deep(.selected-label) {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.filter-actions {
-  display: flex;
-  gap: 6px;
-}
-
 .td-date {
   color: var(--text-secondary);
   white-space: nowrap;
@@ -313,21 +280,5 @@ function updatePageSize(size: number) {
   color: var(--text-sub);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11px;
-}
-
-@media (max-width: 1180px) {
-  .filter-toolbar {
-    grid-template-columns: repeat(3, minmax(150px, 1fr));
-  }
-}
-
-@media (max-width: 700px) {
-  .filter-toolbar {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .filter-actions {
-    grid-column: 1 / -1;
-  }
 }
 </style>

@@ -92,9 +92,7 @@ const batchStats = computed(() => {
   const total = batchRows.value.length;
   const done = batchRows.value.filter((row) => row.status === "done").length;
   const errors = batchRows.value.filter((row) => row.status === "error").length;
-  const checking = batchRows.value.filter(
-    (row) => row.status === "checking",
-  ).length;
+  const checking = batchRows.value.filter((row) => row.status === "checking").length;
   const alive = batchRows.value.filter(
     (row) => row.result?.storeStatus === "alive",
   ).length;
@@ -149,8 +147,7 @@ watch(result, () => {
 function getErrorMessage(error: unknown, fallback: string) {
   const data =
     typeof error === "object" && error && "data" in error
-      ? (error as { data?: { message?: unknown; statusMessage?: unknown } })
-          .data
+      ? (error as { data?: { message?: unknown; statusMessage?: unknown } }).data
       : undefined;
   const standardData =
     typeof data === "object" && data && "error" in data
@@ -180,11 +177,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function fetchStoreCheck(
-  nextTarget: string,
-  proxy?: string,
-  signal?: AbortSignal,
-) {
+function fetchStoreCheck(nextTarget: string, proxy?: string, signal?: AbortSignal) {
   return $fetch<StoreCheckResult>("/api/status/check", {
     method: "POST",
     signal,
@@ -294,9 +287,7 @@ function getBatchRowProxyDisplay(row: BatchCheckRow) {
     return row.result.proxyIp;
   }
 
-  return row.status === "queued" || row.status === "checking"
-    ? "Checking"
-    : "Unknown";
+  return row.status === "queued" || row.status === "checking" ? "Checking" : "Unknown";
 }
 
 function resetExpandedChecks() {
@@ -351,9 +342,7 @@ function markPendingBatchRowsAsStopped() {
 }
 
 function syncBatchTextareaScroll(event: Event) {
-  batchTextareaScrollTop.value = (
-    event.currentTarget as HTMLTextAreaElement
-  ).scrollTop;
+  batchTextareaScrollTop.value = (event.currentTarget as HTMLTextAreaElement).scrollTop;
 }
 
 function isBatchLineChecking(lineNumber: number) {
@@ -401,14 +390,10 @@ function scrollBatchTextareaLineIntoView(lineNumber: number) {
 
   const styles = window.getComputedStyle(textarea);
   const fontSize = Number.parseFloat(styles.fontSize) || 14;
-  const lineHeight =
-    Number.parseFloat(styles.lineHeight) || Math.round(fontSize * 1.5);
+  const lineHeight = Number.parseFloat(styles.lineHeight) || Math.round(fontSize * 1.5);
   const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
   const lineTop = paddingTop + (lineNumber - 1) * lineHeight;
-  const nextScrollTop = Math.max(
-    0,
-    lineTop - (textarea.clientHeight - lineHeight) / 2,
-  );
+  const nextScrollTop = Math.max(0, lineTop - (textarea.clientHeight - lineHeight) / 2);
 
   textarea.scrollTo({
     top: nextScrollTop,
@@ -453,10 +438,7 @@ async function runBatchCheck() {
     result.value = null;
     activeBatchRowId.value = null;
     resetCheckingLines();
-    batchErrorMessage.value = getErrorMessage(
-      error,
-      "Could not parse batch input.",
-    );
+    batchErrorMessage.value = getErrorMessage(error, "Could not parse batch input.");
     return;
   }
 
@@ -620,225 +602,215 @@ function formatDate(value: string) {
 </script>
 
 <template>
-  <main class="status-shell">
-    <PageHeader
-      title="Check Status"
-      sub="Batch check public storefront signals"
-    >
+  <AdminPageShell
+    title="Check Status"
+    sub="Batch check public storefront signals"
+    size="fluid"
+  >
+    <template #icon>
       <IconsCheck />
-      <template #actions>
-        <span class="platform-pill">Shopify</span>
-      </template>
-    </PageHeader>
+    </template>
+    <template #actions>
+      <span class="platform-pill">Shopify</span>
+    </template>
 
-    <div class="checker-workspace" :class="{ 'has-result': result }">
-      <div class="checker-left-column">
-        <section class="checker-panel">
-          <div class="batch-form">
-            <div class="batch-topbar">
-              <div class="batch-topbar-left">
-                <div class="mode-toggle" role="group" aria-label="Proxy mode">
-                  <button
-                    v-for="option in proxyModeOptions"
-                    :key="option.value"
-                    type="button"
-                    class="mode-option"
-                    :class="{ 'is-active': proxyMode === option.value }"
-                    :aria-pressed="proxyMode === option.value"
-                    @click="setProxyMode(option.value)"
-                  >
-                    {{ option.label }}
-                  </button>
+    <div class="status-shell">
+      <div class="checker-workspace" :class="{ 'has-result': result }">
+        <div class="checker-left-column">
+          <section class="checker-panel">
+            <div class="batch-form">
+              <div class="batch-topbar">
+                <div class="batch-topbar-left">
+                  <div class="mode-toggle" role="group" aria-label="Proxy mode">
+                    <button
+                      v-for="option in proxyModeOptions"
+                      :key="option.value"
+                      type="button"
+                      class="mode-option"
+                      :class="{ 'is-active': proxyMode === option.value }"
+                      :aria-pressed="proxyMode === option.value"
+                      @click="setProxyMode(option.value)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="batch-topbar-right">
+                  <StatusBatchRunButton
+                    :busy="isBatchChecking"
+                    label="Check Shopify"
+                    busy-label="Checking Shopify"
+                    @run="runBatchCheck"
+                    @stop="stopBatchCheck"
+                  />
                 </div>
               </div>
 
-              <div class="batch-topbar-right">
-                <StatusBatchRunButton
-                  :busy="isBatchChecking"
-                  label="Check Shopify"
-                  busy-label="Checking Shopify"
-                  @run="runBatchCheck"
-                  @stop="stopBatchCheck"
+              <div class="batch-textarea-wrap">
+                <div class="batch-highlight-layer" aria-hidden="true">
+                  <div class="batch-highlight-scroll" :style="batchHighlightLayerStyle">
+                    <span
+                      v-for="(line, index) in batchInputLines"
+                      :key="`${index}-${line}`"
+                      class="batch-highlight-line"
+                      :class="{ 'is-checking': isBatchLineChecking(index + 1) }"
+                    >
+                      {{ line || " " }}
+                    </span>
+                  </div>
+                </div>
+                <textarea
+                  id="batch-targets"
+                  ref="batchTextareaRef"
+                  v-model="batchInput"
+                  class="batch-textarea"
+                  :placeholder="batchPlaceholder"
+                  rows="10"
+                  spellcheck="false"
+                  wrap="off"
+                  @scroll="syncBatchTextareaScroll"
                 />
               </div>
-            </div>
 
-            <div class="batch-textarea-wrap">
-              <div class="batch-highlight-layer" aria-hidden="true">
-                <div
-                  class="batch-highlight-scroll"
-                  :style="batchHighlightLayerStyle"
-                >
-                  <span
-                    v-for="(line, index) in batchInputLines"
-                    :key="`${index}-${line}`"
-                    class="batch-highlight-line"
-                    :class="{ 'is-checking': isBatchLineChecking(index + 1) }"
-                  >
-                    {{ line || " " }}
-                  </span>
-                </div>
-              </div>
-              <textarea
-                id="batch-targets"
-                ref="batchTextareaRef"
-                v-model="batchInput"
-                class="batch-textarea"
-                :placeholder="batchPlaceholder"
-                rows="10"
-                spellcheck="false"
-                wrap="off"
-                @scroll="syncBatchTextareaScroll"
+              <StatusCommonProxyField
+                v-if="proxyMode === 'common-proxy'"
+                v-model="commonProxy"
+              />
+
+              <StatusBatchProgressBar
+                v-if="isBatchProgressVisible"
+                :completed="batchCompletedCount"
+                :errors="batchStats.errors"
+                :label="batchProgressLabel"
+                :percent="batchProgressPercent"
+                :running="batchStats.checking"
+                :total="batchStats.total"
               />
             </div>
 
-            <StatusCommonProxyField
-              v-if="proxyMode === 'common-proxy'"
-              v-model="commonProxy"
-            />
+            <p v-if="batchErrorMessage" class="error-message">
+              {{ batchErrorMessage }}
+            </p>
+          </section>
 
-            <StatusBatchProgressBar
-              v-if="isBatchProgressVisible"
-              :completed="batchCompletedCount"
-              :errors="batchStats.errors"
-              :label="batchProgressLabel"
-              :percent="batchProgressPercent"
-              :running="batchStats.checking"
-              :total="batchStats.total"
-            />
-          </div>
-
-          <p v-if="batchErrorMessage" class="error-message">
-            {{ batchErrorMessage }}
-          </p>
-        </section>
-
-        <section
-          v-if="batchRows.length"
-          class="batch-results"
-          aria-live="polite"
-        >
-          <div class="batch-results-heading">
-            <h2>{{ batchStats.total }} rows</h2>
-            <div class="batch-result-stats">
-              <span class="is-ok">Alive {{ batchStats.alive }}</span>
-              <span class="is-danger">Dead {{ batchStats.dead }}</span>
-              <span>Error {{ batchStats.errors }}</span>
+          <section v-if="batchRows.length" class="batch-results" aria-live="polite">
+            <div class="batch-results-heading">
+              <h2>{{ batchStats.total }} rows</h2>
+              <div class="batch-result-stats">
+                <span class="is-ok">Alive {{ batchStats.alive }}</span>
+                <span class="is-danger">Dead {{ batchStats.dead }}</span>
+                <span>Error {{ batchStats.errors }}</span>
+              </div>
             </div>
-          </div>
 
-          <div class="batch-table-wrap">
-            <table
-              class="batch-table"
-              :class="{ 'is-no-proxy': !isBatchProxyColumnVisible }"
-            >
-              <thead>
-                <tr>
-                  <th scope="col">Line</th>
-                  <th scope="col">Platform</th>
-                  <th scope="col">URL</th>
-                  <th v-if="isBatchProxyColumnVisible" scope="col">Proxy</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="row in batchRows"
-                  :key="row.id"
-                  class="batch-row"
-                  :class="[
-                    `is-${getBatchRowSeverity(row)}`,
-                    { 'is-active': activeBatchRowId === row.id },
-                  ]"
-                  tabindex="0"
-                  :aria-selected="activeBatchRowId === row.id"
-                  @click="selectBatchRow(row)"
-                  @keydown.enter.prevent="selectBatchRow(row)"
-                >
-                  <td class="batch-line">#{{ row.lineNumber }}</td>
-                  <td>
-                    <span class="batch-platform">{{
-                      getPlatformLabel(row.platform)
-                    }}</span>
-                  </td>
-                  <td>
-                    <a
-                      class="batch-target-link"
-                      :href="getBatchRowHref(row)"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      @click.stop
-                    >
-                      {{ row.target }}
-                    </a>
-                  </td>
-                  <td v-if="isBatchProxyColumnVisible" class="batch-proxy">
-                    {{ getBatchRowProxyDisplay(row) }}
-                  </td>
-                  <td>
-                    <span class="batch-status">{{
-                      getBatchRowStatus(row)
-                    }}</span>
-                  </td>
-                  <td class="batch-message">
-                    {{
-                      row.result?.verdict.summary ||
-                      row.errorMessage ||
-                      "Waiting"
-                    }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="batch-table-wrap">
+              <table
+                class="batch-table"
+                :class="{ 'is-no-proxy': !isBatchProxyColumnVisible }"
+              >
+                <thead>
+                  <tr>
+                    <th scope="col">Line</th>
+                    <th scope="col">Platform</th>
+                    <th scope="col">URL</th>
+                    <th v-if="isBatchProxyColumnVisible" scope="col">Proxy</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="row in batchRows"
+                    :key="row.id"
+                    class="batch-row"
+                    :class="[
+                      `is-${getBatchRowSeverity(row)}`,
+                      { 'is-active': activeBatchRowId === row.id },
+                    ]"
+                    tabindex="0"
+                    :aria-selected="activeBatchRowId === row.id"
+                    @click="selectBatchRow(row)"
+                    @keydown.enter.prevent="selectBatchRow(row)"
+                  >
+                    <td class="batch-line">#{{ row.lineNumber }}</td>
+                    <td>
+                      <span class="batch-platform">{{
+                        getPlatformLabel(row.platform)
+                      }}</span>
+                    </td>
+                    <td>
+                      <a
+                        class="batch-target-link"
+                        :href="getBatchRowHref(row)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        @click.stop
+                      >
+                        {{ row.target }}
+                      </a>
+                    </td>
+                    <td v-if="isBatchProxyColumnVisible" class="batch-proxy">
+                      {{ getBatchRowProxyDisplay(row) }}
+                    </td>
+                    <td>
+                      <span class="batch-status">{{ getBatchRowStatus(row) }}</span>
+                    </td>
+                    <td class="batch-message">
+                      {{ row.result?.verdict.summary || row.errorMessage || "Waiting" }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <section v-if="result" class="result-layout" aria-live="polite">
+          <aside class="summary-panel" :class="`is-${result.verdict.severity}`">
+            <p class="eyebrow">Store status</p>
+            <h2>
+              {{ result.verdict.status }}
+            </h2>
+            <p>{{ result.verdict.summary }}</p>
+            <dl>
+              <div>
+                <dt>Platform</dt>
+                <dd>{{ getPlatformLabel(result.platform) }}</dd>
+              </div>
+              <div>
+                <dt>Host</dt>
+                <dd>{{ result.host }}</dd>
+              </div>
+              <div>
+                <dt>URL</dt>
+                <dd>{{ result.normalizedUrl }}</dd>
+              </div>
+              <div v-if="result.proxyIp">
+                <dt>Proxy IP</dt>
+                <dd>{{ result.proxyIp }}</dd>
+              </div>
+              <div>
+                <dt>Checked</dt>
+                <dd>{{ formatDate(result.checkedAt) }}</dd>
+              </div>
+            </dl>
+          </aside>
+
+          <div class="checks">
+            <StatusCheckCard
+              v-for="check in result.checks"
+              :key="check.key"
+              :check="check"
+              :expanded="isCheckExpanded(check.key)"
+              :severity-label="severityLabel"
+              @toggle="toggleCheckCard(check.key)"
+            />
           </div>
         </section>
       </div>
-
-      <section v-if="result" class="result-layout" aria-live="polite">
-        <aside class="summary-panel" :class="`is-${result.verdict.severity}`">
-          <p class="eyebrow">Store status</p>
-          <h2>
-            {{ result.verdict.status }}
-          </h2>
-          <p>{{ result.verdict.summary }}</p>
-          <dl>
-            <div>
-              <dt>Platform</dt>
-              <dd>{{ getPlatformLabel(result.platform) }}</dd>
-            </div>
-            <div>
-              <dt>Host</dt>
-              <dd>{{ result.host }}</dd>
-            </div>
-            <div>
-              <dt>URL</dt>
-              <dd>{{ result.normalizedUrl }}</dd>
-            </div>
-            <div v-if="result.proxyIp">
-              <dt>Proxy IP</dt>
-              <dd>{{ result.proxyIp }}</dd>
-            </div>
-            <div>
-              <dt>Checked</dt>
-              <dd>{{ formatDate(result.checkedAt) }}</dd>
-            </div>
-          </dl>
-        </aside>
-
-        <div class="checks">
-          <StatusCheckCard
-            v-for="check in result.checks"
-            :key="check.key"
-            :check="check"
-            :expanded="isCheckExpanded(check.key)"
-            :severity-label="severityLabel"
-            @toggle="toggleCheckCard(check.key)"
-          />
-        </div>
-      </section>
     </div>
-  </main>
+  </AdminPageShell>
 </template>
 
 <style scoped src="../assets/styles/pages/status.css"></style>

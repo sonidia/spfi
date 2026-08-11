@@ -1,37 +1,37 @@
 .status-shell {
-  /* width: min(60%, calc(100% - 32px)); */
-  width: fit-content;
-  margin: 0 auto;
-  padding: 28px 0 40px;
+  width: 100%;
 }
 
 .checker-workspace {
   display: grid;
   gap: 12px;
   align-items: start;
+  justify-items: center;
 }
 
 .checker-workspace.has-result {
   grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.5fr);
-  height: calc(100vh - 88px);
+  height: calc(100vh - 190px);
   align-items: stretch;
+  justify-items: stretch;
   overflow: hidden;
 }
 
 .checker-left-column {
   display: grid;
-  min-width: 0;
   gap: 12px;
-  min-width: 65rem;
+  width: min(100%, 65rem);
+  min-width: 0;
 }
 
 .checker-workspace.has-result .checker-left-column {
   grid-template-rows: auto minmax(0, 1fr);
-  max-height: calc(100vh - 88px);
+  max-height: calc(100vh - 190px);
   overflow: hidden;
   position: sticky;
   top: 16px;
-  min-width: 30rem;
+  width: auto;
+  min-width: min(100%, 30rem);
 }
 
 .checker-panel {
@@ -408,7 +408,7 @@
 
 .checker-workspace.has-result .result-layout {
   align-self: start;
-  max-height: calc(100vh - 88px);
+  max-height: calc(100vh - 190px);
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-gutter: stable;
@@ -477,8 +477,7 @@
 
 @media (max-width: 860px) {
   .status-shell {
-    width: min(100% - 24px, 680px);
-    padding: 24px 0;
+    width: 100%;
   }
 
   .checker-workspace.has-result,
