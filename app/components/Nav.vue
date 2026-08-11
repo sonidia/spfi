@@ -52,15 +52,6 @@ onBeforeUnmount(() => {
         <NuxtLink to="/settings">{{ t("nav.settings") }}</NuxtLink>
       </div>
       <div class="topbar-controls">
-        <button
-          class="command-trigger"
-          type="button"
-          :aria-label="t('command.open')"
-          :title="t('command.open')"
-          @click="openCommandPalette"
-        >
-          <Command />
-        </button>
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
@@ -121,24 +112,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
 }
-.command-trigger {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-sub);
-  cursor: pointer;
-  padding: 0 7px;
-}
 
-.command-trigger > svg {
-  width: 15px;
-  height: 15px;
-  color: var(--green);
-}
 .nav-list a {
   position: relative;
   color: var(--muted);

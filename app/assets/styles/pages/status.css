@@ -1,5 +1,10 @@
 .status-shell {
-  width: 100%;
+  width: min(65rem, calc(100vw - 40px));
+  margin: 0 auto;
+}
+
+.status-shell.has-result {
+  width: min(100%, 1400px);
 }
 
 .checker-workspace {

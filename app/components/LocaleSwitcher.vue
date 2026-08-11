@@ -133,10 +133,8 @@ onBeforeUnmount(() => {
     box-shadow 0.16s ease;
 }
 
-.locale-trigger:hover,
 .locale-trigger[aria-expanded="true"] {
   border-color: rgba(31, 122, 77, 0.38);
-  background: var(--surface-soft);
 }
 
 .locale-code,

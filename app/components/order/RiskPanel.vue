@@ -247,7 +247,7 @@ h2 { color: var(--text); font-size: 15px; }
 article { display: grid; gap: 9px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 article > div { display: flex; align-items: center; gap: 8px; }
 article strong { color: var(--text); font-size: 12px; }
-.risk-level { padding: 3px 7px; border-radius: 999px; background: var(--surface-soft); }
+.risk-level { padding: 2px 8px; border-radius: 999px; background: var(--surface-soft); font-size: 10px; font-weight: 700; }
 .risk-level.is-low, .risk-level.is-none { background: var(--green-soft); color: var(--green); }
 .risk-level.is-medium, .risk-level.is-pending { background: var(--amber-soft); color: var(--amber); }
 .risk-level.is-high { background: var(--red-soft); color: var(--red); }

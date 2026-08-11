@@ -1,24 +1,50 @@
 <script setup lang="ts">
-import { useAddStoreConnection } from "~/composables/useAddStoreConnection";
+import {
+  useAddStoreConnection,
+  type AddStoreMode,
+} from "~/composables/useAddStoreConnection";
 
 const props = withDefaults(
   defineProps<{
     showCancel?: boolean;
     bulkRows?: number;
+    showModeToggle?: boolean;
+    mode?: AddStoreMode;
   }>(),
   {
     showCancel: false,
     bulkRows: 12,
+    showModeToggle: true,
+    mode: undefined,
   },
 );
 
 const emit = defineEmits<{
   cancel: [];
   connected: [count: number];
+  "update:mode": [mode: AddStoreMode];
 }>();
 const { t } = useLocalization();
 
 const form = useAddStoreConnection();
+
+watch(
+  () => props.mode,
+  (mode) => {
+    if (mode && form.mode.value !== mode) {
+      form.mode.value = mode;
+    }
+  },
+  { immediate: true },
+);
+
+const selectedMode = computed({
+  get: () => props.mode ?? form.mode.value,
+  set: (mode: AddStoreMode) => {
+    form.mode.value = mode;
+    emit("update:mode", mode);
+  },
+});
 
 async function connect() {
   const count = await form.connect();
@@ -28,28 +54,32 @@ async function connect() {
 
 <template>
   <section class="add-store-panel">
-    <div class="add-store-mode" :aria-label="t('store.addMode')">
+    <div
+      v-if="props.showModeToggle"
+      class="add-store-mode"
+      :aria-label="t('store.addMode')"
+    >
       <button
         type="button"
-        :class="{ active: form.mode.value === 'single' }"
-        :aria-pressed="form.mode.value === 'single'"
-        @click="form.mode.value = 'single'"
+        :class="{ active: selectedMode === 'single' }"
+        :aria-pressed="selectedMode === 'single'"
+        @click="selectedMode = 'single'"
       >
         <IconsCheck />
         {{ t("store.single") }}
       </button>
       <button
         type="button"
-        :class="{ active: form.mode.value === 'bulking' }"
-        :aria-pressed="form.mode.value === 'bulking'"
-        @click="form.mode.value = 'bulking'"
+        :class="{ active: selectedMode === 'bulking' }"
+        :aria-pressed="selectedMode === 'bulking'"
+        @click="selectedMode = 'bulking'"
       >
         <IconsBulking />
         {{ t("store.bulk") }}
       </button>
     </div>
 
-    <div v-if="form.mode.value === 'single'" class="add-store-grid">
+    <div v-if="selectedMode === 'single'" class="add-store-grid">
       <label class="field field-wide">
         <span>{{ t("store.shopDomain") }}</span>
         <input

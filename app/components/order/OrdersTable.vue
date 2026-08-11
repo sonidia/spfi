@@ -367,7 +367,6 @@ function statusLabel(category: string, status: string) {
   color: var(--text-sub);
   font-size: 18px;
   line-height: 1;
-  transform: rotate(90deg);
 }
 
 .fulfillment-popover {

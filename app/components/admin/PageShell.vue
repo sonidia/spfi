@@ -3,7 +3,7 @@ withDefaults(
   defineProps<{
     title: string;
     sub: string;
-    size?: "narrow" | "standard" | "wide" | "fluid";
+    size?: "narrow" | "standard" | "wide" | "fluid" | "content";
   }>(),
   {
     size: "standard",
@@ -45,6 +45,11 @@ withDefaults(
   width: min(100% - 40px, 1400px);
 }
 
+.admin-page-shell.is-content {
+  width: fit-content;
+  max-width: min(100% - 40px, 1400px);
+}
+
 .admin-page-body {
   min-width: 0;
 }
@@ -52,7 +57,8 @@ withDefaults(
 @media (max-width: 560px) {
   .admin-page-shell,
   .admin-page-shell.is-wide,
-  .admin-page-shell.is-fluid {
+  .admin-page-shell.is-fluid,
+  .admin-page-shell.is-content {
     width: min(100% - 24px, 680px);
     padding-top: 24px;
   }

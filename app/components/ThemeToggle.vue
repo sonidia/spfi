@@ -42,8 +42,6 @@ const { t } = useLocalization();
 }
 
 .theme-toggle:hover {
-  border-color: rgba(31, 122, 77, 0.38);
-  background: var(--surface-soft);
   transform: translateY(-1px);
 }
 

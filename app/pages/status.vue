@@ -614,7 +614,7 @@ function formatDate(value: string) {
 </script>
 
 <template>
-  <AdminPageShell :title="t('status.title')" :sub="t('status.subtitle')" size="fluid">
+  <AdminPageShell :title="t('status.title')" :sub="t('status.subtitle')" size="content">
     <template #icon>
       <IconsCheck />
     </template>
@@ -622,7 +622,7 @@ function formatDate(value: string) {
       <span class="platform-pill">Shopify</span>
     </template>
 
-    <div class="status-shell">
+    <div class="status-shell" :class="{ 'has-result': result }">
       <div class="checker-workspace" :class="{ 'has-result': result }">
         <div class="checker-left-column">
           <section class="checker-panel">

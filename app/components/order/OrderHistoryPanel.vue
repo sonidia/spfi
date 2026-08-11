@@ -167,7 +167,7 @@ function dateTime(value?: string) {
 </template>
 
 <style scoped>
-.history-panel { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+.history-panel { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 header, .heading, .history-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 header { padding: 14px 16px; }
 .heading { justify-content: flex-start; }

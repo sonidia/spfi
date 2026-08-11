@@ -224,7 +224,7 @@ async function deleteOrder() {
 </template>
 
 <style scoped>
-.management-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
+.management-panel { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: visible; }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
 header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
 .panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }

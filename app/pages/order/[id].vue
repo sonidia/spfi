@@ -686,7 +686,7 @@ function formatCustomerOrderCount(count: number) {
 .grid {
   display: grid;
   grid-template-columns: 1fr 300px;
-  gap: 16px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -694,11 +694,10 @@ function formatCustomerOrderCount(count: number) {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   overflow: hidden;
 }
 .left-col .card + .card {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .card-header {

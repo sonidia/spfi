@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
+import type { AddStoreMode } from "~/composables/useAddStoreConnection";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
 import { resolveTokenExpiresAt } from "~~/utils/token-lifecycle";
@@ -28,6 +29,12 @@ type ProxyCheckResult = {
 const proxyResults = ref<
   Record<string, { success: boolean; ip?: string; duration?: number; error?: string }>
 >({});
+const addStoreMode = ref<AddStoreMode>("single");
+
+function setAddStoreMode(mode: AddStoreMode) {
+  addStoreMode.value = mode;
+}
+
 // ── Search and Sort state ──────────────────────────────────────────────────
 const searchQuery = ref("");
 const sortOrder = ref("expiry_desc"); // domain_asc, domain_desc, expiry_asc, expiry_desc
@@ -310,10 +317,38 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
     <template #icon>
       <IconsBulking />
     </template>
+    <template #actions>
+      <div class="mode-toggle" role="group" :aria-label="t('store.addMode')">
+        <button
+          type="button"
+          class="toggle-btn"
+          :class="{ active: addStoreMode === 'single' }"
+          :aria-pressed="addStoreMode === 'single'"
+          @click="setAddStoreMode('single')"
+        >
+          <IconsCheck />
+          {{ t("store.single") }}
+        </button>
+        <button
+          type="button"
+          class="toggle-btn"
+          :class="{ active: addStoreMode === 'bulking' }"
+          :aria-pressed="addStoreMode === 'bulking'"
+          @click="setAddStoreMode('bulking')"
+        >
+          <IconsBulking />
+          {{ t("store.bulk") }}
+        </button>
+      </div>
+    </template>
     <div class="token-page">
       <!-- ── Add new store ── -->
       <section class="card add-store-card">
-        <StoreAddStoreForm :bulk-rows="25" />
+        <StoreAddStoreForm
+          v-model:mode="addStoreMode"
+          :bulk-rows="25"
+          :show-mode-toggle="false"
+        />
       </section>
       <!-- ── Store list ── -->
       <section class="card" v-if="storeList.length">

@@ -408,7 +408,7 @@ async function commitEdit() {
 </template>
 
 <style scoped>
-.line-editor { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+.line-editor { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
 .panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
 .panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }

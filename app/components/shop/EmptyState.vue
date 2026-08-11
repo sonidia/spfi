@@ -38,7 +38,6 @@ withDefaults(
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.96)),
     var(--surface);
-  box-shadow: var(--shadow);
   text-align: center;
 }
 
