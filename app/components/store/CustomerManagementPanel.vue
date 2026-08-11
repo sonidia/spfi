@@ -1,21 +1,12 @@
 <script setup lang="ts">
-import {
-  Copy,
-  Link,
-  Mail,
-  MapPin,
-  Pencil,
-  Plus,
-  Star,
-  Trash2,
-  X,
-} from "@lucide/vue";
+import { Copy, Link, Mail, MapPin, Pencil, Plus, Star, Trash2, X } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useCustomers } from "~/composables/useCustomers";
 import { useToastStore } from "~/stores/toast";
 import type {
   ShopifyCustomer,
   ShopifyCustomerAddress,
+  ShopifyNumericId,
 } from "~~/types/shopify";
 import type {
   ShopifyCustomerAddressInput,
@@ -41,8 +32,8 @@ const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 
 const dialog = ref<"customer" | "address" | null>(null);
-const editingCustomerId = ref<number | null>(null);
-const editingAddressId = ref<number | null>(null);
+const editingCustomerId = ref<ShopifyNumericId | null>(null);
+const editingAddressId = ref<ShopifyNumericId | null>(null);
 const activationUrl = ref("");
 const customerForm = ref<ShopifyCustomerInput>(emptyCustomerForm());
 const addressForm = ref<ShopifyCustomerAddressInput>(emptyAddressForm());
@@ -146,9 +137,7 @@ async function submitCustomer() {
     : await createCustomer(input);
   if (!result) return;
 
-  toast.success(
-    editingCustomerId.value ? "Customer updated." : "Customer created.",
-  );
+  toast.success(editingCustomerId.value ? "Customer updated." : "Customer created.");
   closeDialog();
 }
 
@@ -346,14 +335,13 @@ function addressSummary(address: ShopifyCustomerAddress) {
         </BaseButton>
       </div>
       <div v-if="addresses.length" class="address-grid">
-        <article
-          v-for="address in addresses"
-          :key="address.id"
-          class="address-card"
-        >
+        <article v-for="address in addresses" :key="address.id" class="address-card">
           <div>
             <strong>
-              {{ [address.first_name, address.last_name].filter(Boolean).join(" ") || "Address" }}
+              {{
+                [address.first_name, address.last_name].filter(Boolean).join(" ") ||
+                "Address"
+              }}
               <span v-if="address.default" class="default-pill">Default</span>
             </strong>
             <span>{{ addressSummary(address) || "No address details" }}</span>
@@ -406,19 +394,39 @@ function addressSummary(address: ShopifyCustomerAddress) {
         @submit.prevent="dialog === 'customer' ? submitCustomer() : submitAddress()"
       >
         <header>
-          <h3>{{ dialog === "customer" ? customerDialogTitle : editingAddressId ? "Edit address" : "Add address" }}</h3>
+          <h3>
+            {{
+              dialog === "customer"
+                ? customerDialogTitle
+                : editingAddressId
+                  ? "Edit address"
+                  : "Add address"
+            }}
+          </h3>
           <button type="button" aria-label="Close" @click="closeDialog">
             <X />
           </button>
         </header>
 
         <div v-if="dialog === 'customer'" class="form-grid">
-          <label><span>First name</span><input v-model="customerForm.first_name" /></label>
-          <label><span>Last name</span><input v-model="customerForm.last_name" /></label>
-          <label><span>Email</span><input v-model="customerForm.email" type="email" /></label>
-          <label><span>Phone</span><input v-model="customerForm.phone" type="tel" /></label>
-          <label class="wide"><span>Tags</span><input v-model="customerForm.tags" /></label>
-          <label class="wide"><span>Note</span><textarea v-model="customerForm.note" rows="3" /></label>
+          <label
+            ><span>First name</span><input v-model="customerForm.first_name"
+          /></label>
+          <label
+            ><span>Last name</span><input v-model="customerForm.last_name"
+          /></label>
+          <label
+            ><span>Email</span><input v-model="customerForm.email" type="email"
+          /></label>
+          <label
+            ><span>Phone</span><input v-model="customerForm.phone" type="tel"
+          /></label>
+          <label class="wide"
+            ><span>Tags</span><input v-model="customerForm.tags"
+          /></label>
+          <label class="wide"
+            ><span>Note</span><textarea v-model="customerForm.note" rows="3" />
+          </label>
           <label class="check wide">
             <input v-model="customerForm.tax_exempt" type="checkbox" />
             <span>Tax exempt</span>
@@ -426,21 +434,38 @@ function addressSummary(address: ShopifyCustomerAddress) {
         </div>
 
         <div v-else class="form-grid">
-          <label><span>First name</span><input v-model="addressForm.first_name" /></label>
+          <label
+            ><span>First name</span><input v-model="addressForm.first_name"
+          /></label>
           <label><span>Last name</span><input v-model="addressForm.last_name" /></label>
-          <label class="wide"><span>Company</span><input v-model="addressForm.company" /></label>
-          <label class="wide"><span>Address line 1 *</span><input v-model="addressForm.address1" required /></label>
-          <label class="wide"><span>Address line 2</span><input v-model="addressForm.address2" /></label>
+          <label class="wide"
+            ><span>Company</span><input v-model="addressForm.company"
+          /></label>
+          <label class="wide"
+            ><span>Address line 1 *</span
+            ><input v-model="addressForm.address1" required
+          /></label>
+          <label class="wide"
+            ><span>Address line 2</span><input v-model="addressForm.address2"
+          /></label>
           <label><span>City</span><input v-model="addressForm.city" /></label>
-          <label><span>Province/state</span><input v-model="addressForm.province" /></label>
+          <label
+            ><span>Province/state</span><input v-model="addressForm.province"
+          /></label>
           <label><span>Country</span><input v-model="addressForm.country" /></label>
           <label><span>Postal code</span><input v-model="addressForm.zip" /></label>
-          <label class="wide"><span>Phone</span><input v-model="addressForm.phone" type="tel" /></label>
+          <label class="wide"
+            ><span>Phone</span><input v-model="addressForm.phone" type="tel"
+          /></label>
         </div>
 
         <footer>
           <BaseButton type="button" @click="closeDialog">Cancel</BaseButton>
-          <BaseButton variant="primary" :loading="isMutating" @click="dialog === 'customer' ? submitCustomer() : submitAddress()">
+          <BaseButton
+            variant="primary"
+            :loading="isMutating"
+            @click="dialog === 'customer' ? submitCustomer() : submitAddress()"
+          >
             Save
           </BaseButton>
         </footer>
@@ -450,39 +475,196 @@ function addressSummary(address: ShopifyCustomerAddress) {
 </template>
 
 <style scoped>
-.management-panel { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-.management-actions, .section-head, .activation-row, .address-card, footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.management-actions { padding: 14px 16px; }
-.management-actions > div:first-child, .section-head > div { display: grid; gap: 2px; }
-.management-actions strong, .section-head strong { color: var(--text); font-size: 13px; }
-.management-actions span, .section-head span, .address-card span { color: var(--text-sub); font-size: 11px; }
-.button-row, .address-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.activation-row { padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }
-.activation-row input { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface-raised); color: var(--text); }
-.address-section { padding: 14px 16px; border-top: 1px solid var(--border); }
-.address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-.address-card { min-width: 0; border: 1px solid var(--border); border-radius: 7px; padding: 10px; }
-.address-card > div:first-child { display: grid; min-width: 0; gap: 3px; }
-.address-card > div:first-child > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.default-pill { margin-left: 5px; border-radius: 999px; padding: 2px 6px; background: var(--green-soft); color: var(--green) !important; }
-.empty-addresses { margin-top: 10px; border: 1px dashed var(--border); border-radius: 7px; padding: 18px; color: var(--text-sub); text-align: center; }
-.dialog-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, 0.5); }
-.dialog { width: min(620px, 100%); max-height: calc(100vh - 40px); overflow: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
-.dialog header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.dialog h3 { color: var(--text); font-size: 15px; }
-.dialog header button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; background: transparent; color: var(--text-sub); cursor: pointer; }
-.dialog header svg { width: 17px; }
-.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 16px; }
-.form-grid label { display: grid; gap: 5px; }
-.form-grid .wide { grid-column: 1 / -1; }
-.form-grid label > span { color: var(--text-sub); font-size: 11px; font-weight: 700; }
-.form-grid input, .form-grid textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface-raised); color: var(--text); font: inherit; }
-.form-grid .check { display: flex; align-items: center; }
-.form-grid .check input { width: 16px; }
-footer { padding: 12px 16px; border-top: 1px solid var(--border); justify-content: flex-end; }
+.management-panel {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.management-actions,
+.section-head,
+.activation-row,
+.address-card,
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.management-actions {
+  padding: 14px 16px;
+}
+.management-actions > div:first-child,
+.section-head > div {
+  display: grid;
+  gap: 2px;
+}
+.management-actions strong,
+.section-head strong {
+  color: var(--text);
+  font-size: 13px;
+}
+.management-actions span,
+.section-head span,
+.address-card span {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.button-row,
+.address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.activation-row {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.activation-row input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+.address-section {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.address-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.address-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px;
+}
+.address-card > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.address-card > div:first-child > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.default-pill {
+  margin-left: 5px;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: var(--green-soft);
+  color: var(--green) !important;
+}
+.empty-addresses {
+  margin-top: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  padding: 18px;
+  color: var(--text-sub);
+  text-align: center;
+}
+.dialog-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.dialog {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.dialog h3 {
+  color: var(--text);
+  font-size: 15px;
+}
+.dialog header button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.dialog header svg {
+  width: 17px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.form-grid label {
+  display: grid;
+  gap: 5px;
+}
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+.form-grid label > span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+.form-grid input,
+.form-grid textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+.form-grid .check {
+  display: flex;
+  align-items: center;
+}
+.form-grid .check input {
+  width: 16px;
+}
+footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
 @media (max-width: 720px) {
-  .management-actions, .section-head { align-items: stretch; flex-direction: column; }
-  .address-grid, .form-grid { grid-template-columns: 1fr; }
-  .form-grid .wide { grid-column: auto; }
+  .management-actions,
+  .section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .address-grid,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-grid .wide {
+    grid-column: auto;
+  }
 }
 </style>

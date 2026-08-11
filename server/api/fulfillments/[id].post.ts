@@ -3,6 +3,7 @@ import {
   callShopifyApi,
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface TrackingInfo {
   number?: string;
@@ -30,14 +31,17 @@ interface FulfillmentUpdatePayload {
 
 export default defineEventHandler(async (event) => {
   const appConfig = useAppConfig();
-  const id = event.context.params?.id;
+  const id = requireShopifyResourceId(event.context.params?.id, "Fulfillment");
   const body = (await readBody<FulfillmentUpdateBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
   const fulfillmentInfo = body.fulfillment;
 
-  if (!id || !storeId || !token) {
-    throw createApiErrorFromMessage("Fulfillment ID, Store ID and Access Token are required.", 400);
+  if (!storeId || !token) {
+    throw createApiErrorFromMessage(
+      "Fulfillment ID, Store ID and Access Token are required.",
+      400,
+    );
   }
 
   const trackingNumber = fulfillmentInfo?.tracking_info?.number;

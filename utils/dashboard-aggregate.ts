@@ -22,7 +22,23 @@ export function aggregateDashboardSnapshots(
   const transactionGross = new Map<string, number>();
   const transactionFees = new Map<string, number>();
   const transactionNet = new Map<string, number>();
-  const daily = new Map<string, { orders: number; money: Map<string, number> }>();
+  const revenueCounts = new Map<
+    string,
+    { today: number; week: number; month: number }
+  >();
+  const payoutCounts = new Map<
+    string,
+    { count: number; pendingCount: number; paidCount: number; failedCount: number }
+  >();
+  const transactionCounts = new Map<string, number>();
+  const daily = new Map<
+    string,
+    {
+      orders: number;
+      orderCounts: Map<string, number>;
+      money: Map<string, number>;
+    }
+  >();
   let orderCountToday = 0;
   let orderCountWeek = 0;
   let orderCountMonth = 0;
@@ -41,11 +57,13 @@ export function aggregateDashboardSnapshots(
     pendingCount: 0,
     paidCount: 0,
     failedCount: 0,
+    currencyCounts: [],
     total: [],
     pending: [],
   };
   const transactions: DashboardTransactionSummary = {
     count: 0,
+    currencyCounts: [],
     gross: [],
     fees: [],
     net: [],
@@ -59,6 +77,17 @@ export function aggregateDashboardSnapshots(
     orderCountToday += store.revenue.orderCountToday;
     orderCountWeek += store.revenue.orderCountWeek;
     orderCountMonth += store.revenue.orderCountMonth;
+    for (const row of store.revenue.currencyCounts) {
+      const counts = revenueCounts.get(row.currency) || {
+        today: 0,
+        week: 0,
+        month: 0,
+      };
+      counts.today += row.today;
+      counts.week += row.week;
+      counts.month += row.month;
+      revenueCounts.set(row.currency, counts);
+    }
     customerCount += store.customerCount;
     productCount += store.productCount;
     userCount += store.users.length;
@@ -70,9 +99,11 @@ export function aggregateDashboardSnapshots(
     for (const point of store.revenue.daily) {
       const entry = daily.get(point.date) || {
         orders: 0,
+        orderCounts: new Map<string, number>(),
         money: new Map<string, number>(),
       };
       entry.orders += point.orders;
+      addCountRows(entry.orderCounts, point.orderCounts);
       addMoneyRows(entry.money, point.values);
       daily.set(point.date, entry);
     }
@@ -83,9 +114,23 @@ export function aggregateDashboardSnapshots(
     payouts.pendingCount += store.payments.payouts.pendingCount;
     payouts.paidCount += store.payments.payouts.paidCount;
     payouts.failedCount += store.payments.payouts.failedCount;
+    for (const row of store.payments.payouts.currencyCounts) {
+      const counts = payoutCounts.get(row.currency) || {
+        count: 0,
+        pendingCount: 0,
+        paidCount: 0,
+        failedCount: 0,
+      };
+      counts.count += row.count;
+      counts.pendingCount += row.pendingCount;
+      counts.paidCount += row.paidCount;
+      counts.failedCount += row.failedCount;
+      payoutCounts.set(row.currency, counts);
+    }
     addMoneyRows(payoutTotal, store.payments.payouts.total);
     addMoneyRows(payoutPending, store.payments.payouts.pending);
     transactions.count += store.payments.transactions.count;
+    addCountRows(transactionCounts, store.payments.transactions.currencyCounts);
     addMoneyRows(transactionGross, store.payments.transactions.gross);
     addMoneyRows(transactionFees, store.payments.transactions.fees);
     addMoneyRows(transactionNet, store.payments.transactions.net);
@@ -98,11 +143,15 @@ export function aggregateDashboardSnapshots(
     orderCountToday,
     orderCountWeek,
     orderCountMonth,
+    currencyCounts: [...revenueCounts.entries()]
+      .map(([currency, counts]) => ({ currency, ...counts }))
+      .sort((a, b) => b.month - a.month || a.currency.localeCompare(b.currency)),
     daily: [...daily.entries()]
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .map(([date, entry]): DashboardRevenuePoint => ({
         date,
         orders: entry.orders,
+        orderCounts: countRows(entry.orderCounts),
         values: moneyRows(entry.money),
       })),
   };
@@ -154,11 +203,15 @@ export function aggregateDashboardSnapshots(
       balance: moneyRows(balance),
       payouts: {
         ...payouts,
+        currencyCounts: [...payoutCounts.entries()]
+          .map(([currency, counts]) => ({ currency, ...counts }))
+          .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency)),
         total: moneyRows(payoutTotal),
         pending: moneyRows(payoutPending),
       },
       transactions: {
         ...transactions,
+        currencyCounts: countRows(transactionCounts),
         gross: moneyRows(transactionGross),
         fees: moneyRows(transactionFees),
         net: moneyRows(transactionNet),
@@ -172,77 +225,106 @@ export function filterDashboardAggregateCurrency(
   dashboard: DashboardAggregate,
   currency: string,
 ): DashboardAggregate {
-  if (!currency || currency === "all") return dashboard;
+  const normalizedCurrency = currency.trim().toUpperCase();
+  if (!normalizedCurrency || normalizedCurrency === "ALL") return dashboard;
+  const stores = dashboard.stores.map((store) =>
+    filterStoreSnapshotCurrency(store, normalizedCurrency),
+  );
+
+  return aggregateDashboardSnapshots(stores, dashboard.failures);
+}
+
+function filterStoreSnapshotCurrency(
+  store: StoreDashboardSnapshot,
+  currency: string,
+): StoreDashboardSnapshot {
   const filterMoney = (rows: DashboardMoney[]) =>
     rows.filter((row) => row.currency === currency);
+  const revenueCount = store.revenue.currencyCounts.find(
+    (row) => row.currency === currency,
+  );
+  const pendingCount = getCurrencyCount(
+    store.pendingFulfillments.currencyCounts,
+    currency,
+  );
+  const payoutCount = store.payments.payouts.currencyCounts.find(
+    (row) => row.currency === currency,
+  );
+  const transactionCount = getCurrencyCount(
+    store.payments.transactions.currencyCounts,
+    currency,
+  );
+  const storeUsesCurrency = store.currency === currency;
 
   return {
-    ...dashboard,
-    stores: dashboard.stores.map((store) => ({
-      ...store,
-      revenue: {
-        ...store.revenue,
-        today: filterMoney(store.revenue.today),
-        week: filterMoney(store.revenue.week),
-        month: filterMoney(store.revenue.month),
-        daily: store.revenue.daily.map((point) => ({
-          ...point,
-          values: filterMoney(point.values),
-        })),
-      },
-      topProducts: store.topProducts.map((product) => ({
-        ...product,
-        revenue: filterMoney(product.revenue),
-      })),
-      payments: {
-        ...store.payments,
-        balance: filterMoney(store.payments.balance),
-        payouts: {
-          ...store.payments.payouts,
-          total: filterMoney(store.payments.payouts.total),
-          pending: filterMoney(store.payments.payouts.pending),
-        },
-        transactions: {
-          ...store.payments.transactions,
-          gross: filterMoney(store.payments.transactions.gross),
-          fees: filterMoney(store.payments.transactions.fees),
-          net: filterMoney(store.payments.transactions.net),
-          recent: store.payments.transactions.recent.filter(
-            (transaction) => transaction.currency === currency,
-          ),
-        },
-      },
-    })),
+    ...store,
     revenue: {
-      ...dashboard.revenue,
-      today: filterMoney(dashboard.revenue.today),
-      week: filterMoney(dashboard.revenue.week),
-      month: filterMoney(dashboard.revenue.month),
-      daily: dashboard.revenue.daily.map((point) => ({
-        ...point,
-        values: filterMoney(point.values),
-      })),
+      today: filterMoney(store.revenue.today),
+      week: filterMoney(store.revenue.week),
+      month: filterMoney(store.revenue.month),
+      orderCountToday: revenueCount?.today || 0,
+      orderCountWeek: revenueCount?.week || 0,
+      orderCountMonth: revenueCount?.month || 0,
+      currencyCounts: revenueCount ? [revenueCount] : [],
+      daily: store.revenue.daily.map((point) => {
+        const orders = getCurrencyCount(point.orderCounts, currency);
+        return {
+          ...point,
+          orders,
+          orderCounts: orders ? [{ currency, count: orders }] : [],
+          values: filterMoney(point.values),
+        };
+      }),
     },
-    topProducts: dashboard.topProducts.map((product) => ({
-      ...product,
-      revenue: filterMoney(product.revenue),
-    })),
-    recentTransactions: dashboard.recentTransactions.filter(
-      (transaction) => transaction.currency === currency,
-    ),
+    fulfillmentBreakdown: storeUsesCurrency
+      ? store.fulfillmentBreakdown
+      : { fulfilled: 0, partial: 0, unfulfilled: 0 },
+    pendingFulfillments: {
+      count: pendingCount,
+      currencyCounts: pendingCount ? [{ currency, count: pendingCount }] : [],
+      orders: store.pendingFulfillments.orders.filter(
+        (order) => order.currency === currency,
+      ),
+    },
+    topProducts: store.topProducts
+      .flatMap((product) => {
+        const stats = product.currencyStats.find((row) => row.currency === currency);
+        if (!stats) return [];
+        return [
+          {
+            ...product,
+            units: stats.units,
+            orders: stats.count,
+            currencyStats: [stats],
+            revenue: filterMoney(product.revenue),
+          },
+        ];
+      })
+      .sort((a, b) => b.units - a.units || b.orders - a.orders)
+      .slice(0, 10),
     payments: {
-      ...dashboard.payments,
-      balance: filterMoney(dashboard.payments.balance),
+      available:
+        store.payments.available && store.payments.currencies.includes(currency),
+      currencies: store.payments.currencies.includes(currency) ? [currency] : [],
+      balance: filterMoney(store.payments.balance),
       payouts: {
-        ...dashboard.payments.payouts,
-        total: filterMoney(dashboard.payments.payouts.total),
-        pending: filterMoney(dashboard.payments.payouts.pending),
+        count: payoutCount?.count || 0,
+        pendingCount: payoutCount?.pendingCount || 0,
+        paidCount: payoutCount?.paidCount || 0,
+        failedCount: payoutCount?.failedCount || 0,
+        currencyCounts: payoutCount ? [payoutCount] : [],
+        total: filterMoney(store.payments.payouts.total),
+        pending: filterMoney(store.payments.payouts.pending),
       },
       transactions: {
-        ...dashboard.payments.transactions,
-        gross: filterMoney(dashboard.payments.transactions.gross),
-        fees: filterMoney(dashboard.payments.transactions.fees),
-        net: filterMoney(dashboard.payments.transactions.net),
+        count: transactionCount,
+        currencyCounts: transactionCount ? [{ currency, count: transactionCount }] : [],
+        gross: filterMoney(store.payments.transactions.gross),
+        fees: filterMoney(store.payments.transactions.fees),
+        net: filterMoney(store.payments.transactions.net),
+        recent: store.payments.transactions.recent.filter(
+          (transaction) => transaction.currency === currency,
+        ),
       },
     },
   };
@@ -252,6 +334,28 @@ function addMoneyRows(target: Map<string, number>, rows: DashboardMoney[]) {
   for (const row of rows) {
     target.set(row.currency, (target.get(row.currency) || 0) + row.amount);
   }
+}
+
+function addCountRows(
+  target: Map<string, number>,
+  rows: Array<{ currency: string; count: number }>,
+) {
+  for (const row of rows) {
+    target.set(row.currency, (target.get(row.currency) || 0) + row.count);
+  }
+}
+
+function getCurrencyCount(
+  rows: Array<{ currency: string; count: number }>,
+  currency: string,
+) {
+  return rows.find((row) => row.currency === currency)?.count || 0;
+}
+
+function countRows(source: Map<string, number>) {
+  return [...source.entries()]
+    .map(([currency, count]) => ({ currency, count }))
+    .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
 }
 
 function moneyRows(source: Map<string, number>): DashboardMoney[] {

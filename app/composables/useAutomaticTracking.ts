@@ -7,6 +7,7 @@ import { usePaymentStore } from "~/stores/payment";
 import { useToastStore } from "~/stores/toast";
 import type {
   ShopifyFulfillmentOrder,
+  ShopifyNumericId,
   ShopifyOrder,
 } from "~~/types/shopify";
 import type {
@@ -29,7 +30,7 @@ export function useAutomaticTracking() {
   const paymentStore = usePaymentStore();
   const toast = useToastStore();
   const { storeId, token, isReady } = useActiveShopAuth();
-  const processingOrderId = ref<number | null>(null);
+  const processingOrderId = ref<ShopifyNumericId | null>(null);
   const transactionStatusByOrderId = computed(() =>
     buildOrderTransactionStatusMap(paymentStore.balanceTransactions),
   );
@@ -41,9 +42,7 @@ export function useAutomaticTracking() {
     );
   }
 
-  function getTransactionStatus(
-    orderId: number | string | null | undefined,
-  ) {
+  function getTransactionStatus(orderId: number | string | null | undefined) {
     return orderId
       ? transactionStatusByOrderId.value.get(String(orderId)) || null
       : null;
@@ -53,9 +52,7 @@ export function useAutomaticTracking() {
     if (processingOrderId.value !== null) return;
 
     if (!isReady.value) {
-      toast.error(
-        "Store ID or Access Token is missing. Please select a store first.",
-      );
+      toast.error("Store ID or Access Token is missing. Please select a store first.");
       return;
     }
 
@@ -83,16 +80,12 @@ export function useAutomaticTracking() {
       const fulfillmentLineItems = (fulfillmentOrder.line_items || [])
         .map((lineItem) => ({
           id: lineItem.id,
-          quantity: Math.floor(
-            lineItem.fulfillable_quantity ?? lineItem.quantity,
-          ),
+          quantity: Math.floor(lineItem.fulfillable_quantity ?? lineItem.quantity),
         }))
         .filter((lineItem) => lineItem.quantity > 0);
 
       if (!fulfillmentLineItems.length) {
-        throw new Error(
-          "The open fulfillment order has no fulfillable line items.",
-        );
+        throw new Error("The open fulfillment order has no fulfillable line items.");
       }
 
       const updatedOrder = await orderStore.fulfillOrder(
@@ -117,8 +110,7 @@ export function useAutomaticTracking() {
 
       if (!updatedOrder) {
         throw new Error(
-          orderStore.mutationError ||
-            "Shopify did not return the updated order.",
+          orderStore.mutationError || "Shopify did not return the updated order.",
         );
       }
 
@@ -199,8 +191,7 @@ function isOpenAndFulfillable(order: ShopifyFulfillmentOrder) {
   return (
     (order.status === "open" || order.status === "in_progress") &&
     (order.line_items || []).some(
-      (lineItem) =>
-        (lineItem.fulfillable_quantity ?? lineItem.quantity) > 0,
+      (lineItem) => (lineItem.fulfillable_quantity ?? lineItem.quantity) > 0,
     )
   );
 }

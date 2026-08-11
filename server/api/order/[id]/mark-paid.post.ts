@@ -5,6 +5,7 @@ import {
   toShopifyGid,
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface MarkPaidBody {
   storeId?: string;
@@ -25,12 +26,12 @@ interface MarkPaidData {
 }
 
 export default defineEventHandler(async (event) => {
-  const orderId = String(event.context.params?.id || "");
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<MarkPaidBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
 
-  if (!orderId || !storeId || !token) {
+  if (!storeId || !token) {
     throw createApiErrorFromMessage(
       "Order ID, Store ID and Access Token are required.",
       400,

@@ -6,6 +6,7 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import type { OrderCaptureInput } from "~~/types/shopify-order";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface CaptureBody extends OrderCaptureInput {
   storeId?: string;
@@ -27,15 +28,17 @@ interface CaptureData {
 }
 
 export default defineEventHandler(async (event) => {
-  const orderId = String(event.context.params?.id || "");
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<CaptureBody>(event)) || ({} as CaptureBody);
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
   const amount = String(body.amount || "").trim();
   const parentTransactionId = String(body.parentTransactionId || "").trim();
-  const currency = String(body.currency || "").trim().toUpperCase();
+  const currency = String(body.currency || "")
+    .trim()
+    .toUpperCase();
 
-  if (!orderId || !storeId || !token || !parentTransactionId) {
+  if (!storeId || !token || !parentTransactionId) {
     throw createApiErrorFromMessage(
       "Order ID, Store ID, Access Token and parent transaction are required.",
       400,
@@ -48,7 +51,10 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("Currency must be a three-letter code.", 400);
   }
 
-  const data = await callShopifyGraphql<CaptureData, { input: Record<string, unknown> }>({
+  const data = await callShopifyGraphql<
+    CaptureData,
+    { input: Record<string, unknown> }
+  >({
     event,
     storeId,
     token,
@@ -72,10 +78,7 @@ export default defineEventHandler(async (event) => {
     variables: {
       input: {
         id: toShopifyGid("Order", orderId),
-        parentTransactionId: toShopifyGid(
-          "OrderTransaction",
-          parentTransactionId,
-        ),
+        parentTransactionId: toShopifyGid("OrderTransaction", parentTransactionId),
         amount,
         ...(currency ? { currency } : {}),
         ...(typeof body.finalCapture === "boolean"

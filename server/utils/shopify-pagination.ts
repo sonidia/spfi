@@ -13,6 +13,22 @@ interface ShopifyHeaderLike {
   Link?: unknown;
 }
 
+type ShopifyQueryParams = Record<string, unknown>;
+
+export function buildShopifyCursorPageParams(
+  initialParams: ShopifyQueryParams,
+  pageInfo: string,
+  limit = 250,
+): ShopifyQueryParams {
+  const fields = initialParams.fields;
+
+  return {
+    page_info: pageInfo,
+    limit,
+    ...(typeof fields === "string" && fields.trim() ? { fields } : {}),
+  };
+}
+
 export function getShopifyPageInfo(headers: unknown): ShopifyPageInfo {
   const headerBag = (headers || {}) as ShopifyHeaderLike;
   const rawLink =

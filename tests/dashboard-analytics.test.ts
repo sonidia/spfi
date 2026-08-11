@@ -75,9 +75,16 @@ test("order analytics preserve currencies and rank products by units", () => {
     { currency: "USD", amount: 12 },
   ]);
   assert.equal(result.revenue.orderCountToday, 2);
+  assert.deepEqual(result.revenue.currencyCounts, [
+    { currency: "THB", today: 1, week: 1, month: 2 },
+    { currency: "USD", today: 1, week: 1, month: 1 },
+  ]);
   assert.equal(result.revenue.daily.length, 10);
   assert.equal(result.topProducts[0]?.title, "Green shirt");
   assert.equal(result.topProducts[0]?.units, 3);
+  assert.deepEqual(result.topProducts[0]?.currencyStats, [
+    { currency: "THB", units: 3, count: 2 },
+  ]);
   assert.deepEqual(result.fulfillmentBreakdown, {
     fulfilled: 1,
     partial: 1,
@@ -118,8 +125,18 @@ test("payment analytics exclude tests and transfer rows", () => {
 
   assert.deepEqual(result.balance, [{ currency: "USD", amount: 45 }]);
   assert.equal(result.payouts.pendingCount, 1);
+  assert.deepEqual(result.payouts.currencyCounts, [
+    {
+      currency: "USD",
+      count: 2,
+      pendingCount: 1,
+      paidCount: 1,
+      failedCount: 0,
+    },
+  ]);
   assert.deepEqual(result.payouts.total, [{ currency: "USD", amount: 200 }]);
   assert.equal(result.transactions.count, 1);
+  assert.deepEqual(result.transactions.currencyCounts, [{ currency: "USD", count: 1 }]);
   assert.deepEqual(result.transactions.net, [{ currency: "USD", amount: 97 }]);
 });
 

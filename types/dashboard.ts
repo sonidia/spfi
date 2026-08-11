@@ -3,9 +3,22 @@ export interface DashboardMoney {
   amount: number;
 }
 
+export interface DashboardCurrencyCount {
+  currency: string;
+  count: number;
+}
+
+export interface DashboardRevenueCurrencyCount {
+  currency: string;
+  today: number;
+  week: number;
+  month: number;
+}
+
 export interface DashboardRevenuePoint {
   date: string;
   orders: number;
+  orderCounts: DashboardCurrencyCount[];
   values: DashboardMoney[];
 }
 
@@ -16,6 +29,7 @@ export interface DashboardRevenueSummary {
   orderCountToday: number;
   orderCountWeek: number;
   orderCountMonth: number;
+  currencyCounts: DashboardRevenueCurrencyCount[];
   daily: DashboardRevenuePoint[];
 }
 
@@ -25,6 +39,7 @@ export interface DashboardTopProduct {
   title: string;
   units: number;
   orders: number;
+  currencyStats: Array<DashboardCurrencyCount & { units: number }>;
   revenue: DashboardMoney[];
 }
 
@@ -48,12 +63,20 @@ export interface DashboardPayoutSummary {
   pendingCount: number;
   paidCount: number;
   failedCount: number;
+  currencyCounts: Array<
+    DashboardCurrencyCount & {
+      pendingCount: number;
+      paidCount: number;
+      failedCount: number;
+    }
+  >;
   total: DashboardMoney[];
   pending: DashboardMoney[];
 }
 
 export interface DashboardTransactionSummary {
   count: number;
+  currencyCounts: DashboardCurrencyCount[];
   gross: DashboardMoney[];
   fees: DashboardMoney[];
   net: DashboardMoney[];
@@ -104,6 +127,7 @@ export interface StoreDashboardSnapshot {
   fulfillmentBreakdown: DashboardFulfillmentBreakdown;
   pendingFulfillments: {
     count: number;
+    currencyCounts: DashboardCurrencyCount[];
     orders: DashboardPendingOrder[];
   };
   topProducts: DashboardTopProduct[];
@@ -111,6 +135,7 @@ export interface StoreDashboardSnapshot {
   customerCount: number;
   payments: {
     available: boolean;
+    currencies: string[];
     balance: DashboardMoney[];
     payouts: DashboardPayoutSummary;
     transactions: DashboardTransactionSummary;

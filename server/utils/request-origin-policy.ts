@@ -24,7 +24,9 @@ export function evaluateApiOriginPolicy({
   allowHostFallback = false,
   requestOrigin,
 }: ApiOriginPolicyInput): ApiOriginPolicyResult {
-  const normalizedFetchSite = String(fetchSite || "").trim().toLowerCase();
+  const normalizedFetchSite = String(fetchSite || "")
+    .trim()
+    .toLowerCase();
   const configuredOrigins = parseOrigins(allowedOrigins);
 
   if (origin) {
@@ -32,17 +34,18 @@ export function evaluateApiOriginPolicy({
     if (!normalizedOrigin) return { allowed: false };
 
     const allowedByConfiguration = configuredOrigins.has(normalizedOrigin);
-    const allowedByFetchMetadata = normalizedFetchSite === "same-origin";
-    const allowedByHostFallback =
-      allowHostFallback &&
+    const requestMatchesOrigin =
       normalizeOrigin(requestOrigin || "") === normalizedOrigin;
+    const allowedByFetchMetadata =
+      normalizedFetchSite === "same-origin" && requestMatchesOrigin;
+    const allowedByHostFallback = allowHostFallback && requestMatchesOrigin;
 
     return {
       allowed:
-        allowedByConfiguration ||
-        allowedByFetchMetadata ||
-        allowedByHostFallback,
-      responseOrigin: normalizedOrigin,
+        allowedByConfiguration || allowedByFetchMetadata || allowedByHostFallback,
+      // CORS headers are emitted only for explicitly configured cross-origin
+      // clients. Same-origin and Host fallback requests do not need ACAO.
+      ...(allowedByConfiguration ? { responseOrigin: normalizedOrigin } : {}),
     };
   }
 

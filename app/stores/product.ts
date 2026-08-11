@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   ProductsResponse,
+  ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductInput,
 } from "~~/types/shopify";
@@ -77,9 +78,7 @@ export const useProductStore = defineStore("product", () => {
   }
 
   function isActiveRequest(storeId: string, requestScope: number) {
-    return (
-      activeStoreId.value === storeId && storeScopeVersion === requestScope
-    );
+    return activeStoreId.value === storeId && storeScopeVersion === requestScope;
   }
 
   async function createProduct(
@@ -108,7 +107,7 @@ export const useProductStore = defineStore("product", () => {
   async function updateProduct(
     storeId: string,
     token: string,
-    id: number,
+    id: ShopifyNumericId,
     product: ShopifyProductUpdateInput,
   ) {
     if (!storeId || !token || !id) return;
@@ -129,7 +128,7 @@ export const useProductStore = defineStore("product", () => {
     }
   }
 
-  async function deleteProduct(storeId: string, token: string, id: number) {
+  async function deleteProduct(storeId: string, token: string, id: ShopifyNumericId) {
     if (!storeId || !token || !id) return;
     isLoading.value = true;
     error.value = null;

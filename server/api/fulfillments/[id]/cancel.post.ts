@@ -5,6 +5,7 @@ import {
   toShopifyGid,
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface CancelFulfillmentBody {
   storeId?: string;
@@ -19,12 +20,15 @@ interface CancelFulfillmentData {
 }
 
 export default defineEventHandler(async (event) => {
-  const fulfillmentId = String(event.context.params?.id || "");
+  const fulfillmentId = requireShopifyResourceId(
+    event.context.params?.id,
+    "Fulfillment",
+  );
   const body = (await readBody<CancelFulfillmentBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
 
-  if (!fulfillmentId || !storeId || !token) {
+  if (!storeId || !token) {
     throw createApiErrorFromMessage(
       "Fulfillment ID, Store ID and Access Token are required.",
       400,

@@ -27,19 +27,28 @@ test("all-store aggregation sums matching currencies without mixing them", () =>
   ]);
 });
 
-test("currency filtering keeps operational totals while narrowing every money series", () => {
+test("currency filtering recalculates counts, rankings, and money series", () => {
   const aggregate = aggregateDashboardSnapshots([
     snapshot("alpha", "THB", 1200),
     snapshot("beta", "USD", 45),
   ]);
-  const result = filterDashboardAggregateCurrency(aggregate, "USD");
+  const result = filterDashboardAggregateCurrency(aggregate, " usd ");
 
   assert.deepEqual(result.revenue.month, [{ currency: "USD", amount: 45 }]);
   assert.deepEqual(result.revenue.daily[0]?.values, [{ currency: "USD", amount: 45 }]);
-  assert.deepEqual(result.topProducts[0]?.revenue, []);
-  assert.deepEqual(result.topProducts[1]?.revenue, [{ currency: "USD", amount: 45 }]);
+  assert.equal(result.revenue.orderCountMonth, 1);
+  assert.equal(result.revenue.daily[0]?.orders, 1);
+  assert.equal(result.topProducts.length, 1);
+  assert.equal(result.topProducts[0]?.storeId, "beta");
+  assert.deepEqual(result.topProducts[0]?.revenue, [{ currency: "USD", amount: 45 }]);
+  assert.equal(result.pendingOrders.length, 1);
+  assert.equal(result.pendingOrders[0]?.storeId, "beta");
+  assert.equal(result.pendingFulfillmentCount, 2);
+  assert.equal(result.payments.availableStores, 1);
+  assert.equal(result.payments.payouts.count, 1);
+  assert.equal(result.payments.transactions.count, 1);
   assert.equal(result.customerCount, 20);
-  assert.equal(result.pendingFulfillmentCount, 4);
+  assert.strictEqual(filterDashboardAggregateCurrency(aggregate, " ALL "), aggregate);
 });
 
 function snapshot(
@@ -63,16 +72,31 @@ function snapshot(
       orderCountToday: 1,
       orderCountWeek: 1,
       orderCountMonth: 1,
+      currencyCounts: [{ currency, today: 1, week: 1, month: 1 }],
       daily: [
         {
           date: "2026-08-10",
           orders: 1,
+          orderCounts: [{ currency, count: 1 }],
           values: [{ currency, amount: revenueAmount }],
         },
       ],
     },
     fulfillmentBreakdown: { fulfilled: 1, partial: 0, unfulfilled: 1 },
-    pendingFulfillments: { count: 2, orders: [] },
+    pendingFulfillments: {
+      count: 2,
+      currencyCounts: [{ currency, count: 2 }],
+      orders: [
+        {
+          id: `${storeId}-order`,
+          name: `#${storeId}`,
+          createdAt: "2026-08-10T00:00:00.000Z",
+          fulfillmentStatus: "unfulfilled",
+          amount: revenueAmount,
+          currency,
+        },
+      ],
+    },
     topProducts: [
       {
         key: "product",
@@ -80,6 +104,7 @@ function snapshot(
         title: `${storeId} product`,
         units: revenueAmount,
         orders: 1,
+        currencyStats: [{ currency, units: revenueAmount, count: 1 }],
         revenue: [{ currency, amount: revenueAmount }],
       },
     ],
@@ -87,21 +112,43 @@ function snapshot(
     customerCount: 10,
     payments: {
       available: true,
+      currencies: [currency],
       balance: [{ currency, amount: 50 }],
       payouts: {
-        count: 0,
-        pendingCount: 0,
+        count: 1,
+        pendingCount: 1,
         paidCount: 0,
         failedCount: 0,
-        total: [],
-        pending: [],
+        currencyCounts: [
+          {
+            currency,
+            count: 1,
+            pendingCount: 1,
+            paidCount: 0,
+            failedCount: 0,
+          },
+        ],
+        total: [{ currency, amount: 25 }],
+        pending: [{ currency, amount: 25 }],
       },
       transactions: {
-        count: 0,
-        gross: [],
-        fees: [],
-        net: [],
-        recent: [],
+        count: 1,
+        currencyCounts: [{ currency, count: 1 }],
+        gross: [{ currency, amount: 20 }],
+        fees: [{ currency, amount: -1 }],
+        net: [{ currency, amount: 19 }],
+        recent: [
+          {
+            id: `${storeId}-transaction`,
+            type: "charge",
+            processedAt: "2026-08-10T00:00:00.000Z",
+            amount: 20,
+            fee: -1,
+            net: 19,
+            currency,
+            orderName: `#${storeId}`,
+          },
+        ],
       },
     },
     users: [],

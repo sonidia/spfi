@@ -17,6 +17,7 @@ import { parseJsonPreservingUnsafeIntegers } from "./lossless-json";
 import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
+  capShopifyThrottleDelayMs,
   getGraphqlThrottleDelayMs,
   getGraphqlThrottleStatus,
   isGraphqlThrottled,
@@ -46,6 +47,7 @@ interface CallShopifyGraphqlOptions<TVariables> {
   operationName?: string;
   timeoutMs?: number;
   retryTransport?: boolean;
+  maxThrottleRetries?: number;
 }
 
 interface ShopifyGraphqlRequest<TVariables> {
@@ -55,6 +57,7 @@ interface ShopifyGraphqlRequest<TVariables> {
 }
 
 const DEFAULT_GRAPHQL_TIMEOUT_MS = 15000;
+const DEFAULT_MAX_GRAPHQL_THROTTLE_RETRIES = 5;
 
 export async function callShopifyGraphql<
   TData,
@@ -68,6 +71,7 @@ export async function callShopifyGraphql<
   operationName,
   timeoutMs = DEFAULT_GRAPHQL_TIMEOUT_MS,
   retryTransport = true,
+  maxThrottleRetries = DEFAULT_MAX_GRAPHQL_THROTTLE_RETRIES,
 }: CallShopifyGraphqlOptions<TVariables>): Promise<TData> {
   if (!storeId) {
     throw createApiErrorFromMessage("Store ID is required.", 400);
@@ -89,11 +93,7 @@ export async function callShopifyGraphql<
 
   const domain = resolveStoreAdminDomain(storeId, storeCookie?.domain);
   const endpoint = `https://${domain}/${getShopifyAdminApiBase(event)}/graphql.json`;
-  const throttleKey = buildShopifyThrottleKey(
-    "graphql",
-    domain,
-    accessToken,
-  );
+  const throttleKey = buildShopifyThrottleKey("graphql", domain, accessToken);
   const requestBody: ShopifyGraphqlRequest<TVariables> = {
     query,
     ...(variables ? { variables } : {}),
@@ -118,27 +118,29 @@ export async function callShopifyGraphql<
       transformResponse: [parseJsonPreservingUnsafeIntegers],
     };
     let envelope: ShopifyGraphqlEnvelope<TData> | null = null;
+    let throttleRetryCount = 0;
 
     while (true) {
       await waitForShopifyThrottle(throttleKey);
 
       try {
-        const response = await axios.request<ShopifyGraphqlEnvelope<TData>>(
-          config,
-        );
+        const response = await axios.request<ShopifyGraphqlEnvelope<TData>>(config);
         envelope = response.data;
-        forwardGraphqlThrottleHeaders(
-          event,
-          response.headers,
-          envelope.extensions,
-        );
+        forwardGraphqlThrottleHeaders(event, response.headers, envelope.extensions);
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 429) {
           const retryDelayMs = parseRetryAfterMs(
             getAxiosResponseHeader(error.response.headers, "retry-after"),
           );
           if (retryDelayMs !== null) {
-            blockShopifyThrottle(throttleKey, retryDelayMs);
+            if (throttleRetryCount >= normalizeMaxThrottleRetries(maxThrottleRetries)) {
+              throw createApiError(
+                error,
+                "Shopify GraphQL remained rate limited after retrying.",
+              );
+            }
+            throttleRetryCount += 1;
+            blockShopifyThrottle(throttleKey, capShopifyThrottleDelayMs(retryDelayMs));
             continue;
           }
         }
@@ -155,9 +157,17 @@ export async function callShopifyGraphql<
       }
 
       if (isGraphqlThrottled(envelope.errors)) {
+        if (throttleRetryCount >= normalizeMaxThrottleRetries(maxThrottleRetries)) {
+          throw createApiErrorFromMessage(
+            "Shopify GraphQL remained throttled after retrying.",
+            429,
+            envelope.errors,
+          );
+        }
+        throttleRetryCount += 1;
         blockShopifyThrottle(
           throttleKey,
-          getGraphqlThrottleDelayMs(envelope.extensions),
+          capShopifyThrottleDelayMs(getGraphqlThrottleDelayMs(envelope.extensions)),
         );
         envelope = null;
         continue;
@@ -186,6 +196,12 @@ export async function callShopifyGraphql<
   }
 
   throw createApiError(lastTransportError, "Shopify GraphQL request failed.");
+}
+
+function normalizeMaxThrottleRetries(value: number) {
+  return Number.isSafeInteger(value) && value >= 0
+    ? Math.min(value, 10)
+    : DEFAULT_MAX_GRAPHQL_THROTTLE_RETRIES;
 }
 
 function forwardGraphqlThrottleHeaders(

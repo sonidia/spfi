@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useLocations } from "~/composables/useLocations";
 import type {
   ShopifyLocation,
+  ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductStatus,
 } from "~~/types/shopify";
@@ -34,7 +35,7 @@ const selectedInventoryItemIds = computed(() =>
     new Set(
       (props.product.variants || [])
         .map((variant) => variant.inventory_item_id)
-        .filter((id): id is number => typeof id === "number"),
+        .filter((id): id is ShopifyNumericId => id !== undefined),
     ),
   ),
 );
@@ -51,7 +52,7 @@ const selectedInventoryLevels = computed(() =>
 
 const inventoryByLocation = computed(() => {
   const summaries = new Map<
-    number,
+    ShopifyNumericId,
     { available: number; levelCount: number; hasUntracked: boolean }
   >();
 
@@ -94,9 +95,8 @@ const totalVariantInventory = computed(() =>
 
 const trackedVariantCount = computed(
   () =>
-    (props.product.variants || []).filter(
-      (variant) => !!variant.inventory_management,
-    ).length,
+    (props.product.variants || []).filter((variant) => !!variant.inventory_management)
+      .length,
 );
 
 function isProductPublished(product: ShopifyProduct) {
@@ -117,9 +117,7 @@ function formatVariantInventory(variant: ShopifyProduct["variants"][number]) {
     });
   }
 
-  return variant.inventory_management
-    ? t("product.tracked")
-    : t("product.notTracked");
+  return variant.inventory_management ? t("product.tracked") : t("product.notTracked");
 }
 
 function formatLocationAddress(location: ShopifyLocation) {
@@ -135,7 +133,7 @@ function formatLocationAddress(location: ShopifyLocation) {
   return parts.length ? parts.join(", ") : t("product.noAddress");
 }
 
-function getLocationInventoryLabel(locationId: number) {
+function getLocationInventoryLabel(locationId: ShopifyNumericId) {
   if (selectedInventoryItemIds.value.length === 0) {
     return t("product.noInventoryItemId");
   }
@@ -217,7 +215,9 @@ onUnmounted(() => {
           </div>
           <div class="detail-product-main">
             <h3 class="modal-title">{{ product.title }}</h3>
-            <div class="detail-sub">{{ t("product.productId", { id: product.id }) }}</div>
+            <div class="detail-sub">
+              {{ t("product.productId", { id: product.id }) }}
+            </div>
           </div>
         </div>
         <button
@@ -349,7 +349,9 @@ onUnmounted(() => {
             >
               <div class="location-main">
                 <div class="location-name">
-                  {{ location.name || t("product.locationFallback", { id: location.id }) }}
+                  {{
+                    location.name || t("product.locationFallback", { id: location.id })
+                  }}
                 </div>
                 <div class="location-address">
                   {{ formatLocationAddress(location) }}

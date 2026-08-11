@@ -206,12 +206,22 @@ export async function fetchStoreDashboard({
   const orderAnalytics = aggregateOrderAnalytics(monthOrders, period);
   const storeCookie = resolveStoreCookieData(event, storeId);
   const domain = resolveStoreDomain(storeId, storeCookie?.domain);
+  const storeCurrency = String(profile?.currency || monthOrders[0]?.currency || "USD")
+    .trim()
+    .toUpperCase();
+  const paymentCurrencies = Array.from(
+    new Set([
+      ...paymentAnalytics.balance.map((row) => row.currency),
+      ...paymentAnalytics.payouts.currencyCounts.map((row) => row.currency),
+      ...paymentAnalytics.transactions.currencyCounts.map((row) => row.currency),
+    ]),
+  ).sort();
 
   return {
     storeId,
     storeName: String(profile?.name || domain || storeId),
     domain,
-    currency: String(profile?.currency || monthOrders[0]?.currency || "USD"),
+    currency: storeCurrency,
     owner: String(profile?.shop_owner || ""),
     email: String(profile?.email || profile?.customer_email || ""),
     plan: String(profile?.plan_display_name || profile?.plan_name || ""),
@@ -220,6 +230,7 @@ export async function fetchStoreDashboard({
     fulfillmentBreakdown: orderAnalytics.fulfillmentBreakdown,
     pendingFulfillments: {
       count: Number(pendingCount || 0),
+      currencyCounts: [{ currency: storeCurrency, count: Number(pendingCount || 0) }],
       orders: mapPendingOrders(pendingOrders),
     },
     topProducts: orderAnalytics.topProducts,
@@ -227,6 +238,7 @@ export async function fetchStoreDashboard({
     customerCount: Number(customerCount || 0),
     payments: {
       available: paymentResultsAvailable,
+      currencies: paymentCurrencies,
       ...paymentAnalytics,
     },
     users: mapDashboardUsers(users, profile || null),

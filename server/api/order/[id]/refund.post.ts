@@ -7,6 +7,7 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import type { OrderRefundInput } from "~~/types/shopify-order";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface RefundBody extends OrderRefundInput {
   storeId?: string;
@@ -30,20 +31,20 @@ interface RefundData {
 }
 
 export default defineEventHandler(async (event) => {
-  const orderId = String(event.context.params?.id || "");
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<RefundBody>(event)) || ({} as RefundBody);
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
   const amount = String(body.amount || "").trim();
   const gateway = String(body.gateway || "").trim();
   const parentTransactionId = String(body.parentTransactionId || "").trim();
-  const currency = String(body.currency || "").trim().toUpperCase();
+  const currency = String(body.currency || "")
+    .trim()
+    .toUpperCase();
   const lineItems = Array.isArray(body.lineItems) ? body.lineItems : [];
-  const discrepancyReason = String(
-    body.discrepancyReason || "OTHER",
-  ).toUpperCase();
+  const discrepancyReason = String(body.discrepancyReason || "OTHER").toUpperCase();
 
-  if (!orderId || !storeId || !token || !gateway || !parentTransactionId) {
+  if (!storeId || !token || !gateway || !parentTransactionId) {
     throw createApiErrorFromMessage(
       "Order ID, Store ID, Access Token, gateway and parent transaction are required.",
       400,

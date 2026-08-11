@@ -1,4 +1,5 @@
 import type {
+  ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductImage,
   ShopifyVariant,
@@ -18,7 +19,7 @@ export interface ShopifyProductUpdateInput {
 }
 
 export interface ShopifyVariantInput {
-  id?: number;
+  id?: ShopifyNumericId;
   option1?: string | null;
   option2?: string | null;
   option3?: string | null;
@@ -27,7 +28,7 @@ export interface ShopifyVariantInput {
   sku?: string | null;
   barcode?: string | null;
   position?: number;
-  image_id?: number | null;
+  image_id?: ShopifyNumericId | null;
   taxable?: boolean;
   requires_shipping?: boolean;
   weight?: number;
@@ -39,13 +40,13 @@ export interface ShopifyVariantInput {
 }
 
 export interface ShopifyProductImageInput {
-  id?: number;
+  id?: ShopifyNumericId;
   src?: string;
   attachment?: string;
   filename?: string;
   alt?: string | null;
   position?: number;
-  variant_ids?: number[];
+  variant_ids?: ShopifyNumericId[];
   metafields?: Array<Record<string, unknown>>;
 }
 

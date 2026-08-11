@@ -14,7 +14,10 @@ import {
   buildOrderFulfillmentListParams,
   buildOrderRefundListParams,
 } from "../server/utils/shopify-order-query.ts";
-import { getShopifyPageInfo } from "../server/utils/shopify-pagination.ts";
+import {
+  buildShopifyCursorPageParams,
+  getShopifyPageInfo,
+} from "../server/utils/shopify-pagination.ts";
 
 test("customer queries whitelist parameters and clamp page size", () => {
   assert.deepEqual(
@@ -84,6 +87,24 @@ test("Shopify Link headers expose opaque next and previous cursors", () => {
     hasNextPage: true,
     hasPreviousPage: true,
   });
+});
+
+test("cursor pagination preserves fields but drops incompatible filters", () => {
+  assert.deepEqual(
+    buildShopifyCursorPageParams(
+      {
+        fields: "id,name,line_items",
+        status: "any",
+        created_at_min: "2026-08-01",
+      },
+      "opaque-cursor==",
+    ),
+    {
+      page_info: "opaque-cursor==",
+      limit: 250,
+      fields: "id,name,line_items",
+    },
+  );
 });
 
 test("inventory item IDs are normalized, deduplicated and chunked by 50", () => {

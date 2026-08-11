@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  capShopifyThrottleDelayMs,
   getGraphqlThrottleDelayMs,
+  getRestCallLimitDelayMs,
   isGraphqlThrottled,
+  parseShopifyRestCallLimit,
   parseRetryAfterMs,
 } from "../server/utils/shopify-throttle.ts";
 
@@ -14,6 +17,23 @@ test("Retry-After supports fractional seconds and HTTP dates without a cap", () 
     5_000,
   );
   assert.equal(parseRetryAfterMs("invalid"), null);
+});
+
+test("request retry waits are capped even when Retry-After is excessive", () => {
+  assert.equal(capShopifyThrottleDelayMs(500), 500);
+  assert.equal(capShopifyThrottleDelayMs(120_000), 30_000);
+});
+
+test("REST call-limit headers trigger proactive bucket backoff", () => {
+  assert.deepEqual(parseShopifyRestCallLimit("32/40"), {
+    used: 32,
+    total: 40,
+    remaining: 8,
+  });
+  assert.equal(getRestCallLimitDelayMs("31/40"), null);
+  assert.equal(getRestCallLimitDelayMs("32/40"), 1_000);
+  assert.equal(getRestCallLimitDelayMs("39/40"), 4_500);
+  assert.equal(getRestCallLimitDelayMs("invalid"), null);
 });
 
 test("GraphQL retry delay is calculated from the returned throttle state", () => {
@@ -33,12 +53,6 @@ test("GraphQL retry delay is calculated from the returned throttle state", () =>
 });
 
 test("GraphQL throttling is detected from Shopify's error code", () => {
-  assert.equal(
-    isGraphqlThrottled([{ extensions: { code: "THROTTLED" } }]),
-    true,
-  );
-  assert.equal(
-    isGraphqlThrottled([{ extensions: { code: "ACCESS_DENIED" } }]),
-    false,
-  );
+  assert.equal(isGraphqlThrottled([{ extensions: { code: "THROTTLED" } }]), true);
+  assert.equal(isGraphqlThrottled([{ extensions: { code: "ACCESS_DENIED" } }]), false);
 });

@@ -1,6 +1,11 @@
 import type { H3Event } from "h3";
 import { useRuntimeConfig } from "#imports";
 import { readRuntimeBoolean } from "../utils/runtime-config";
+import {
+  DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+  DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
+  resolveRateLimit,
+} from "../utils/rate-limit-policy";
 
 const WINDOW_MS = 60_000;
 const CLEANUP_INTERVAL_MS = 5 * WINDOW_MS;
@@ -70,41 +75,36 @@ export default defineEventHandler((event) => {
   if (!pathname.startsWith("/api/")) return;
 
   const config = useRuntimeConfig(event);
-  const apiLimit = readConfiguredLimit(config.apiRateLimitPerMinute);
-  const tokenLimit = readConfiguredLimit(config.tokenRateLimitPerMinute);
+  const apiLimit = resolveRateLimit(
+    config.apiRateLimitPerMinute,
+    DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+  );
+  const tokenLimit = resolveRateLimit(
+    config.tokenRateLimitPerMinute,
+    DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
+  );
   const isTokenRequest = pathname === "/api/generate-token";
-  if (apiLimit === 0 && (!isTokenRequest || tokenLimit === 0)) return;
 
   const now = Date.now();
   cleanupExpiredEntries(now);
 
-  const ip = resolveClientIp(
-    event,
-    readRuntimeBoolean(config.trustProxyHeaders),
-  );
+  const ip = resolveClientIp(event, readRuntimeBoolean(config.trustProxyHeaders));
   const apiResult = apiLimit > 0 ? consume(state.api, ip, apiLimit, now) : null;
   const tokenResult =
-    isTokenRequest && tokenLimit > 0
-      ? consume(state.token, ip, tokenLimit, now)
-      : null;
+    isTokenRequest && tokenLimit > 0 ? consume(state.token, ip, tokenLimit, now) : null;
   const results = [apiResult, tokenResult].filter(
     (result): result is NonNullable<typeof result> => result !== null,
   );
   const rejectedResult = results.find((result) => !result.allowed) || null;
   const headerResult = results.reduce((mostConstrained, result) =>
-    result.remaining / result.limit <
-    mostConstrained.remaining / mostConstrained.limit
+    result.remaining / result.limit < mostConstrained.remaining / mostConstrained.limit
       ? result
       : mostConstrained,
   );
 
   setResponseHeader(event, "X-RateLimit-Limit", headerResult.limit);
   setResponseHeader(event, "X-RateLimit-Remaining", headerResult.remaining);
-  setResponseHeader(
-    event,
-    "X-RateLimit-Reset",
-    Math.ceil(headerResult.resetAt / 1000),
-  );
+  setResponseHeader(event, "X-RateLimit-Reset", Math.ceil(headerResult.resetAt / 1000));
 
   // Generic headers describe the most constrained policy for this route.
   // Dedicated headers keep the app-wide API meter stable on token requests.
@@ -120,10 +120,7 @@ export default defineEventHandler((event) => {
 
   if (!rejectedResult) return;
 
-  const retryAfter = Math.max(
-    1,
-    Math.ceil((rejectedResult.resetAt - now) / 1000),
-  );
+  const retryAfter = Math.max(1, Math.ceil((rejectedResult.resetAt - now) / 1000));
   setResponseHeader(event, "Retry-After", retryAfter);
 
   throw createError({
@@ -132,8 +129,3 @@ export default defineEventHandler((event) => {
     message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
   });
 });
-
-function readConfiguredLimit(value: unknown) {
-  const limit = Number(value);
-  return Number.isSafeInteger(limit) && limit > 0 ? limit : 0;
-}

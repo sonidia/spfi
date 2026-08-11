@@ -86,10 +86,25 @@ export function aggregateOrderAnalytics(
   const today = new Map<string, number>();
   const week = new Map<string, number>();
   const month = new Map<string, number>();
-  const daily = new Map<string, { orders: number; money: Map<string, number> }>();
+  const revenueCounts = new Map<
+    string,
+    { today: number; week: number; month: number }
+  >();
+  const daily = new Map<
+    string,
+    {
+      orders: number;
+      orderCounts: Map<string, number>;
+      money: Map<string, number>;
+    }
+  >();
   const products = new Map<
     string,
-    DashboardTopProduct & { orderIds: Set<string>; money: Map<string, number> }
+    DashboardTopProduct & {
+      orderIds: Set<string>;
+      money: Map<string, number>;
+      stats: Map<string, { units: number; orderIds: Set<string> }>;
+    }
   >();
   const fulfillmentBreakdown: DashboardFulfillmentBreakdown = {
     fulfilled: 0,
@@ -118,22 +133,33 @@ export function aggregateOrderAnalytics(
     const dateKey = localDateKey(createdAt, period.timezoneOffsetMinutes);
     const dayEntry = daily.get(dateKey) || {
       orders: 0,
+      orderCounts: new Map<string, number>(),
       money: new Map<string, number>(),
     };
     dayEntry.orders += 1;
+    addCount(dayEntry.orderCounts, currency);
     addMoney(dayEntry.money, currency, amount);
     daily.set(dateKey, dayEntry);
 
+    const revenueCount = revenueCounts.get(currency) || {
+      today: 0,
+      week: 0,
+      month: 0,
+    };
     orderCountMonth += 1;
+    revenueCount.month += 1;
     addMoney(month, currency, amount);
     if (createdIso >= period.weekStartIso) {
       orderCountWeek += 1;
+      revenueCount.week += 1;
       addMoney(week, currency, amount);
     }
     if (createdIso >= period.todayStartIso) {
       orderCountToday += 1;
+      revenueCount.today += 1;
       addMoney(today, currency, amount);
     }
+    revenueCounts.set(currency, revenueCount);
 
     for (const item of order.line_items || []) {
       const productId = item.product_id ? String(item.product_id) : null;
@@ -146,12 +172,21 @@ export function aggregateOrderAnalytics(
         title,
         units: 0,
         orders: 0,
+        currencyStats: [],
         revenue: [],
         orderIds: new Set<string>(),
         money: new Map<string, number>(),
+        stats: new Map<string, { units: number; orderIds: Set<string> }>(),
       };
       entry.units += quantity;
       entry.orderIds.add(String(order.id));
+      const currencyStat = entry.stats.get(currency) || {
+        units: 0,
+        orderIds: new Set<string>(),
+      };
+      currencyStat.units += quantity;
+      currencyStat.orderIds.add(String(order.id));
+      entry.stats.set(currency, currencyStat);
       addMoney(entry.money, currency, finiteAmount(item.price) * quantity);
       products.set(key, entry);
     }
@@ -166,9 +201,24 @@ export function aggregateOrderAnalytics(
     return {
       date,
       orders: entry?.orders || 0,
+      orderCounts: countRows(entry?.orderCounts),
       values: moneyFromMap(entry?.money),
     };
   });
+  const productRows = [...products.values()].map(
+    ({ orderIds, money, stats, ...product }) => ({
+      ...product,
+      orders: orderIds.size,
+      currencyStats: [...stats.entries()]
+        .map(([currency, entry]) => ({
+          currency,
+          units: entry.units,
+          count: entry.orderIds.size,
+        }))
+        .sort((a, b) => b.units - a.units || a.currency.localeCompare(b.currency)),
+      revenue: moneyFromMap(money),
+    }),
+  );
 
   return {
     revenue: {
@@ -178,16 +228,12 @@ export function aggregateOrderAnalytics(
       orderCountToday,
       orderCountWeek,
       orderCountMonth,
+      currencyCounts: [...revenueCounts.entries()]
+        .map(([currency, counts]) => ({ currency, ...counts }))
+        .sort((a, b) => b.month - a.month || a.currency.localeCompare(b.currency)),
       daily: dailyPoints,
     },
-    topProducts: [...products.values()]
-      .sort((a, b) => b.units - a.units || b.orders - a.orders)
-      .slice(0, 10)
-      .map(({ orderIds, money, ...product }) => ({
-        ...product,
-        orders: orderIds.size,
-        revenue: moneyFromMap(money),
-      })),
+    topProducts: selectTopProducts(productRows),
     fulfillmentBreakdown,
   };
 }
@@ -214,6 +260,10 @@ export function aggregatePaymentAnalytics(
 } {
   const payoutTotal = new Map<string, number>();
   const payoutPending = new Map<string, number>();
+  const payoutCounts = new Map<
+    string,
+    { count: number; pendingCount: number; paidCount: number; failedCount: number }
+  >();
   let pendingCount = 0;
   let paidCount = 0;
   let failedCount = 0;
@@ -222,17 +272,32 @@ export function aggregatePaymentAnalytics(
     const status = String(payout.status || "").toLowerCase();
     const currency = normalizeCurrency(payout.currency);
     const amount = finiteAmount(payout.amount);
+    const counts = payoutCounts.get(currency) || {
+      count: 0,
+      pendingCount: 0,
+      paidCount: 0,
+      failedCount: 0,
+    };
+    counts.count += 1;
     addMoney(payoutTotal, currency, amount);
     if (PENDING_PAYOUT_STATUSES.has(status)) {
       pendingCount += 1;
+      counts.pendingCount += 1;
       addMoney(payoutPending, currency, amount);
-    } else if (status === "paid") paidCount += 1;
-    else if (status === "failed" || status === "canceled") failedCount += 1;
+    } else if (status === "paid") {
+      paidCount += 1;
+      counts.paidCount += 1;
+    } else if (status === "failed" || status === "canceled") {
+      failedCount += 1;
+      counts.failedCount += 1;
+    }
+    payoutCounts.set(currency, counts);
   }
 
   const gross = new Map<string, number>();
   const fees = new Map<string, number>();
   const net = new Map<string, number>();
+  const transactionCounts = new Map<string, number>();
   const realTransactions = transactions
     .filter((transaction) => !transaction.test && transaction.type !== "payout")
     .sort(
@@ -241,6 +306,7 @@ export function aggregatePaymentAnalytics(
 
   for (const transaction of realTransactions) {
     const currency = normalizeCurrency(transaction.currency);
+    addCount(transactionCounts, currency);
     addMoney(gross, currency, finiteAmount(transaction.amount));
     addMoney(fees, currency, finiteAmount(transaction.fee));
     addMoney(net, currency, finiteAmount(transaction.net));
@@ -258,11 +324,15 @@ export function aggregatePaymentAnalytics(
       pendingCount,
       paidCount,
       failedCount,
+      currencyCounts: [...payoutCounts.entries()]
+        .map(([currency, counts]) => ({ currency, ...counts }))
+        .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency)),
       total: moneyFromMap(payoutTotal),
       pending: moneyFromMap(payoutPending),
     },
     transactions: {
       count: realTransactions.length,
+      currencyCounts: countRows(transactionCounts),
       gross: moneyFromMap(gross),
       fees: moneyFromMap(fees),
       net: moneyFromMap(net),
@@ -321,6 +391,7 @@ export function emptyRevenueSummary(): DashboardRevenueSummary {
     orderCountToday: 0,
     orderCountWeek: 0,
     orderCountMonth: 0,
+    currencyCounts: [],
     daily: [],
   };
 }
@@ -331,13 +402,21 @@ export function emptyPayoutSummary(): DashboardPayoutSummary {
     pendingCount: 0,
     paidCount: 0,
     failedCount: 0,
+    currencyCounts: [],
     total: [],
     pending: [],
   };
 }
 
 export function emptyTransactionSummary(): DashboardTransactionSummary {
-  return { count: 0, gross: [], fees: [], net: [], recent: [] };
+  return {
+    count: 0,
+    currencyCounts: [],
+    gross: [],
+    fees: [],
+    net: [],
+    recent: [],
+  };
 }
 
 function isRevenueOrder(order: ShopifyOrder) {
@@ -388,6 +467,17 @@ function addMoney(target: Map<string, number>, currency: string, amount: number)
   target.set(currency, (target.get(currency) || 0) + amount);
 }
 
+function addCount(target: Map<string, number>, currency: string, count = 1) {
+  target.set(currency, (target.get(currency) || 0) + count);
+}
+
+function countRows(source?: Map<string, number>) {
+  if (!source) return [];
+  return [...source.entries()]
+    .map(([currency, count]) => ({ currency, count }))
+    .sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
+}
+
 function moneyFromMap(source?: Map<string, number>): DashboardMoney[] {
   if (!source) return [];
   return [...source.entries()]
@@ -397,4 +487,36 @@ function moneyFromMap(source?: Map<string, number>): DashboardMoney[] {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function selectTopProducts(products: DashboardTopProduct[]) {
+  const selectedKeys = new Set<string>();
+  const byOverallUnits = [...products].sort(
+    (a, b) => b.units - a.units || b.orders - a.orders,
+  );
+
+  for (const product of byOverallUnits.slice(0, 10)) {
+    selectedKeys.add(product.key);
+  }
+
+  const currencies = new Set(
+    products.flatMap((product) => product.currencyStats.map((row) => row.currency)),
+  );
+  for (const currency of currencies) {
+    const ranked = [...products].sort((a, b) => {
+      const aStats = a.currencyStats.find((row) => row.currency === currency);
+      const bStats = b.currencyStats.find((row) => row.currency === currency);
+      return (
+        (bStats?.units || 0) - (aStats?.units || 0) ||
+        (bStats?.count || 0) - (aStats?.count || 0)
+      );
+    });
+    for (const product of ranked.slice(0, 10)) {
+      if (product.currencyStats.some((row) => row.currency === currency)) {
+        selectedKeys.add(product.key);
+      }
+    }
+  }
+
+  return byOverallUnits.filter((product) => selectedKeys.has(product.key));
 }

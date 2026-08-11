@@ -34,9 +34,7 @@ export function fmtDateTime(iso?: string | null) {
       day: "numeric",
     }) +
     " at " +
-    d
-      .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-      .toLowerCase()
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase()
   );
 }
 export function fmtMoney(
@@ -47,37 +45,38 @@ export function fmtMoney(
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount)) return "—";
 
-  const currencyCode = String(currency || "").trim().toUpperCase();
+  const currencyCode = String(currency || "")
+    .trim()
+    .toUpperCase();
   if (currencyCode) {
     try {
-      return new Intl.NumberFormat(undefined, {
+      return new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: currencyCode,
         currencyDisplay: "code",
       }).format(numericAmount);
     } catch {
-      return `${numericAmount.toLocaleString()} ${currencyCode}`;
+      return `${numericAmount.toLocaleString("en-US")} ${currencyCode}`;
     }
   }
 
-  return numericAmount.toLocaleString();
+  return numericAmount.toLocaleString("en-US");
 }
 
-export function formatMoneyInput(
-  amount: string | number,
-  currency?: string | null,
-) {
+export function formatMoneyInput(amount: string | number, currency?: string | null) {
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount)) return "";
   return numericAmount.toFixed(getCurrencyFractionDigits(currency));
 }
 
 export function getCurrencyFractionDigits(currency?: string | null) {
-  const currencyCode = String(currency || "").trim().toUpperCase();
+  const currencyCode = String(currency || "")
+    .trim()
+    .toUpperCase();
   if (!currencyCode) return 2;
 
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: currencyCode,
     }).resolvedOptions().maximumFractionDigits;
@@ -89,10 +88,7 @@ export function capitalize(str: string) {
   if (!str) return "";
   return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, " ");
 }
-export function addressSame(
-  a?: ShopifyAddress | null,
-  b?: ShopifyAddress | null,
-) {
+export function addressSame(a?: ShopifyAddress | null, b?: ShopifyAddress | null) {
   if (!a || !b) return false;
   return a.address1 === b.address1 && a.city === b.city && a.zip === b.zip;
 }
@@ -209,10 +205,7 @@ export function getCustomerEmail(order?: ShopifyOrder | null) {
 }
 export function getSubtotal(order?: ShopifyOrder | null) {
   if (!order) return "0.00";
-  return nilVal(
-    order.subtotal_price,
-    nilVal(order.current_subtotal_price, "0.00"),
-  );
+  return nilVal(order.subtotal_price, nilVal(order.current_subtotal_price, "0.00"));
 }
 export function getTax(order?: ShopifyOrder | null) {
   if (!order) return "0.00";
@@ -220,15 +213,9 @@ export function getTax(order?: ShopifyOrder | null) {
 }
 export function getDiscount(order?: ShopifyOrder | null) {
   if (!order) return "0.00";
-  return nilVal(
-    order.total_discounts,
-    nilVal(order.current_total_discounts, "0.00"),
-  );
+  return nilVal(order.total_discounts, nilVal(order.current_total_discounts, "0.00"));
 }
 export function getItemCount(order?: ShopifyOrder | null) {
   if (!order) return 0;
-  return (order.line_items || []).reduce(
-    (sum, item) => sum + (item.quantity || 1),
-    0,
-  );
+  return (order.line_items || []).reduce((sum, item) => sum + (item.quantity || 1), 0);
 }

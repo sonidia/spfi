@@ -4,6 +4,7 @@ import {
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface OrderActionBody {
   storeId?: string;
@@ -11,11 +12,11 @@ interface OrderActionBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const id = String(event.context.params?.id || "");
+  const id = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<OrderActionBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
-  if (!id || !storeId || !token) {
+  if (!storeId || !token) {
     throw createApiErrorFromMessage(
       "Order ID, Store ID and Access Token are required.",
       400,

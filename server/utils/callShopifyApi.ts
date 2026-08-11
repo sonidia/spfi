@@ -21,6 +21,8 @@ import { readRuntimeBoolean } from "./runtime-config";
 import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
+  capShopifyThrottleDelayMs,
+  getRestCallLimitDelayMs,
   parseRetryAfterMs,
   waitForShopifyThrottle,
 } from "./shopify-throttle";
@@ -89,6 +91,7 @@ const PROXY_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
 const SOCKS5_PROTOCOL_PATTERN = /^socks5h?:\/\//i;
 const SOCKS5H_PROTOCOL = "socks5h:";
 const MAX_STORE_DATA_HEADER_LENGTH = 4096;
+const MAX_REST_THROTTLE_RETRIES = 5;
 
 function safeDecode(value: string) {
   try {
@@ -460,7 +463,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   missingProxyMessage = "Missing sock proxy for this store. Please update it in Manager page.",
   timeoutMs = DEFAULT_TIMEOUT_MS,
   retryTransport = true,
-  preserveUnsafeIntegers = false,
+  preserveUnsafeIntegers = true,
   forwardResponseHeaders = true,
 }: CallShopifyApiOptions<TBody>): Promise<ShopifyApiResponse<TResponse>> {
   if (!storeId) {
@@ -513,6 +516,12 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
         requestConfig,
         throttleKey,
       );
+      const proactiveDelayMs = getRestCallLimitDelayMs(
+        getAxiosResponseHeader(response.headers, "x-shopify-shop-api-call-limit"),
+      );
+      if (proactiveDelayMs !== null) {
+        blockShopifyThrottle(throttleKey, proactiveDelayMs);
+      }
       if (forwardResponseHeaders) {
         forwardShopifyResponseHeaders(event, response.headers);
       }
@@ -540,7 +549,7 @@ async function requestWithRateLimitRetry<TResponse, TBody>(
   requestConfig: AxiosRequestConfig<TBody>,
   throttleKey: string,
 ): Promise<AxiosResponse<TResponse>> {
-  while (true) {
+  for (let retryCount = 0; ; retryCount += 1) {
     await waitForShopifyThrottle(throttleKey);
 
     try {
@@ -562,7 +571,11 @@ async function requestWithRateLimitRetry<TResponse, TBody>(
         throw error;
       }
 
-      blockShopifyThrottle(throttleKey, retryDelayMs);
+      if (retryCount >= MAX_REST_THROTTLE_RETRIES) {
+        throw error;
+      }
+
+      blockShopifyThrottle(throttleKey, capShopifyThrottleDelayMs(retryDelayMs));
     }
   }
 }

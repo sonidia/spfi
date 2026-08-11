@@ -6,7 +6,14 @@ import {
   resolvePublicUrl,
 } from "../server/utils/public-outbound-url.ts";
 import { evaluateApiOriginPolicy } from "../server/utils/request-origin-policy.ts";
+import {
+  DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+  DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
+  resolveRateLimit,
+} from "../server/utils/rate-limit-policy.ts";
 import { readRuntimeBoolean } from "../server/utils/runtime-config.ts";
+import { buildContentSecurityPolicy } from "../server/utils/security-headers.ts";
+import { GOOGLE_SHEET_VALUE_INPUT_OPTION } from "../server/utils/google-sheet-values.ts";
 import {
   parsePublicProxyUrl,
   pinPublicProxyUrl,
@@ -118,6 +125,48 @@ test("API origin policy rejects originless mutations and cross-site browsers", (
       allowHostFallback: false,
     }).allowed,
     false,
+  );
+
+  const sameOrigin = evaluateApiOriginPolicy({
+    method: "POST",
+    origin: "https://app.example.com",
+    fetchSite: "same-origin",
+    requestOrigin: "https://app.example.com",
+  });
+  assert.equal(sameOrigin.allowed, true);
+  assert.equal(sameOrigin.responseOrigin, undefined);
+
+  const spoofedSameOrigin = evaluateApiOriginPolicy({
+    method: "POST",
+    origin: "https://attacker.example",
+    fetchSite: "same-origin",
+    requestOrigin: "https://app.example.com",
+  });
+  assert.equal(spoofedSameOrigin.allowed, false);
+  assert.equal(spoofedSameOrigin.responseOrigin, undefined);
+
+  const configuredCrossOrigin = evaluateApiOriginPolicy({
+    method: "POST",
+    origin: "https://ops.example.com",
+    fetchSite: "cross-site",
+    allowedOrigins: "https://ops.example.com",
+  });
+  assert.equal(configuredCrossOrigin.responseOrigin, "https://ops.example.com");
+});
+
+test("security defaults block inline scripts and fail closed", () => {
+  const policy = buildContentSecurityPolicy("test-nonce");
+  assert.match(policy, /script-src 'self' 'nonce-test-nonce'/);
+  assert.match(policy, /script-src-attr 'none'/);
+  assert.doesNotMatch(policy, /script-src[^;]*unsafe-inline/);
+  assert.equal(GOOGLE_SHEET_VALUE_INPUT_OPTION, "RAW");
+  assert.equal(
+    resolveRateLimit(0, DEFAULT_API_RATE_LIMIT_PER_MINUTE),
+    DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+  );
+  assert.equal(
+    resolveRateLimit("invalid", DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE),
+    DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
   );
 });
 

@@ -3,6 +3,7 @@ import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useLocationStore } from "~/stores/locations";
 import type {
   ShopifyInventoryLevel,
+  ShopifyNumericId,
   ShopifyProductImage,
   ShopifyVariant,
 } from "~~/types/shopify";
@@ -60,10 +61,10 @@ export function useProductOperations() {
     const result = await run("Failed to load product operations.", async () => {
       const auth = authBody();
       return Promise.all([
-        $fetch<ProductVariantsResponse>(
-          `/api/product/${productId}/variant/all`,
-          { method: "POST", body: auth },
-        ),
+        $fetch<ProductVariantsResponse>(`/api/product/${productId}/variant/all`, {
+          method: "POST",
+          body: auth,
+        }),
         $fetch<ProductImagesResponse>(`/api/product/${productId}/image/all`, {
           method: "POST",
           body: auth,
@@ -82,10 +83,10 @@ export function useProductOperations() {
     variant: ShopifyVariantInput,
   ) {
     return run("Failed to create variant.", () =>
-      $fetch<ProductVariantsResponse>(
-        `/api/product/${productId}/variant/create`,
-        { method: "POST", body: { ...authBody(), variant } },
-      ),
+      $fetch<ProductVariantsResponse>(`/api/product/${productId}/variant/create`, {
+        method: "POST",
+        body: { ...authBody(), variant },
+      }),
     );
   }
 
@@ -96,17 +97,14 @@ export function useProductOperations() {
   ) {
     const path: string = `/api/product/${productId}/variant/${variantId}`;
     return run("Failed to update variant.", () =>
-      $fetch<ProductVariantsResponse>(
-        path,
-        { method: "PUT", body: { ...authBody(), variant } },
-      ),
+      $fetch<ProductVariantsResponse>(path, {
+        method: "PUT",
+        body: { ...authBody(), variant },
+      }),
     );
   }
 
-  async function deleteVariant(
-    productId: string | number,
-    variantId: string | number,
-  ) {
+  async function deleteVariant(productId: string | number, variantId: string | number) {
     const path: string = `/api/product/${productId}/variant/${variantId}`;
     return run("Failed to delete variant.", () =>
       $fetch<unknown, string>(path, {
@@ -121,10 +119,10 @@ export function useProductOperations() {
     image: ShopifyProductImageInput,
   ) {
     return run("Failed to create product image.", () =>
-      $fetch<ProductImagesResponse>(
-        `/api/product/${productId}/image/create`,
-        { method: "POST", body: { ...authBody(), image } },
-      ),
+      $fetch<ProductImagesResponse>(`/api/product/${productId}/image/create`, {
+        method: "POST",
+        body: { ...authBody(), image },
+      }),
     );
   }
 
@@ -135,17 +133,14 @@ export function useProductOperations() {
   ) {
     const path: string = `/api/product/${productId}/image/${imageId}`;
     return run("Failed to update product image.", () =>
-      $fetch<ProductImagesResponse>(
-        path,
-        { method: "PUT", body: { ...authBody(), image } },
-      ),
+      $fetch<ProductImagesResponse>(path, {
+        method: "PUT",
+        body: { ...authBody(), image },
+      }),
     );
   }
 
-  async function deleteImage(
-    productId: string | number,
-    imageId: string | number,
-  ) {
+  async function deleteImage(productId: string | number, imageId: string | number) {
     const path: string = `/api/product/${productId}/image/${imageId}`;
     return run("Failed to delete product image.", () =>
       $fetch<unknown, string>(path, {
@@ -156,8 +151,8 @@ export function useProductOperations() {
   }
 
   async function setInventory(
-    locationId: number,
-    inventoryItemId: number,
+    locationId: ShopifyNumericId,
+    inventoryItemId: ShopifyNumericId,
     available: number,
   ) {
     return run("Failed to set inventory.", async () => {
@@ -179,8 +174,8 @@ export function useProductOperations() {
   }
 
   async function adjustInventory(
-    locationId: number,
-    inventoryItemId: number,
+    locationId: ShopifyNumericId,
+    inventoryItemId: ShopifyNumericId,
     adjustment: number,
   ) {
     return run("Failed to adjust inventory.", async () => {

@@ -3,7 +3,11 @@ import {
   callShopifyApiWithResponse,
   createApiErrorFromMessage,
 } from "./callShopifyApi";
-import { getShopifyPageInfo, type ShopifyPageInfo } from "./shopify-pagination";
+import {
+  buildShopifyCursorPageParams,
+  getShopifyPageInfo,
+  type ShopifyPageInfo,
+} from "./shopify-pagination";
 
 type ShopifyQueryParams = Record<string, unknown>;
 
@@ -48,7 +52,7 @@ export async function* iterateShopifyPaginatedApi<TItem>({
   params = {},
   missingProxyMessage,
   mapItem = (item) => item as TItem,
-  preserveUnsafeIntegers = false,
+  preserveUnsafeIntegers = true,
   forwardResponseHeaders = true,
 }: CallShopifyPaginatedApiOptions<TItem>): AsyncGenerator<ShopifyPaginatedPage<TItem>> {
   const visitedCursors = new Set<string>();
@@ -92,9 +96,10 @@ export async function* iterateShopifyPaginatedApi<TItem>({
     }
 
     visitedCursors.add(pageInfo.nextCursor);
-    requestParams = {
-      page_info: pageInfo.nextCursor,
-      limit: MAX_PAGE_SIZE,
-    };
+    requestParams = buildShopifyCursorPageParams(
+      params,
+      pageInfo.nextCursor,
+      MAX_PAGE_SIZE,
+    );
   }
 }

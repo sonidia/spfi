@@ -6,6 +6,7 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import type { OrderManualPaymentInput } from "~~/types/shopify-order";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface ManualPaymentBody extends OrderManualPaymentInput {
   storeId?: string;
@@ -37,17 +38,18 @@ interface ManualPaymentData {
 }
 
 export default defineEventHandler(async (event) => {
-  const orderId = String(event.context.params?.id || "");
-  const body =
-    (await readBody<ManualPaymentBody>(event)) || ({} as ManualPaymentBody);
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
+  const body = (await readBody<ManualPaymentBody>(event)) || ({} as ManualPaymentBody);
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
   const amount = String(body.amount || "").trim();
-  const currency = String(body.currency || "").trim().toUpperCase();
+  const currency = String(body.currency || "")
+    .trim()
+    .toUpperCase();
   const paymentMethodName = String(body.paymentMethodName || "").trim();
   const processedAt = normalizeProcessedAt(body.processedAt);
 
-  if (!orderId || !storeId || !token) {
+  if (!storeId || !token) {
     throw createApiErrorFromMessage(
       "Order ID, Store ID and Access Token are required.",
       400,
@@ -60,10 +62,7 @@ export default defineEventHandler(async (event) => {
     );
   }
   if (!/^[A-Z]{3}$/.test(currency)) {
-    throw createApiErrorFromMessage(
-      "Currency must be a three-letter code.",
-      400,
-    );
+    throw createApiErrorFromMessage("Currency must be a three-letter code.", 400);
   }
 
   const variables: ManualPaymentVariables = {
@@ -72,10 +71,7 @@ export default defineEventHandler(async (event) => {
     ...(paymentMethodName ? { paymentMethodName } : {}),
     ...(processedAt ? { processedAt } : {}),
   };
-  const data = await callShopifyGraphql<
-    ManualPaymentData,
-    ManualPaymentVariables
-  >({
+  const data = await callShopifyGraphql<ManualPaymentData, ManualPaymentVariables>({
     event,
     storeId,
     token,

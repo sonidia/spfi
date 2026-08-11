@@ -1,13 +1,11 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  createApiError,
-  createApiErrorFromMessage,
-} from "../../utils/callShopifyApi";
+import { createApiError, createApiErrorFromMessage } from "../../utils/callShopifyApi";
 import {
   createGoogleSheetsClient,
   GOOGLE_SHEET_SCOPES,
   requireSpreadsheetId,
 } from "../../utils/google-sheet-client";
+import { GOOGLE_SHEET_VALUE_INPUT_OPTION } from "../../utils/google-sheet-values";
 
 type SheetBody = {
   spreadsheetId?: string;
@@ -21,10 +19,7 @@ export default defineEventHandler(async (event) => {
   const range = body.range;
 
   if (!range || !body.values) {
-    throw createApiErrorFromMessage(
-      "Missing spreadsheetId, range, or values.",
-      400,
-    );
+    throw createApiErrorFromMessage("Missing spreadsheetId, range, or values.", 400);
   }
 
   try {
@@ -32,7 +27,7 @@ export default defineEventHandler(async (event) => {
     const response = await sheets.spreadsheets.values.update({
       spreadsheetId,
       range,
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: GOOGLE_SHEET_VALUE_INPUT_OPTION,
       requestBody: {
         values: body.values,
       },

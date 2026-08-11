@@ -1,13 +1,11 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  createApiError,
-  createApiErrorFromMessage,
-} from "../../utils/callShopifyApi";
+import { createApiError, createApiErrorFromMessage } from "../../utils/callShopifyApi";
 import {
   createGoogleSheetsClient,
   GOOGLE_SHEET_SCOPES,
   requireSpreadsheetId,
 } from "../../utils/google-sheet-client";
+import { GOOGLE_SHEET_VALUE_INPUT_OPTION } from "../../utils/google-sheet-values";
 
 type BatchUpdateBody = {
   spreadsheetId?: string;
@@ -30,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const response = await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
       requestBody: {
-        valueInputOption: "USER_ENTERED",
+        valueInputOption: GOOGLE_SHEET_VALUE_INPUT_OPTION,
         data: body.data,
       },
     });
@@ -41,9 +39,6 @@ export default defineEventHandler(async (event) => {
       totalUpdatedRows: response.data.totalUpdatedRows,
     };
   } catch (error) {
-    throw createApiError(
-      error,
-      "Failed to batch update data via Google Sheet API.",
-    );
+    throw createApiError(error, "Failed to batch update data via Google Sheet API.");
   }
 });

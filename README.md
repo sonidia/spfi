@@ -70,9 +70,10 @@ NUXT_ALLOWED_ORIGINS=https://ops.example.com,https://admin.example.com
 ```
 
 Unsafe API methods reject requests without an `Origin` header unless the
-browser supplies `Sec-Fetch-Site: same-origin`. Host-header origin fallback is
-off in production; enable `NUXT_ALLOW_HOST_ORIGIN_FALLBACK=true` only for a
-known legacy local client.
+browser supplies `Sec-Fetch-Site: same-origin`. An Origin is reflected in CORS
+headers only when it is explicitly listed in `NUXT_ALLOWED_ORIGINS`.
+Host-header origin fallback is off in production; enable
+`NUXT_ALLOW_HOST_ORIGIN_FALLBACK=true` only for a known legacy local client.
 
 Copy `.env.example` to `.env` as a starting point.
 
@@ -153,8 +154,11 @@ them without changing source code:
 
 ```text
 NUXT_API_RATE_LIMIT_PER_MINUTE=600
-NUXT_TOKEN_RATE_LIMIT_PER_MINUTE=30
+NUXT_TOKEN_RATE_LIMIT_PER_MINUTE=10
 ```
+
+These fail-closed defaults apply even when the variables are omitted. Raise
+them deliberately for trusted high-volume deployments.
 
 Forwarded client IP headers are ignored by default. Set
 `NUXT_TRUST_PROXY_HEADERS=true` only behind a trusted reverse proxy that

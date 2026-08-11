@@ -1,25 +1,22 @@
 import { defineEventHandler, getRouterParam } from "h3";
-import {
-  callShopifyApi,
-} from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import {
   getShopifyQueryCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
-import type { OrderEventsResponse } from "~~/types/shopify";
+import type { ShopifyOrderEvent } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
-  const orderId = requireShopifyResourceId(
-    getRouterParam(event, "id"),
-    "Order",
-  );
+  const orderId = requireShopifyResourceId(getRouterParam(event, "id"), "Order");
   const { storeId, token } = getShopifyQueryCredentials(event);
 
-  return callShopifyApi<OrderEventsResponse>({
+  const events = await callShopifyPaginatedApi<ShopifyOrderEvent>({
     event,
     storeId,
     token,
     path: `/orders/${orderId}/events.json`,
-    params: { limit: 250 },
+    resourceKey: "events",
   });
+
+  return { events };
 });

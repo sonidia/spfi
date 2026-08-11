@@ -392,6 +392,7 @@ import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import type {
+  ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductInput,
   ShopifyProductStatus,
@@ -416,13 +417,13 @@ const {
   overscan: 6,
   defaultViewportHeight: 600,
 });
-const selectedProductId = ref<number | null>(null);
+const selectedProductId = ref<ShopifyNumericId | null>(null);
 const selectedProduct = computed(() => {
   return (
     products.value.find((product) => product.id === selectedProductId.value) || null
   );
 });
-const detailProductId = ref<number | null>(null);
+const detailProductId = ref<ShopifyNumericId | null>(null);
 const detailProduct = computed(() => {
   return products.value.find((product) => product.id === detailProductId.value) || null;
 });
@@ -430,7 +431,7 @@ const detailProduct = computed(() => {
 // ── Local state for modals ──
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
-const publishingProductId = ref<number | null>(null);
+const publishingProductId = ref<ShopifyNumericId | null>(null);
 
 const newProduct = ref<ShopifyProductInput>({
   title: "",
@@ -443,7 +444,7 @@ const newProduct = ref<ShopifyProductInput>({
 });
 
 const editProduct = ref({
-  id: null as number | null,
+  id: null as ShopifyNumericId | null,
   title: "",
   body_html: "",
   vendor: "",
@@ -589,7 +590,7 @@ async function toggleProductPublication(prod: ShopifyProduct) {
   }
 }
 
-async function removeProduct(prodId: number) {
+async function removeProduct(prodId: ShopifyNumericId) {
   if (
     !(await requestConfirmation({
       title: t("confirm.deleteTitle"),

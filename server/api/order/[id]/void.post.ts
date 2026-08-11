@@ -6,6 +6,7 @@ import {
 } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import type { OrderVoidInput } from "~~/types/shopify-order";
+import { requireShopifyResourceId } from "~~/server/utils/shopify-admin-request";
 
 interface VoidBody extends OrderVoidInput {
   storeId?: string;
@@ -29,23 +30,20 @@ interface VoidData {
 }
 
 export default defineEventHandler(async (event) => {
-  const orderId = String(event.context.params?.id || "");
+  requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<VoidBody>(event)) || ({} as VoidBody);
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");
   const parentTransactionId = String(body.parentTransactionId || "").trim();
 
-  if (!orderId || !storeId || !token || !parentTransactionId) {
+  if (!storeId || !token || !parentTransactionId) {
     throw createApiErrorFromMessage(
       "Order ID, Store ID, Access Token and parent transaction are required.",
       400,
     );
   }
 
-  const data = await callShopifyGraphql<
-    VoidData,
-    { parentTransactionId: string }
-  >({
+  const data = await callShopifyGraphql<VoidData, { parentTransactionId: string }>({
     event,
     storeId,
     token,
@@ -69,10 +67,7 @@ export default defineEventHandler(async (event) => {
       }
     `,
     variables: {
-      parentTransactionId: toShopifyGid(
-        "OrderTransaction",
-        parentTransactionId,
-      ),
+      parentTransactionId: toShopifyGid("OrderTransaction", parentTransactionId),
     },
   });
 

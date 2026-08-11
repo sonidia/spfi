@@ -1,3 +1,8 @@
+import {
+  DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+  DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
+} from "./server/utils/rate-limit-policy";
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
@@ -6,8 +11,7 @@ export default defineNuxtConfig({
     head: {
       script: [
         {
-          innerHTML:
-            '(function(){try{var key="spf_theme";var stored=localStorage.getItem(key);var theme=stored==="dark"||stored==="light"?stored:(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}catch(error){}})();',
+          src: "/theme-bootstrap.js",
         },
       ],
     },
@@ -21,10 +25,9 @@ export default defineNuxtConfig({
     allowPrivateProxyHosts: false,
     debugProxyEnabled: process.env.NODE_ENV !== "production",
     debugProxyAllowedHosts: "httpbin.org,api.ipify.org",
-    // Disabled by default so Shopify's app/store-specific throttle remains the
-    // source of truth. Deployments can opt in through matching NUXT_* env vars.
-    apiRateLimitPerMinute: 0,
-    tokenRateLimitPerMinute: 0,
+    // Fail closed when no deployment-specific limits are configured.
+    apiRateLimitPerMinute: DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+    tokenRateLimitPerMinute: DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
   },
   nitro: {
     externals: {

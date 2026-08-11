@@ -4,18 +4,12 @@ import { ref } from "vue";
 import { usePerStoreCache } from "../app/composables/usePerStoreCache.ts";
 import { fmtMoney, formatMoneyInput } from "../utils/order.ts";
 import { buildOrderTransactionStatusMap } from "../utils/payment-transactions.ts";
-import {
-  getStoreTokenState,
-  resolveStoreAccessToken,
-} from "../utils/shop-auth.ts";
+import { getStoreTokenState, resolveStoreAccessToken } from "../utils/shop-auth.ts";
 
 test("store token resolver applies one expiry policy", () => {
   const now = 10_000;
   assert.equal(getStoreTokenState({}, now), "missing");
-  assert.equal(
-    getStoreTokenState({ accessToken: "legacy-token" }, now),
-    "valid",
-  );
+  assert.equal(getStoreTokenState({ accessToken: "legacy-token" }, now), "valid");
   assert.equal(
     getStoreTokenState({ accessToken: "expired", expiresTime: now }, now),
     "expired",
@@ -32,8 +26,8 @@ test("store token resolver applies one expiry policy", () => {
 test("money formatting honors ISO currency fraction digits", () => {
   assert.equal(formatMoneyInput(1234.4, "JPY"), "1234");
   assert.equal(formatMoneyInput(1.2344, "KWD"), "1.234");
-  assert.match(fmtMoney(1234, "JPY"), /1,234/);
-  assert.match(fmtMoney(1.234, "KWD"), /1\.234/);
+  assert.equal(fmtMoney(1234, "JPY"), "JPY 1,234");
+  assert.equal(fmtMoney(1.234, "KWD"), "KWD 1.234");
 });
 
 test("transaction status lookup uses an order-indexed map", () => {

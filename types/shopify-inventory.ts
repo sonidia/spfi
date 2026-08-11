@@ -1,15 +1,15 @@
-import type { ShopifyInventoryLevel } from "./shopify";
+import type { ShopifyInventoryLevel, ShopifyNumericId } from "./shopify";
 
 export interface ShopifyInventorySetInput {
-  location_id: number;
-  inventory_item_id: number;
+  location_id: ShopifyNumericId;
+  inventory_item_id: ShopifyNumericId;
   available: number;
   disconnect_if_necessary?: boolean;
 }
 
 export interface ShopifyInventoryAdjustInput {
-  location_id: number;
-  inventory_item_id: number;
+  location_id: ShopifyNumericId;
+  inventory_item_id: ShopifyNumericId;
   available_adjustment: number;
 }
 

@@ -1,5 +1,9 @@
 const SHOPIFY_RECOMMENDED_BACKOFF_MS = 1_000;
 const THROTTLE_STATE_TTL_MS = 5 * 60_000;
+const REST_BUCKET_DRAIN_SECONDS = 20;
+const REST_BACKOFF_THRESHOLD = 0.8;
+const REST_BACKOFF_TARGET = 0.75;
+export const MAX_SHOPIFY_THROTTLE_WAIT_MS = 30_000;
 
 interface ShopifyThrottleGate {
   blockedUntil: number;
@@ -77,6 +81,46 @@ export function parseRetryAfterMs(value: unknown, now = Date.now()) {
   return Math.max(1, retryAt - now);
 }
 
+export function capShopifyThrottleDelayMs(delayMs: number) {
+  return Math.min(MAX_SHOPIFY_THROTTLE_WAIT_MS, Math.max(1, Math.ceil(delayMs)));
+}
+
+export function parseShopifyRestCallLimit(value: unknown) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const match = String(rawValue ?? "")
+    .trim()
+    .match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (!match) return null;
+
+  const used = Number(match[1]);
+  const total = Number(match[2]);
+  if (
+    !Number.isSafeInteger(used) ||
+    !Number.isSafeInteger(total) ||
+    used < 0 ||
+    total <= 0 ||
+    used > total
+  ) {
+    return null;
+  }
+
+  return { used, total, remaining: total - used };
+}
+
+export function getRestCallLimitDelayMs(value: unknown) {
+  const limit = parseShopifyRestCallLimit(value);
+  if (!limit || limit.used / limit.total < REST_BACKOFF_THRESHOLD) return null;
+
+  // Shopify REST buckets scale their capacity and leak rate together. Draining
+  // from the current utilization to 75% leaves headroom for parallel callers.
+  const targetUsed = Math.floor(limit.total * REST_BACKOFF_TARGET);
+  const leakRatePerSecond = limit.total / REST_BUCKET_DRAIN_SECONDS;
+  return Math.max(
+    1,
+    Math.ceil(((limit.used - targetUsed) / leakRatePerSecond) * 1_000),
+  );
+}
+
 export function getGraphqlThrottleDelayMs(
   extensions?: ShopifyGraphqlExtensions,
   retryAfter?: unknown,
@@ -103,15 +147,12 @@ export function isGraphqlThrottled(
 ) {
   return Boolean(
     errors?.some(
-      (error) =>
-        String(error.extensions?.code || "").toUpperCase() === "THROTTLED",
+      (error) => String(error.extensions?.code || "").toUpperCase() === "THROTTLED",
     ),
   );
 }
 
-export function getGraphqlThrottleStatus(
-  extensions?: ShopifyGraphqlExtensions,
-) {
+export function getGraphqlThrottleStatus(extensions?: ShopifyGraphqlExtensions) {
   const status = extensions?.cost?.throttleStatus;
   if (!status) return null;
 
