@@ -1,5 +1,6 @@
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useCustomerStore } from "~/stores/customers";
+import { useCommerceOpsStore } from "~/stores/commerceOps";
 import { useDataRetentionStore } from "~/stores/dataRetention";
 import { useFormStore } from "~/stores/form";
 import { useLocationStore } from "~/stores/locations";
@@ -28,6 +29,7 @@ const TAB_RESOURCES: Record<StoreTab, StoreDataResource[]> = {
   orders: ["orders", "payment"],
   products: ["products", "locations"],
   customers: ["customers"],
+  operations: ["commerceOps"],
   profile: ["profile", "payment", "orders"],
 };
 
@@ -36,6 +38,7 @@ export function useStoreTabData() {
   const credentialVault = useCredentialVaultStore();
   const dataRetention = useDataRetentionStore();
   const customerStore = useCustomerStore();
+  const commerceOpsStore = useCommerceOpsStore();
   const locationStore = useLocationStore();
   const orderStore = useOrderStore();
   const paymentStore = usePaymentStore();
@@ -64,6 +67,7 @@ export function useStoreTabData() {
     if (expiredSet.has("products")) productStore.evictStore(storeId);
     if (expiredSet.has("locations")) locationStore.evictStore(storeId);
     if (expiredSet.has("customers")) customerStore.evictStore(storeId);
+    if (expiredSet.has("commerceOps")) commerceOpsStore.evictStore(storeId);
     if (expiredSet.has("profile")) profileStore.evictStore(storeId);
     for (const resource of expired) forgetStoreResource(storeId, resource);
   }
@@ -74,6 +78,7 @@ export function useStoreTabData() {
     productStore.hydrate(storeId);
     locationStore.hydrate(storeId);
     customerStore.hydrate(storeId);
+    commerceOpsStore.hydrate(storeId);
     profileStore.hydrate(storeId);
   }
 
@@ -84,6 +89,7 @@ export function useStoreTabData() {
       productStore.isStoreActive(storeId) &&
       locationStore.isStoreActive(storeId) &&
       customerStore.isStoreActive(storeId) &&
+      commerceOpsStore.isStoreActive(storeId) &&
       profileStore.isStoreActive(storeId);
 
     if (!isCurrentStore) hydrateStoreData(storeId);
@@ -110,6 +116,8 @@ export function useStoreTabData() {
       productStore.error = message;
     } else if (tab === "customers") {
       customerStore.error = message;
+    } else if (tab === "operations") {
+      commerceOpsStore.mutationError = message;
     } else {
       profileStore.error = message;
     }
@@ -210,6 +218,17 @@ export function useStoreTabData() {
       }
       if (!customerStore.error) markResourceLoaded(storeId, "customers");
       return !customerStore.error;
+    }
+
+    if (tab === "operations") {
+      const operationsForce = force || isResourceExpired(storeId, "commerceOps");
+      if (operationsForce || !commerceOpsStore.hasLoaded) {
+        await commerceOpsStore.loadAll(storeId, token, operationsForce);
+      }
+      if (commerceOpsStore.availableResourceCount > 0) {
+        markResourceLoaded(storeId, "commerceOps");
+      }
+      return commerceOpsStore.availableResourceCount > 0;
     }
 
     const requests: Promise<unknown>[] = [];

@@ -13,19 +13,48 @@ import {
 } from "~~/utils/order";
 import { getSafeExternalUrl } from "~~/utils/safe-url";
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     orders: ShopifyOrder[];
     trackingActions?: boolean;
+    selectable?: boolean;
+    selectedOrderIds?: string[];
   }>(),
-  { trackingActions: false },
+  { trackingActions: false, selectable: false, selectedOrderIds: () => [] },
 );
+
+const emit = defineEmits<{
+  "update:selectedOrderIds": [value: string[]];
+}>();
 
 const router = useRouter();
 const route = useRoute();
 const { t } = useLocalization();
 const { processingOrderId, canAddTracking, getTransactionStatus, addTracking } =
   useAutomaticTracking();
+const selectedSet = computed(() => new Set(props.selectedOrderIds));
+const isAllSelected = computed(
+  () =>
+    props.orders.length > 0 &&
+    props.orders.every((order) => selectedSet.value.has(String(order.id))),
+);
+
+function toggleOrder(orderId: string | number, checked: boolean) {
+  const next = new Set(props.selectedOrderIds);
+  if (checked) next.add(String(orderId));
+  else next.delete(String(orderId));
+  emit("update:selectedOrderIds", [...next]);
+}
+
+function toggleAll(checked: boolean) {
+  const visible = new Set(props.orders.map((order) => String(order.id)));
+  const next = new Set(props.selectedOrderIds);
+  for (const id of visible) {
+    if (checked) next.add(id);
+    else next.delete(id);
+  }
+  emit("update:selectedOrderIds", [...next]);
+}
 
 function orderLocation(orderId: number | string) {
   return {
@@ -44,6 +73,14 @@ function statusLabel(category: string, status: string) {
     <table class="orders-table">
       <thead>
         <tr>
+          <th v-if="selectable" class="select-column">
+            <input
+              type="checkbox"
+              :checked="isAllSelected"
+              aria-label="Select all visible orders"
+              @change="toggleAll(($event.target as HTMLInputElement).checked)"
+            />
+          </th>
           <th>{{ t("order.columnOrder") }}</th>
           <th>{{ t("order.columnDate") }}</th>
           <th>{{ t("order.columnCustomer") }}</th>
@@ -61,6 +98,16 @@ function statusLabel(category: string, status: string) {
           class="order-row"
           @click="router.push(orderLocation(order.id))"
         >
+          <td v-if="selectable" class="select-column" @click.stop>
+            <input
+              type="checkbox"
+              :checked="selectedSet.has(String(order.id))"
+              :aria-label="`Select ${nilVal(order.name, `#${order.order_number}`)}`"
+              @change="
+                toggleOrder(order.id, ($event.target as HTMLInputElement).checked)
+              "
+            />
+          </td>
           <td>
             <NuxtLink :to="orderLocation(order.id)" class="order-link" @click.stop>
               {{ nilVal(order.name, `#${order.order_number}`) }}
@@ -251,6 +298,19 @@ function statusLabel(category: string, status: string) {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+}
+
+.orders-table .select-column {
+  width: 42px;
+  padding-right: 4px;
+  text-align: center;
+}
+
+.select-column input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+  cursor: pointer;
 }
 
 .orders-table th {

@@ -7,18 +7,18 @@ Assessment API instead.
 
 ## Order operations
 
-| Capability | Internal endpoint | Shopify operation |
-| --- | --- | --- |
-| List | `POST /api/order/all` | `GET /orders.json` |
-| Get | `GET /api/order/:id` | `GET /orders/:id.json` |
-| Count | `POST /api/order/count` | `GET /orders/count.json` |
-| Create | `POST /api/order` | `POST /orders.json` |
-| Update | `PUT /api/order/:id` | `PUT /orders/:id.json` |
-| Delete | `DELETE /api/order/:id` | `DELETE /orders/:id.json` |
-| Cancel | `POST /api/order/:id/cancel` | `POST /orders/:id/cancel.json` |
-| Close | `POST /api/order/:id/close` | `POST /orders/:id/close.json` |
-| Re-open | `POST /api/order/:id/open` | `POST /orders/:id/open.json` |
-| Timeline | `GET /api/order/:id/events` | `GET /orders/:id/events.json` |
+| Capability | Internal endpoint            | Shopify operation              |
+| ---------- | ---------------------------- | ------------------------------ |
+| List       | `POST /api/order/all`        | `GET /orders.json`             |
+| Get        | `GET /api/order/:id`         | `GET /orders/:id.json`         |
+| Count      | `POST /api/order/count`      | `GET /orders/count.json`       |
+| Create     | `POST /api/order`            | `POST /orders.json`            |
+| Update     | `PUT /api/order/:id`         | `PUT /orders/:id.json`         |
+| Delete     | `DELETE /api/order/:id`      | `DELETE /orders/:id.json`      |
+| Cancel     | `POST /api/order/:id/cancel` | `POST /orders/:id/cancel.json` |
+| Close      | `POST /api/order/:id/close`  | `POST /orders/:id/close.json`  |
+| Re-open    | `POST /api/order/:id/open`   | `POST /orders/:id/open.json`   |
+| Timeline   | `GET /api/order/:id/events`  | `GET /orders/:id/events.json`  |
 
 List and count filters are allow-listed in
 `server/utils/shopify-order-query.ts`. The list limit is clamped to Shopify's
@@ -30,10 +30,10 @@ There are no documented `/orders/archived.json`, `/archive.json`, or
 
 ## Risk assessments
 
-| Capability | Internal endpoint | Shopify GraphQL operation |
-| --- | --- | --- |
-| Read | `GET /api/order/:id/risk-assessments` | `order(id).risk` |
-| Create | `POST /api/order/:id/risk-assessments` | `orderRiskAssessmentCreate` |
+| Capability | Internal endpoint                      | Shopify GraphQL operation   |
+| ---------- | -------------------------------------- | --------------------------- |
+| Read       | `GET /api/order/:id/risk-assessments`  | `order(id).risk`            |
+| Create     | `POST /api/order/:id/risk-assessments` | `orderRiskAssessmentCreate` |
 
 The replacement `OrderRiskAssessment` type is immutable and has no public ID,
 so the current GraphQL API has no supported single-read, update, or delete
@@ -45,12 +45,12 @@ access. `orderRiskAssessmentCreate` requires an offline access token.
 
 ## Payments and refunds
 
-| Capability | Internal endpoint | Shopify GraphQL operation |
-| --- | --- | --- |
-| Capture authorized funds | `POST /api/order/:id/capture` | `orderCapture` |
-| Record an offline payment | `POST /api/order/:id/mark-paid` | `orderMarkAsPaid` |
-| Partial line-item refund | `POST /api/order/:id/refund` | `refundCreate` |
-| List refund history | `GET /api/order/:id/refunds` | `GET /orders/:id/refunds.json` |
+| Capability                | Internal endpoint               | Shopify GraphQL operation      |
+| ------------------------- | ------------------------------- | ------------------------------ |
+| Capture authorized funds  | `POST /api/order/:id/capture`   | `orderCapture`                 |
+| Record an offline payment | `POST /api/order/:id/mark-paid` | `orderMarkAsPaid`              |
+| Partial line-item refund  | `POST /api/order/:id/refund`    | `refundCreate`                 |
+| List refund history       | `GET /api/order/:id/refunds`    | `GET /orders/:id/refunds.json` |
 
 Capture accepts the authorization transaction, amount, currency, and final
 capture flag. Refunds require explicit line item quantities and a successful
@@ -59,11 +59,27 @@ failed retry; `refundCreate` requires the `@idempotent` directive in API
 versions 2026-04 and later. Refund history supports Shopify's documented
 `fields`, `in_shop_currency`, and `limit` query parameters.
 
+## Bulk operations
+
+`POST /api/order/bulk` coordinates `capture`, `fulfill`, or `refund` for up to
+25 unique order IDs. Work is intentionally limited to two concurrent Shopify
+requests and returns one result per order, so a failed order does not hide or
+roll back successful orders.
+
+- Capture uses the remaining amount on a successful authorization.
+- Fulfill submits every currently open fulfillment-order line item and can
+  optionally notify the customer.
+- Refund returns the remaining paid amount across eligible transactions and
+  uses `NO_RESTOCK`. Inventory-return workflows stay in the Returns workspace.
+
+The UI filters out obviously ineligible rows, but the server always re-reads
+Shopify state before mutating because order status can change after selection.
+
 ## Order editing
 
-| Capability | Internal endpoint | Shopify GraphQL operation |
-| --- | --- | --- |
-| Start edit session | `POST /api/order/:id/edit/begin` | `orderEditBegin` |
+| Capability                                           | Internal endpoint                 | Shopify GraphQL operation                                           |
+| ---------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------- |
+| Start edit session                                   | `POST /api/order/:id/edit/begin`  | `orderEditBegin`                                                    |
 | Stage quantity/removal, add custom items, and commit | `POST /api/order/:id/edit/commit` | `orderEditSetQuantity`, `orderEditAddCustomItem`, `orderEditCommit` |
 
 The editor uses Shopify-calculated line item IDs returned by `orderEditBegin`.
@@ -80,12 +96,12 @@ fulfilled quantities.
 
 ## Fulfillment operations
 
-| Capability | Internal endpoint | Shopify operation |
-| --- | --- | --- |
-| Read fulfillment orders | `GET /api/order/:id/fulfillment_orders` | REST fulfillment orders |
-| List fulfillment history | `GET /api/order/:id/fulfillments` | `GET /orders/:id/fulfillments.json` |
-| Full or partial fulfillment | `POST /api/order/:id/fulfill` | GraphQL `fulfillmentCreate` |
-| Cancel fulfillment | `POST /api/fulfillments/:id/cancel` | GraphQL `fulfillmentCancel` |
+| Capability                  | Internal endpoint                       | Shopify operation                   |
+| --------------------------- | --------------------------------------- | ----------------------------------- |
+| Read fulfillment orders     | `GET /api/order/:id/fulfillment_orders` | REST fulfillment orders             |
+| List fulfillment history    | `GET /api/order/:id/fulfillments`       | `GET /orders/:id/fulfillments.json` |
+| Full or partial fulfillment | `POST /api/order/:id/fulfill`           | GraphQL `fulfillmentCreate`         |
+| Cancel fulfillment          | `POST /api/fulfillments/:id/cancel`     | GraphQL `fulfillmentCancel`         |
 
 Partial fulfillment requests are validated against the order's current open
 fulfillment orders and fulfillable quantities. Numeric REST IDs are parsed

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Command } from "@lucide/vue";
 const route = useRoute();
 const isScrolled = ref(false);
 const { t } = useLocalization();
@@ -14,10 +13,6 @@ function withActiveShop(path: string) {
 function updateScrollState() {
   isScrolled.value =
     window.scrollY > 0 || Number(pageScrollContainer?.scrollTop || 0) > 0;
-}
-
-function openCommandPalette() {
-  window.dispatchEvent(new Event("spf:open-command-palette"));
 }
 
 onMounted(() => {

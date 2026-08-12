@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 
 const orderStore = useOrderStore();
 const { storeId, token, isReady } = useActiveShopAuth();
 const { t } = useLocalization();
 const isCreateOpen = ref(false);
+const selectedOrderIds = ref<string[]>([]);
+
+watch(storeId, () => {
+  selectedOrderIds.value = [];
+});
 async function refreshCount() {
   if (!isReady.value) return;
   await orderStore.fetchCount(storeId.value, token.value, { status: "any" });
 }
 
 function changePage(page: number) {
+  selectedOrderIds.value = [];
   return orderStore.fetchPage(storeId.value, token.value, page);
 }
 
 function changePageSize(pageSize: number) {
+  selectedOrderIds.value = [];
   return orderStore.changePageSize(storeId.value, token.value, pageSize);
 }
 </script>
@@ -47,10 +54,19 @@ function changePageSize(pageSize: number) {
       {{ orderStore.error }}
     </div>
     <template v-else>
+      <OrderBulkActions
+        v-if="orderStore.orders.length"
+        :orders="orderStore.orders"
+        :selected-order-ids="selectedOrderIds"
+        @update:selected-order-ids="selectedOrderIds = $event"
+      />
       <OrderOrdersTable
         v-if="orderStore.orders.length"
         :orders="orderStore.orders"
         tracking-actions
+        selectable
+        :selected-order-ids="selectedOrderIds"
+        @update:selected-order-ids="selectedOrderIds = $event"
       />
       <PaginationControls
         v-if="orderStore.orders.length"

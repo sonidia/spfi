@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
 
@@ -9,12 +9,19 @@ const orderStore = useOrderStore();
 const { storeId, token } = useActiveShopAuth();
 const { t } = useLocalization();
 const orders = computed(() => orderStore.orders);
+const selectedOrderIds = ref<string[]>([]);
+
+watch(storeId, () => {
+  selectedOrderIds.value = [];
+});
 
 function changePage(page: number) {
+  selectedOrderIds.value = [];
   return orderStore.fetchPage(storeId.value, token.value, page);
 }
 
 function changePageSize(pageSize: number) {
+  selectedOrderIds.value = [];
   return orderStore.changePageSize(storeId.value, token.value, pageSize);
 }
 </script>
@@ -38,7 +45,17 @@ function changePageSize(pageSize: number) {
           <CsvExportButton resource="orders" />
         </div>
         <div v-if="orders.length" class="card table-card">
-          <OrderOrdersTable :orders="orders" />
+          <OrderBulkActions
+            :orders="orders"
+            :selected-order-ids="selectedOrderIds"
+            @update:selected-order-ids="selectedOrderIds = $event"
+          />
+          <OrderOrdersTable
+            :orders="orders"
+            selectable
+            :selected-order-ids="selectedOrderIds"
+            @update:selected-order-ids="selectedOrderIds = $event"
+          />
           <PaginationControls
             :page="orderStore.currentPage"
             :page-size="orderStore.pageSize"

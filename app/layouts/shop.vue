@@ -6,6 +6,7 @@ import { resolveStoreTab } from "~~/types/store";
 import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { useLoading } from "../composables/useLoading";
 import { useCustomerStore } from "../stores/customers";
+import { useCommerceOpsStore } from "../stores/commerceOps";
 import { useFormStore } from "../stores/form";
 import { useOrderStore } from "../stores/order";
 import { usePaymentStore } from "../stores/payment";
@@ -17,6 +18,7 @@ const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 const credentialVault = useCredentialVaultStore();
 const customerStore = useCustomerStore();
+const commerceOpsStore = useCommerceOpsStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
 const productStore = useProductStore();
@@ -64,6 +66,7 @@ const isFetching = computed(() => {
     if (route.query.tab === "customers") {
       return customerStore.isLoading || customerStore.isLoadingDetail;
     }
+    if (route.query.tab === "operations") return commerceOpsStore.isLoading;
     if (route.query.tab === "profile") {
       return (
         shopProfileStore.isLoading || paymentStore.isLoading || orderStore.isLoading

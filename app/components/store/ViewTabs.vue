@@ -117,6 +117,17 @@ function moveFocus(event: KeyboardEvent) {
       <IconsUsers />
       {{ t("store.tabCustomers") }}
     </button>
+    <button
+      class="tab-btn"
+      :class="{ active: activeTab === 'operations' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'operations'"
+      @click="selectTab('operations')"
+    >
+      <IconsSync />
+      Operations
+    </button>
     <!-- <span class="active-view-label">{{ activeLabel }}</span> -->
   </div>
 </template>

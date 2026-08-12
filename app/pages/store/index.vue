@@ -109,6 +109,8 @@
 
         <StoreCustomersTab v-else-if="activeTab === 'customers'" />
 
+        <OperationsWorkspace v-else-if="activeTab === 'operations'" />
+
         <StoreProfileTab v-else-if="activeTab === 'profile'" />
       </div>
     </section>
@@ -123,6 +125,7 @@ import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCustomerStore } from "~/stores/customers";
+import { useCommerceOpsStore } from "~/stores/commerceOps";
 import { useFormStore } from "~/stores/form";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
@@ -134,6 +137,7 @@ definePageMeta({ layout: false });
 
 const formStore = useFormStore();
 const customerStore = useCustomerStore();
+const commerceOpsStore = useCommerceOpsStore();
 const orderStore = useOrderStore();
 const paymentStore = usePaymentStore();
 const productStore = useProductStore();
@@ -201,6 +205,7 @@ const activeTabError = computed(() => {
   if (activeTab.value === "orders") return orderStore.error;
   if (activeTab.value === "products") return productStore.error;
   if (activeTab.value === "customers") return customerStore.error;
+  if (activeTab.value === "operations") return commerceOpsStore.mutationError;
   return profileStore.error;
 });
 
@@ -213,6 +218,7 @@ const activeTabLabel = computed(
       orders: t("store.salesConnected"),
       products: t("store.catalog"),
       customers: t("store.customerDirectory"),
+      operations: "Commerce operations",
       profile: t("store.profileDetails"),
     })[activeTab.value],
 );

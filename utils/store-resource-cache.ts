@@ -3,16 +3,14 @@ export type StoreDataResource =
   | "disputes"
   | "locations"
   | "orders"
+  | "commerceOps"
   | "payment"
   | "products"
   | "profile";
 
 const resourceLoadedAt = new Map<string, number>();
 
-export function getStoreResourceLoadedAt(
-  storeId: string,
-  resource: StoreDataResource,
-) {
+export function getStoreResourceLoadedAt(storeId: string, resource: StoreDataResource) {
   return resourceLoadedAt.get(cacheKey(storeId, resource));
 }
 
@@ -24,10 +22,7 @@ export function markStoreResourceLoaded(
   resourceLoadedAt.set(cacheKey(storeId, resource), loadedAt);
 }
 
-export function forgetStoreResource(
-  storeId: string,
-  resource: StoreDataResource,
-) {
+export function forgetStoreResource(storeId: string, resource: StoreDataResource) {
   resourceLoadedAt.delete(cacheKey(storeId, resource));
 }
 

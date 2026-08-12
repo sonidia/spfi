@@ -5,6 +5,7 @@ export type StoreTab =
   | "orders"
   | "products"
   | "customers"
+  | "operations"
   | "profile";
 
 export const DEFAULT_STORE_TAB: StoreTab = "transactions";
@@ -16,6 +17,7 @@ export const STORE_TABS: readonly StoreTab[] = [
   "orders",
   "products",
   "customers",
+  "operations",
   "profile",
 ];
 

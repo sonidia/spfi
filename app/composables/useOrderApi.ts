@@ -33,6 +33,7 @@ import type {
   ShopifyOrderRiskAssessment,
   ShopifyRiskFact,
 } from "~~/types/shopify-order";
+import type { OrderBulkAction, OrderBulkResponse } from "~~/types/shopify-operations";
 
 interface OrderAuth {
   storeId: string;
@@ -280,6 +281,18 @@ export function useOrderApi() {
     );
   }
 
+  function bulk(
+    auth: OrderAuth,
+    action: OrderBulkAction,
+    orderIds: Array<string | number>,
+    notifyCustomer = false,
+  ) {
+    return $fetch<OrderBulkResponse>("/api/order/bulk", {
+      method: "POST",
+      body: { ...auth, action, orderIds, notifyCustomer },
+    });
+  }
+
   return {
     list,
     get,
@@ -308,5 +321,6 @@ export function useOrderApi() {
     cancelFulfillment,
     getRiskAssessments,
     createRiskAssessment,
+    bulk,
   };
 }
