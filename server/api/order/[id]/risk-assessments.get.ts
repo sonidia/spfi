@@ -1,8 +1,5 @@
 import { defineEventHandler } from "h3";
-import {
-  callShopifyGraphql,
-  toShopifyGid,
-} from "~~/server/utils/callShopifyGraphql";
+import { callShopifyGraphql, toShopifyGid } from "~~/server/utils/callShopifyGraphql";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import {
   getShopifyQueryCredentials,

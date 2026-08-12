@@ -17,21 +17,12 @@ interface ProductImageCreateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductImageCreateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const image = requireShopifyPayload<ShopifyProductImageInput>(
-    body.image,
-    "Image",
-  );
+  const image = requireShopifyPayload<ShopifyProductImageInput>(body.image, "Image");
 
-  return callShopifyApi<
-    ProductImagesResponse,
-    { image: ShopifyProductImageInput }
-  >({
+  return callShopifyApi<ProductImagesResponse, { image: ShopifyProductImageInput }>({
     event,
     storeId,
     token,

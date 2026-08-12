@@ -14,10 +14,7 @@ interface ProductVariantListBody extends Record<string, unknown> {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductVariantListBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 

@@ -3,11 +3,7 @@ import { History, RefreshCw } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderApi } from "~/composables/useOrderApi";
-import type {
-  ShopifyFulfillment,
-  ShopifyOrder,
-  ShopifyRefund,
-} from "~~/types/shopify";
+import type { ShopifyFulfillment, ShopifyOrder, ShopifyRefund } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
 
 const props = defineProps<{ order: ShopifyOrder }>();
@@ -135,17 +131,18 @@ function dateTime(value?: string) {
         </div>
         <div class="history-summary">
           <strong>{{ money(refundAmount(refund)) }}</strong>
-          <span>{{ refundQuantity(refund) }} item{{ refundQuantity(refund) === 1 ? "" : "s" }}</span>
+          <span
+            >{{ refundQuantity(refund) }} item{{
+              refundQuantity(refund) === 1 ? "" : "s"
+            }}</span
+          >
         </div>
       </article>
       <div v-if="!refunds.length" class="empty">No refunds recorded.</div>
     </div>
 
     <div v-else class="history-list">
-      <article
-        v-for="fulfillment in fulfillments"
-        :key="fulfillment.id"
-      >
+      <article v-for="fulfillment in fulfillments" :key="fulfillment.id">
         <div>
           <strong>{{ fulfillment.name || `Fulfillment #${fulfillment.id}` }}</strong>
           <span>{{ dateTime(fulfillment.created_at) }}</span>
@@ -157,8 +154,14 @@ function dateTime(value?: string) {
           </small>
         </div>
         <div class="history-summary">
-          <strong>{{ fulfillment.shipment_status || fulfillment.status || "unknown" }}</strong>
-          <span>{{ fulfillment.line_items?.length || 0 }} line{{ fulfillment.line_items?.length === 1 ? "" : "s" }}</span>
+          <strong>{{
+            fulfillment.shipment_status || fulfillment.status || "unknown"
+          }}</strong>
+          <span
+            >{{ fulfillment.line_items?.length || 0 }} line{{
+              fulfillment.line_items?.length === 1 ? "" : "s"
+            }}</span
+          >
         </div>
       </article>
       <div v-if="!fulfillments.length" class="empty">No fulfillments recorded.</div>
@@ -167,24 +170,101 @@ function dateTime(value?: string) {
 </template>
 
 <style scoped>
-.history-panel { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-header, .heading, .history-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-header { padding: 14px 16px; }
-.heading { justify-content: flex-start; }
-.heading > svg { width: 16px; color: var(--green); }
-.heading h2 { color: var(--text); font-size: 15px; }
-.heading p { margin-top: 2px; color: var(--text-sub); font-size: 11px; }
-.tabs { display: flex; gap: 4px; padding: 0 16px 10px; border-bottom: 1px solid var(--border); }
-.tabs button { border: 0; border-radius: 6px; padding: 7px 10px; background: transparent; color: var(--text-sub); cursor: pointer; font: inherit; font-size: 11px; font-weight: 600; }
-.tabs button.active { background: var(--green-soft); color: var(--green); }
-.history-list { display: grid; }
-.history-list article { padding: 11px 16px; border-bottom: 1px solid var(--border); }
-.history-list article:last-child { border-bottom: 0; }
-.history-list article > div { display: grid; gap: 2px; }
-.history-list strong { color: var(--text); font-size: 12px; }
-.history-list span, .history-list small { color: var(--text-sub); font-size: 11px; }
-.history-summary { text-align: right; }
-.history-summary > strong { color: var(--green); text-transform: capitalize; }
-.empty { padding: 24px 16px; color: var(--text-sub); text-align: center; font-size: 12px; }
-.history-error { padding: 10px 16px; background: var(--red-soft); color: var(--red); font-size: 12px; }
+.history-panel {
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+header,
+.heading,
+.history-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+header {
+  padding: 14px 16px;
+}
+.heading {
+  justify-content: flex-start;
+}
+.heading > svg {
+  width: 16px;
+  color: var(--green);
+}
+.heading h2 {
+  color: var(--text);
+  font-size: 15px;
+}
+.heading p {
+  margin-top: 2px;
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+.tabs button.active {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.history-list {
+  display: grid;
+}
+.history-list article {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.history-list article:last-child {
+  border-bottom: 0;
+}
+.history-list article > div {
+  display: grid;
+  gap: 2px;
+}
+.history-list strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.history-list span,
+.history-list small {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.history-summary {
+  text-align: right;
+}
+.history-summary > strong {
+  color: var(--green);
+  text-transform: capitalize;
+}
+.empty {
+  padding: 24px 16px;
+  color: var(--text-sub);
+  text-align: center;
+  font-size: 12px;
+}
+.history-error {
+  padding: 10px 16px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12px;
+}
 </style>

@@ -29,9 +29,7 @@ export function formatShopifyPaymentLabel(value: string | null | undefined) {
     .map((word, index) => {
       const known = PAYMENT_LABEL_WORDS[word];
       if (known) return known;
-      return index === 0
-        ? `${word.charAt(0).toUpperCase()}${word.slice(1)}`
-        : word;
+      return index === 0 ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word;
     })
     .join(" ");
 }

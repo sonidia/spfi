@@ -1,9 +1,9 @@
 <template>
-    <div class="default_layout_container">
-        <div class="page-content">
-            <slot />
-        </div>
+  <div class="default_layout_container">
+    <div class="page-content">
+      <slot />
     </div>
+  </div>
 </template>
 
 <style scoped>

@@ -8,30 +8,40 @@ import { fmtDateTime, fmtMoney } from "~~/utils/order";
 
 const store = useCommerceOpsStore();
 const { storeId, token } = useActiveShopAuth();
+const { t } = useLocalization();
 const feedback = useStoreFeedback();
 const { requestConfirmation } = useConfirmDialog();
 const isCreateOpen = ref(false);
 
 async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
   const messages: Record<DraftOrderAction, string> = {
-    complete:
-      "Complete this draft and mark it paid? Shopify will reserve inventory and create an order.",
-    invoice: `Send the secure invoice link to ${draft.email || "the draft customer"}?`,
-    delete: `Delete ${draft.name}? This cannot be undone.`,
+    complete: t("operations.draft.completeConfirm"),
+    invoice: t("operations.draft.invoiceConfirm", {
+      customer: draft.email || t("operations.draft.customerFallback"),
+    }),
+    delete: t("operations.draft.deleteConfirm", { name: draft.name }),
+  };
+  const labels: Record<DraftOrderAction, string> = {
+    complete: t("operations.draft.completePaid"),
+    invoice: t("operations.draft.invoice"),
+    delete: t("common.delete"),
   };
   if (
     !(await requestConfirmation({
-      title: action === "delete" ? "Delete draft order" : "Confirm draft action",
+      title:
+        action === "delete"
+          ? t("operations.draft.deleteTitle")
+          : t("operations.draft.confirmTitle"),
       message: messages[action],
-      confirmLabel: action === "complete" ? "Complete & mark paid" : action,
+      confirmLabel: labels[action],
       danger: action === "delete",
     }))
   ) {
     return;
   }
   const result = await store.actOnDraft(storeId.value, token.value, draft.id, action);
-  if (result) feedback.success(`Draft order ${action} succeeded.`);
-  else feedback.error(store.mutationError, `Failed to ${action} the draft order.`);
+  if (result) feedback.success(t("operations.draft.actionSucceeded"));
+  else feedback.error(store.mutationError, t("operations.draft.actionFailed"));
 }
 </script>
 
@@ -39,20 +49,17 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
   <div class="ops-panel">
     <div class="ops-panel-toolbar">
       <div>
-        <h3>Draft order queue</h3>
-        <p>
-          Create manual sales, send invoices, or convert confirmed drafts to paid
-          orders.
-        </p>
+        <h3>{{ t("operations.draft.title") }}</h3>
+        <p>{{ t("operations.draft.description") }}</p>
       </div>
       <BaseButton variant="primary" @click="isCreateOpen = true">
         <template #icon><Plus /></template>
-        New draft
+        {{ t("operations.draft.new") }}
       </BaseButton>
     </div>
 
     <div v-if="store.errors.draftOrders" class="ops-resource-error" role="alert">
-      <strong>Draft orders unavailable</strong>
+      <strong>{{ t("operations.draft.unavailable") }}</strong>
       <span>{{ store.errors.draftOrders }}</span>
     </div>
     <div
@@ -62,19 +69,19 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
       class="ops-empty"
       role="status"
     >
-      Loading draft orders…
+      {{ t("operations.draft.loading") }}
     </div>
     <div v-else-if="store.draftOrders.length" class="ops-table-scroll">
       <table class="ops-table">
         <thead>
           <tr>
-            <th>Draft</th>
-            <th>Customer</th>
-            <th>Items</th>
-            <th>Total</th>
-            <th>Updated</th>
-            <th>Status</th>
-            <th class="ops-actions-column">Actions</th>
+            <th>{{ t("operations.draft.columnDraft") }}</th>
+            <th>{{ t("operations.columnCustomer") }}</th>
+            <th>{{ t("operations.columnItems") }}</th>
+            <th>{{ t("operations.columnTotal") }}</th>
+            <th>{{ t("operations.columnUpdated") }}</th>
+            <th>{{ t("operations.columnStatus") }}</th>
+            <th class="ops-actions-column">{{ t("operations.columnActions") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -83,8 +90,8 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
               <strong>{{ draft.name }}</strong>
             </td>
             <td>
-              <span>{{ draft.customerName || "Guest" }}</span>
-              <small>{{ draft.email || "No email" }}</small>
+              <span>{{ draft.customerName || t("operations.guest") }}</span>
+              <small>{{ draft.email || t("operations.noEmail") }}</small>
             </td>
             <td>{{ draft.itemCount }}</td>
             <td>
@@ -102,7 +109,7 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
                   @click="runAction(draft, 'invoice')"
                 >
                   <template #icon><Mail /></template>
-                  Invoice
+                  {{ t("operations.draft.invoice") }}
                 </BaseButton>
                 <BaseButton
                   variant="primary"
@@ -110,13 +117,13 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
                   @click="runAction(draft, 'complete')"
                 >
                   <template #icon><CircleCheck /></template>
-                  Complete
+                  {{ t("operations.draft.complete") }}
                 </BaseButton>
                 <BaseButton
                   variant="danger-ghost"
                   icon-only
                   :disabled="store.isMutating"
-                  aria-label="Delete draft"
+                  :aria-label="t('operations.draft.deleteAria')"
                   @click="runAction(draft, 'delete')"
                 >
                   <template #icon><Trash2 /></template>
@@ -127,7 +134,7 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
         </tbody>
       </table>
     </div>
-    <div v-else class="ops-empty">No draft orders in this store.</div>
+    <div v-else class="ops-empty">{{ t("operations.draft.empty") }}</div>
 
     <OperationsCreateDraftModal
       v-if="isCreateOpen"

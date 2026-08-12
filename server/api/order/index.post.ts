@@ -4,10 +4,7 @@ import {
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
 import type { OrdersResponse } from "~~/types/shopify";
-import type {
-  OrderCreateOptions,
-  ShopifyOrderPayload,
-} from "~~/types/shopify-order";
+import type { OrderCreateOptions, ShopifyOrderPayload } from "~~/types/shopify-order";
 
 interface CreateOrderBody extends OrderCreateOptions {
   storeId?: string;

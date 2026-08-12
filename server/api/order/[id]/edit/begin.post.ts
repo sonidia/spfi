@@ -35,10 +35,7 @@ interface BeginEditData {
 }
 
 export default defineEventHandler(async (event): Promise<OrderEditSessionResponse> => {
-  const orderId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Order",
-  );
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<BeginEditBody>(event)) || {};
   const storeId = String(body.storeId || "");
   const token = String(body.token || "");

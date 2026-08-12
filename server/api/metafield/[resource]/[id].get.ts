@@ -50,9 +50,7 @@ export default defineEventHandler(async (event) => {
             ? { namespace: query.namespace }
             : {}),
           ...(typeof query.key === "string" ? { key: query.key } : {}),
-          ...(typeof query.fields === "string"
-            ? { fields: query.fields }
-            : {}),
+          ...(typeof query.fields === "string" ? { fields: query.fields } : {}),
         },
     missingProxyMessage: "Missing sock proxy for this store.",
   });

@@ -3,18 +3,21 @@ import {
   Database,
   Eye,
   EyeOff,
+  FileSpreadsheet,
   KeyRound,
   Link2,
   Save,
   Settings2,
-  Truck,
   Trash2,
+  Truck,
 } from "@lucide/vue";
-import type { TrackingCarrier } from "~~/types/tracking";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDataRetentionStore } from "~/stores/dataRetention";
+import { useSheetSettingsStore } from "~/stores/sheetSettings";
 import { useToastStore } from "~/stores/toast";
+import type { TrackingCarrier } from "~~/types/tracking";
 import { PINIA_RETENTION_PRESETS } from "~~/utils/pinia-retention";
+import { normalizeSheetSettings } from "~~/utils/sheet-settings";
 import {
   TRACKTACO_CARRIERS,
   TRACKTACO_CARRIER_NAMES,
@@ -27,13 +30,47 @@ const { locale, t } = useLocalization();
 const credentialVault = useCredentialVaultStore();
 const dataRetention = useDataRetentionStore();
 const toast = useToastStore();
+const sheetSettings = useSheetSettingsStore();
 const { requestConfirmation } = useConfirmDialog();
+const runtimeConfig = useRuntimeConfig();
 
 const apiKey = ref("");
 const carrier = ref<TrackingCarrier>("fedex");
 const showApiKey = ref(false);
 const isSaving = ref(false);
 const formError = ref("");
+const sheetUrlsInput = ref("");
+const masterSheetUrlInput = ref("");
+const masterSheetTabsInput = ref("");
+
+const sheetDeploymentConfig = {
+  sheetUrls: runtimeConfig.public.sheetUrls,
+  masterSheetUrl: runtimeConfig.public.masterSheetUrl,
+  masterSheetTabs: runtimeConfig.public.masterSheetTabs,
+};
+sheetSettings.initialize();
+
+function loadSheetSettingsForm() {
+  const resolved = sheetSettings.resolve(sheetDeploymentConfig);
+  sheetUrlsInput.value = resolved.sheetUrls.join("\n");
+  masterSheetUrlInput.value = resolved.masterSheetUrl;
+  masterSheetTabsInput.value = resolved.masterSheetTabs.join("\n");
+}
+
+loadSheetSettingsForm();
+
+const pendingSheetSettings = computed(() =>
+  normalizeSheetSettings({
+    sheetUrls: sheetUrlsInput.value,
+    masterSheetUrl: masterSheetUrlInput.value,
+    masterSheetTabs: masterSheetTabsInput.value,
+  }),
+);
+const hasSheetChanges = computed(
+  () =>
+    JSON.stringify(pendingSheetSettings.value) !==
+    JSON.stringify(sheetSettings.resolve(sheetDeploymentConfig)),
+);
 
 const retentionIndex = computed({
   get: () => dataRetention.presetIndex,
@@ -129,6 +166,18 @@ async function clearSettings() {
     formError.value = error instanceof Error ? error.message : t("settings.required");
   }
 }
+
+function saveSheetSettings() {
+  sheetSettings.save(pendingSheetSettings.value);
+  loadSheetSettingsForm();
+  toast.success(t("settings.sheetSaved"));
+}
+
+function restoreDeploymentSheetSettings() {
+  sheetSettings.clearOverride();
+  loadSheetSettingsForm();
+  toast.success(t("settings.sheetRestored"));
+}
 </script>
 
 <template>
@@ -165,7 +214,6 @@ async function clearSettings() {
                 {{ t("settings.endpointLabel") }}
               </span>
               <code>{{ TRACKTACO_V2_BASE_URL }}/v2</code>
-              <span class="field-hint">{{ t("settings.endpointHint") }}</span>
             </div>
 
             <label class="field">
@@ -236,6 +284,75 @@ async function clearSettings() {
               >
                 <template #icon><Save /></template>
                 {{ t("settings.save") }}
+              </BaseButton>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-card sheet-settings-card">
+          <div class="card-heading">
+            <div class="card-icon"><FileSpreadsheet /></div>
+            <div>
+              <h2>{{ t("settings.sheetTitle") }}</h2>
+              <p>{{ t("settings.sheetDescription") }}</p>
+            </div>
+          </div>
+
+          <div class="settings-form">
+            <label class="field">
+              <span class="field-label">
+                <FileSpreadsheet />
+                {{ t("settings.sheetViewerUrls") }}
+              </span>
+              <textarea
+                v-model="sheetUrlsInput"
+                rows="3"
+                :placeholder="t('settings.sheetViewerPlaceholder')"
+              />
+              <span class="field-hint">{{ t("settings.sheetViewerHint") }}</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">
+                <Link2 />
+                {{ t("settings.masterSheetUrl") }}
+              </span>
+              <input
+                v-model="masterSheetUrlInput"
+                :placeholder="t('settings.masterSheetPlaceholder')"
+              />
+              <span class="field-hint">{{ t("settings.masterSheetHint") }}</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">
+                <Database />
+                {{ t("settings.masterSheetTabs") }}
+              </span>
+              <textarea
+                v-model="masterSheetTabsInput"
+                rows="3"
+                :placeholder="t('settings.masterTabsPlaceholder')"
+              />
+              <span class="field-hint">{{ t("settings.masterTabsHint") }}</span>
+            </label>
+
+            <div class="form-actions">
+              <BaseButton
+                size="medium"
+                :disabled="!sheetSettings.hasLocalOverride"
+                @click="restoreDeploymentSheetSettings"
+              >
+                {{ t("settings.restoreSheetDefaults") }}
+              </BaseButton>
+              <BaseButton
+                variant="primary"
+                size="medium"
+                :disabled="!hasSheetChanges"
+                @click="saveSheetSettings"
+              >
+                <template #icon><Save /></template>
+                {{ t("settings.saveSheetSettings") }}
               </BaseButton>
             </div>
           </div>
@@ -526,7 +643,8 @@ async function clearSettings() {
   color: var(--green);
 }
 
-.field input {
+.field input,
+.field textarea {
   width: 100%;
   min-height: 40px;
   padding: 0 12px;
@@ -539,6 +657,12 @@ async function clearSettings() {
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+.field textarea {
+  min-height: 76px;
+  padding: 10px 12px;
+  resize: vertical;
 }
 
 .fixed-endpoint code {
@@ -555,7 +679,8 @@ async function clearSettings() {
   overflow-wrap: anywhere;
 }
 
-.field input:focus {
+.field input:focus,
+.field textarea:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
   outline: none;

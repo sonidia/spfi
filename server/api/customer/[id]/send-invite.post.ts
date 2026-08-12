@@ -16,10 +16,7 @@ interface CustomerInviteBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
   const body = (await readBody<CustomerInviteBody>(event)) || {};
   const { storeId, token } = requireCustomerCredentials(body);
   const requestBody = {

@@ -12,10 +12,7 @@ import type {
 } from "~~/types/shopify";
 
 export default defineEventHandler(async (event): Promise<CustomerDetailResponse> => {
-  const id = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
+  const id = requireCustomerResourceId(event.context.params?.id, "Customer");
   const { storeId, token } = getCustomerQueryCredentials(event);
 
   const [customerResponse, orders] = await Promise.all([

@@ -59,9 +59,7 @@ const normalizeHeader = (value: string) =>
 function resolveColumnIndex(headers: string[], aliases: string[]) {
   const normalizedHeaders = headers.map(normalizeHeader);
   const normalizedAliases = aliases.map(normalizeHeader);
-  return normalizedHeaders.findIndex((header) =>
-    normalizedAliases.includes(header),
-  );
+  return normalizedHeaders.findIndex((header) => normalizedAliases.includes(header));
 }
 
 function normalizeSpreadsheetId(input: string): string {
@@ -90,9 +88,7 @@ function buildRangeFromSheetName(sheetName: string): string {
 async function waitForRateLimit() {
   const elapsed = Date.now() - lastRequestAt;
   if (elapsed < REQUEST_DELAY_MS) {
-    await new Promise((resolve) =>
-      setTimeout(resolve, REQUEST_DELAY_MS - elapsed),
-    );
+    await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS - elapsed));
   }
   lastRequestAt = Date.now();
 }
@@ -104,10 +100,7 @@ export function useSheetService() {
   const rows = ref<string[][]>([]);
   const filteredRows = ref<string[][]>([]);
 
-  async function readSheetValues(options?: {
-    spreadsheetId?: string;
-    range?: string;
-  }) {
+  async function readSheetValues(options?: { spreadsheetId?: string; range?: string }) {
     loading.value = true;
     error.value = null;
 
@@ -288,11 +281,11 @@ export function useSheetService() {
       const response = await $fetch<SheetBatchUpdateResponse>(
         "/api/sheet/batch-update",
         {
-        method: "POST",
-        body: {
-          spreadsheetId: options.spreadsheetId,
-          data: options.data,
-        },
+          method: "POST",
+          body: {
+            spreadsheetId: options.spreadsheetId,
+            data: options.data,
+          },
         },
       );
       return response;

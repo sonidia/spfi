@@ -12,21 +12,12 @@ interface CustomerAddressDefaultBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
-  const addressId = requireCustomerResourceId(
-    event.context.params?.aid,
-    "Address",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
+  const addressId = requireCustomerResourceId(event.context.params?.aid, "Address");
   const body = (await readBody<CustomerAddressDefaultBody>(event)) || {};
   const { storeId, token } = requireCustomerCredentials(body);
 
-  return callShopifyApi<
-    CustomerAddressResponse,
-    Record<string, never>
-  >({
+  return callShopifyApi<CustomerAddressResponse, Record<string, never>>({
     event,
     storeId,
     token,

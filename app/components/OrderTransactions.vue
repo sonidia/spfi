@@ -27,7 +27,8 @@ const groupedEvents = computed(() => {
     group.push({
       ...event,
       time: formatTime(event.created_at),
-      text: event.description || stripHtml(event.message || "") || humanizeVerb(event.verb),
+      text:
+        event.description || stripHtml(event.message || "") || humanizeVerb(event.verb),
       dotType: eventDotType(event.verb),
     });
     groups.set(date, group);
@@ -130,14 +131,23 @@ function eventDotType(verb: string) {
         <Clock aria-hidden="true" />
         <span>Timeline</span>
       </div>
-      <BaseButton icon-only aria-label="Refresh timeline" :loading="isLoading" @click="loadEvents">
+      <BaseButton
+        icon-only
+        aria-label="Refresh timeline"
+        :loading="isLoading"
+        @click="loadEvents"
+      >
         <template #icon><RefreshCw /></template>
       </BaseButton>
     </div>
 
     <div class="timeline-body">
-      <div v-if="isLoading && !events.length" class="timeline-state">Loading timeline...</div>
-      <div v-else-if="error" class="timeline-state is-error" role="alert">{{ error }}</div>
+      <div v-if="isLoading && !events.length" class="timeline-state">
+        Loading timeline...
+      </div>
+      <div v-else-if="error" class="timeline-state is-error" role="alert">
+        {{ error }}
+      </div>
       <div v-else-if="!groupedEvents.length" class="timeline-state">
         No Shopify events are available for this order.
       </div>
@@ -160,24 +170,112 @@ function eventDotType(verb: string) {
   </div>
 </template>
 <style scoped>
-.timeline-wrap { color: var(--text); font-size: 14px; }
-.timeline-section-head { min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
-.timeline-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; font-weight: 600; }
-.timeline-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
-.timeline-body { padding: 0 16px 16px; }
-.timeline-state { padding: 18px 0; color: var(--text-sub); font-size: 12px; }
-.timeline-state.is-error { color: var(--red); }
-.date-label { margin: 20px 0 7px 28px; color: var(--text-sub); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
-.event-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
-.dot-col { display: flex; flex: 0 0 18px; align-items: flex-start; padding-top: 6px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
-.dot.success { background: var(--green); }
-.dot.info { background: var(--blue); }
-.dot.error { background: var(--red); }
-.event-content { flex: 1; min-width: 0; }
-.event-row-inner { display: flex; align-items: flex-start; gap: 8px; }
-.event-text { flex: 1; color: var(--text); line-height: 1.5; }
-.event-time { padding-top: 2px; color: var(--text-sub); font-size: 12px; white-space: nowrap; }
-.event-author { margin-top: 2px; color: var(--text-sub); font-size: 11px; }
-.detail-box { margin-top: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-soft); color: var(--text-sub); font-size: 12px; white-space: pre-wrap; }
+.timeline-wrap {
+  color: var(--text);
+  font-size: 14px;
+}
+.timeline-section-head {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.timeline-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+.timeline-body {
+  padding: 0 16px 16px;
+}
+.timeline-state {
+  padding: 18px 0;
+  color: var(--text-sub);
+  font-size: 12px;
+}
+.timeline-state.is-error {
+  color: var(--red);
+}
+.date-label {
+  margin: 20px 0 7px 28px;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.event-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+}
+.dot-col {
+  display: flex;
+  flex: 0 0 18px;
+  align-items: flex-start;
+  padding-top: 6px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.dot.success {
+  background: var(--green);
+}
+.dot.info {
+  background: var(--blue);
+}
+.dot.error {
+  background: var(--red);
+}
+.event-content {
+  flex: 1;
+  min-width: 0;
+}
+.event-row-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.event-text {
+  flex: 1;
+  color: var(--text);
+  line-height: 1.5;
+}
+.event-time {
+  padding-top: 2px;
+  color: var(--text-sub);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.event-author {
+  margin-top: 2px;
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.detail-box {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--text-sub);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
 </style>

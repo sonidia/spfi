@@ -11,14 +11,8 @@ interface ProductImageDeleteBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
-  const imageId = requireShopifyResourceId(
-    event.context.params?.iid,
-    "Image",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
+  const imageId = requireShopifyResourceId(event.context.params?.iid, "Image");
   const body = (await readBody<ProductImageDeleteBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 

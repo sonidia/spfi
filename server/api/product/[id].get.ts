@@ -8,10 +8,7 @@ import { buildProductDetailParams } from "~~/server/utils/shopify-product-query"
 import type { ProductResponse } from "~~/types/shopify-product";
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const { storeId, token } = getShopifyQueryCredentials(event);
 
   return callShopifyApi<ProductResponse>({

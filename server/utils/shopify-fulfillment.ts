@@ -20,18 +20,12 @@ export function buildShopifyFulfillmentGroups(
   fulfillmentOrders: ShopifyFulfillmentOrder[],
 ): GraphqlFulfillmentGroupInput[] {
   if (requestedGroups !== undefined && !Array.isArray(requestedGroups)) {
-    throw createApiErrorFromMessage(
-      "Fulfillment order groups must be an array.",
-      400,
-    );
+    throw createApiErrorFromMessage("Fulfillment order groups must be an array.", 400);
   }
 
   const openOrders = fulfillmentOrders.filter(isOpenFulfillmentOrder);
   if (!openOrders.length) {
-    throw createApiErrorFromMessage(
-      "This order has no open fulfillment items.",
-      422,
-    );
+    throw createApiErrorFromMessage("This order has no open fulfillment items.", 422);
   }
 
   const openOrdersById = new Map(
@@ -41,16 +35,11 @@ export function buildShopifyFulfillmentGroups(
     ]),
   );
   const groups = requestedGroups?.length
-    ? requestedGroups.map((group) =>
-        validateRequestedGroup(group, openOrdersById),
-      )
+    ? requestedGroups.map((group) => validateRequestedGroup(group, openOrdersById))
     : openOrders.map(buildDefaultGroup).filter(hasLineItems);
 
   if (!groups.length) {
-    throw createApiErrorFromMessage(
-      "Select at least one fulfillable line item.",
-      400,
-    );
+    throw createApiErrorFromMessage("Select at least one fulfillable line item.", 400);
   }
 
   return groups;
@@ -86,14 +75,11 @@ function validateRequestedGroup(
     ]),
   );
   const lineItems = group.fulfillment_order_line_items.map((item) => {
-    const id = requireShopifyExactResourceId(
-      item?.id,
-      "Fulfillment order line item",
-    );
+    const id = requireShopifyExactResourceId(item?.id, "Fulfillment order line item");
     const quantity = Number(item?.quantity);
     const available = availableById.get(id);
     const maximum = available
-      ? available.fulfillable_quantity ?? available.quantity
+      ? (available.fulfillable_quantity ?? available.quantity)
       : 0;
 
     if (
@@ -148,10 +134,7 @@ function buildDefaultLineItem(item: ShopifyFulfillmentOrderLineItem) {
   const quantity = item.fulfillable_quantity ?? item.quantity;
   if (!Number.isSafeInteger(quantity) || quantity <= 0) return null;
 
-  const id = requireShopifyExactResourceId(
-    item.id,
-    "Fulfillment order line item",
-  );
+  const id = requireShopifyExactResourceId(item.id, "Fulfillment order line item");
   return {
     id: toShopifyGid("FulfillmentOrderLineItem", id),
     quantity,

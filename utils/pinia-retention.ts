@@ -11,8 +11,7 @@ export const PINIA_RETENTION_PRESETS = [
   { key: "session", ttlMs: null },
 ] as const;
 
-export const DEFAULT_PINIA_RETENTION_INDEX =
-  PINIA_RETENTION_PRESETS.length - 1;
+export const DEFAULT_PINIA_RETENTION_INDEX = PINIA_RETENTION_PRESETS.length - 1;
 
 export function normalizePiniaRetentionIndex(value: unknown) {
   if (value === null || value === undefined || value === "") {
@@ -21,10 +20,7 @@ export function normalizePiniaRetentionIndex(value: unknown) {
 
   const index = Number(value);
   if (!Number.isInteger(index)) return DEFAULT_PINIA_RETENTION_INDEX;
-  return Math.min(
-    PINIA_RETENTION_PRESETS.length - 1,
-    Math.max(0, index),
-  );
+  return Math.min(PINIA_RETENTION_PRESETS.length - 1, Math.max(0, index));
 }
 
 export function isPiniaCacheAlive(

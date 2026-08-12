@@ -9,10 +9,7 @@ import type { ShopifyRefund } from "~~/types/shopify";
 import type { OrderRefundsResponse } from "~~/types/shopify-order";
 
 export default defineEventHandler(async (event): Promise<OrderRefundsResponse> => {
-  const orderId = requireShopifyResourceId(
-    event.context.params?.id,
-    "order",
-  );
+  const orderId = requireShopifyResourceId(event.context.params?.id, "order");
   const { storeId, token } = getShopifyQueryCredentials(event);
 
   const refunds = await callShopifyPaginatedApi<ShopifyRefund>({

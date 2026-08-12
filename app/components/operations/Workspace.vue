@@ -6,32 +6,33 @@ import { useCommerceOpsStore } from "~/stores/commerceOps";
 type View = "drafts" | "discounts" | "checkouts" | "returns";
 
 const store = useCommerceOpsStore();
+const { t } = useLocalization();
 const activeView = ref<View>("drafts");
 const views = computed(() => [
   {
     id: "drafts" as const,
-    label: "Draft orders",
+    label: t("operations.drafts"),
     count: store.draftOrders.length,
     error: store.errors.draftOrders,
     icon: FileText,
   },
   {
     id: "discounts" as const,
-    label: "Discounts",
+    label: t("operations.discounts"),
     count: store.discounts.length,
     error: store.errors.discounts,
     icon: BadgePercent,
   },
   {
     id: "checkouts" as const,
-    label: "Abandoned",
+    label: t("operations.abandoned"),
     count: store.abandonedCheckouts.length,
     error: store.errors.abandonedCheckouts,
     icon: ShoppingCart,
   },
   {
     id: "returns" as const,
-    label: "Returns",
+    label: t("operations.returns"),
     count: store.returns.length,
     error: store.errors.returns,
     icon: RotateCcw,
@@ -41,21 +42,7 @@ const views = computed(() => [
 
 <template>
   <section class="ops-workspace">
-    <!--<header class="ops-intro">
-      <div>
-        <p class="ops-eyebrow">Commerce operations</p>
-        <h2>One queue for work outside the order detail</h2>
-        <p>
-          Draft conversion, promotions, checkout recovery and the returns lifecycle stay
-          scoped to the selected store.
-        </p>
-      </div>
-      <span class="ops-availability">
-        {{ store.availableResourceCount }}/4 resources available
-      </span>
-    </header>-->
-
-    <div class="ops-view-tabs" role="tablist" aria-label="Commerce operations views">
+    <div class="ops-view-tabs" role="tablist" :aria-label="t('operations.viewsAria')">
       <button
         v-for="view in views"
         :key="view.id"

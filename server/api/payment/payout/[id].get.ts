@@ -16,10 +16,7 @@ interface PayoutResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  const payoutId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Payout",
-  );
+  const payoutId = requireShopifyResourceId(event.context.params?.id, "Payout");
   const { storeId, token } = getShopifyQueryCredentials(event);
 
   const [payoutRes, transactions] = await Promise.all([
@@ -42,9 +39,7 @@ export default defineEventHandler(async (event) => {
   ]);
 
   return {
-    payout: payoutRes.payout
-      ? { ...payoutRes.payout, id: payoutId }
-      : null,
+    payout: payoutRes.payout ? { ...payoutRes.payout, id: payoutId } : null,
     transactions,
   } satisfies PayoutDetailResponse;
 });

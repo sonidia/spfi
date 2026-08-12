@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { FilePlus2, X } from "@lucide/vue";
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, useId } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useCommerceOpsStore } from "~/stores/commerceOps";
 
 const emit = defineEmits<{ close: []; created: [] }>();
 const store = useCommerceOpsStore();
 const { storeId, token } = useActiveShopAuth();
+const { t } = useLocalization();
 const feedback = useStoreFeedback();
+const modalRef = ref<HTMLFormElement | null>(null);
+const titleId = `create-draft-title-${useId()}`;
+const { handleKeydown } = useFocusTrap(modalRef, {
+  initialFocus: () => modalRef.value?.querySelector("input") || null,
+  onEscape: () => emit("close"),
+});
 const form = reactive({
   email: "",
   note: "",
@@ -29,7 +36,7 @@ const canSubmit = computed(
 async function submit() {
   localError.value = "";
   if (!canSubmit.value) {
-    localError.value = "Add a valid item title, quantity and unit price.";
+    localError.value = t("operations.draft.validation");
     return;
   }
   const result = await store.createDraft(storeId.value, token.value, {
@@ -49,10 +56,10 @@ async function submit() {
     ],
   });
   if (!result) {
-    localError.value = store.mutationError || "Failed to create the draft order.";
+    localError.value = store.mutationError || t("operations.draft.createFailed");
     return;
   }
-  feedback.success(`${result.name} created.`);
+  feedback.success(t("operations.draft.created", { name: result.name }));
   emit("created");
 }
 </script>
@@ -60,16 +67,25 @@ async function submit() {
 <template>
   <Teleport to="body">
     <div class="ops-modal-backdrop" @click.self="emit('close')">
-      <form class="ops-modal" @submit.prevent="submit">
+      <form
+        ref="modalRef"
+        class="ops-modal"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="titleId"
+        tabindex="-1"
+        @keydown="handleKeydown"
+        @submit.prevent="submit"
+      >
         <header>
           <div>
-            <p class="ops-eyebrow">Draft orders</p>
-            <h2>Create a manual sale</h2>
+            <p class="ops-eyebrow">{{ t("operations.drafts") }}</p>
+            <h2 :id="titleId">{{ t("operations.draft.createTitle") }}</h2>
           </div>
           <button
             type="button"
             class="ops-modal-close"
-            aria-label="Close"
+            :aria-label="t('common.close')"
             @click="emit('close')"
           >
             <X aria-hidden="true" />
@@ -77,27 +93,27 @@ async function submit() {
         </header>
         <div class="ops-form-grid">
           <label>
-            <span>Customer email</span>
+            <span>{{ t("operations.draft.customerEmail") }}</span>
             <input
               v-model="form.email"
               type="email"
-              placeholder="customer@example.com"
+              :placeholder="t('operations.draft.emailPlaceholder')"
             />
           </label>
           <label>
-            <span>Currency</span>
+            <span>{{ t("operations.draft.currency") }}</span>
             <input v-model.trim="form.currencyCode" maxlength="3" required />
           </label>
           <label class="ops-form-wide">
-            <span>Item title</span>
+            <span>{{ t("operations.draft.itemTitle") }}</span>
             <input
               v-model="form.title"
               required
-              placeholder="Custom service or product"
+              :placeholder="t('operations.draft.itemPlaceholder')"
             />
           </label>
           <label>
-            <span>Quantity</span>
+            <span>{{ t("operations.draft.quantity") }}</span>
             <input
               v-model.number="form.quantity"
               type="number"
@@ -107,7 +123,7 @@ async function submit() {
             />
           </label>
           <label>
-            <span>Unit price</span>
+            <span>{{ t("operations.draft.unitPrice") }}</span>
             <input
               v-model="form.unitPrice"
               type="number"
@@ -117,11 +133,14 @@ async function submit() {
             />
           </label>
           <label class="ops-form-wide">
-            <span>Tags</span>
-            <input v-model="form.tags" placeholder="phone-order, wholesale" />
+            <span>{{ t("operations.draft.tags") }}</span>
+            <input
+              v-model="form.tags"
+              :placeholder="t('operations.draft.tagsPlaceholder')"
+            />
           </label>
           <label class="ops-form-wide">
-            <span>Internal note</span>
+            <span>{{ t("operations.draft.internalNote") }}</span>
             <textarea v-model="form.note" rows="3" />
           </label>
         </div>
@@ -129,11 +148,11 @@ async function submit() {
         <footer>
           <BaseButton type="button" :disabled="store.isMutating" @click="emit('close')">
             <template #icon><X /></template>
-            Cancel
+            {{ t("common.cancel") }}
           </BaseButton>
           <BaseButton type="submit" variant="primary" :loading="store.isMutating">
             <template #icon><FilePlus2 /></template>
-            Create draft
+            {{ t("operations.draft.create") }}
           </BaseButton>
         </footer>
       </form>

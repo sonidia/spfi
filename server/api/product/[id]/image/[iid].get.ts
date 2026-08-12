@@ -8,14 +8,8 @@ import {
 import type { ProductImagesResponse } from "~~/types/shopify-product";
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
-  const imageId = requireShopifyResourceId(
-    event.context.params?.iid,
-    "Image",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
+  const imageId = requireShopifyResourceId(event.context.params?.iid, "Image");
   const { storeId, token } = getShopifyQueryCredentials(event);
 
   return callShopifyApi<ProductImagesResponse>({

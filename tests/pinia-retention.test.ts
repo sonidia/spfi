@@ -8,23 +8,14 @@ import {
 } from "../utils/pinia-retention.ts";
 
 test("retention setting defaults to the current browser session", () => {
-  assert.equal(
-    normalizePiniaRetentionIndex(null),
-    DEFAULT_PINIA_RETENTION_INDEX,
-  );
-  assert.equal(
-    PINIA_RETENTION_PRESETS[DEFAULT_PINIA_RETENTION_INDEX]?.key,
-    "session",
-  );
+  assert.equal(normalizePiniaRetentionIndex(null), DEFAULT_PINIA_RETENTION_INDEX);
+  assert.equal(PINIA_RETENTION_PRESETS[DEFAULT_PINIA_RETENTION_INDEX]?.key, "session");
 });
 
 test("retention setting accepts and clamps discrete slider positions", () => {
   assert.equal(normalizePiniaRetentionIndex("4"), 4);
   assert.equal(normalizePiniaRetentionIndex(-5), 0);
-  assert.equal(
-    normalizePiniaRetentionIndex(100),
-    PINIA_RETENTION_PRESETS.length - 1,
-  );
+  assert.equal(normalizePiniaRetentionIndex(100), PINIA_RETENTION_PRESETS.length - 1);
   assert.equal(
     normalizePiniaRetentionIndex("not-a-number"),
     DEFAULT_PINIA_RETENTION_INDEX,

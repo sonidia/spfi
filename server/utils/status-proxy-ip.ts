@@ -97,4 +97,3 @@ function extractIpAddress(value: string) {
 
   return trimmed.match(IP_ADDRESS_PATTERN)?.[0] || "";
 }
-

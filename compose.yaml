@@ -12,6 +12,7 @@ services:
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: 3000
       NUXT_ALLOWED_ORIGINS: "${SPFI_ALLOWED_ORIGINS:-}"
+      NUXT_API_ORIGIN_REQUIRED: "${NUXT_API_ORIGIN_REQUIRED:-true}"
       NUXT_ADMIN_API_VERSION: "${NUXT_ADMIN_API_VERSION:-2026-07}"
       NUXT_API_RATE_LIMIT_PER_MINUTE: "${NUXT_API_RATE_LIMIT_PER_MINUTE:-600}"
       NUXT_TOKEN_RATE_LIMIT_PER_MINUTE: "${NUXT_TOKEN_RATE_LIMIT_PER_MINUTE:-10}"
@@ -19,6 +20,8 @@ services:
       NUXT_TRUST_PROXY_HEADERS: "true"
       NUXT_ALLOW_HOST_ORIGIN_FALLBACK: "false"
       NUXT_ALLOW_PRIVATE_PROXY_HOSTS: "${NUXT_ALLOW_PRIVATE_PROXY_HOSTS:-false}"
+      NUXT_DEBUG_PROXY_ENABLED: "${NUXT_DEBUG_PROXY_ENABLED:-false}"
+      NUXT_DEBUG_PROXY_ALLOWED_HOSTS: "${NUXT_DEBUG_PROXY_ALLOWED_HOSTS:-httpbin.org,api.ipify.org}"
       NUXT_PUBLIC_SHEET_URLS: "${NUXT_PUBLIC_SHEET_URLS:-}"
       NUXT_PUBLIC_MASTER_SHEET_URL: "${NUXT_PUBLIC_MASTER_SHEET_URL:-}"
       NUXT_PUBLIC_MASTER_SHEET_TABS: "${NUXT_PUBLIC_MASTER_SHEET_TABS:-}"
@@ -51,7 +54,9 @@ services:
       app:
         condition: service_healthy
     ports:
-      - "${NGINX_PORT:-80}:80"
+      # Plain HTTP is loopback-only by default. Terminate TLS at a trusted
+      # reverse proxy before exposing this service outside the host.
+      - "${NGINX_BIND_ADDRESS:-127.0.0.1}:${NGINX_PORT:-80}:80"
     volumes:
       - type: bind
         source: ./nginx/default.conf

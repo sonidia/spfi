@@ -95,14 +95,9 @@ export async function stageOrderEditCustomItems(
       quantity: customItem.quantity,
       requiresShipping: customItem.requiresShipping,
       taxable: customItem.taxable,
-      ...(customItem.locationId
-        ? { locationId: customItem.locationId }
-        : {}),
+      ...(customItem.locationId ? { locationId: customItem.locationId } : {}),
     };
-    const data = await callShopifyGraphql<
-      AddCustomItemData,
-      typeof variables
-    >({
+    const data = await callShopifyGraphql<AddCustomItemData, typeof variables>({
       event: context.event,
       storeId: context.storeId,
       token: context.token,
@@ -170,9 +165,7 @@ export async function assertOrderEditSessionExists(context: OrderEditContext) {
 function normalizeLineChanges(changes: OrderEditLineChange[]) {
   return changes.map((change) => {
     const quantity = Number(change.quantity);
-    const calculatedLineItemId = String(
-      change.calculatedLineItemId || "",
-    ).trim();
+    const calculatedLineItemId = String(change.calculatedLineItemId || "").trim();
 
     if (!calculatedLineItemId || !Number.isInteger(quantity) || quantity < 0) {
       throw createApiErrorFromMessage(
@@ -182,10 +175,7 @@ function normalizeLineChanges(changes: OrderEditLineChange[]) {
     }
 
     return {
-      calculatedLineItemId: toShopifyGid(
-        "CalculatedLineItem",
-        calculatedLineItemId,
-      ),
+      calculatedLineItemId: toShopifyGid("CalculatedLineItem", calculatedLineItemId),
       quantity,
       restock: Boolean(change.restock),
     };
@@ -203,15 +193,9 @@ function normalizeCustomItems(customItems: OrderEditCustomItemInput[]) {
     const locationId = String(customItem.locationId || "").trim();
 
     if (!title) {
-      throw createApiErrorFromMessage(
-        "Each custom item requires a title.",
-        400,
-      );
+      throw createApiErrorFromMessage("Each custom item requires a title.", 400);
     }
-    if (
-      !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(price) ||
-      !Number.isFinite(Number(price))
-    ) {
+    if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(price) || !Number.isFinite(Number(price))) {
       throw createApiErrorFromMessage(
         "Each custom item price must be a non-negative decimal amount.",
         400,
@@ -236,11 +220,8 @@ function normalizeCustomItems(customItems: OrderEditCustomItemInput[]) {
       currencyCode,
       quantity,
       requiresShipping: Boolean(customItem.requiresShipping),
-      taxable:
-        typeof customItem.taxable === "boolean" ? customItem.taxable : true,
-      ...(locationId
-        ? { locationId: toShopifyGid("Location", locationId) }
-        : {}),
+      taxable: typeof customItem.taxable === "boolean" ? customItem.taxable : true,
+      ...(locationId ? { locationId: toShopifyGid("Location", locationId) } : {}),
     };
   });
 }

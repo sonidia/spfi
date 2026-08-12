@@ -10,8 +10,7 @@ export function getAddressLines(addr?: ShopifyAddress | null): string[] {
     normalizeAddressPart(addr.address2),
     [
       normalizeAddressPart(addr.city),
-      normalizeAddressPart(addr.province_code) ||
-        normalizeAddressPart(addr.province),
+      normalizeAddressPart(addr.province_code) || normalizeAddressPart(addr.province),
       normalizeAddressPart(addr.zip),
     ]
       .filter(Boolean)

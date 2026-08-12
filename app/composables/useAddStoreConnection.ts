@@ -1,6 +1,7 @@
 import { useSheetService, type ProxySheetRow } from "~/composables/useSheetService";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
+import { useSheetSettingsStore } from "~/stores/sheetSettings";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
 import { resolveMasterSheetTabs } from "~~/utils/sheetConfig";
@@ -12,6 +13,7 @@ export type AddStoreStepStatus = "pending" | "active" | "done" | "error";
 export function useAddStoreConnection() {
   const formStore = useFormStore();
   const credentialVault = useCredentialVaultStore();
+  const sheetSettings = useSheetSettingsStore();
   const { t } = useLocalization();
   const runtimeConfig = useRuntimeConfig();
   const {
@@ -192,16 +194,19 @@ export function useAddStoreConnection() {
     },
     rowsBySheet: Record<string, ProxySheetRow[]>,
   ) {
-    const spreadsheetUrl = String(runtimeConfig.public.masterSheetUrl || "").trim();
+    const configuredSheets = sheetSettings.resolve({
+      sheetUrls: runtimeConfig.public.sheetUrls,
+      masterSheetUrl: runtimeConfig.public.masterSheetUrl,
+      masterSheetTabs: runtimeConfig.public.masterSheetTabs,
+    });
+    const spreadsheetUrl = configuredSheets.masterSheetUrl;
     if (!spreadsheetUrl) {
       throw new Error(
         "Master sheet is not configured. Enter Store ID, Client ID, and Client Secret manually.",
       );
     }
 
-    const configuredTabs = resolveMasterSheetTabs(
-      runtimeConfig.public.masterSheetTabs,
-    );
+    const configuredTabs = resolveMasterSheetTabs(configuredSheets.masterSheetTabs);
     const metadata = configuredTabs.length
       ? null
       : await loadMetaByInput(spreadsheetUrl);

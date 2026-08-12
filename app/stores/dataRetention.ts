@@ -19,9 +19,7 @@ export const useDataRetentionStore = defineStore("dataRetention", () => {
   function initialize() {
     if (isInitialized.value || typeof window === "undefined") return;
 
-    presetIndex.value = normalizePiniaRetentionIndex(
-      localStorage.getItem(STORAGE_KEY),
-    );
+    presetIndex.value = normalizePiniaRetentionIndex(localStorage.getItem(STORAGE_KEY));
     isInitialized.value = true;
   }
 

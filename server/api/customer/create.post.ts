@@ -4,10 +4,7 @@ import {
   requireCustomerCredentials,
   requireCustomerPayload,
 } from "~~/server/utils/shopify-customer-request";
-import type {
-  CustomerResponse,
-  ShopifyCustomerInput,
-} from "~~/types/shopify-customer";
+import type { CustomerResponse, ShopifyCustomerInput } from "~~/types/shopify-customer";
 
 interface CustomerCreateBody {
   storeId?: string;
@@ -23,10 +20,7 @@ export default defineEventHandler(async (event) => {
     "Customer",
   );
 
-  return callShopifyApi<
-    CustomerResponse,
-    { customer: ShopifyCustomerInput }
-  >({
+  return callShopifyApi<CustomerResponse, { customer: ShopifyCustomerInput }>({
     event,
     storeId,
     token,

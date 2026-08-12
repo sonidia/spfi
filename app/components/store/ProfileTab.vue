@@ -438,7 +438,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 
 .profile-stack {
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .profile-hero {
@@ -456,7 +456,6 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
     ),
     var(--surface);
   padding: 22px;
-  box-shadow: var(--shadow-soft);
   overflow: hidden;
   position: relative;
 }
@@ -624,7 +623,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 .profile-detail-grid {
   display: grid;
   grid-row: 2;
-  gap: 16px;
+  gap: 10px;
   align-items: start;
 }
 

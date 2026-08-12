@@ -4,10 +4,7 @@ import {
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
 import { buildOrderCountParams } from "~~/server/utils/shopify-order-query";
-import type {
-  OrderCountQuery,
-  OrderCountResponse,
-} from "~~/types/shopify-order";
+import type { OrderCountQuery, OrderCountResponse } from "~~/types/shopify-order";
 
 interface CountOrdersBody {
   storeId?: string;

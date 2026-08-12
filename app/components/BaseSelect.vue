@@ -60,9 +60,7 @@ function open() {
   if (props.disabled) return;
   isOpen.value = true;
   activeIndex.value =
-    selectedIndex.value >= 0
-      ? selectedIndex.value
-      : nextEnabledIndex(-1, 1);
+    selectedIndex.value >= 0 ? selectedIndex.value : nextEnabledIndex(-1, 1);
 }
 
 function close() {
@@ -158,9 +156,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
       :aria-controls="listboxId"
       :aria-expanded="isOpen"
       :aria-activedescendant="
-        isOpen && activeIndex >= 0
-          ? `${listboxId}-option-${activeIndex}`
-          : undefined
+        isOpen && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
       "
       aria-haspopup="listbox"
       :aria-label="ariaLabel"
@@ -171,9 +167,13 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
         <slot name="icon" />
       </span>
       <span class="trigger-copy">
-        <span v-if="selectedOption" class="selected-label">{{ selectedOption.label }}</span>
+        <span v-if="selectedOption" class="selected-label">{{
+          selectedOption.label
+        }}</span>
         <span v-else class="placeholder">{{ placeholder }}</span>
-        <small v-if="selectedOption?.description">{{ selectedOption.description }}</small>
+        <small v-if="selectedOption?.description">{{
+          selectedOption.description
+        }}</small>
       </span>
       <ChevronDown class="chevron" :size="15" aria-hidden="true" />
     </button>
@@ -233,7 +233,10 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
 }
 
 .select-trigger:hover:not(:disabled) {
@@ -351,7 +354,9 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 
 .dropdown-enter-active,
 .dropdown-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
 }
 
 .dropdown-enter-from,

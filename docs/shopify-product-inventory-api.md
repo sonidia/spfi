@@ -51,13 +51,13 @@ quantities before making an upstream request.
 
 ## Product routes
 
-| App route | Shopify REST request | Additional input |
-| --- | --- | --- |
-| `GET /api/product/{id}` | `GET /products/{id}.json` | optional `fields` query |
-| `POST /api/product/count` | `GET /products/count.json` | optional `query` filters |
-| `POST /api/product/create` | `POST /products.json` | `product` |
-| `PUT /api/product/{id}` | `PUT /products/{id}.json` | partial `product` |
-| `DELETE /api/product/{id}` | `DELETE /products/{id}.json` | credentials in body |
+| App route                  | Shopify REST request         | Additional input         |
+| -------------------------- | ---------------------------- | ------------------------ |
+| `GET /api/product/{id}`    | `GET /products/{id}.json`    | optional `fields` query  |
+| `POST /api/product/count`  | `GET /products/count.json`   | optional `query` filters |
+| `POST /api/product/create` | `POST /products.json`        | `product`                |
+| `PUT /api/product/{id}`    | `PUT /products/{id}.json`    | partial `product`        |
+| `DELETE /api/product/{id}` | `DELETE /products/{id}.json` | credentials in body      |
 
 The count route accepts Shopify's documented `collection_id`,
 `created_at_min`, `created_at_max`, `product_type`, `published_at_min`,
@@ -71,12 +71,12 @@ exposes both controls; a draft or archived product is always submitted with
 
 ## Variant routes
 
-| App route | Shopify REST request | Additional input |
-| --- | --- | --- |
-| `POST /api/product/{id}/variant/all` | `GET /products/{id}/variants.json` | optional `query`, or direct `fields`, `limit`, `presentment_currencies`, `since_id` |
-| `POST /api/product/{id}/variant/create` | `POST /products/{id}/variants.json` | `variant` |
-| `PUT /api/product/{id}/variant/{variantId}` | `PUT /variants/{variantId}.json` | partial `variant` |
-| `DELETE /api/product/{id}/variant/{variantId}` | `DELETE /products/{id}/variants/{variantId}.json` | credentials in body |
+| App route                                      | Shopify REST request                              | Additional input                                                                    |
+| ---------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `POST /api/product/{id}/variant/all`           | `GET /products/{id}/variants.json`                | optional `query`, or direct `fields`, `limit`, `presentment_currencies`, `since_id` |
+| `POST /api/product/{id}/variant/create`        | `POST /products/{id}/variants.json`               | `variant`                                                                           |
+| `PUT /api/product/{id}/variant/{variantId}`    | `PUT /variants/{variantId}.json`                  | partial `variant`                                                                   |
+| `DELETE /api/product/{id}/variant/{variantId}` | `DELETE /products/{id}/variants/{variantId}.json` | credentials in body                                                                 |
 
 Variant update inserts the path `variantId` into the upstream payload. Inventory
 quantity changes don't belong in the variant payload; use the inventory routes
@@ -84,13 +84,13 @@ with the variant's `inventory_item_id`.
 
 ## Product image routes
 
-| App route | Shopify REST request | Additional input |
-| --- | --- | --- |
-| `POST /api/product/{id}/image/all` | `GET /products/{id}/images.json` | optional `query`, or direct `fields`, `limit`, `since_id` |
-| `POST /api/product/{id}/image/create` | `POST /products/{id}/images.json` | `image` |
-| `GET /api/product/{id}/image/{imageId}` | `GET /products/{id}/images/{imageId}.json` | optional `fields` query |
-| `PUT /api/product/{id}/image/{imageId}` | `PUT /products/{id}/images/{imageId}.json` | partial `image` |
-| `DELETE /api/product/{id}/image/{imageId}` | `DELETE /products/{id}/images/{imageId}.json` | credentials in body |
+| App route                                  | Shopify REST request                          | Additional input                                          |
+| ------------------------------------------ | --------------------------------------------- | --------------------------------------------------------- |
+| `POST /api/product/{id}/image/all`         | `GET /products/{id}/images.json`              | optional `query`, or direct `fields`, `limit`, `since_id` |
+| `POST /api/product/{id}/image/create`      | `POST /products/{id}/images.json`             | `image`                                                   |
+| `GET /api/product/{id}/image/{imageId}`    | `GET /products/{id}/images/{imageId}.json`    | optional `fields` query                                   |
+| `PUT /api/product/{id}/image/{imageId}`    | `PUT /products/{id}/images/{imageId}.json`    | partial `image`                                           |
+| `DELETE /api/product/{id}/image/{imageId}` | `DELETE /products/{id}/images/{imageId}.json` | credentials in body                                       |
 
 Create accepts a remote `src` or base64 `attachment`. Update supports `alt`,
 `position`, and `variant_ids`, so the same route handles image reordering and
@@ -144,18 +144,18 @@ connected to the specified location.
 
 ## Correct GraphQL migration map for `2026-07`
 
-| Capability | GraphQL Admin API |
-| --- | --- |
-| Product detail and count | `product`, `productsCount` |
-| Product lifecycle fields | `productUpdate` or `productSet` |
-| Publish or unpublish by sales channel | `publishablePublish`, `publishableUnpublish` |
-| Variant list | `product.variants` |
-| Create, update, or delete variants | `productVariantsBulkCreate`, `productVariantsBulkUpdate`, `productVariantsBulkDelete` |
-| Synchronize/upsert a product and its variant list | `productSet` |
-| Create or attach product media | `productUpdate` or `productSet` |
-| Update/detach or delete files | `fileUpdate`, `fileDelete` |
-| Reorder product media | `productReorderMedia` |
-| Set, adjust, or move inventory | `inventorySetQuantities`, `inventoryAdjustQuantities`, `inventoryMoveQuantities` |
+| Capability                                        | GraphQL Admin API                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Product detail and count                          | `product`, `productsCount`                                                            |
+| Product lifecycle fields                          | `productUpdate` or `productSet`                                                       |
+| Publish or unpublish by sales channel             | `publishablePublish`, `publishableUnpublish`                                          |
+| Variant list                                      | `product.variants`                                                                    |
+| Create, update, or delete variants                | `productVariantsBulkCreate`, `productVariantsBulkUpdate`, `productVariantsBulkDelete` |
+| Synchronize/upsert a product and its variant list | `productSet`                                                                          |
+| Create or attach product media                    | `productUpdate` or `productSet`                                                       |
+| Update/detach or delete files                     | `fileUpdate`, `fileDelete`                                                            |
+| Reorder product media                             | `productReorderMedia`                                                                 |
+| Set, adjust, or move inventory                    | `inventorySetQuantities`, `inventoryAdjustQuantities`, `inventoryMoveQuantities`      |
 
 There is no current `productVariantsBulkUpsert`, `productSetMedia`, or
 `mediaImagesCreate` mutation in Admin GraphQL `2026-07`. `productCreateMedia`,

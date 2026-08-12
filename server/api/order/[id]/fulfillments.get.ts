@@ -8,23 +8,18 @@ import { buildOrderFulfillmentListParams } from "~~/server/utils/shopify-order-q
 import type { ShopifyFulfillment } from "~~/types/shopify";
 import type { OrderFulfillmentsResponse } from "~~/types/shopify-order";
 
-export default defineEventHandler(
-  async (event): Promise<OrderFulfillmentsResponse> => {
-    const orderId = requireShopifyResourceId(
-      event.context.params?.id,
-      "order",
-    );
-    const { storeId, token } = getShopifyQueryCredentials(event);
+export default defineEventHandler(async (event): Promise<OrderFulfillmentsResponse> => {
+  const orderId = requireShopifyResourceId(event.context.params?.id, "order");
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
-    const fulfillments = await callShopifyPaginatedApi<ShopifyFulfillment>({
-      event,
-      storeId,
-      token,
-      path: `/orders/${orderId}/fulfillments.json`,
-      resourceKey: "fulfillments",
-      params: buildOrderFulfillmentListParams(getQuery(event)),
-    });
+  const fulfillments = await callShopifyPaginatedApi<ShopifyFulfillment>({
+    event,
+    storeId,
+    token,
+    path: `/orders/${orderId}/fulfillments.json`,
+    resourceKey: "fulfillments",
+    params: buildOrderFulfillmentListParams(getQuery(event)),
+  });
 
-    return { fulfillments };
-  },
-);
+  return { fulfillments };
+});

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { X } from "@lucide/vue";
+import { ref, toRef, useId } from "vue";
 
-defineProps<{
+const props = defineProps<{
   open: boolean;
   title?: string;
 }>();
@@ -9,6 +10,15 @@ defineProps<{
 const emit = defineEmits<{
   (event: "close"): void;
 }>();
+const { t } = useLocalization();
+const panelRef = ref<HTMLElement | null>(null);
+const closeRef = ref<HTMLButtonElement | null>(null);
+const titleId = `sheet-data-title-${useId()}`;
+const { handleKeydown } = useFocusTrap(panelRef, {
+  active: toRef(props, "open"),
+  initialFocus: () => closeRef.value,
+  onEscape: () => emit("close"),
+});
 
 function onOverlayClick(event: MouseEvent) {
   if (event.target === event.currentTarget) {
@@ -19,14 +29,29 @@ function onOverlayClick(event: MouseEvent) {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="modal-overlay" @click="onOverlayClick">
-      <div class="modal-panel" role="dialog" aria-modal="true">
+    <div
+      v-if="open"
+      class="modal-overlay"
+      @click="onOverlayClick"
+      @keydown="handleKeydown"
+    >
+      <div
+        ref="panelRef"
+        class="modal-panel"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="titleId"
+        tabindex="-1"
+      >
         <div class="modal-header">
-          <h3 class="modal-title">{{ title || "Sheet Data" }}</h3>
+          <h3 :id="titleId" class="modal-title">
+            {{ title || t("sheet.dataTitle") }}
+          </h3>
           <button
+            ref="closeRef"
             class="modal-close"
             type="button"
-            aria-label="Close"
+            :aria-label="t('common.close')"
             @click="emit('close')"
           >
             <X aria-hidden="true" />

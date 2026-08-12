@@ -3,10 +3,7 @@ import { Plus, Save, ShieldAlert } from "@lucide/vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useOrderStore } from "~/stores/order";
-import type {
-  RiskAssessmentLevel,
-  RiskFactSentiment,
-} from "~~/types/shopify-order";
+import type { RiskAssessmentLevel, RiskFactSentiment } from "~~/types/shopify-order";
 
 const props = defineProps<{ orderId: string | number }>();
 const orderStore = useOrderStore();
@@ -38,9 +35,8 @@ const riskScore = computed(() => {
   };
   return Math.max(
     0,
-    ...(risk.value?.assessments.map(
-      (assessment) => scores[assessment.riskLevel],
-    ) || []),
+    ...(risk.value?.assessments.map((assessment) => scores[assessment.riskLevel]) ||
+      []),
   );
 });
 const displayRiskLevel = computed<RiskAssessmentLevel>(() => {
@@ -116,13 +112,14 @@ watch([() => props.orderId, isReady], ([, ready]) => {
 <template>
   <section class="risk-panel" aria-labelledby="risk-panel-title">
     <header>
-      <div class="panel-title"><ShieldAlert aria-hidden="true" /><h2 id="risk-panel-title">Order risk</h2></div>
+      <div class="panel-title">
+        <ShieldAlert aria-hidden="true" />
+        <h2 id="risk-panel-title">Order risk</h2>
+      </div>
       <BaseButton
         variant="ghost"
         icon-only
-        :aria-label="
-          isComposerOpen ? 'Close assessment form' : 'Add risk assessment'
-        "
+        :aria-label="isComposerOpen ? 'Close assessment form' : 'Add risk assessment'"
         :title="isComposerOpen ? 'Close assessment form' : 'Add risk assessment'"
         @click="isComposerOpen = !isComposerOpen"
       >
@@ -225,42 +222,203 @@ watch([() => props.orderId, isReady], ([, ready]) => {
 </template>
 
 <style scoped>
-.risk-panel { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: visible; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
-header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
-.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
-.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
-h2 { color: var(--text); font-size: 15px; }
-.is-rotated { transform: rotate(45deg); }
-.risk-overview { display: grid; gap: 12px; padding: 15px 16px; }
-.risk-meter { display: grid; gap: 8px; }
-.risk-track { height: 9px; overflow: hidden; border-radius: 999px; background: var(--surface-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 76%, transparent); }
-.risk-track span { display: block; height: 100%; border-radius: inherit; background: var(--green); transition: width 0.3s ease, background 0.2s ease; }
-.risk-meter.is-medium .risk-track span { background: var(--amber); }
-.risk-meter.is-high .risk-track span { background: var(--red); }
-.risk-meter.is-pending .risk-track span { background: var(--text-muted); }
-.risk-scale { display: grid; grid-template-columns: repeat(3, 1fr); color: var(--text-sub); font-size: 11px; font-weight: 600; text-align: center; }
-.risk-overview p { color: var(--text); font-size: 12px; line-height: 1.45; }
-.recommendation { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--text-sub); font-size: 11px; }
-.recommendation strong { color: var(--text); font-size: 11px; text-transform: capitalize; }
-.assessment-list { display: grid; border-top: 1px solid var(--border); }
-article { display: grid; gap: 9px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-article > div { display: flex; align-items: center; gap: 8px; }
-article strong { color: var(--text); font-size: 12px; }
-.risk-level { padding: 2px 8px; border-radius: 999px; background: var(--surface-soft); font-size: 10px; font-weight: 700; }
-.risk-level.is-low, .risk-level.is-none { background: var(--green-soft); color: var(--green); }
-.risk-level.is-medium, .risk-level.is-pending { background: var(--amber-soft); color: var(--amber); }
-.risk-level.is-high { background: var(--red-soft); color: var(--red); }
-ul { display: grid; gap: 5px; padding-left: 16px; color: var(--text-sub); font-size: 12px; }
-li span { margin-left: 5px; color: var(--text-muted); font-size: 10px; }
-.risk-empty { padding: 0 16px 14px; color: var(--text-muted); font-size: 11px; }
-.risk-error { padding: 10px 16px; border-top: 1px solid rgba(180, 49, 43, 0.2); background: var(--red-soft); color: var(--red); font-size: 12px; }
-.composer { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }
-label { display: grid; gap: 5px; }
-input { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 6px; padding: 0 9px; background: var(--surface-raised); color: var(--text); font: inherit; }
-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
+.risk-panel {
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: visible;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+header span,
+label > span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+.panel-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+h2 {
+  color: var(--text);
+  font-size: 15px;
+}
+.is-rotated {
+  transform: rotate(45deg);
+}
+.risk-overview {
+  display: grid;
+  gap: 12px;
+  padding: 15px 16px;
+}
+.risk-meter {
+  display: grid;
+  gap: 8px;
+}
+.risk-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 76%, transparent);
+}
+.risk-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+  transition:
+    width 0.3s ease,
+    background 0.2s ease;
+}
+.risk-meter.is-medium .risk-track span {
+  background: var(--amber);
+}
+.risk-meter.is-high .risk-track span {
+  background: var(--red);
+}
+.risk-meter.is-pending .risk-track span {
+  background: var(--text-muted);
+}
+.risk-scale {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+.risk-overview p {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.recommendation {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.recommendation strong {
+  color: var(--text);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+.assessment-list {
+  display: grid;
+  border-top: 1px solid var(--border);
+}
+article {
+  display: grid;
+  gap: 9px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+article > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+article strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.risk-level {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+.risk-level.is-low,
+.risk-level.is-none {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.risk-level.is-medium,
+.risk-level.is-pending {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.risk-level.is-high {
+  background: var(--red-soft);
+  color: var(--red);
+}
+ul {
+  display: grid;
+  gap: 5px;
+  padding-left: 16px;
+  color: var(--text-sub);
+  font-size: 12px;
+}
+li span {
+  margin-left: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.risk-empty {
+  padding: 0 16px 14px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.risk-error {
+  padding: 10px 16px;
+  border-top: 1px solid rgba(180, 49, 43, 0.2);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12px;
+}
+.composer {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+label {
+  display: grid;
+  gap: 5px;
+}
+input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 9px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
 
 @media (max-width: 760px) {
-  .risk-panel { max-width: none; }
+  .risk-panel {
+    max-width: none;
+  }
 }
 </style>

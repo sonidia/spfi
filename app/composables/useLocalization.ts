@@ -16,7 +16,6 @@ export function useLocalization() {
     locale,
     availableLocales,
     setLocale: localization.setLocale,
-    t: (key: MessageKey, params?: TranslationParams) =>
-      localization.t(key, params),
+    t: (key: MessageKey, params?: TranslationParams) => localization.t(key, params),
   };
 }

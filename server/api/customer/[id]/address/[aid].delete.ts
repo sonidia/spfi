@@ -6,14 +6,8 @@ import {
 } from "~~/server/utils/shopify-customer-request";
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
-  const addressId = requireCustomerResourceId(
-    event.context.params?.aid,
-    "Address",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
+  const addressId = requireCustomerResourceId(event.context.params?.aid, "Address");
   const { storeId, token } = getCustomerQueryCredentials(event);
 
   await callShopifyApi<Record<string, never>>({

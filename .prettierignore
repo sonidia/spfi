@@ -1,6 +1,7 @@
 .nuxt
 .output
 dist
+wrapper/src-tauri/gen
 node_modules
 src-tauri/target
 wrapper/src-tauri/target

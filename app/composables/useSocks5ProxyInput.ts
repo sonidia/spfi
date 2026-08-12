@@ -1,11 +1,7 @@
 export function isSocks5ProxyInput(proxy: string) {
   const trimmed = proxy.trim();
 
-  if (
-    !trimmed ||
-    /^https?:\/\//i.test(trimmed) ||
-    /^socks(4|4a):\/\//i.test(trimmed)
-  ) {
+  if (!trimmed || /^https?:\/\//i.test(trimmed) || /^socks(4|4a):\/\//i.test(trimmed)) {
     return false;
   }
 
@@ -43,10 +39,7 @@ export function getSocks5ProxyInputError(proxy: string) {
     return "Only SOCKS5 proxy is supported, not SOCKS4/SOCKS4A.";
   }
 
-  if (
-    /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) &&
-    !/^socks5h?:\/\//i.test(trimmed)
-  ) {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) && !/^socks5h?:\/\//i.test(trimmed)) {
     return "Only SOCKS5 proxy is supported; host:port without protocol is accepted.";
   }
 

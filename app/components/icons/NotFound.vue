@@ -9,16 +9,8 @@
     artist="Katerina Limpitsouni"
     source="https://undraw.co/"
   >
-    <g
-      id="Group_201"
-      data-name="Group 201"
-      transform="translate(-382.003 -195.455)"
-    >
-      <g
-        id="Group_200"
-        data-name="Group 200"
-        transform="translate(382.003 195.455)"
-      >
+    <g id="Group_201" data-name="Group 201" transform="translate(-382.003 -195.455)">
+      <g id="Group_200" data-name="Group 200" transform="translate(382.003 195.455)">
         <path
           id="Path_3120-89"
           data-name="Path 3120"

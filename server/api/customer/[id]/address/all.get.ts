@@ -8,10 +8,7 @@ import {
 import type { ShopifyCustomerAddress } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
   const { storeId, token } = getCustomerQueryCredentials(event);
 
   const addresses = await callShopifyPaginatedApi<ShopifyCustomerAddress>({

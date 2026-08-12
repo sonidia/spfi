@@ -17,21 +17,12 @@ interface ProductVariantCreateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductVariantCreateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const variant = requireShopifyPayload<ShopifyVariantInput>(
-    body.variant,
-    "Variant",
-  );
+  const variant = requireShopifyPayload<ShopifyVariantInput>(body.variant, "Variant");
 
-  return callShopifyApi<
-    ProductVariantsResponse,
-    { variant: ShopifyVariantInput }
-  >({
+  return callShopifyApi<ProductVariantsResponse, { variant: ShopifyVariantInput }>({
     event,
     storeId,
     token,

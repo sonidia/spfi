@@ -14,7 +14,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
   <img alt="Pinia" src="https://img.shields.io/badge/Pinia-FFD859?style=for-the-badge&logo=pinia&logoColor=14221B" />
   <img alt="Google Sheets" src="https://img.shields.io/badge/Google_Sheets-34A853?style=for-the-badge&logo=googlesheets&logoColor=white" />
-  <img alt="Node 20+" src="https://img.shields.io/badge/Node.js-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
+  <img alt="Node 24" src="https://img.shields.io/badge/Node.js-24-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
 </p>
 
 ## Highlights
@@ -99,7 +99,7 @@ The file must include `client_email` and `private_key`. Share any target spreads
 
 Required local inputs:
 
-- Node.js 20 or newer.
+- Node.js 24.x (the same major used by Docker and CI).
 - npm 10 or newer.
 - A Google service account JSON file for Sheets features.
 - Shopify store credentials for authenticated store operations.
@@ -108,6 +108,13 @@ Shopify Admin requests are throttled from Shopify's own response metadata, not
 from a hard-coded store plan. REST requests honor `Retry-After` and share the
 upstream bucket state per app/store; GraphQL retries use
 `extensions.cost.throttleStatus.currentlyAvailable` and `restoreRate`.
+
+Expiring Shopify client-credential tokens rotate automatically in the browser.
+The scheduler derives each deadline from the saved `expiresTime`, refreshes
+before expiry with deterministic jitter, rechecks when the tab becomes visible,
+and uses a short localStorage lease so only one open tab rotates a store at a
+time. Manager's manual rotate action remains available for operator-initiated
+recovery.
 
 ### Data access endpoints
 
@@ -224,6 +231,15 @@ node .output/server/index.mjs
 The production stack runs Nuxt behind Nginx. Nginx is the only public
 service; the Nuxt port is available only on the internal Compose network.
 
+The bundled Nginx configuration serves plain HTTP and Compose binds it to
+`127.0.0.1` by default. This is a deliberate TLS boundary: do not publish that
+listener directly to an untrusted network because browser-held Shopify and
+Tracktaco credentials would cross the network without encryption. For a public
+deployment, terminate HTTPS at a trusted reverse proxy or load balancer, keep
+the Compose listener private, redirect HTTP to HTTPS at that outer proxy, and
+set HSTS there after HTTPS is verified. Set `NGINX_BIND_ADDRESS` only when the
+selected address is protected by that TLS proxy or a trusted private network.
+
 The app service is tagged as `ghcr.io/sonidia/spfi:latest` by default. Override
 it with `APP_IMAGE` when you want to run another image tag.
 
@@ -323,6 +339,12 @@ to populate store credentials when they are not entered manually. If
 `NUXT_PUBLIC_MASTER_SHEET_TABS` is empty, the app discovers and searches the
 master spreadsheet's tabs. These values are browser-visible; don't put secrets
 in the URLs or tab names.
+
+Operators can override these deployment defaults from **Settings → Google
+Sheets configuration**. The override is stored only in that browser and is
+used by both the Sheet viewer and Manager credential lookup; “Restore
+deployment defaults” removes it. Sheet IDs and tab names remain browser-visible
+configuration, not a place for secrets.
 
 Expected header aliases for store auto-fill:
 

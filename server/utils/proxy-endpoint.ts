@@ -32,19 +32,13 @@ export function pinPublicProxyUrl(
   address: { address: string; family: 4 | 6 },
 ) {
   const pinned = new URL(proxyUrl);
-  pinned.hostname =
-    address.family === 6 ? `[${address.address}]` : address.address;
+  pinned.hostname = address.family === 6 ? `[${address.address}]` : address.address;
   return pinned.toString();
 }
 
 function validateProxyPort(proxyUrl: URL) {
   const port = Number(proxyUrl.port);
-  if (
-    !proxyUrl.port ||
-    !Number.isSafeInteger(port) ||
-    port < 1 ||
-    port > 65535
-  ) {
+  if (!proxyUrl.port || !Number.isSafeInteger(port) || port < 1 || port > 65535) {
     throw new PublicProxyError("Proxy port must be between 1 and 65535.");
   }
 }

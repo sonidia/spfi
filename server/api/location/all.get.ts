@@ -6,10 +6,7 @@ import {
   normalizeInventoryItemIds,
   normalizeLocationLimit,
 } from "~~/server/utils/shopify-location-query";
-import type {
-  InventoryLevelsResponse,
-  LocationsResponse,
-} from "~~/types/shopify";
+import type { InventoryLevelsResponse, LocationsResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);

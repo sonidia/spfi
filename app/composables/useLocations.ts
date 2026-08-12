@@ -36,10 +36,7 @@ export function useLocations() {
     if (!locationStore.error) markStoreResourceLoaded(storeId, "locations");
   }
 
-  async function fetchProductInventory(
-    product?: ShopifyProduct | null,
-    force = false,
-  ) {
+  async function fetchProductInventory(product?: ShopifyProduct | null, force = false) {
     const storeId = formStore.storeId;
     const token = resolveToken(storeId);
 
@@ -57,9 +54,7 @@ export function useLocations() {
   return {
     locations: computed(() => locationStore.locations),
     inventoryLevels: computed(() => locationStore.inventoryLevels),
-    activeInventoryItemIdsKey: computed(
-      () => locationStore.activeInventoryItemIdsKey,
-    ),
+    activeInventoryItemIdsKey: computed(() => locationStore.activeInventoryItemIdsKey),
     isLoadingLocations: computed(() => locationStore.isLoading),
     locationError: computed(() => locationStore.error),
     fetchLocations,

@@ -109,16 +109,14 @@ export function buildShopProfileRows(
       key,
       label: humanizeProfileKey(key),
       value: formatProfileValue(value),
-      isMultiline:
-        !!value && typeof value === "object" && !Array.isArray(value),
+      isMultiline: !!value && typeof value === "object" && !Array.isArray(value),
     }));
 }
 
 export function formatProfileTimestamp(value: unknown): string {
   if (!value) return "-";
 
-  const date =
-    typeof value === "number" ? new Date(value) : new Date(String(value));
+  const date = typeof value === "number" ? new Date(value) : new Date(String(value));
   if (Number.isNaN(date.getTime())) return String(value);
 
   return date.toLocaleString();

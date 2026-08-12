@@ -1,13 +1,9 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import { buildPayoutQueryParams } from "~~/server/utils/shopify-payment-query";
 import type { PayoutsResponse } from "~~/types/shopify";
-import type {
-  ShopifyPayoutFilters,
-} from "~~/types/shopify-payment";
+import type { ShopifyPayoutFilters } from "~~/types/shopify-payment";
 
 interface PayoutAllBody {
   storeId?: string;

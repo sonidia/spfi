@@ -31,13 +31,11 @@ const cancelReason = ref<OrderCancelInput["reason"]>("other");
 const cancelAmount = ref("");
 const notifyCustomer = ref(false);
 const cancelReasonOptions = computed(() =>
-  (["customer", "inventory", "fraud", "declined", "other"] as const).map(
-    (value) => ({
-      value,
-      label: t(`order.cancelReason.${value}`),
-      description: t(`order.cancelReason.${value}Description`),
-    }),
-  ),
+  (["customer", "inventory", "fraud", "declined", "other"] as const).map((value) => ({
+    value,
+    label: t(`order.cancelReason.${value}`),
+    description: t(`order.cancelReason.${value}Description`),
+  })),
 );
 
 watch(
@@ -95,11 +93,7 @@ async function cancelOrder() {
 }
 
 function setCancelReason(value: unknown) {
-  if (
-    ["customer", "inventory", "fraud", "declined", "other"].includes(
-      String(value),
-    )
-  ) {
+  if (["customer", "inventory", "fraud", "declined", "other"].includes(String(value))) {
     cancelReason.value = value as OrderCancelInput["reason"];
   }
 }
@@ -142,7 +136,9 @@ async function deleteOrder() {
           :disabled="Boolean(order.cancelled_at) || orderStore.isMutating"
           @click="changeOpenState"
         >
-          <template #icon><RotateCcw v-if="order.closed_at" /><Archive v-else /></template>
+          <template #icon
+            ><RotateCcw v-if="order.closed_at" /><Archive v-else
+          /></template>
           {{ order.closed_at ? t("order.reopen") : t("common.close") }}
         </BaseButton>
         <BaseButton
@@ -172,8 +168,14 @@ async function deleteOrder() {
         <span>{{ t("order.tags") }}</span>
         <textarea v-model="tags" class="editor-textarea" rows="3" />
       </label>
-      <label><span>{{ t("order.email") }}</span><input v-model="email" type="email" /></label>
-      <label><span>{{ t("order.phone") }}</span><input v-model="phone" type="tel" /></label>
+      <label
+        ><span>{{ t("order.email") }}</span
+        ><input v-model="email" type="email"
+      /></label>
+      <label
+        ><span>{{ t("order.phone") }}</span
+        ><input v-model="phone" type="tel"
+      /></label>
       <div class="editor-actions">
         <BaseButton @click="mode = 'idle'">
           <template #icon><Undo2 /></template>
@@ -199,8 +201,15 @@ async function deleteOrder() {
           @update:model-value="setCancelReason"
         />
       </label>
-      <label><span>{{ t("order.refundAmount") }}</span><input v-model="cancelAmount" inputmode="decimal" /></label>
-      <label class="check-row"><input v-model="notifyCustomer" type="checkbox" /><span>{{ t("order.notifyCustomer") }}</span></label>
+      <label
+        ><span>{{ t("order.refundAmount") }}</span
+        ><input v-model="cancelAmount" inputmode="decimal"
+      /></label>
+      <label class="check-row"
+        ><input v-model="notifyCustomer" type="checkbox" /><span>{{
+          t("order.notifyCustomer")
+        }}</span></label
+      >
       <div class="editor-actions">
         <BaseButton @click="mode = 'idle'">
           <template #icon><ArrowLeft /></template>
@@ -224,27 +233,120 @@ async function deleteOrder() {
 </template>
 
 <style scoped>
-.management-panel { margin-bottom: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: visible; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
-header span, label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
-.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
-.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
-h2 { color: var(--text); font-size: 15px; }
-.action-row, .editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
-.editor-grid, .cancel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; padding: 16px; border-top: 1px solid var(--border); background: var(--surface-soft); }
-label { display: grid; gap: 5px; min-width: 0; }
-input, textarea { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface-raised); color: var(--text); font: inherit; }
-input { height: 38px; }
-input:focus, textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
-textarea { min-height: 80px; resize: vertical; }
-.check-row { display: flex; align-items: center; align-self: end; min-height: 38px; gap: 8px; }
-.check-row input { width: 16px; }
-.editor-actions { grid-column: 1 / -1; }
-.panel-error { padding: 10px 16px; border-top: 1px solid rgba(180, 49, 43, 0.2); background: var(--red-soft); color: var(--red); font-size: 12px; }
+.management-panel {
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: visible;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+}
+header span,
+label > span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+.panel-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+h2 {
+  color: var(--text);
+  font-size: 15px;
+}
+.action-row,
+.editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.editor-grid,
+.cancel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+input {
+  height: 38px;
+}
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  min-height: 38px;
+  gap: 8px;
+}
+.check-row input {
+  width: 16px;
+}
+.editor-actions {
+  grid-column: 1 / -1;
+}
+.panel-error {
+  padding: 10px 16px;
+  border-top: 1px solid rgba(180, 49, 43, 0.2);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12px;
+}
 
 @media (max-width: 760px) {
-  header { align-items: flex-start; flex-direction: column; }
-  .editor-grid, .cancel-grid { grid-template-columns: 1fr; }
-  .action-row { justify-content: flex-start; }
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .editor-grid,
+  .cancel-grid {
+    grid-template-columns: 1fr;
+  }
+  .action-row {
+    justify-content: flex-start;
+  }
 }
 </style>

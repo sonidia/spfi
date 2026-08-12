@@ -8,6 +8,7 @@ import { fmtDateTime } from "~~/utils/order";
 
 const store = useCommerceOpsStore();
 const { storeId, token } = useActiveShopAuth();
+const { t } = useLocalization();
 const feedback = useStoreFeedback();
 const { requestConfirmation } = useConfirmDialog();
 const isCreateOpen = ref(false);
@@ -15,11 +16,22 @@ const isCreateOpen = ref(false);
 async function runAction(discount: DiscountSummary, action: DiscountAction) {
   if (
     !(await requestConfirmation({
-      title: `${action === "activate" ? "Activate" : "Pause"} discount`,
-      message: `${action === "activate" ? "Make" : "Stop"} ${discount.code || discount.title} ${
-        action === "activate" ? "available at checkout" : "from being used at checkout"
-      }?`,
-      confirmLabel: action === "activate" ? "Activate" : "Pause",
+      title: t(
+        action === "activate"
+          ? "operations.discount.activateTitle"
+          : "operations.discount.pauseTitle",
+      ),
+      message: t(
+        action === "activate"
+          ? "operations.discount.activateConfirm"
+          : "operations.discount.pauseConfirm",
+        { name: discount.code || discount.title },
+      ),
+      confirmLabel: t(
+        action === "activate"
+          ? "operations.discount.activate"
+          : "operations.discount.pause",
+      ),
       danger: false,
     }))
   ) {
@@ -31,8 +43,17 @@ async function runAction(discount: DiscountSummary, action: DiscountAction) {
     discount.id,
     action,
   );
-  if (result) feedback.success(`Discount ${action}d.`);
-  else feedback.error(store.mutationError, `Failed to ${action} the discount.`);
+  if (result) {
+    feedback.success(
+      t(
+        action === "activate"
+          ? "operations.discount.activated"
+          : "operations.discount.paused",
+      ),
+    );
+  } else {
+    feedback.error(store.mutationError, t("operations.discount.actionFailed"));
+  }
 }
 </script>
 
@@ -40,18 +61,18 @@ async function runAction(discount: DiscountSummary, action: DiscountAction) {
   <div class="ops-panel">
     <div class="ops-panel-toolbar">
       <div>
-        <h3>Discounts & modern price rules</h3>
-        <p>Uses Shopify's current discount model for code and automatic promotions.</p>
+        <h3>{{ t("operations.discount.title") }}</h3>
+        <p>{{ t("operations.discount.description") }}</p>
       </div>
       <BaseButton variant="primary" @click="isCreateOpen = true">
         <template #icon><Plus /></template>
-        New code
+        {{ t("operations.discount.newCode") }}
       </BaseButton>
     </div>
     <div v-if="store.errors.discounts" class="ops-resource-error" role="alert">
-      <strong>Discounts unavailable</strong>
+      <strong>{{ t("operations.discount.unavailable") }}</strong>
       <span>{{ store.errors.discounts }}</span>
-      <small>Confirm the app has read_discounts and write_discounts scopes.</small>
+      <small>{{ t("operations.discount.scopeRequired") }}</small>
     </div>
     <div
       v-else-if="
@@ -60,19 +81,19 @@ async function runAction(discount: DiscountSummary, action: DiscountAction) {
       class="ops-empty"
       role="status"
     >
-      Loading discounts…
+      {{ t("operations.discount.loading") }}
     </div>
     <div v-else-if="store.discounts.length" class="ops-table-scroll">
       <table class="ops-table">
         <thead>
           <tr>
-            <th>Promotion</th>
-            <th>Code</th>
-            <th>Rule</th>
-            <th>Usage</th>
-            <th>Schedule</th>
-            <th>Status</th>
-            <th class="ops-actions-column">Actions</th>
+            <th>{{ t("operations.discount.columnPromotion") }}</th>
+            <th>{{ t("operations.discount.columnCode") }}</th>
+            <th>{{ t("operations.discount.columnRule") }}</th>
+            <th>{{ t("operations.discount.columnUsage") }}</th>
+            <th>{{ t("operations.discount.columnSchedule") }}</th>
+            <th>{{ t("operations.columnStatus") }}</th>
+            <th class="ops-actions-column">{{ t("operations.columnActions") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -82,19 +103,25 @@ async function runAction(discount: DiscountSummary, action: DiscountAction) {
               <small>{{ discount.type.replace(/^Discount/, "") }}</small>
             </td>
             <td>
-              <code>{{ discount.code || "Automatic" }}</code>
+              <code>{{ discount.code || t("operations.discount.automatic") }}</code>
             </td>
             <td class="ops-rule-cell">
-              {{ discount.summary || "Configured in Shopify" }}
+              {{ discount.summary || t("operations.discount.configuredInShopify") }}
             </td>
             <td>{{ discount.usageCount }}</td>
             <td>
               <span>{{
-                discount.startsAt ? fmtDateTime(discount.startsAt) : "Immediate"
+                discount.startsAt
+                  ? fmtDateTime(discount.startsAt)
+                  : t("operations.discount.immediate")
               }}</span>
-              <small v-if="discount.endsAt"
-                >Ends {{ fmtDateTime(discount.endsAt) }}</small
-              >
+              <small v-if="discount.endsAt">
+                {{
+                  t("operations.discount.ends", {
+                    date: fmtDateTime(discount.endsAt) || "",
+                  })
+                }}
+              </small>
             </td>
             <td>
               <span class="ops-status">{{ discount.status }}</span>
@@ -107,7 +134,7 @@ async function runAction(discount: DiscountSummary, action: DiscountAction) {
                   @click="runAction(discount, 'activate')"
                 >
                   <template #icon><Play /></template>
-                  Activate
+                  {{ t("operations.discount.activate") }}
                 </BaseButton>
                 <BaseButton
                   v-else
@@ -115,16 +142,16 @@ async function runAction(discount: DiscountSummary, action: DiscountAction) {
                   @click="runAction(discount, 'deactivate')"
                 >
                   <template #icon><Pause /></template>
-                  Pause
+                  {{ t("operations.discount.pause") }}
                 </BaseButton>
               </div>
-              <small v-else>Manage automatic rule in Shopify</small>
+              <small v-else>{{ t("operations.discount.manageAutomatic") }}</small>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="ops-empty">No discounts found.</div>
+    <div v-else class="ops-empty">{{ t("operations.discount.empty") }}</div>
 
     <OperationsCreateDiscountModal
       v-if="isCreateOpen"

@@ -50,10 +50,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (typeof value !== "string" || !type) {
-    throw createApiErrorFromMessage(
-      "Metafield value and type are required.",
-      400,
-    );
+    throw createApiErrorFromMessage("Metafield value and type are required.", 400);
   }
 
   return callShopifyApi<

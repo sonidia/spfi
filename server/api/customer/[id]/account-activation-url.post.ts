@@ -12,17 +12,11 @@ interface CustomerActionBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
   const body = (await readBody<CustomerActionBody>(event)) || {};
   const { storeId, token } = requireCustomerCredentials(body);
 
-  return callShopifyApi<
-    CustomerAccountActivationUrlResponse,
-    Record<string, never>
-  >({
+  return callShopifyApi<CustomerAccountActivationUrlResponse, Record<string, never>>({
     event,
     storeId,
     token,

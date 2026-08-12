@@ -51,20 +51,20 @@ GET and DELETE routes receive `storeId` in the query. Send the token using the
 `X-Shopify-Access-Token` header. Query-string tokens are not accepted because
 URLs can be retained in logs, browser history, and referrer metadata.
 
-| App route | Shopify REST request | Additional input |
-| --- | --- | --- |
-| `POST /api/customer/create` | `POST /customers.json` | `customer` |
-| `PUT /api/customer/{id}` | `PUT /customers/{id}.json` | `customer` |
-| `DELETE /api/customer/{id}` | `DELETE /customers/{id}.json` | — |
-| `POST /api/customer/count` | `GET /customers/count.json` | optional `query` with `created_at_min`, `created_at_max`, `updated_at_min`, `updated_at_max` |
-| `POST /api/customer/{id}/account-activation-url` | `POST /customers/{id}/account_activation_url.json` | — |
-| `POST /api/customer/{id}/send-invite` | `POST /customers/{id}/send_invite.json` | optional `customer_invite` |
-| `GET /api/customer/{id}/address/all` | `GET /customers/{id}/addresses.json` | optional `limit`, `page_info` query parameters |
-| `POST /api/customer/{id}/address/create` | `POST /customers/{id}/addresses.json` | `address` |
-| `GET /api/customer/{id}/address/{addressId}` | `GET /customers/{id}/addresses/{addressId}.json` | — |
-| `PUT /api/customer/{id}/address/{addressId}` | `PUT /customers/{id}/addresses/{addressId}.json` | `address` |
-| `DELETE /api/customer/{id}/address/{addressId}` | `DELETE /customers/{id}/addresses/{addressId}.json` | — |
-| `PUT /api/customer/{id}/address/{addressId}/default` | `PUT /customers/{id}/addresses/{addressId}/default.json` | — |
+| App route                                            | Shopify REST request                                     | Additional input                                                                             |
+| ---------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `POST /api/customer/create`                          | `POST /customers.json`                                   | `customer`                                                                                   |
+| `PUT /api/customer/{id}`                             | `PUT /customers/{id}.json`                               | `customer`                                                                                   |
+| `DELETE /api/customer/{id}`                          | `DELETE /customers/{id}.json`                            | —                                                                                            |
+| `POST /api/customer/count`                           | `GET /customers/count.json`                              | optional `query` with `created_at_min`, `created_at_max`, `updated_at_min`, `updated_at_max` |
+| `POST /api/customer/{id}/account-activation-url`     | `POST /customers/{id}/account_activation_url.json`       | —                                                                                            |
+| `POST /api/customer/{id}/send-invite`                | `POST /customers/{id}/send_invite.json`                  | optional `customer_invite`                                                                   |
+| `GET /api/customer/{id}/address/all`                 | `GET /customers/{id}/addresses.json`                     | optional `limit`, `page_info` query parameters                                               |
+| `POST /api/customer/{id}/address/create`             | `POST /customers/{id}/addresses.json`                    | `address`                                                                                    |
+| `GET /api/customer/{id}/address/{addressId}`         | `GET /customers/{id}/addresses/{addressId}.json`         | —                                                                                            |
+| `PUT /api/customer/{id}/address/{addressId}`         | `PUT /customers/{id}/addresses/{addressId}.json`         | `address`                                                                                    |
+| `DELETE /api/customer/{id}/address/{addressId}`      | `DELETE /customers/{id}/addresses/{addressId}.json`      | —                                                                                            |
+| `PUT /api/customer/{id}/address/{addressId}/default` | `PUT /customers/{id}/addresses/{addressId}/default.json` | —                                                                                            |
 
 Customer and address IDs must be Shopify numeric REST IDs. The routes reject
 invalid IDs before making an upstream request.
@@ -93,15 +93,15 @@ deleting a customer's default address; set a different default address first.
 
 ## GraphQL migration map
 
-| Capability | GraphQL Admin API |
-| --- | --- |
-| Create, update, or delete customer | `customerCreate`, `customerUpdate`, `customerDelete` |
-| Count customers | `customersCount` |
-| Generate activation URL | `customerGenerateAccountActivationUrl` |
-| Send account invite | `customerSendAccountInviteEmail` |
-| Create, update, or delete address | `customerAddressCreate`, `customerAddressUpdate`, `customerAddressDelete` |
-| Set default address | `customerUpdateDefaultAddress` |
-| Update email marketing consent | `customerEmailMarketingConsentUpdate` |
+| Capability                         | GraphQL Admin API                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| Create, update, or delete customer | `customerCreate`, `customerUpdate`, `customerDelete`                      |
+| Count customers                    | `customersCount`                                                          |
+| Generate activation URL            | `customerGenerateAccountActivationUrl`                                    |
+| Send account invite                | `customerSendAccountInviteEmail`                                          |
+| Create, update, or delete address  | `customerAddressCreate`, `customerAddressUpdate`, `customerAddressDelete` |
+| Set default address                | `customerUpdateDefaultAddress`                                            |
+| Update email marketing consent     | `customerEmailMarketingConsentUpdate`                                     |
 
 `customerSetEmailMarketingContext` is not the current mutation for updating
 email marketing consent in Admin API `2026-07`. Use

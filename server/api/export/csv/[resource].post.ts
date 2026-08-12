@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody, setResponseHeaders, type H3Event } from "h3";
-import Papa from "papaparse";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import { iterateShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import { getCsvExportDefinition } from "~~/server/utils/csv-export";
 import { prepareTextDownload } from "~~/server/utils/prepared-download";
+import { serializeCsvRows, serializeEmptyCsv } from "~~/server/utils/csv-serialization";
 
 interface CsvExportBody {
   storeId?: string;
@@ -61,21 +61,13 @@ async function* streamCsv(
     const rows = page.items.map(definition.mapRow);
     if (!rows.length) continue;
 
-    const csv = Papa.unparse(rows, {
-      columns: definition.columns,
-      header: !hasWrittenHeader,
-      newline: "\r\n",
-      escapeFormulae: true,
-    });
+    const csv = serializeCsvRows(rows, definition.columns, !hasWrittenHeader);
     yield `${hasWrittenHeader ? "" : "\uFEFF"}${csv}\r\n`;
     hasWrittenHeader = true;
   }
 
   if (!hasWrittenHeader) {
-    yield `\uFEFF${Papa.unparse(
-      { fields: definition.columns, data: [] },
-      { newline: "\r\n" },
-    )}`;
+    yield `\uFEFF${serializeEmptyCsv(definition.columns)}`;
   }
 }
 

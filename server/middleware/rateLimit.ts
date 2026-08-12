@@ -1,4 +1,11 @@
-import type { H3Event } from "h3";
+import {
+  createError,
+  defineEventHandler,
+  getRequestIP,
+  getRequestURL,
+  setResponseHeader,
+  type H3Event,
+} from "h3";
 import { useRuntimeConfig } from "#imports";
 import { readRuntimeBoolean } from "../utils/runtime-config";
 import {

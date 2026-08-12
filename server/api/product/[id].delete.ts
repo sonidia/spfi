@@ -11,10 +11,7 @@ interface ProductDeleteBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductDeleteBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 

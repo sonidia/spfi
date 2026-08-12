@@ -1,7 +1,5 @@
 import { defineEventHandler, getQuery, getRouterParam } from "h3";
-import {
-  callShopifyApi,
-} from "~~/server/utils/callShopifyApi";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
   getShopifyQueryCredentials,
   requireShopifyResourceId,
@@ -10,10 +8,7 @@ import { buildOrderTransactionDetailParams } from "~~/server/utils/shopify-order
 import type { OrderTransactionResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
-  const orderId = requireShopifyResourceId(
-    getRouterParam(event, "id"),
-    "Order",
-  );
+  const orderId = requireShopifyResourceId(getRouterParam(event, "id"), "Order");
   const transactionId = requireShopifyResourceId(
     getRouterParam(event, "transactionId"),
     "Transaction",

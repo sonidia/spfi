@@ -17,14 +17,8 @@ interface CustomerAddressUpdateBody {
 }
 
 export default defineEventHandler(async (event) => {
-  const customerId = requireCustomerResourceId(
-    event.context.params?.id,
-    "Customer",
-  );
-  const addressId = requireCustomerResourceId(
-    event.context.params?.aid,
-    "Address",
-  );
+  const customerId = requireCustomerResourceId(event.context.params?.id, "Customer");
+  const addressId = requireCustomerResourceId(event.context.params?.aid, "Address");
   const body = (await readBody<CustomerAddressUpdateBody>(event)) || {};
   const { storeId, token } = requireCustomerCredentials(body);
   const address = requireCustomerPayload<ShopifyCustomerAddressInput>(

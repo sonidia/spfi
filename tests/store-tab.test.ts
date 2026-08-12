@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  DEFAULT_STORE_TAB,
-  resolveStoreTab,
-  STORE_TABS,
-} from "../types/store.ts";
+import { DEFAULT_STORE_TAB, resolveStoreTab, STORE_TABS } from "../types/store.ts";
 
 test("resolveStoreTab keeps every supported tab", () => {
   for (const tab of STORE_TABS) {

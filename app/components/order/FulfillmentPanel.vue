@@ -253,12 +253,11 @@ async function createFulfillment() {
 
 <style scoped>
 .fulfillment-panel {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 header {
   display: flex;

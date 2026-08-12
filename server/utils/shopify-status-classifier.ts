@@ -162,4 +162,3 @@ function isDeadHttpStatus(status: number | null) {
 function formatStatus(snapshot: ShopifyFetchSnapshot) {
   return `HTTP ${snapshot.status} ${snapshot.statusText}`.trim();
 }
-

@@ -109,9 +109,7 @@ export async function resolvePublicHostname(
   }
 
   const addresses = await resolveAddresses(normalized);
-  const unsafeAddress = addresses.find(
-    ({ address }) => !isPublicIpAddress(address),
-  );
+  const unsafeAddress = addresses.find(({ address }) => !isPublicIpAddress(address));
 
   if (unsafeAddress) {
     throw new PublicUrlError(
@@ -150,10 +148,7 @@ export function isPublicIpAddress(address: string): boolean {
   }
 
   if (family === 6) {
-    return (
-      /^[23]/.test(normalized) &&
-      !blockedIpv6Addresses.check(normalized, "ipv6")
-    );
+    return /^[23]/.test(normalized) && !blockedIpv6Addresses.check(normalized, "ipv6");
   }
 
   return false;

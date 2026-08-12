@@ -23,21 +23,30 @@ export const defaultSheets = (configuredUrls: unknown): string[] =>
   parseSheetConfigList(configuredUrls);
 
 export function parseSheetConfigList(value: unknown): string[] {
-  const raw = String(value || "").trim();
-  if (!raw) return [];
-
   let values: unknown[];
-  if (raw.startsWith("[")) {
+  if (Array.isArray(value)) {
+    values = value;
+  } else {
+    const raw = String(value || "").trim();
+    if (!raw) return [];
+
+    if (!raw.startsWith("[")) {
+      values = raw.split(/[\r\n,]+/);
+      return normalizeSheetConfigValues(values);
+    }
+
     try {
       const parsed = JSON.parse(raw);
       values = Array.isArray(parsed) ? parsed : [];
     } catch {
       values = [];
     }
-  } else {
-    values = raw.split(/[\r\n,]+/);
   }
 
+  return normalizeSheetConfigValues(values);
+}
+
+function normalizeSheetConfigValues(values: unknown[]) {
   return Array.from(
     new Set(values.map((item) => String(item || "").trim()).filter(Boolean)),
   );

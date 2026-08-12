@@ -1,9 +1,7 @@
 import type { AppErrorLike } from "~~/types/shopify";
 
 export function getAppErrorMessage(error: unknown, fallback: string) {
-  const candidate = (
-    error && typeof error === "object" ? error : {}
-  ) as AppErrorLike;
+  const candidate = (error && typeof error === "object" ? error : {}) as AppErrorLike;
   const nestedMessage = candidate.data?.data?.error?.message;
   const standardMessage = candidate.data?.error?.message;
   const statusMessage = candidate.data?.statusMessage;

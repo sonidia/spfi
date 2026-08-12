@@ -5,8 +5,7 @@ import type {
   ShopifyMetafield,
 } from "./shopify";
 
-export interface ShopifyCustomerAddressInput
-  extends Record<string, unknown> {
+export interface ShopifyCustomerAddressInput extends Record<string, unknown> {
   first_name?: string | null;
   last_name?: string | null;
   company?: string | null;
@@ -43,8 +42,7 @@ export interface ShopifyCustomerInput extends Record<string, unknown> {
   metafields?: Array<Partial<ShopifyMetafield> & Record<string, unknown>>;
 }
 
-export interface ShopifyCustomerInviteInput
-  extends Record<string, unknown> {
+export interface ShopifyCustomerInviteInput extends Record<string, unknown> {
   to?: string;
   from?: string;
   bcc?: string[];

@@ -6,8 +6,8 @@ import {
   TableProperties,
   Trash2,
 } from "@lucide/vue";
+import { useSheetSettingsStore } from "~/stores/sheetSettings";
 import {
-  defaultSheets,
   normalizeSheetEntries as normalizeStoredSheetEntries,
   SHEET_RECENT_STORAGE_KEY,
   type LegacyStoredSheet,
@@ -18,6 +18,8 @@ definePageMeta({ layout: false });
 
 const { t } = useLocalization();
 const runtimeConfig = useRuntimeConfig();
+const sheetSettings = useSheetSettingsStore();
+sheetSettings.initialize();
 const { requestConfirmation } = useConfirmDialog();
 const { state: sheetList, set: setSheetList } = useLocalStorage<
   (StoredSheet | LegacyStoredSheet)[]
@@ -99,7 +101,12 @@ async function initializeDefaultSheets() {
   if (normalized.length) return;
 
   const initialSheets: StoredSheet[] = [];
-  for (const source of defaultSheets(runtimeConfig.public.sheetUrls)) {
+  const configured = sheetSettings.resolve({
+    sheetUrls: runtimeConfig.public.sheetUrls,
+    masterSheetUrl: runtimeConfig.public.masterSheetUrl,
+    masterSheetTabs: runtimeConfig.public.masterSheetTabs,
+  });
+  for (const source of configured.sheetUrls) {
     const meta = await readSheetMetaSafe(source);
     if (!meta) continue;
     initialSheets.push({
@@ -177,38 +184,27 @@ onMounted(initializeDefaultSheets);
 </script>
 
 <template>
-  <AdminPageShell
-    title="Google Sheets"
-    sub="Manage saved spreadsheets, selected tabs, and row previews"
-    size="wide"
-  >
+  <AdminPageShell :title="t('sheet.title')" :sub="t('sheet.subtitle')" size="wide">
     <template #icon>
       <FileSpreadsheet />
     </template>
     <template #actions>
-      <span class="sheet-count">{{ recentSheets.length }} saved</span>
+      <span class="sheet-count">
+        {{ t("sheet.savedCount", { count: recentSheets.length }) }}
+      </span>
     </template>
 
     <section id="sheets" class="settings-sheet-card">
-      <header class="sheet-card-heading">
-        <span class="sheet-card-icon"><FileSpreadsheet /></span>
-        <div>
-          <h2>Google Sheets</h2>
-          <p>Manage saved spreadsheets, select tabs and preview row data.</p>
-        </div>
-        <span class="sheet-count">{{ recentSheets.length }} saved</span>
-      </header>
-
       <div class="sheet-card-body">
         <form class="sheet-add-form" @submit.prevent="addAndLoadSheet">
           <label>
-            <span class="sr-only">Google Sheet URL or spreadsheet ID</span>
+            <span class="sr-only">{{ t("sheet.inputLabel") }}</span>
             <input
               v-model="sheetInputValue"
               type="text"
               autocomplete="off"
               spellcheck="false"
-              placeholder="Google Sheet URL or Spreadsheet ID…"
+              :placeholder="t('sheet.inputPlaceholder')"
             />
           </label>
           <BaseButton
@@ -219,7 +215,7 @@ onMounted(initializeDefaultSheets);
             :disabled="!sheetInputValue.trim()"
           >
             <template #icon><Plus /></template>
-            Import sheet
+            {{ t("sheet.import") }}
           </BaseButton>
         </form>
 
@@ -235,9 +231,7 @@ onMounted(initializeDefaultSheets);
                   {{ truncateUrl(sheet.source) }} <ExternalLink />
                 </a>
                 <small v-if="sheet.ranges.length">
-                  {{ sheet.ranges.length }} tab{{
-                    sheet.ranges.length === 1 ? "" : "s"
-                  }}
+                  {{ t("sheet.tabCount", { count: sheet.ranges.length }) }}
                 </small>
               </span>
             </div>
@@ -247,14 +241,14 @@ onMounted(initializeDefaultSheets);
                 class-name="sheet-tab-select"
                 :model-value="getSelectedSheetName(sheet)"
                 :options="sheet.ranges.map((range) => ({ label: range, value: range }))"
-                :aria-label="`Select tab for ${sheet.label}`"
+                :aria-label="t('sheet.selectTabAria', { name: sheet.label })"
                 @change="setSelectedSheetName(sheet.source, $event)"
               >
                 <template #icon><TableProperties /></template>
               </BaseSelect>
               <BaseButton size="medium" @click="loadSheetViewerData(sheet)">
                 <template #icon><TableProperties /></template>
-                View
+                {{ t("sheet.view") }}
               </BaseButton>
               <BaseButton
                 variant="danger-ghost"
@@ -262,7 +256,7 @@ onMounted(initializeDefaultSheets);
                 @click="removeRecentSheet(sheet.source)"
               >
                 <template #icon><Trash2 /></template>
-                Delete
+                {{ t("common.delete") }}
               </BaseButton>
             </div>
           </article>
@@ -270,12 +264,12 @@ onMounted(initializeDefaultSheets);
 
         <div v-else-if="!sheetLoading" class="sheet-empty">
           <FileSpreadsheet />
-          <strong>No saved sheets</strong>
-          <span>Import a Google Sheet URL or spreadsheet ID to get started.</span>
+          <strong>{{ t("sheet.emptyTitle") }}</strong>
+          <span>{{ t("sheet.emptyDescription") }}</span>
         </div>
 
         <div v-if="sheetLoading" class="sheet-loading" aria-live="polite">
-          Loading sheet data…
+          {{ t("sheet.loading") }}
         </div>
       </div>
     </section>
@@ -292,7 +286,7 @@ onMounted(initializeDefaultSheets);
               <th v-for="(header, index) in sheetHeaders" :key="index">
                 {{ header }}
                 <span v-if="index === 0" class="sheet-badge">
-                  {{ sheetFilteredRows.length }} rows
+                  {{ t("sheet.rowCount", { count: sheetFilteredRows.length }) }}
                 </span>
               </th>
             </tr>
@@ -305,7 +299,7 @@ onMounted(initializeDefaultSheets);
             </tr>
           </tbody>
         </table>
-        <div v-else class="sheet-empty-modal">No data to display.</div>
+        <div v-else class="sheet-empty-modal">{{ t("sheet.noData") }}</div>
       </div>
     </SheetDataModal>
   </AdminPageShell>
@@ -320,30 +314,6 @@ onMounted(initializeDefaultSheets);
   border-radius: 12px;
   background: var(--surface);
   box-shadow: var(--shadow-soft);
-}
-
-.sheet-card-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.sheet-card-heading > div {
-  min-width: 0;
-  flex: 1;
-}
-
-.sheet-card-heading h2 {
-  color: var(--text);
-  font-size: 16px;
-}
-
-.sheet-card-heading p {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .sheet-card-icon,
@@ -603,11 +573,6 @@ onMounted(initializeDefaultSheets);
 }
 
 @media (max-width: 560px) {
-  .sheet-card-heading {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
   .sheet-count {
     margin-left: 48px;
   }

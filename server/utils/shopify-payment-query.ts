@@ -1,6 +1,4 @@
-import {
-  SHOPIFY_PAYOUT_STATUSES,
-} from "~~/types/shopify-payment";
+import { SHOPIFY_PAYOUT_STATUSES } from "~~/types/shopify-payment";
 import { createApiErrorFromMessage } from "./callShopifyApi";
 
 type QueryParams = Record<string, string | boolean>;
@@ -34,19 +32,11 @@ export function buildBalanceTransactionQueryParams(input: unknown): QueryParams 
   addId(params, "payout_id", filters.payout_id);
   addId(params, "since_id", filters.since_id);
   addId(params, "last_id", filters.last_id);
-  addStatus(
-    params,
-    "payout_status",
-    filters.payout_status,
-    BALANCE_PAYOUT_STATUS_SET,
-  );
+  addStatus(params, "payout_status", filters.payout_status, BALANCE_PAYOUT_STATUS_SET);
 
   if (filters.test !== undefined && filters.test !== "") {
     if (typeof filters.test !== "boolean") {
-      throw createApiErrorFromMessage(
-        'The "test" filter must be true or false.',
-        400,
-      );
+      throw createApiErrorFromMessage('The "test" filter must be true or false.', 400);
     }
     params.test = filters.test;
   }
@@ -56,9 +46,7 @@ export function buildBalanceTransactionQueryParams(input: unknown): QueryParams 
 
 export function groupTransactionsByPayout<
   T extends { payout_id: string | number | null },
->(
-  transactions: T[],
-): Record<string, T[]> {
+>(transactions: T[]): Record<string, T[]> {
   const grouped: Record<string, T[]> = {};
 
   for (const transaction of transactions) {
@@ -137,9 +125,6 @@ function validateDateRange(params: QueryParams) {
   const min = params.date_min;
   const max = params.date_max;
   if (typeof min === "string" && typeof max === "string" && min > max) {
-    throw createApiErrorFromMessage(
-      '"date_min" cannot be after "date_max".',
-      400,
-    );
+    throw createApiErrorFromMessage('"date_min" cannot be after "date_max".', 400);
   }
 }

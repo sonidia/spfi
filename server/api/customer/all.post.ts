@@ -17,10 +17,7 @@ export default defineEventHandler(async (event) => {
   const query = String(body.query || "").trim();
 
   if (!storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Store ID and Access Token are required.",
-      400,
-    );
+    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
   }
 
   const isSearch = query.length > 0;

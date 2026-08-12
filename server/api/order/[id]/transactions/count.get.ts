@@ -7,10 +7,7 @@ import {
 import type { OrderTransactionCountResponse } from "~~/types/shopify";
 
 export default defineEventHandler(async (event) => {
-  const orderId = requireShopifyResourceId(
-    getRouterParam(event, "id"),
-    "Order",
-  );
+  const orderId = requireShopifyResourceId(getRouterParam(event, "id"), "Order");
   const { storeId, token } = getShopifyQueryCredentials(event);
 
   return callShopifyApi<OrderTransactionCountResponse>({

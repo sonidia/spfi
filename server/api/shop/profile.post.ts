@@ -18,10 +18,7 @@ export default defineEventHandler(async (event) => {
   const token = String(body.token || "");
 
   if (!storeId || !token) {
-    throw createApiErrorFromMessage(
-      "Store ID and Access Token are required.",
-      400,
-    );
+    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
   }
 
   const storeCookie = resolveStoreCookieData(event, storeId);

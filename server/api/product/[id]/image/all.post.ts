@@ -14,10 +14,7 @@ interface ProductImageListBody extends Record<string, unknown> {
 }
 
 export default defineEventHandler(async (event) => {
-  const productId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Product",
-  );
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductImageListBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
 

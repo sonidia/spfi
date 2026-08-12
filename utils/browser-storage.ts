@@ -56,9 +56,7 @@ export function writeStorageValue<T>(key: string, value: T, ttl?: number) {
   localStorage.setItem(key, JSON.stringify(envelope));
 }
 
-export function isStorageEnvelope(
-  value: unknown,
-): value is StorageEnvelope<unknown> {
+export function isStorageEnvelope(value: unknown): value is StorageEnvelope<unknown> {
   return isRecord(value) && Object.hasOwn(value, "value");
 }
 

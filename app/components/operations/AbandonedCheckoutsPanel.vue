@@ -5,22 +5,21 @@ import { fmtDateTime, fmtMoney } from "~~/utils/order";
 import { getSafeExternalUrl } from "~~/utils/safe-url";
 
 const store = useCommerceOpsStore();
+const { t } = useLocalization();
 </script>
 
 <template>
   <div class="ops-panel">
     <div class="ops-panel-toolbar">
       <div>
-        <h3>Abandoned checkout recovery</h3>
-        <p>Prioritize open carts and copy a secure Shopify recovery path.</p>
+        <h3>{{ t("operations.checkout.title") }}</h3>
+        <p>{{ t("operations.checkout.description") }}</p>
       </div>
     </div>
     <div v-if="store.errors.abandonedCheckouts" class="ops-resource-error" role="alert">
-      <strong>Abandoned checkouts unavailable</strong>
+      <strong>{{ t("operations.checkout.unavailable") }}</strong>
       <span>{{ store.errors.abandonedCheckouts }}</span>
-      <small
-        >The app needs read_orders and the manage_abandoned_checkouts permission.</small
-      >
+      <small>{{ t("operations.checkout.scopeHint") }}</small>
     </div>
     <div
       v-else-if="
@@ -30,19 +29,21 @@ const store = useCommerceOpsStore();
       class="ops-empty"
       role="status"
     >
-      Loading abandoned checkouts…
+      {{ t("operations.checkout.loading") }}
     </div>
     <div v-else-if="store.abandonedCheckouts.length" class="ops-table-scroll">
       <table class="ops-table">
         <thead>
           <tr>
-            <th>Checkout</th>
-            <th>Customer</th>
-            <th>Cart</th>
-            <th>Total</th>
-            <th>Last activity</th>
-            <th>Status</th>
-            <th class="ops-actions-column">Recovery</th>
+            <th>{{ t("operations.checkout.columnCheckout") }}</th>
+            <th>{{ t("operations.columnCustomer") }}</th>
+            <th>{{ t("operations.checkout.columnCart") }}</th>
+            <th>{{ t("operations.columnTotal") }}</th>
+            <th>{{ t("operations.checkout.columnActivity") }}</th>
+            <th>{{ t("operations.columnStatus") }}</th>
+            <th class="ops-actions-column">
+              {{ t("operations.checkout.columnRecovery") }}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -51,13 +52,16 @@ const store = useCommerceOpsStore();
               <strong>{{ checkout.name }}</strong>
             </td>
             <td>
-              <span>{{ checkout.customerName || "Guest" }}</span>
-              <small>{{ checkout.email || "No email" }}</small>
+              <span>{{ checkout.customerName || t("operations.guest") }}</span>
+              <small>{{ checkout.email || t("operations.noEmail") }}</small>
             </td>
             <td>
-              <span>{{ checkout.itemCount }} items</span>
+              <span>{{
+                t("operations.itemCount", { count: checkout.itemCount })
+              }}</span>
               <small>{{
-                checkout.itemTitles.slice(0, 2).join(", ") || "Cart details unavailable"
+                checkout.itemTitles.slice(0, 2).join(", ") ||
+                t("operations.checkout.cartUnavailable")
               }}</small>
             </td>
             <td>
@@ -68,7 +72,9 @@ const store = useCommerceOpsStore();
             <td>{{ fmtDateTime(checkout.updatedAt) }}</td>
             <td>
               <span class="ops-status">{{
-                checkout.completedAt ? "RECOVERED" : "OPEN"
+                checkout.completedAt
+                  ? t("operations.checkout.recovered")
+                  : t("operations.checkout.open")
               }}</span>
             </td>
             <td>
@@ -79,16 +85,19 @@ const store = useCommerceOpsStore();
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Open recovery <ExternalLink :size="14" />
+                {{ t("operations.checkout.openRecovery") }}
+                <ExternalLink :size="14" />
               </a>
               <small v-else>{{
-                checkout.completedAt ? "Checkout completed" : "No safe URL"
+                checkout.completedAt
+                  ? t("operations.checkout.completed")
+                  : t("operations.checkout.noSafeUrl")
               }}</small>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div v-else class="ops-empty">No abandoned checkouts found.</div>
+    <div v-else class="ops-empty">{{ t("operations.checkout.empty") }}</div>
   </div>
 </template>

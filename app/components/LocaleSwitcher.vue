@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from "vue";
 import type { LocaleCode } from "~/locales/messages";
 
 const { availableLocales, locale, setLocale, t } = useLocalization();
 const isOpen = ref(false);
 const switcherRef = ref<HTMLElement | null>(null);
+const triggerRef = ref<HTMLButtonElement | null>(null);
+const menuId = `${useId()}-locale-menu`;
 
 const currentLocale = computed(() => locale.value);
 const currentOption = computed(
@@ -17,51 +19,99 @@ function getFlagUrl(flagCode?: string) {
   return `https://flagsapi.com/${flagCode || "US"}/flat/24.png`;
 }
 
-function closeMenu() {
-  isOpen.value = false;
+function focusOption(index: number) {
+  const options =
+    switcherRef.value?.querySelectorAll<HTMLButtonElement>(".locale-option");
+  if (!options?.length) return;
+
+  const normalizedIndex = (index + options.length) % options.length;
+  options[normalizedIndex]?.focus();
 }
 
-function toggleMenu() {
-  isOpen.value = !isOpen.value;
-}
+async function openMenu(focusIndex?: number) {
+  isOpen.value = true;
+  await nextTick();
 
-function selectLocale(code: LocaleCode) {
-  void setLocale(code);
-  closeMenu();
-}
-
-function handleDocumentClick(event: MouseEvent) {
-  if (!switcherRef.value?.contains(event.target as Node)) {
-    closeMenu();
+  if (focusIndex !== undefined) {
+    focusOption(focusIndex);
   }
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    closeMenu();
+function closeMenu({ restoreFocus = false } = {}) {
+  isOpen.value = false;
+  if (restoreFocus) void nextTick(() => triggerRef.value?.focus());
+}
+
+function toggleMenu() {
+  if (isOpen.value) closeMenu();
+  else void openMenu();
+}
+
+async function selectLocale(code: LocaleCode) {
+  closeMenu();
+  await setLocale(code);
+  await nextTick();
+  triggerRef.value?.focus();
+}
+
+function handleTriggerKeydown(event: KeyboardEvent) {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+  event.preventDefault();
+  const selectedIndex = availableLocales.value.findIndex(
+    (option) => option.code === currentLocale.value,
+  );
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  void openMenu(selectedIndex + direction);
+}
+
+function handleOptionKeydown(event: KeyboardEvent, index: number) {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    focusOption(index + (event.key === "ArrowDown" ? 1 : -1));
+    return;
+  }
+
+  if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    focusOption(event.key === "Home" ? 0 : availableLocales.value.length - 1);
+  }
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!switcherRef.value?.contains(event.target as Node)) closeMenu();
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && isOpen.value) {
+    event.preventDefault();
+    closeMenu({ restoreFocus: true });
   }
 }
 
 onMounted(() => {
-  document.addEventListener("click", handleDocumentClick);
-  document.addEventListener("keydown", handleKeydown);
+  document.addEventListener("pointerdown", handleDocumentPointerDown);
+  document.addEventListener("keydown", handleDocumentKeydown);
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener("click", handleDocumentClick);
-  document.removeEventListener("keydown", handleKeydown);
+  document.removeEventListener("pointerdown", handleDocumentPointerDown);
+  document.removeEventListener("keydown", handleDocumentKeydown);
 });
 </script>
 
 <template>
   <div ref="switcherRef" class="locale-switcher">
     <button
+      ref="triggerRef"
       class="locale-trigger"
       type="button"
       :aria-label="t('nav.language')"
+      :aria-controls="menuId"
       :aria-expanded="isOpen"
       aria-haspopup="listbox"
-      @click="toggleMenu"
+      @click.stop="toggleMenu"
+      @keydown="handleTriggerKeydown"
     >
       <span class="locale-code" aria-hidden="true">
         <img :src="getFlagUrl(currentOption?.flagCode)" alt="" width="24" height="24" />
@@ -71,15 +121,25 @@ onBeforeUnmount(() => {
     </button>
 
     <Transition name="locale-menu">
-      <div v-if="isOpen" class="locale-menu" role="listbox">
+      <div
+        v-if="isOpen"
+        :id="menuId"
+        class="locale-menu"
+        role="listbox"
+        :aria-label="t('nav.language')"
+        @pointerdown.stop
+        @click.stop
+      >
         <button
-          v-for="option in availableLocales"
+          v-for="(option, index) in availableLocales"
           :key="option.code"
           class="locale-option"
           :class="{ active: option.code === currentLocale }"
           type="button"
           role="option"
+          :data-locale="option.code"
           :aria-selected="option.code === currentLocale"
+          @keydown="handleOptionKeydown($event, index)"
           @click="selectLocale(option.code)"
         >
           <span class="locale-option-code" aria-hidden="true">
@@ -204,6 +264,7 @@ onBeforeUnmount(() => {
 }
 
 .locale-option:hover,
+.locale-option:focus-visible,
 .locale-option.active {
   background: var(--surface-soft);
 }

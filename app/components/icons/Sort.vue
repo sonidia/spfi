@@ -13,4 +13,3 @@
     <path d="M3 14h7" />
   </svg>
 </template>
-

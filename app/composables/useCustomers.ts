@@ -85,10 +85,7 @@ export function useCustomers() {
     );
   }
 
-  function updateCustomer(
-    customerId: string | number,
-    customer: ShopifyCustomerInput,
-  ) {
+  function updateCustomer(customerId: string | number, customer: ShopifyCustomerInput) {
     return withCredentials((storeId, token) =>
       customerStore.updateCustomer(storeId, token, customerId, customer),
     );
@@ -112,36 +109,19 @@ export function useCustomers() {
     addressId?: string | number,
   ) {
     return withCredentials((storeId, token) =>
-      customerStore.saveAddress(
-        storeId,
-        token,
-        customerId,
-        address,
-        addressId,
-      ),
+      customerStore.saveAddress(storeId, token, customerId, address, addressId),
     );
   }
 
-  function deleteAddress(
-    customerId: string | number,
-    addressId: string | number,
-  ) {
+  function deleteAddress(customerId: string | number, addressId: string | number) {
     return withCredentials((storeId, token) =>
       customerStore.deleteAddress(storeId, token, customerId, addressId),
     );
   }
 
-  function setDefaultAddress(
-    customerId: string | number,
-    addressId: string | number,
-  ) {
+  function setDefaultAddress(customerId: string | number, addressId: string | number) {
     return withCredentials((storeId, token) =>
-      customerStore.setDefaultAddress(
-        storeId,
-        token,
-        customerId,
-        addressId,
-      ),
+      customerStore.setDefaultAddress(storeId, token, customerId, addressId),
     );
   }
 

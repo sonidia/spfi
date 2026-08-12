@@ -32,10 +32,7 @@ export function resolveSheetRange(value?: string) {
 export async function createGoogleSheetsClient(scopes: readonly string[]) {
   const serviceAccount = await readServiceAccountFile();
   const clientEmail = String(serviceAccount.client_email || "");
-  const privateKey = String(serviceAccount.private_key || "").replace(
-    /\\n/g,
-    "\n",
-  );
+  const privateKey = String(serviceAccount.private_key || "").replace(/\\n/g, "\n");
 
   if (!clientEmail || !privateKey) {
     throw createApiErrorFromMessage(

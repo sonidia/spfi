@@ -9,10 +9,7 @@ import {
   maskProxyUrl,
   resolveShopifyProxyVariants,
 } from "~~/server/utils/callShopifyApi";
-import {
-  PublicUrlError,
-  resolvePublicUrl,
-} from "~~/server/utils/public-outbound-url";
+import { PublicUrlError, resolvePublicUrl } from "~~/server/utils/public-outbound-url";
 import { readRuntimeBoolean } from "~~/server/utils/runtime-config";
 
 interface DebugProxyBody {
@@ -36,19 +33,13 @@ async function buildDebugVariants(
   event: Parameters<typeof resolveShopifyProxyVariants>[0],
   proxy: string,
 ): Promise<DebugVariant[]> {
-  return (await resolveShopifyProxyVariants(event, proxy)).map(
-    (proxyUrl, index) => ({
-      name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
-      proxyUrl,
-    }),
-  );
+  return (await resolveShopifyProxyVariants(event, proxy)).map((proxyUrl, index) => ({
+    name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
+    proxyUrl,
+  }));
 }
 
-async function runVariant(
-  variant: DebugVariant,
-  testUrl: URL,
-  timeoutMs: number,
-) {
+async function runVariant(variant: DebugVariant, testUrl: URL, timeoutMs: number) {
   const start = Date.now();
 
   try {
@@ -110,9 +101,7 @@ export default defineEventHandler(async (event) => {
     testUrl = resolution.url;
   } catch (error) {
     throw createApiErrorFromMessage(
-      error instanceof PublicUrlError
-        ? error.message
-        : "Invalid proxy test URL.",
+      error instanceof PublicUrlError ? error.message : "Invalid proxy test URL.",
       400,
     );
   }

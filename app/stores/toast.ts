@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 export type ToastType = "success" | "error" | "info" | "warning";
 
 export interface Toast {
-  id: number;
+  id: string;
   message: string;
   type: ToastType;
   duration?: number;
@@ -15,16 +15,16 @@ export const useToastStore = defineStore("toast", {
   }),
   actions: {
     addToast(message: string, type: ToastType = "info", duration = 3000) {
-      const id = Date.now();
+      const id = globalThis.crypto.randomUUID();
       this.toasts.push({ id, message, type, duration });
-      
+
       if (duration > 0) {
         setTimeout(() => {
           this.removeToast(id);
         }, duration);
       }
     },
-    removeToast(id: number) {
+    removeToast(id: string) {
       this.toasts = this.toasts.filter((t) => t.id !== id);
     },
     success(message: string, duration?: number) {

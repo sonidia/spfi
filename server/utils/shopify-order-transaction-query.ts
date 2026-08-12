@@ -3,9 +3,7 @@ import { createApiErrorFromMessage } from "./callShopifyApi";
 type QueryParams = Record<string, string | boolean>;
 type UnknownRecord = Record<string, unknown>;
 
-export function buildOrderTransactionListParams(
-  input: unknown,
-): QueryParams {
+export function buildOrderTransactionListParams(input: unknown): QueryParams {
   const query = toRecord(input);
   return {
     ...buildOrderTransactionDetailParams(query),
@@ -15,9 +13,7 @@ export function buildOrderTransactionListParams(
   };
 }
 
-export function buildOrderTransactionDetailParams(
-  input: unknown,
-): QueryParams {
+export function buildOrderTransactionDetailParams(input: unknown): QueryParams {
   const query = toRecord(input);
   const params: QueryParams = {};
 
@@ -26,10 +22,7 @@ export function buildOrderTransactionDetailParams(
       .split(",")
       .map((field) => field.trim())
       .filter(Boolean);
-    if (
-      !fields.length ||
-      fields.some((field) => !/^[a-z][a-z0-9_]*$/i.test(field))
-    ) {
+    if (!fields.length || fields.some((field) => !/^[a-z][a-z0-9_]*$/i.test(field))) {
       throw createApiErrorFromMessage(
         'The "fields" query must be a comma-separated list of Shopify field names.',
         400,
@@ -38,10 +31,7 @@ export function buildOrderTransactionDetailParams(
     params.fields = Array.from(new Set(fields)).join(",");
   }
 
-  if (
-    query.in_shop_currency !== undefined &&
-    query.in_shop_currency !== ""
-  ) {
+  if (query.in_shop_currency !== undefined && query.in_shop_currency !== "") {
     params.in_shop_currency = normalizeBoolean(
       query.in_shop_currency,
       "in_shop_currency",
@@ -67,10 +57,7 @@ function normalizeBoolean(value: unknown, field: string) {
   const normalized = String(value).trim().toLowerCase();
   if (normalized === "true") return true;
   if (normalized === "false") return false;
-  throw createApiErrorFromMessage(
-    `The "${field}" query must be true or false.`,
-    400,
-  );
+  throw createApiErrorFromMessage(`The "${field}" query must be true or false.`, 400);
 }
 
 function toRecord(input: unknown): UnknownRecord {

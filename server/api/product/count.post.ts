@@ -2,10 +2,7 @@ import { defineEventHandler, readBody } from "h3";
 import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
 import { buildProductCountParams } from "~~/server/utils/shopify-product-query";
-import type {
-  ProductCountQuery,
-  ProductCountResponse,
-} from "~~/types/shopify-product";
+import type { ProductCountQuery, ProductCountResponse } from "~~/types/shopify-product";
 
 interface ProductCountBody {
   storeId?: string;

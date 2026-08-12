@@ -24,7 +24,5 @@ export function buildMetafieldPath(
 ) {
   const basePath = `/${resourcePath}/${ownerId}/metafields`;
 
-  return metafieldId
-    ? `${basePath}/${metafieldId}.json`
-    : `${basePath}.json`;
+  return metafieldId ? `${basePath}/${metafieldId}.json` : `${basePath}.json`;
 }

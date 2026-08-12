@@ -1,6 +1,4 @@
-export type {
-  ShopifyApiCredentials as CustomerApiCredentials,
-} from "./shopify-admin-request";
+export type { ShopifyApiCredentials as CustomerApiCredentials } from "./shopify-admin-request";
 
 export {
   getShopifyQueryCredentials as getCustomerQueryCredentials,

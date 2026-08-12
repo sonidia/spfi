@@ -38,11 +38,7 @@ export default defineEventHandler(async (event): Promise<OrderEditCommitResponse
   const changes = Array.isArray(body.changes) ? body.changes : [];
   const customItems = Array.isArray(body.customItems) ? body.customItems : [];
 
-  if (
-    !storeId ||
-    !token ||
-    !orderEditSessionId
-  ) {
+  if (!storeId || !token || !orderEditSessionId) {
     throw createApiErrorFromMessage(
       "Store ID, Access Token and order edit session ID are required.",
       400,
@@ -102,10 +98,7 @@ export default defineEventHandler(async (event): Promise<OrderEditCommitResponse
     "Failed to commit the order edit.",
   );
   if (!committed.orderEditCommit.order) {
-    throw createApiErrorFromMessage(
-      "Shopify did not return the edited order.",
-      502,
-    );
+    throw createApiErrorFromMessage("Shopify did not return the edited order.", 502);
   }
 
   return {

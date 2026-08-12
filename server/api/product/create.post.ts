@@ -15,10 +15,7 @@ interface ProductCreateBody {
 export default defineEventHandler(async (event) => {
   const body = (await readBody<ProductCreateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const product = requireShopifyPayload<ShopifyProductInput>(
-    body.product,
-    "Product",
-  );
+  const product = requireShopifyPayload<ShopifyProductInput>(body.product, "Product");
 
   return callShopifyApi<ProductsResponse, { product: ShopifyProductInput }>({
     event,

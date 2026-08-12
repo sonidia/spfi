@@ -10,12 +10,7 @@ const CUSTOMER_LIST_PARAMS = new Set([
   "updated_at_min",
 ]);
 
-const CUSTOMER_SEARCH_PARAMS = new Set([
-  "fields",
-  "limit",
-  "order",
-  "query",
-]);
+const CUSTOMER_SEARCH_PARAMS = new Set(["fields", "limit", "order", "query"]);
 
 const CUSTOMER_COUNT_PARAMS = new Set([
   "created_at_max",
@@ -29,13 +24,8 @@ const CUSTOMER_ADDRESS_LIST_PARAMS = new Set(["limit", "page_info"]);
 type CustomerRequestBody = Record<string, unknown>;
 type ShopifyQueryValue = string | number | boolean;
 
-export function buildCustomerQueryParams(
-  body: CustomerRequestBody,
-  isSearch: boolean,
-) {
-  const allowedParams = isSearch
-    ? CUSTOMER_SEARCH_PARAMS
-    : CUSTOMER_LIST_PARAMS;
+export function buildCustomerQueryParams(body: CustomerRequestBody, isSearch: boolean) {
+  const allowedParams = isSearch ? CUSTOMER_SEARCH_PARAMS : CUSTOMER_LIST_PARAMS;
   const params: Record<string, ShopifyQueryValue> = {};
 
   for (const [key, value] of Object.entries(body)) {
@@ -89,9 +79,7 @@ function buildAllowedParams(
 
 function isQueryValue(value: unknown): value is ShopifyQueryValue {
   return (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
+    typeof value === "string" || typeof value === "number" || typeof value === "boolean"
   );
 }
 
