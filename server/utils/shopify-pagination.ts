@@ -22,6 +22,9 @@ export function buildShopifyCursorPageParams(
 ): ShopifyQueryParams {
   const fields = initialParams.fields;
 
+  // Shopify carries the original filters in the opaque cursor. Requests with
+  // page_info may only include limit and fields; resending filters can fail.
+  // https://shopify.dev/docs/api/admin-rest/usage/pagination#limitations-and-considerations
   return {
     page_info: pageInfo,
     limit,

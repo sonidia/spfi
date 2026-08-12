@@ -36,6 +36,7 @@ import {
   parseRetryAfterMs,
   waitForShopifyThrottle,
 } from "./shopify-throttle";
+import { resolveShopifyRestTransportRetry } from "./shopify-transport-retry";
 type ShopifyApiMethod = "GET" | "POST" | "PUT" | "DELETE";
 type ShopifyQueryParams = Record<string, unknown>;
 export type StoreCookieData = {
@@ -66,6 +67,7 @@ export interface CallShopifyApiOptions<TBody = unknown> {
   useAdminDomain?: boolean;
   missingProxyMessage?: string;
   timeoutMs?: number;
+  /** Defaults to true for GET and false for methods that can mutate data. */
   retryTransport?: boolean;
   preserveUnsafeIntegers?: boolean;
   forwardResponseHeaders?: boolean;
@@ -460,7 +462,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   useAdminDomain = true,
   missingProxyMessage = "Missing sock proxy for this store. Please update it in Manager page.",
   timeoutMs = DEFAULT_TIMEOUT_MS,
-  retryTransport = true,
+  retryTransport,
   preserveUnsafeIntegers = true,
   forwardResponseHeaders = true,
 }: CallShopifyApiOptions<TBody>): Promise<ShopifyApiResponse<TResponse>> {
@@ -488,6 +490,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
   const baseURL = `https://${domain}/${getShopifyAdminApiBase(event)}`;
   const proxyVariants = await resolveShopifyProxyVariants(event, sock);
   const throttleKey = buildShopifyThrottleKey("rest", domain, accessToken);
+  const shouldRetryTransport = resolveShopifyRestTransportRetry(method, retryTransport);
 
   let lastError: unknown;
 
@@ -536,7 +539,7 @@ export async function callShopifyApiWithResponse<TResponse, TBody = unknown>({
       if (axios.isAxiosError(error) && error.response) {
         throwShopifyApiError(error);
       }
-      if (!retryTransport) {
+      if (!shouldRetryTransport) {
         throwShopifyApiError(error);
       }
     }

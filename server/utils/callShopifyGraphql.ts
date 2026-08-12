@@ -26,6 +26,7 @@ import {
   waitForShopifyThrottle,
   type ShopifyGraphqlExtensions,
 } from "./shopify-throttle";
+import { resolveShopifyGraphqlTransportRetry } from "./shopify-transport-retry";
 
 interface ShopifyGraphqlError {
   message: string;
@@ -47,6 +48,7 @@ interface CallShopifyGraphqlOptions<TVariables> {
   variables?: TVariables;
   operationName?: string;
   timeoutMs?: number;
+  /** Defaults to true for read-only documents and false for mutations. */
   retryTransport?: boolean;
   maxThrottleRetries?: number;
 }
@@ -71,7 +73,7 @@ export async function callShopifyGraphql<
   variables,
   operationName,
   timeoutMs = DEFAULT_GRAPHQL_TIMEOUT_MS,
-  retryTransport = true,
+  retryTransport,
   maxThrottleRetries = DEFAULT_MAX_GRAPHQL_THROTTLE_RETRIES,
 }: CallShopifyGraphqlOptions<TVariables>): Promise<TData> {
   setResponseHeader(event, "x-spf-field-convention", "app-camel-case");
@@ -101,6 +103,10 @@ export async function callShopifyGraphql<
     ...(variables ? { variables } : {}),
     ...(operationName ? { operationName } : {}),
   };
+  const shouldRetryTransport = resolveShopifyGraphqlTransportRetry(
+    query,
+    retryTransport,
+  );
   let lastTransportError: unknown;
 
   for (const proxyUrl of await resolveShopifyProxyVariants(event, sock)) {
@@ -152,7 +158,7 @@ export async function callShopifyGraphql<
         }
 
         lastTransportError = error;
-        if (!retryTransport) {
+        if (!shouldRetryTransport) {
           throw createApiError(error, "Shopify GraphQL request failed.");
         }
         break;

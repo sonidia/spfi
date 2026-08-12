@@ -1,4 +1,5 @@
 import { createError } from "h3";
+import { maskGraphqlIgnoredContent } from "./graphql-document.ts";
 
 const MAX_QUERY_LENGTH = 50_000;
 const MAX_VARIABLES_LENGTH = 50_000;
@@ -99,55 +100,4 @@ function getMaximumDepth(query: string) {
     if (character === "}") depth = Math.max(0, depth - 1);
   }
   return maximum;
-}
-
-function maskGraphqlIgnoredContent(query: string) {
-  let output = "";
-  let index = 0;
-
-  while (index < query.length) {
-    if (query[index] === "#") {
-      while (index < query.length && query[index] !== "\n") {
-        output += " ";
-        index += 1;
-      }
-      continue;
-    }
-
-    if (query.startsWith('"""', index)) {
-      output += "   ";
-      index += 3;
-      while (index < query.length && !query.startsWith('"""', index)) {
-        output += query[index] === "\n" ? "\n" : " ";
-        index += 1;
-      }
-      if (index < query.length) {
-        output += "   ";
-        index += 3;
-      }
-      continue;
-    }
-
-    if (query[index] === '"') {
-      output += " ";
-      index += 1;
-      while (index < query.length) {
-        const character = query[index];
-        output += character === "\n" ? "\n" : " ";
-        index += 1;
-        if (character === "\\" && index < query.length) {
-          output += " ";
-          index += 1;
-        } else if (character === '"') {
-          break;
-        }
-      }
-      continue;
-    }
-
-    output += query[index];
-    index += 1;
-  }
-
-  return output;
 }

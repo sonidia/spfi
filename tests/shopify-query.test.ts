@@ -108,10 +108,12 @@ test("invalid Shopify pagination links use the standard error envelope", () => {
   );
 });
 
-test("cursor pagination preserves fields but drops incompatible filters", () => {
+test("cursor pagination relies on page_info to preserve the original filters", () => {
   assert.deepEqual(
     buildShopifyCursorPageParams(
       {
+        page_info: "stale-cursor",
+        limit: 10,
         fields: "id,name,line_items",
         status: "any",
         created_at_min: "2026-08-01",
