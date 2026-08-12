@@ -41,7 +41,7 @@ export async function fetchAbandonedCheckouts(
     operationName: "CommerceOpsAbandonedCheckouts",
     query: `#graphql
       query CommerceOpsAbandonedCheckouts($first: Int!) {
-        abandonedCheckouts(first: $first, reverse: true, sortKey: UPDATED_AT) {
+        abandonedCheckouts(first: $first, reverse: true, sortKey: CREATED_AT) {
           nodes {
             id name abandonedCheckoutUrl createdAt updatedAt completedAt discountCodes
             customer { displayName email }

@@ -1,6 +1,6 @@
 .ops-workspace {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .ops-intro,
@@ -8,7 +8,6 @@
 .ops-view-tabs {
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .ops-intro {

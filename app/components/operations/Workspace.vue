@@ -41,7 +41,7 @@ const views = computed(() => [
 
 <template>
   <section class="ops-workspace">
-    <header class="ops-intro">
+    <!--<header class="ops-intro">
       <div>
         <p class="ops-eyebrow">Commerce operations</p>
         <h2>One queue for work outside the order detail</h2>
@@ -53,7 +53,7 @@ const views = computed(() => [
       <span class="ops-availability">
         {{ store.availableResourceCount }}/4 resources available
       </span>
-    </header>
+    </header>-->
 
     <div class="ops-view-tabs" role="tablist" aria-label="Commerce operations views">
       <button
