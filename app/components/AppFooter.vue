@@ -1,10 +1,11 @@
 <script setup lang="ts">
 const currentYear = new Date().getFullYear();
+const { t } = useLocalization();
 </script>
 
 <template>
   <footer class="app-footer">
-    &copy; {{ currentYear }} thuongtruong. All rights reserved.
+    {{ t("footer.copyright", { year: currentYear }) }}
   </footer>
 </template>
 

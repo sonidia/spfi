@@ -1,8 +1,9 @@
 import { defineEventHandler, readBody } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+  requireShopifyCredentials,
+  requireShopifyPayload,
+} from "~~/server/utils/shopify-admin-request";
 import type { ProductsResponse, ShopifyProductInput } from "~~/types/shopify";
 
 interface ProductCreateBody {
@@ -13,13 +14,11 @@ interface ProductCreateBody {
 
 export default defineEventHandler(async (event) => {
   const body = (await readBody<ProductCreateBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
-  const product = body.product;
-
-  if (!storeId || !token || !product) {
-    throw createApiErrorFromMessage("Store ID, Access Token, and Product payload are required.", 400);
-  }
+  const { storeId, token } = requireShopifyCredentials(body);
+  const product = requireShopifyPayload<ShopifyProductInput>(
+    body.product,
+    "Product",
+  );
 
   return callShopifyApi<ProductsResponse, { product: ShopifyProductInput }>({
     event,
@@ -28,5 +27,6 @@ export default defineEventHandler(async (event) => {
     method: "POST",
     path: "/products.json",
     body: { product },
+    missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

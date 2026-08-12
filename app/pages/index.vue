@@ -8,7 +8,11 @@
           {{ t("home.heroSub") }}
         </p>
         <div class="hero-actions">
-          <NuxtLink class="hero-btn hero-btn-primary" to="/manager">
+          <NuxtLink class="hero-btn hero-btn-primary" to="/dashboard">
+            <IconsHero />
+            {{ t("nav.dashboard") }}
+          </NuxtLink>
+          <NuxtLink class="hero-btn hero-btn-secondary" to="/manager">
             <IconsBulking />
             {{ t("home.openManager") }}
           </NuxtLink>
@@ -29,8 +33,8 @@
         <div class="preview-grid">
           <div class="preview-panel preview-panel-large">
             <div class="preview-panel-head">
-              <span class="panel-kicker">{{ t("home.previewBatch") }}</span>
-              <span class="panel-pill is-ok">{{ t("home.previewAlive") }}</span>
+              <span class="panel-kicker">Live operations</span>
+              <span class="panel-pill is-ok">Quota 78%</span>
             </div>
             <div class="status-lines">
               <span class="line is-long" />
@@ -38,25 +42,20 @@
               <span class="line is-short" />
             </div>
             <div class="signal-row">
-              <span>{{ t("home.previewHttp") }}</span>
-              <strong>200 OK</strong>
+              <span>Dashboard</span>
+              <strong>Revenue · payments · users</strong>
             </div>
             <div class="signal-row">
-              <span>{{ t("home.previewProducts") }}</span>
-              <strong>JSON</strong>
+              <span>Store workspace</span>
+              <strong>Profile · products · customers</strong>
             </div>
-          </div>
-
-          <div class="preview-panel">
-            <div class="preview-icon"><IconsRefresh /></div>
-            <span>{{ t("home.previewToken") }}</span>
-            <strong>{{ t("home.previewReady") }}</strong>
-          </div>
-
-          <div class="preview-panel">
-            <div class="preview-icon"><IconsCopy /></div>
-            <span>{{ t("home.previewSheet") }}</span>
-            <strong>{{ t("home.previewTabs") }}</strong>
+            <div class="quota-line" aria-hidden="true">
+              <span />
+            </div>
+            <div class="signal-row">
+              <span>Payment views</span>
+              <strong>Transactions · payouts · disputes</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -129,11 +128,7 @@
     <section class="metrics-strip" :aria-label="t('home.metricsEyebrow')">
       <p class="eyebrow is-amber">{{ t("home.metricsEyebrow") }}</p>
       <div class="metrics-grid">
-        <article
-          v-for="item in metricItems"
-          :key="item.label"
-          class="metric-card"
-        >
+        <article v-for="item in metricItems" :key="item.label" class="metric-card">
           <strong>{{ item.value }}</strong>
           <span>{{ item.label }}</span>
         </article>
@@ -147,11 +142,7 @@
       </div>
 
       <div class="runbook-list">
-        <article
-          v-for="step in runbookSteps"
-          :key="step.title"
-          class="runbook-item"
-        >
+        <article v-for="step in runbookSteps" :key="step.title" class="runbook-item">
           <div class="runbook-item-head">
             <span>{{ step.step }}</span>
             <h3>{{ step.title }}</h3>
@@ -202,6 +193,12 @@ const { t } = useLocalization();
 
 const quickLinks = computed(() => [
   {
+    to: "/dashboard",
+    title: t("nav.dashboard"),
+    description: "Review cross-store revenue, fulfillment, customers, and payments.",
+    icon: "IconsHero",
+  },
+  {
     to: "/setup",
     title: t("home.quickSetupTitle"),
     description: t("home.quickSetupDescription"),
@@ -214,7 +211,14 @@ const quickLinks = computed(() => [
     icon: "IconsBulking",
   },
   {
-    to: "/sheet",
+    to: "/store",
+    title: t("nav.store"),
+    description:
+      "Open profile, orders, products, customers, transactions, payouts, and disputes.",
+    icon: "IconsRefresh",
+  },
+  {
+    to: "/settings#sheets",
     title: t("home.quickSheetTitle"),
     description: t("home.quickSheetDescription"),
     icon: "IconsCopy",
@@ -224,6 +228,12 @@ const quickLinks = computed(() => [
     title: t("home.quickStatusTitle"),
     description: t("home.quickStatusDescription"),
     icon: "IconsCheck",
+  },
+  {
+    to: "/settings",
+    title: t("nav.settings"),
+    description: "Tune tracking credentials and cache lifetime from one admin page.",
+    icon: "IconsSync",
   },
 ]);
 
@@ -341,9 +351,8 @@ const faqItems = computed(() => [
   margin: 0;
   color: var(--green);
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 600;
   letter-spacing: 0;
-  text-transform: uppercase;
   background: var(--green-soft);
   color: var(--green);
   border-radius: 999px;
@@ -382,7 +391,7 @@ const faqItems = computed(() => [
   gap: 8px;
   border-radius: 8px;
   padding: 0 15px;
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -477,14 +486,14 @@ const faqItems = computed(() => [
 .signal-row span {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .panel-pill {
   border-radius: 999px;
   padding: 4px 9px;
   font-size: 0.74rem;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .panel-pill.is-ok {
@@ -542,9 +551,34 @@ const faqItems = computed(() => [
   color: var(--blue);
 }
 
+.preview-icon.is-amber {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.preview-icon.is-green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.quota-line {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.quota-line span {
+  display: block;
+  width: 78%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--blue));
+}
+
 .quick-links {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   animation: rise-in 0.62s ease 0.18s both;
 }
@@ -753,7 +787,7 @@ const faqItems = computed(() => [
 .metric-card span {
   color: var(--muted);
   font-size: 0.85rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .motivation-card {
@@ -870,9 +904,9 @@ const faqItems = computed(() => [
   border-radius: 8px;
   background: var(--surface);
   color: var(--blue);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
@@ -918,7 +952,7 @@ const faqItems = computed(() => [
   list-style: none;
   padding: 0 20px;
   color: var(--text);
-  font-weight: 800;
+  font-weight: 600;
   text-align: left;
 }
 
@@ -953,11 +987,7 @@ const faqItems = computed(() => [
   border-radius: 8px;
   padding: 28px;
   background:
-    linear-gradient(
-      135deg,
-      rgba(223, 244, 232, 0.92),
-      rgba(226, 238, 249, 0.9)
-    ),
+    linear-gradient(135deg, rgba(223, 244, 232, 0.92), rgba(226, 238, 249, 0.9)),
     var(--surface-soft);
   animation: section-rise 0.68s ease both;
   animation-timeline: view();

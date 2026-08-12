@@ -1,11 +1,11 @@
 import axios from "axios";
 import { defineEventHandler, readBody } from "h3";
 import {
-  buildProxyVariants,
   buildStandardApiError,
   createApiErrorFromMessage,
   createProxyAgent,
   maskProxyUrl,
+  resolveShopifyProxyVariants,
 } from "~~/server/utils/callShopifyApi";
 import { resolveProxyIp } from "~~/server/utils/status-proxy-ip";
 
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
 
   const start = Date.now();
   const attempts: ProxyAttemptError[] = [];
-  const proxyVariants = buildCheckProxyVariants(proxy);
+  const proxyVariants = await buildCheckProxyVariants(event, proxy);
 
   for (const [index, proxyUrl] of proxyVariants.entries()) {
     const variantName = index === 0 ? "normalized_socks5h" : "raw_socks5h";
@@ -90,9 +90,12 @@ export default defineEventHandler(async (event) => {
   });
 });
 
-function buildCheckProxyVariants(proxy: string) {
+async function buildCheckProxyVariants(
+  event: Parameters<typeof resolveShopifyProxyVariants>[0],
+  proxy: string,
+) {
   try {
-    const proxyVariants = buildProxyVariants(proxy);
+    const proxyVariants = await resolveShopifyProxyVariants(event, proxy);
 
     if (proxyVariants.length > 0) {
       return proxyVariants;

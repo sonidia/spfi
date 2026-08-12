@@ -1,83 +1,77 @@
-<template>
-  <div class="timeline-wrap">
-    <div v-for="group in groupedEvents" :key="group.date">
-      <div class="date-label">{{ group.date }}</div>
+<script setup lang="ts">
+import { Clock, RefreshCw } from "@lucide/vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
+import { useOrderApi } from "~/composables/useOrderApi";
+import type { ShopifyOrder, ShopifyOrderEvent } from "~~/types/shopify";
+import { getAppErrorMessage } from "~~/utils/error";
 
-      <div v-for="(event, idx) in group.items" :key="idx" class="event-row">
-        <div class="dot-col">
-          <div :class="['dot', event.dotType]" />
-        </div>
+const props = defineProps<{ order: ShopifyOrder }>();
+const orderApi = useOrderApi();
+const { storeId, token, isReady } = useActiveShopAuth();
+const events = ref<ShopifyOrderEvent[]>([]);
+const isLoading = ref(false);
+const error = ref("");
 
-        <div class="event-content">
-          <div class="event-row-inner">
-            <div class="event-text">
-              <span>{{ event.text }}</span>
-              <span v-if="event.payoutBadge" class="payout-tag">
-                {{ event.payoutBadge }}
-              </span>
-              <span v-if="event.payoutSuffix">{{ event.payoutSuffix }}</span>
-            </div>
-            <div class="event-time">{{ event.time }}</div>
-          </div>
+const groupedEvents = computed(() => {
+  const groups = new Map<
+    string,
+    Array<ShopifyOrderEvent & { time: string; text: string; dotType: string }>
+  >();
 
-          <div v-if="event.emailBtn" style="margin-top: 6px">
-            <button class="action-btn" @click="$emit('view-email', event)">
-              View email
-            </button>
-          </div>
+  for (const event of [...events.value].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )) {
+    const date = formatDate(event.created_at);
+    const group = groups.get(date) || [];
+    group.push({
+      ...event,
+      time: formatTime(event.created_at),
+      text: event.description || stripHtml(event.message || "") || humanizeVerb(event.verb),
+      dotType: eventDotType(event.verb),
+    });
+    groups.set(date, group);
+  }
 
-          <div v-if="event.details && event.details.length">
-            <div class="detail-box">
-              <div
-                v-for="[label, value] in event.details"
-                :key="label"
-                class="detail-row"
-              >
-                <span class="detail-label">{{ label }}</span>
-                <span class="detail-value">{{ value }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { computed, ref } from "vue";
-import { useCredentialVaultStore } from "~/stores/credentialVault";
-
-const props = defineProps({
-  order: {
-    type: Object,
-    required: true,
-  },
+  return Array.from(groups, ([date, items]) => ({ date, items }));
 });
 
-defineEmits(["view-email"]);
-
-// ── server fetch ─────────────────────────────────────────────────────────────
-import {  useFetch } from "#app";
-
-const sid = useLocalStorage("active_store_id", "").state.value || "";
-const credentialVault = useCredentialVaultStore();
-const token = credentialVault.getStoreData(sid).accessToken;
-
-const { data, pending, error } = await useFetch(`/api/order/${props.order.id}/transactions`, {
-  query: { storeId: sid, token },
+onMounted(loadEvents);
+watch(
+  () => [props.order.id, props.order.updated_at],
+  () => loadEvents(),
+);
+watch(isReady, (ready) => {
+  if (ready) void loadEvents();
 });
 
-function formatDate(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+async function loadEvents() {
+  if (!isReady.value || isLoading.value) return;
+  isLoading.value = true;
+  error.value = "";
+  try {
+    const response = await orderApi.getEvents(
+      { storeId: storeId.value, token: token.value },
+      props.order.id,
+    );
+    events.value = response.events || [];
+  } catch (fetchError) {
+    error.value = getAppErrorMessage(fetchError, "Failed to load the order timeline.");
+  } finally {
+    isLoading.value = false;
+  }
 }
 
-function formatTime(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTime(value: string) {
+  return new Date(value)
     .toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
@@ -86,309 +80,104 @@ function formatTime(iso) {
     .toLowerCase();
 }
 
-// ── timeline logic ───────────────────────────────────────────────────────────
+function stripHtml(value: string) {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-const groupedEvents = computed(() => {
-  const events = [];
+function humanizeVerb(value: string) {
+  return String(value || "Order event")
+    .replace(/_/g, " ")
+    .replace(/^./, (character) => character.toUpperCase());
+}
 
-  // 1. Placement & Meta Events (Placement, Email, Confirmation)
-  if (props.order.created_at) {
-    const createdAt = props.order.created_at;
-    const customerName = [props.order.customer?.first_name, props.order.customer?.last_name].join(' ').trim() || props.order.customer?.default_address?.name || 'Customer';
-    const customerEmail = props.order.customer?.email || "";
-    const checkoutId = props.order.checkout_id || props.order.checkout_token || "";
-
-    // Placed
-    events.push({
-      timestamp: new Date(createdAt).getTime(),
-      text: `${customerName} placed this order on Online Store (checkout #${checkoutId}).`,
-      dotType: "",
-    });
-
-    // Confirmation Number
-    events.push({
-      timestamp: new Date(createdAt).getTime() + 1000, // offset slightly for order
-      text: `Confirmation #${props.order.name || props.order.order_number} was generated for this order.`,
-      dotType: "",
-    });
-
-    // Email Sent
-    events.push({
-      timestamp: new Date(createdAt).getTime() + 2000,
-      text: `Order confirmation email was sent to ${customerName} (${customerEmail}).`,
-      dotType: "",
-      emailBtn: true,
-    });
+function eventDotType(verb: string) {
+  const normalized = String(verb || "").toLowerCase();
+  if (normalized.includes("failure") || normalized.includes("cancel")) {
+    return "error";
   }
-
-  // 2. Fulfillments
-  if (props.order.fulfillments && props.order.fulfillments.length) {
-    props.order.fulfillments.forEach((f) => {
-      const itemsCount = f.line_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
-      events.push({
-        timestamp: new Date(f.created_at || props.order.created_at).getTime() + 10000,
-        text: `You fulfilled ${itemsCount} item${itemsCount !== 1 ? 's' : ''} via ${f.service || 'Manual Fulfillment'}.`,
-        dotType: "",
-        details: [
-          ["Service", f.service],
-          ["Items", itemsCount],
-          ["Status", "Fulfilled"],
-        ]
-      });
-    });
+  if (
+    normalized.includes("success") ||
+    normalized === "fulfilled" ||
+    normalized === "paid"
+  ) {
+    return "success";
   }
-
-  // 3. Transactions
-  if (data.value && data.value.transactions) {
-    data.value.transactions.forEach((tx) => {
-      const amountStr = `$${tx.amount ?? "0.00"} ${tx.currency ?? "CAD"}`;
-      const brand = tx.payment_details?.credit_card_company ?? tx.receipt?.payment_method ?? "Card";
-      const last4 = tx.payment_details?.credit_card_number?.slice(-4) ?? "****";
-      const walletType = tx.payment_details?.credit_card_wallet?.replace("_", " ") ?? "";
-      const via = walletType ? ` via ${walletType}` : "";
-
-      let text = "";
-      if (tx.kind === 'sale' || tx.kind === 'capture') {
-        text = `A ${amountStr} payment was processed using a ${brand} ending in ${last4}${via}.`;
-      } else if (tx.kind === 'authorization') {
-        text = `A ${amountStr} payment was authorized using a ${brand} ending in ${last4}${via}.`;
-      } else if (tx.kind === 'refund') {
-        text = `A ${amountStr} refund was processed.`;
-      } else {
-        text = `A ${amountStr} transaction (${tx.kind}) was processed.`;
-      }
-
-      const cardDetails = tx.receipt?.latest_charge?.payment_method_details?.card;
-      const details = [
-        ["Gateway", tx.gateway ?? ""],
-        ["Amount", amountStr],
-        ["Status", tx.status ?? ""],
-        ["Cardholder", tx.payment_details?.credit_card_name],
-        ["Card", `${brand} •••• ${last4}`],
-        ["Type", cardDetails?.description],
-        ["Issuer", cardDetails?.issuer],
-        ["Country", cardDetails?.country],
-        ["AVS check", tx.payment_details?.avs_result_code],
-        ["CVV check", tx.payment_details?.cvv_result_code],
-        ["Authorization", tx.receipt?.latest_charge?.id ?? tx.authorization ?? ""],
-      ].filter(row => row[1]);
-
-      events.push({
-        timestamp: new Date(tx.created_at).getTime(),
-        text,
-        dotType: tx.status === 'success' ? 'success' : 'info',
-        details,
-      });
-
-      // 4. Payout Logic (derived from transaction)
-      if (tx.status === 'success' && (tx.kind === 'sale' || tx.kind === 'capture')) {
-        // Mock payout date (tx date + 2 days)
-        const txDateObj = new Date(tx.created_at);
-        const payoutDateObj = new Date(txDateObj.getTime() + 86400000 * 2);
-        const payoutBadge = payoutDateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-        
-        // "Will be added" event (same time as transaction)
-        events.push({
-          timestamp: txDateObj.getTime() + 1, // slightly after transaction
-          text: `${amountStr} will be added to your`,
-          payoutBadge: payoutBadge,
-          payoutSuffix: " payout.",
-          dotType: "info",
-        });
-
-        // "Was added" event (on payout day)
-        // Only if payout date is in the past compared to "now"
-        if (payoutDateObj.getTime() < Date.now()) {
-          events.push({
-            timestamp: payoutDateObj.getTime(),
-            text: `${amountStr} was added to your`,
-            payoutBadge: payoutBadge,
-            payoutSuffix: " payout.",
-            dotType: "info",
-          });
-        }
-      }
-    });
+  if (
+    normalized.includes("pending") ||
+    normalized.includes("email") ||
+    normalized.includes("authorization") ||
+    normalized.includes("capture") ||
+    normalized.includes("refund") ||
+    normalized.includes("sale")
+  ) {
+    return "info";
   }
-
-  // 5. Archived
-  if (props.order.closed_at) {
-    events.push({
-      timestamp: new Date(props.order.closed_at).getTime(),
-      text: "This order was archived.",
-      dotType: "",
-    });
-  }
-
-  // Sort Descending
-  events.sort((a, b) => b.timestamp - a.timestamp);
-
-  // Group by Date
-  const groups = {};
-  events.forEach((ev) => {
-    const d = new Date(ev.timestamp);
-    const dateStr = formatDate(d.toISOString());
-    if (!groups[dateStr]) groups[dateStr] = [];
-    
-    groups[dateStr].push({
-      ...ev,
-      time: formatTime(d.toISOString()),
-    });
-  });
-
-  return Object.entries(groups).map(([date, items]) => ({ date, items }));
-});
+  return "";
+}
 </script>
 
+<template>
+  <div class="timeline-wrap">
+    <div class="timeline-section-head">
+      <div class="timeline-title">
+        <Clock aria-hidden="true" />
+        <span>Timeline</span>
+      </div>
+      <BaseButton icon-only aria-label="Refresh timeline" :loading="isLoading" @click="loadEvents">
+        <template #icon><RefreshCw /></template>
+      </BaseButton>
+    </div>
+
+    <div class="timeline-body">
+      <div v-if="isLoading && !events.length" class="timeline-state">Loading timeline...</div>
+      <div v-else-if="error" class="timeline-state is-error" role="alert">{{ error }}</div>
+      <div v-else-if="!groupedEvents.length" class="timeline-state">
+        No Shopify events are available for this order.
+      </div>
+
+      <div v-for="group in groupedEvents" :key="group.date">
+        <div class="date-label">{{ group.date }}</div>
+        <div v-for="event in group.items" :key="event.id" class="event-row">
+          <div class="dot-col"><div :class="['dot', event.dotType]" /></div>
+          <div class="event-content">
+            <div class="event-row-inner">
+              <div class="event-text">{{ event.text }}</div>
+              <div class="event-time">{{ event.time }}</div>
+            </div>
+            <div v-if="event.author" class="event-author">by {{ event.author }}</div>
+            <div v-if="event.body" class="detail-box">{{ event.body }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 <style scoped>
-.timeline-wrap {
-  font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--text);
-  padding: 0.5rem 0;
-}
-
-/* ── date group label ────────────────────────────────── */
-.date-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-sub);
-  letter-spacing: 0.04em;
-  margin: 1.5rem 0 0.5rem 28px;
-}
-
-/* ── event row ──────────────────────────────────────── */
-.event-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 5px 0;
-}
-
-.dot-col {
-  display: flex;
-  align-items: flex-start;
-  padding-top: 5px;
-  width: 18px;
-  flex-shrink: 0;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  flex-shrink: 0;
-}
-.dot.success {
-  background: var(--green);
-}
-.dot.info {
-  background: var(--blue);
-}
-
-/* ── content area ───────────────────────────────────── */
-.event-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.event-row-inner {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.event-text {
-  flex: 1;
-  color: var(--text);
-  line-height: 1.55;
-}
-
-.event-time {
-  font-size: 12px;
-  color: var(--text-sub);
-  white-space: nowrap;
-  padding-top: 2px;
-}
-
-/* ── payout badge ───────────────────────────────────── */
-.payout-tag {
-  display: inline-block;
-  background: var(--blue-soft);
-  border: 0.5px solid var(--border);
-  border-radius: 6px;
-  padding: 1px 7px;
-  font-size: 12px;
-  color: var(--blue);
-  margin: 0 3px;
-  vertical-align: middle;
-}
-
-/* ── buttons ────────────────────────────────────────── */
-.action-btn {
-  border: 0.5px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 13px;
-  color: var(--text);
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.action-btn:hover {
-  background: var(--surface-soft);
-}
-
-.expand-btn {
-  display: inline-flex;
-  align-items: center;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 2px 0;
-  margin-top: 2px;
-}
-
-.chevron {
-  display: inline-block;
-  font-size: 16px;
-  color: var(--text-sub);
-  line-height: 1;
-  transform: rotate(90deg);
-  transition: transform 0.2s ease;
-}
-.chevron.open {
-  transform: rotate(270deg);
-}
-
-/* ── detail box ─────────────────────────────────────── */
-.detail-box {
-  background: var(--surface-soft);
-  border: 0.5px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin-top: 6px;
-  font-size: 13px;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  border-bottom: 0.5px solid var(--border);
-}
-.detail-row:last-child {
-  border-bottom: none;
-}
-
-.detail-label {
-  color: var(--text-sub);
-}
-.detail-value {
-  color: var(--text);
-  font-weight: 500;
-}
-
-/* ── dark mode ──────────────────────────────────────── */
+.timeline-wrap { color: var(--text); font-size: 14px; }
+.timeline-section-head { min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+.timeline-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; font-weight: 600; }
+.timeline-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
+.timeline-body { padding: 0 16px 16px; }
+.timeline-state { padding: 18px 0; color: var(--text-sub); font-size: 12px; }
+.timeline-state.is-error { color: var(--red); }
+.date-label { margin: 20px 0 7px 28px; color: var(--text-sub); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.event-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+.dot-col { display: flex; flex: 0 0 18px; align-items: flex-start; padding-top: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.dot.success { background: var(--green); }
+.dot.info { background: var(--blue); }
+.dot.error { background: var(--red); }
+.event-content { flex: 1; min-width: 0; }
+.event-row-inner { display: flex; align-items: flex-start; gap: 8px; }
+.event-text { flex: 1; color: var(--text); line-height: 1.5; }
+.event-time { padding-top: 2px; color: var(--text-sub); font-size: 12px; white-space: nowrap; }
+.event-author { margin-top: 2px; color: var(--text-sub); font-size: 11px; }
+.detail-box { margin-top: 6px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-soft); color: var(--text-sub); font-size: 12px; white-space: pre-wrap; }
 </style>

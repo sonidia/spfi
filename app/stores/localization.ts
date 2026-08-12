@@ -1,11 +1,14 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import {
   defaultLocale,
+  defaultMessages,
+  getLocaleDirection,
   isLocaleCode,
+  loadLocaleMessages,
   localeOptions,
-  messages,
   type LocaleCode,
+  type LocaleMessages,
   type MessageKey,
 } from "~/locales/messages";
 
@@ -31,13 +34,24 @@ function detectBrowserLocale(): LocaleCode {
 
 function syncDocumentLanguage(locale: LocaleCode) {
   if (typeof document !== "undefined") {
+    const direction = getLocaleDirection(locale);
     document.documentElement.lang = locale;
+    // Keep the viewport chrome LTR; app containers opt into RTL explicitly.
+    document.documentElement.dir = "ltr";
+    delete document.documentElement.dataset.direction;
+    document.documentElement.dataset.localeDirection = direction;
+    document.body.dir = "ltr";
   }
 }
 
 export const useLocalizationStore = defineStore("localization", () => {
   const locale = ref<LocaleCode>(defaultLocale);
   const isInitialized = ref(false);
+  const isLoadingLocale = ref(false);
+  const loadedMessages = shallowRef<Partial<Record<LocaleCode, LocaleMessages>>>({
+    [defaultLocale]: defaultMessages,
+  });
+  let loadSequence = 0;
 
   const currentLocale = computed(() => locale.value);
   const availableLocales = computed(() => localeOptions);
@@ -47,28 +61,45 @@ export const useLocalizationStore = defineStore("localization", () => {
 
     if (typeof window !== "undefined") {
       const storedLocale = localStorage.getItem(LOCALE_STORAGE_KEY);
-      locale.value =
+      const initialLocale =
         storedLocale && isLocaleCode(storedLocale)
           ? storedLocale
           : detectBrowserLocale();
-      syncDocumentLanguage(locale.value);
+      void setLocale(initialLocale);
     }
 
     isInitialized.value = true;
   }
 
-  function setLocale(nextLocale: LocaleCode) {
+  async function setLocale(nextLocale: LocaleCode) {
+    const sequence = ++loadSequence;
     locale.value = nextLocale;
 
     if (typeof window !== "undefined") {
       localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
       syncDocumentLanguage(nextLocale);
     }
+
+    if (loadedMessages.value[nextLocale]) return;
+
+    isLoadingLocale.value = true;
+    try {
+      const messages = await loadLocaleMessages(nextLocale);
+      if (sequence !== loadSequence) return;
+      loadedMessages.value = {
+        ...loadedMessages.value,
+        [nextLocale]: messages,
+      };
+    } catch (error) {
+      console.error(`Failed to load locale ${nextLocale}.`, error);
+    } finally {
+      if (sequence === loadSequence) isLoadingLocale.value = false;
+    }
   }
 
   function t(key: MessageKey, params?: TranslationParams) {
     const template =
-      messages[locale.value]?.[key] || messages[defaultLocale][key] || key;
+      loadedMessages.value[locale.value]?.[key] || defaultMessages[key] || key;
     return interpolate(template, params);
   }
 
@@ -77,6 +108,7 @@ export const useLocalizationStore = defineStore("localization", () => {
     currentLocale,
     availableLocales,
     isInitialized,
+    isLoadingLocale,
     initialize,
     setLocale,
     t,

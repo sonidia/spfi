@@ -1,0 +1,77 @@
+import { Readable } from "node:stream";
+import { defineEventHandler, readBody, setResponseHeaders, type H3Event } from "h3";
+import Papa from "papaparse";
+import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import { iterateShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
+import { getCsvExportDefinition } from "~~/server/utils/csv-export";
+
+interface CsvExportBody {
+  storeId?: string;
+  token?: string;
+  filters?: Record<string, unknown>;
+}
+
+export default defineEventHandler(async (event) => {
+  const resource = String(event.context.params?.resource || "").toLowerCase();
+  const body = (await readBody<CsvExportBody>(event)) || {};
+  const storeId = String(body.storeId || "").trim();
+  const token = String(body.token || "").trim();
+  if (!storeId || !token) {
+    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
+  }
+
+  const definition = getCsvExportDefinition(resource, body.filters);
+  const filename = buildFilename(storeId, resource);
+  setResponseHeaders(event, {
+    "content-type": "text/csv; charset=utf-8",
+    "content-disposition": `attachment; filename="${filename}"`,
+    "cache-control": "private, no-store",
+    "x-content-type-options": "nosniff",
+  });
+
+  return Readable.from(streamCsv(event, body, definition));
+});
+
+async function* streamCsv(
+  event: H3Event,
+  body: CsvExportBody,
+  definition: ReturnType<typeof getCsvExportDefinition>,
+) {
+  let hasWrittenHeader = false;
+  const pages = iterateShopifyPaginatedApi<Record<string, unknown>>({
+    event,
+    storeId: String(body.storeId),
+    token: String(body.token),
+    path: definition.path,
+    resourceKey: definition.resourceKey,
+    params: definition.params,
+    preserveUnsafeIntegers: definition.preserveUnsafeIntegers,
+    forwardResponseHeaders: false,
+  });
+
+  for await (const page of pages) {
+    const rows = page.items.map(definition.mapRow);
+    if (!rows.length) continue;
+
+    const csv = Papa.unparse(rows, {
+      columns: definition.columns,
+      header: !hasWrittenHeader,
+      newline: "\r\n",
+      escapeFormulae: true,
+    });
+    yield `${hasWrittenHeader ? "" : "\uFEFF"}${csv}\r\n`;
+    hasWrittenHeader = true;
+  }
+
+  if (!hasWrittenHeader) {
+    yield `\uFEFF${Papa.unparse(
+      { fields: definition.columns, data: [] },
+      { newline: "\r\n" },
+    )}`;
+  }
+}
+
+function buildFilename(storeId: string, resource: string) {
+  const store = storeId.replace(/[^a-z0-9_-]+/gi, "-").slice(0, 80) || "store";
+  return `${store}-${resource}-${new Date().toISOString().slice(0, 10)}.csv`;
+}

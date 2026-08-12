@@ -1,5 +1,6 @@
 const MAX_LOCATION_LIMIT = 250;
 const MAX_INVENTORY_ITEM_IDS = 50;
+const MAX_TOTAL_INVENTORY_ITEM_IDS = 1000;
 
 export function getFirstQueryValue(value: unknown): string {
   if (Array.isArray(value)) {
@@ -26,5 +27,13 @@ export function normalizeInventoryItemIds(value: unknown): string[] {
     .map((entry) => entry.trim())
     .filter((entry) => /^\d+$/.test(entry));
 
-  return Array.from(new Set(ids)).slice(0, MAX_INVENTORY_ITEM_IDS);
+  return Array.from(new Set(ids)).slice(0, MAX_TOTAL_INVENTORY_ITEM_IDS);
+}
+
+export function chunkInventoryItemIds(ids: string[]) {
+  const chunks: string[][] = [];
+  for (let index = 0; index < ids.length; index += MAX_INVENTORY_ITEM_IDS) {
+    chunks.push(ids.slice(index, index + MAX_INVENTORY_ITEM_IDS));
+  }
+  return chunks;
 }

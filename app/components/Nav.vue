@@ -5,9 +5,7 @@ const { t } = useLocalization();
 let pageScrollContainer: Element | null = null;
 
 function withActiveShop(path: string) {
-  const shop = Array.isArray(route.query.shop)
-    ? route.query.shop[0]
-    : route.query.shop;
+  const shop = Array.isArray(route.query.shop) ? route.query.shop[0] : route.query.shop;
 
   return shop ? { path, query: { shop } } : path;
 }
@@ -42,11 +40,11 @@ onBeforeUnmount(() => {
       <div class="nav-list">
         <NuxtLink to="/setup">{{ t("nav.setup") }}</NuxtLink>
         <NuxtLink to="/manager">{{ t("nav.manager") }}</NuxtLink>
-        <NuxtLink :to="withActiveShop('/profile')">{{ t("nav.profile") }}</NuxtLink>
-        <NuxtLink :to="withActiveShop('/customer')">{{ t("nav.customers") }}</NuxtLink>
-        <NuxtLink :to="withActiveShop('/payment')">{{ t("nav.payment") }}</NuxtLink>
-        <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
+        <NuxtLink to="/dashboard">{{ t("nav.dashboard") }}</NuxtLink>
+        <NuxtLink :to="withActiveShop('/store')">{{ t("nav.store") }}</NuxtLink>
         <NuxtLink to="/status">{{ t("nav.status") }}</NuxtLink>
+        <NuxtLink to="/sheet">{{ t("nav.sheet") }}</NuxtLink>
+        <NuxtLink to="/settings">{{ t("nav.settings") }}</NuxtLink>
       </div>
       <div class="topbar-controls">
         <LocaleSwitcher />
@@ -91,8 +89,8 @@ onBeforeUnmount(() => {
 }
 .topbar-title {
   color: var(--text);
-  font-weight: 800;
-  font-size: 1.2rem;
+  font-weight: 600;
+  font-size: 1.3rem;
   margin-left: 8px;
   text-shadow: 1px 1px 2px rgba(31, 122, 77, 0.2);
 }
@@ -109,13 +107,13 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
 }
+
 .nav-list a {
   position: relative;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 6px 12px;
-  border-radius: 6px;
   transition:
     background 0.16s ease,
     box-shadow 0.16s ease,
@@ -140,24 +138,16 @@ onBeforeUnmount(() => {
     transform 0.16s ease;
 }
 
-.nav-list a:hover {
+.nav-list a:hover,
+.nav-list a.router-link-active {
   color: var(--green);
   transform: translateY(-1px);
 }
 
-.nav-list a:hover::after {
+.nav-list a:hover::after,
+.nav-list a.router-link-active::after {
   opacity: 1;
   transform: scaleX(1);
-}
-
-.nav-list a.router-link-active {
-  background: var(--green-soft);
-  color: var(--green);
-  box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.14);
-}
-
-.nav-list a.router-link-active:hover::after {
-  opacity: 0;
 }
 
 .nav-list a:focus-visible {

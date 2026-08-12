@@ -34,6 +34,7 @@ const emit = defineEmits<{
 const checking = ref(false);
 const result = ref<ProxyCheckResponse | null>(null);
 const errorMessage = ref("");
+const { t } = useLocalization();
 
 const proxyValue = computed({
   get: () => props.modelValue,
@@ -42,9 +43,7 @@ const proxyValue = computed({
 
 const resultLocation = computed(() => {
   const location = result.value?.location;
-  const parts = [location?.city, location?.region, location?.country].filter(
-    Boolean,
-  );
+  const parts = [location?.city, location?.region, location?.country].filter(Boolean);
 
   return parts.length ? parts.join(", ") : "";
 });
@@ -84,9 +83,9 @@ async function checkProxy() {
     result.value = data;
     errorMessage.value = data.success
       ? ""
-      : getProxyCheckErrorMessage(data.error, "Proxy check failed.");
+      : getProxyCheckErrorMessage(data.error, t("status.proxyCheckFailed"));
   } catch (error) {
-    errorMessage.value = getErrorMessage(error, "Proxy check failed.");
+    errorMessage.value = getErrorMessage(error, t("status.proxyCheckFailed"));
   } finally {
     checking.value = false;
   }
@@ -115,8 +114,7 @@ function getProxyCheckErrorMessage(
 function getErrorMessage(error: unknown, fallback: string) {
   const data =
     typeof error === "object" && error && "data" in error
-      ? (error as { data?: { message?: unknown; statusMessage?: unknown } })
-          .data
+      ? (error as { data?: { message?: unknown; statusMessage?: unknown } }).data
       : undefined;
 
   if (typeof data?.message === "string") {
@@ -133,7 +131,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 <template>
   <div class="proxy-field">
-    <label for="common-proxy">Common SOCKS5 proxy</label>
+    <label for="common-proxy">{{ t("status.commonProxyLabel") }}</label>
 
     <div class="proxy-check-row">
       <input
@@ -146,7 +144,7 @@ function getErrorMessage(error: unknown, fallback: string) {
       <button type="button" :disabled="checking" @click="checkProxy">
         <IconsSync v-if="checking" class="spin-icon" />
         <IconsCheck v-else />
-        Check
+        {{ checking ? t("status.checkingProxy") : t("status.checkProxy") }}
       </button>
 
       <div
@@ -155,14 +153,14 @@ function getErrorMessage(error: unknown, fallback: string) {
         :class="{ 'is-error': !result?.success }"
       >
         <template v-if="result?.success">
-          <strong>Live</strong>
-          <span>{{ result.ip || result.location?.ip || "IP unknown" }}</span>
+          <strong>{{ t("status.live") }}</strong>
+          <span>{{ result.ip || result.location?.ip || t("status.unknownIp") }}</span>
           <span v-if="resultLocation">{{ resultLocation }}</span>
           <span v-if="result.location?.isp">{{ result.location.isp }}</span>
           <span v-if="result.duration">{{ result.duration }}ms</span>
         </template>
         <template v-else>
-          <strong>Failed</strong>
+          <strong>{{ t("status.failed") }}</strong>
           <span>{{ errorMessage }}</span>
         </template>
       </div>
@@ -179,7 +177,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 .proxy-field label {
   color: var(--text);
   font-size: 0.84rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .proxy-check-row {
@@ -221,7 +219,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   cursor: pointer;
   font: inherit;
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .proxy-check-row button:disabled {
@@ -251,7 +249,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   background: var(--green-soft);
   color: var(--green);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 

@@ -3,6 +3,7 @@ import {
   callShopifyApi,
   createApiErrorFromMessage,
 } from "~~/server/utils/callShopifyApi";
+import { getShopifyQueryCredentials } from "~~/server/utils/shopify-admin-request";
 import { isShopifyNumericId } from "~~/server/utils/shopify-id";
 import {
   buildMetafieldPath,
@@ -14,8 +15,7 @@ export default defineEventHandler(async (event) => {
   const resource = resolveMetafieldResource(event.context.params?.resource);
   const ownerId = String(event.context.params?.id || "").trim();
   const query = getQuery(event);
-  const storeId = String(query.storeId || "").trim();
-  const token = String(query.token || "").trim();
+  const { storeId, token } = getShopifyQueryCredentials(event);
   const metafieldId = String(query.metafieldId || "").trim();
 
   if (!resource) {

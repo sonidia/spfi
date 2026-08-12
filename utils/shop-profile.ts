@@ -114,13 +114,6 @@ export function buildShopProfileRows(
     }));
 }
 
-export function maskSensitiveValue(value: unknown, visible = 4): string {
-  const raw = String(value || "").trim();
-  if (!raw) return "-";
-  if (raw.length <= visible * 2) return raw;
-  return `${raw.slice(0, visible)}...${raw.slice(-visible)}`;
-}
-
 export function formatProfileTimestamp(value: unknown): string {
   if (!value) return "-";
 

@@ -1,26 +1,47 @@
 <script lang="ts" setup>
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
+import { useCredentialVaultStore } from "./stores/credentialVault";
 
 const { loading } = useLoading();
+const credentialVault = useCredentialVaultStore();
+const { t } = useLocalization();
+const confirmDialog = useConfirmDialog();
+
+onMounted(() => credentialVault.initialize());
 useTokenRotation();
 </script>
 
 <template>
-  <main class="app-root">
-    <CredentialUnlock />
-    <LoadingOverlay :visible="loading" />
+  <div class="app-root">
+    <a class="skip-link" href="#main-content">
+      {{ t("a11y.skipToContent") }}
+    </a>
+    <ClientOnly>
+      <LoadingOverlay :visible="loading" />
+    </ClientOnly>
     <BaseToast />
+    <CommandPalette />
+    <BaseConfirmDialog
+      :open="Boolean(confirmDialog.options.value)"
+      :title="confirmDialog.options.value?.title || ''"
+      :message="confirmDialog.options.value?.message || ''"
+      :confirm-label="confirmDialog.options.value?.confirmLabel"
+      :cancel-label="confirmDialog.options.value?.cancelLabel"
+      :danger="confirmDialog.options.value?.danger"
+      @confirm="confirmDialog.resolveConfirmation(true)"
+      @cancel="confirmDialog.resolveConfirmation(false)"
+    />
     <Nav />
-    <NuxtLayout>
-      <NuxtPage :keepalive="{ max: 12 }" />
-    </NuxtLayout>
-  </main>
+    <div id="main-content" tabindex="-1">
+      <NuxtLayout>
+        <NuxtPage :keepalive="{ max: 6 }" />
+      </NuxtLayout>
+    </div>
+  </div>
 </template>
 
 <style>
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap");
-
 *,
 *::before,
 *::after {
@@ -71,9 +92,10 @@ useTokenRotation();
   --badge-pending-text: #9b6416;
   --radius: 8px;
   --radius-sm: 8px;
-  --font:
-    "DM Sans", Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono",
+    monospace;
   --text-primary: var(--text);
   --text-secondary: var(--muted);
   --text-muted: #8b9991;
@@ -125,23 +147,13 @@ html[data-theme="dark"] {
 
 html,
 body {
-  font-family:
-    "DM Sans",
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--font);
   color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
   min-height: 100vh;
   background:
-    linear-gradient(
-      180deg,
-      var(--body-gradient-start),
-      var(--body-gradient-end) 320px
-    ),
+    linear-gradient(180deg, var(--body-gradient-start), var(--body-gradient-end) 320px),
     var(--bg);
   transition:
     background 0.18s ease,
@@ -152,13 +164,74 @@ a {
   text-decoration: none;
 }
 
+button,
 select,
 input,
 textarea {
+  font: inherit;
   outline: none;
   background: var(--surface);
   color: var(--text);
   border-color: var(--border);
+}
+
+strong,
+b,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  display: inline-grid;
+  place-content: center;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 44%, var(--border));
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--green);
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 16%, 84% 0, 36% 68%);
+  background: currentColor;
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+input[type="checkbox"]:focus-visible {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 * {
@@ -179,19 +252,11 @@ textarea {
 *::-webkit-scrollbar-thumb {
   border: 2px solid var(--bg);
   border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    rgba(31, 122, 77, 0.72),
-    rgba(39, 92, 145, 0.66)
-  );
+  background: linear-gradient(180deg, rgba(31, 122, 77, 0.72), rgba(39, 92, 145, 0.66));
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(31, 122, 77, 0.88),
-    rgba(39, 92, 145, 0.82)
-  );
+  background: linear-gradient(180deg, rgba(31, 122, 77, 0.88), rgba(39, 92, 145, 0.82));
 }
 
 *::-webkit-scrollbar-corner {
@@ -204,6 +269,53 @@ textarea {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+html[data-locale-direction="rtl"] {
+  direction: ltr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  inset-inline-start: 12px;
+  z-index: 10000;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(calc(-100% - 24px));
+  transition: transform 0.16s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .layout,
@@ -272,38 +384,40 @@ html[data-theme="dark"] .expand-btn {
   color: var(--text);
 }
 
-html[data-theme="dark"] :is(
-  .table,
-  .data-table,
-  .sheet-table,
-  .product-table,
-  .products-table,
-  .orders-table,
-  .transactions-table,
-  .payout-table,
-  .customer-table,
-  .table-wrapper,
-  .table-card,
-  .list-row,
-  .product-row,
-  .order-row,
-  .transaction-row,
-  .customer-row
-) {
+html[data-theme="dark"]
+  :is(
+    .table,
+    .data-table,
+    .sheet-table,
+    .product-table,
+    .products-table,
+    .orders-table,
+    .transactions-table,
+    .payout-table,
+    .customer-table,
+    .table-wrapper,
+    .table-card,
+    .list-row,
+    .product-row,
+    .order-row,
+    .transaction-row,
+    .customer-row
+  ) {
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
 }
 
-html[data-theme="dark"] :is(
-  th,
-  .table-head,
-  .table-header,
-  .sheet-header,
-  .product-header,
-  .order-header,
-  .transaction-header
-) {
+html[data-theme="dark"]
+  :is(
+    th,
+    .table-head,
+    .table-header,
+    .sheet-header,
+    .product-header,
+    .order-header,
+    .transaction-header
+  ) {
   background: var(--surface-soft);
   border-color: var(--border);
   color: var(--text);
@@ -357,5 +471,90 @@ html[data-theme="dark"] .scope-box::after {
     rgba(33, 50, 40, 0.82) 50%,
     rgba(33, 50, 40, 1) 100%
   );
+}
+
+.popover-content .popover-menu {
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+}
+
+.popover-content .popover-actions {
+  min-width: 160px;
+}
+
+.popover-content .popover-item {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.popover-content .popover-item:hover {
+  background: var(--surface-soft);
+}
+
+.popover-content .popover-item.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+.popover-content .popover-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+.popover-content .text-danger {
+  color: var(--red, var(--badge-cancelled-text)) !important;
+}
+
+.popover-content .fulfillment-popover {
+  min-width: 220px;
+  padding: 12px;
+}
+
+.popover-content .popover-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.popover-content .popover-line.border-top {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.popover-content .popover-lbl {
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+.popover-content .popover-val {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 </style>

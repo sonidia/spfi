@@ -26,13 +26,13 @@
 
 ## 🧭 Core Workflows
 
-| Route      | Workflow        | What it does                                                                                                     |
-| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `/setup`   | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                          |
-| `/manager` | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                       |
-| `/payment` | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.      |
-| `/sheet`   | Sheets          | Opens Google Sheets tabs, remembers recent sheets, and supports read/write operations through a service account. |
-| `/status`  | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                  |
+| Route       | Workflow        | What it does                                                                                                |
+| ----------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `/setup`    | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                     |
+| `/manager`  | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                  |
+| `/payment`  | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs. |
+| `/status`   | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.             |
+| `/settings` | Settings        | Manages Tracktaco credentials, Pinia cache retention, and Google Sheets tabs and row previews.              |
 
 ## 🧰 Tech Stack
 
@@ -60,6 +60,31 @@ The app runs at `http://localhost:3000` by default.
 
 ## 🔐 Configuration
 
+### Browser origin policy
+
+API requests are same-origin by default. If a separate trusted browser UI must
+call the API, allow its exact origins as a comma-separated list:
+
+```text
+NUXT_ALLOWED_ORIGINS=https://ops.example.com,https://admin.example.com
+```
+
+Unsafe API methods reject requests without an `Origin` header unless the
+browser supplies `Sec-Fetch-Site: same-origin`. An Origin is reflected in CORS
+headers only when it is explicitly listed in `NUXT_ALLOWED_ORIGINS`.
+Host-header origin fallback is off in production; enable
+`NUXT_ALLOW_HOST_ORIGIN_FALLBACK=true` only for a known legacy local client.
+
+Copy `.env.example` to `.env` as a starting point.
+
+Shopify Admin REST and GraphQL requests share a runtime-configured API version.
+The default is `2026-07`; after validating the next quarterly release and once
+it is stable, rotate it without rebuilding the app, for example:
+
+```text
+NUXT_ADMIN_API_VERSION=2026-10
+```
+
 Add the Google service account file:
 
 ```text
@@ -74,6 +99,79 @@ Required local inputs:
 - npm 10 or newer.
 - A Google service account JSON file for Sheets features.
 - Shopify store credentials for authenticated store operations.
+
+Shopify Admin requests are throttled from Shopify's own response metadata, not
+from a hard-coded store plan. REST requests honor `Retry-After` and share the
+upstream bucket state per app/store; GraphQL retries use
+`extensions.cost.throttleStatus.currentlyAvailable` and `restoreRate`.
+
+### Data access endpoints
+
+Order lists use Shopify cursor pagination end to end. `POST /api/order/all`
+returns one page at a time:
+
+```json
+{
+  "orders": [],
+  "pageInfo": {
+    "nextCursor": null,
+    "previousCursor": null,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+Pass a returned cursor as `query.page_info`; cursor requests intentionally drop
+filters that Shopify does not permit alongside `page_info`.
+
+`POST /api/graphql` provides a generic Admin GraphQL read endpoint for nested
+data. It accepts `{ storeId, token, query, variables?, operationName? }` and
+returns `{ data }`. This endpoint is deliberately read-only: mutations,
+subscriptions, schema introspection, oversized inputs, and excessively nested
+queries are rejected.
+
+CSV downloads are available from `POST /api/export/csv/:resource`, where
+`resource` is `orders`, `products`, or `payments`. Responses are streamed page
+by page, emitted as UTF-8 CSV, and protected against spreadsheet formula
+injection. The store UI exposes the same exports through reusable buttons.
+
+`/dashboard` is an all-store operational view. The browser loads saved stores
+with a concurrency limit and calls `POST /api/dashboard` once per store. Each
+response aggregates the current calendar month's orders, daily revenue, top
+products, pending fulfillments, customer and product totals, Shopify Payments,
+and staff access. Totals remain separated by currency, date boundaries follow
+the viewer's timezone, and restricted resources degrade independently instead
+of hiding the rest of a store's dashboard. Dashboard snapshots live in Pinia and
+respect the configurable data-retention lifetime, so keep-alive navigation does
+not repeat network requests. The page also supports store/currency filters,
+debounced search, interactive ranking controls, and CSV, TSV, JSON, or printable
+HTML exports of the current filtered view.
+
+The optional local per-IP limits are disabled by default so they don't reduce
+Shopify throughput. A deployment that exposes the server publicly can enable
+them without changing source code:
+
+```text
+NUXT_API_RATE_LIMIT_PER_MINUTE=600
+NUXT_TOKEN_RATE_LIMIT_PER_MINUTE=10
+```
+
+These fail-closed defaults apply even when the variables are omitted. Raise
+them deliberately for trusted high-volume deployments.
+
+Forwarded client IP headers are ignored by default. Set
+`NUXT_TRUST_PROXY_HEADERS=true` only behind a trusted reverse proxy that
+overwrites `X-Forwarded-For`; the bundled nginx and Compose configuration do.
+
+Automatic FedEx tracking is configured from `/settings`. The Tracktaco endpoint
+and API key are saved in browser-local storage; no PIN/password unlock or
+Tracktaco `.env` values are required.
+
+The same page controls how long Shopify operational data stays reusable in
+Pinia. Presets range from no cache through one day to the default session mode,
+which keeps data until the browser page is refreshed. Only this preference is
+persisted; the Shopify response data remains in memory.
 
 ## 🏭 Production
 
@@ -197,8 +295,24 @@ Expected header aliases for store auto-fill:
 
 ## 🛡️ Security Notes
 
+### API response contracts
+
+Collection-style `all` endpoints expose the same self-describing
+`success/data/meta` envelope. `meta.strategy` is `cursor`, `complete`, or
+`aggregate`; legacy top-level fields remain available for compatibility.
+
+REST-backed routes preserve Shopify `snake_case` fields and GraphQL-backed
+routes expose app `camelCase` fields. Shopify responses also send
+`X-SPF-Field-Convention`, so consumers do not need to infer the convention.
+
 - Do not commit `server/service_account.json`, `.env` files, logs, or generated build output.
 - Store credentials and proxy details should be treated as sensitive operational data.
+- Browser API calls are same-origin unless explicitly listed in `NUXT_ALLOWED_ORIGINS`.
+- Shopify access tokens for GET and DELETE routes must use the `X-Shopify-Access-Token` header; query-string tokens are rejected.
+- CORS is a browser boundary, not user authentication. Keep deployments on localhost, a trusted network, or behind a VPN/reverse proxy when public access is not intended.
+- SOCKS proxy hosts are DNS-resolved, rejected if any result is private/reserved, and pinned to a validated public IP before connecting. Isolated VPN deployments that intentionally use a private proxy can opt out with `NUXT_ALLOW_PRIVATE_PROXY_HOSTS=true`.
+- `/api/debug-proxy` is disabled by default in production. When explicitly enabled, it accepts only HTTPS destinations on `NUXT_DEBUG_PROXY_ALLOWED_HOSTS`, blocks private/reserved DNS results and redirects, caps response size, and suppresses raw socket errors.
+- Store status targets and every redirect are restricted to public HTTPS port 443; direct connections use the validated DNS address to reduce DNS-rebinding risk.
 - Production environments must allow outbound HTTPS requests to Shopify, Google APIs, and any proxy endpoints used by status checks.
 
 ## 🧪 Scripts

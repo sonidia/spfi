@@ -60,7 +60,7 @@ function selectMode(value: ProxyMode) {
   justify-content: center;
   font-family: inherit;
   font-size: 0.76rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .mode-option:hover,

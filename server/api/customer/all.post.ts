@@ -1,10 +1,8 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import { buildCustomerQueryParams } from "~~/server/utils/shopify-customer-query";
-import type { CustomersResponse } from "~~/types/shopify";
+import type { ShopifyCustomer } from "~~/types/shopify";
 
 interface CustomerAllBody extends Record<string, unknown> {
   storeId?: string;
@@ -31,12 +29,15 @@ export default defineEventHandler(async (event) => {
     isSearch,
   );
 
-  return callShopifyApi<CustomersResponse>({
+  const customers = await callShopifyPaginatedApi<ShopifyCustomer>({
     event,
     storeId,
     token,
     path: isSearch ? "/customers/search.json" : "/customers.json",
+    resourceKey: "customers",
     params,
     missingProxyMessage: "Missing sock proxy for this store.",
   });
+
+  return { customers };
 });

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight } from "@lucide/vue";
 import { computed } from "vue";
 
 const props = withDefaults(
@@ -8,6 +9,9 @@ const props = withDefaults(
     totalItems: number;
     pageSizeOptions?: number[];
     itemLabel?: string;
+    hasNextPage?: boolean;
+    hasPreviousPage?: boolean;
+    loading?: boolean;
   }>(),
   {
     pageSizeOptions: () => [10, 20, 50],
@@ -19,6 +23,7 @@ const emit = defineEmits<{
   "update:page": [page: number];
   "update:pageSize": [pageSize: number];
 }>();
+const { t } = useLocalization();
 
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(props.totalItems / props.pageSize)),
@@ -30,49 +35,73 @@ const firstItem = computed(() =>
 const lastItem = computed(() =>
   Math.min(safePage.value * props.pageSize, props.totalItems),
 );
+const pageSizeSelectOptions = computed(() =>
+  props.pageSizeOptions.map((option) => ({
+    label: String(option),
+    value: option,
+  })),
+);
+const canGoPrevious = computed(() => props.hasPreviousPage ?? safePage.value > 1);
+const canGoNext = computed(
+  () => props.hasNextPage ?? safePage.value < totalPages.value,
+);
 
-function updatePageSize(event: Event) {
-  emit("update:pageSize", Number((event.target as HTMLSelectElement).value));
+function updatePageSize(value: unknown) {
+  const nextPageSize = Number(value);
+  if (Number.isFinite(nextPageSize)) {
+    emit("update:pageSize", nextPageSize);
+  }
 }
 </script>
 
 <template>
-  <nav class="pagination" aria-label="Pagination">
+  <nav class="pagination" :aria-label="t('pagination.label')">
     <div class="pagination-summary" aria-live="polite">
       <strong>{{ firstItem }}–{{ lastItem }}</strong>
-      <span>of {{ totalItems }} {{ itemLabel }}</span>
+      <span>
+        {{ t("pagination.summary", { total: totalItems, items: itemLabel }) }}
+      </span>
     </div>
 
     <div class="pagination-actions">
       <label class="page-size">
-        <span>Rows</span>
-        <select :value="pageSize" @change="updatePageSize">
-          <option v-for="option in pageSizeOptions" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
+        <span>{{ t("pagination.rows") }}</span>
+        <BaseSelect
+          class-name="page-size-select"
+          :model-value="pageSize"
+          :options="pageSizeSelectOptions"
+          @update:model-value="updatePageSize"
+        />
       </label>
 
       <span class="page-indicator">
-        Page {{ safePage }} of {{ totalPages }}
+        {{ t("pagination.pageOf", { page: safePage, total: totalPages }) }}
       </span>
 
-      <button
-        type="button"
-        aria-label="Previous page"
-        :disabled="safePage <= 1"
+      <BaseButton
+        icon-only
+        :aria-label="t('pagination.previous')"
+        :title="t('pagination.previous')"
+        :disabled="loading || !canGoPrevious"
         @click="emit('update:page', safePage - 1)"
       >
+        <template #icon>
+          <ChevronLeft />
+        </template>
         ‹
-      </button>
-      <button
-        type="button"
-        aria-label="Next page"
-        :disabled="safePage >= totalPages"
+      </BaseButton>
+      <BaseButton
+        icon-only
+        :aria-label="t('pagination.next')"
+        :title="t('pagination.next')"
+        :disabled="loading || !canGoNext"
         @click="emit('update:page', safePage + 1)"
       >
+        <template #icon>
+          <ChevronRight />
+        </template>
         ›
-      </button>
+      </BaseButton>
     </div>
   </nav>
 </template>
@@ -116,42 +145,26 @@ function updatePageSize(event: Event) {
   font-weight: 600;
 }
 
-.page-size select {
-  height: 34px;
-  padding: 0 28px 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
+.page-size :deep(.custom-select) {
+  width: 74px;
 }
 
-.pagination-actions button {
+.page-size :deep(.select-trigger) {
+  min-height: 34px;
+  background: var(--surface);
+}
+
+.pagination-actions :deep(.base-button) {
   width: 34px;
   height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  transition: border-color 0.16s, background 0.16s, color 0.16s;
 }
 
-.pagination-actions button:hover:not(:disabled) {
+.pagination-actions :deep(.base-button:hover:not(:disabled)) {
   border-color: rgba(31, 122, 77, 0.4);
   background: var(--green-soft);
   color: var(--green);
-}
-
-.pagination-actions button:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
 }
 
 @media (max-width: 640px) {

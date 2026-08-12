@@ -55,7 +55,7 @@ defineProps<{
 
 .page-title {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 4px;
 }

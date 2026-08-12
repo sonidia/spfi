@@ -2,19 +2,21 @@
 import { useToastStore } from "../stores/toast";
 
 const toastStore = useToastStore();
+const { t } = useLocalization();
 </script>
 
 <template>
-  <div class="toast-container">
+  <div class="toast-container" aria-live="polite" aria-atomic="false">
     <TransitionGroup name="toast">
       <div
         v-for="toast in toastStore.toasts"
         :key="toast.id"
         class="toast-item"
         :class="toast.type"
-        @click="toastStore.removeToast(toast.id)"
+        :role="toast.type === 'error' ? 'alert' : 'status'"
+        :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
       >
-        <div class="toast-icon">
+        <div class="toast-icon" aria-hidden="true">
           <svg
             v-if="toast.type === 'success'"
             width="16"
@@ -41,13 +43,7 @@ const toastStore = useToastStore();
               clip-rule="evenodd"
             />
           </svg>
-          <svg
-            v-else
-            width="16"
-            height="16"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
+          <svg v-else width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
             <path
               fill-rule="evenodd"
               d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -56,6 +52,14 @@ const toastStore = useToastStore();
           </svg>
         </div>
         <div class="toast-message">{{ toast.message }}</div>
+        <button
+          type="button"
+          class="toast-dismiss"
+          :aria-label="t('common.dismissNotification')"
+          @click="toastStore.removeToast(toast.id)"
+        >
+          ×
+        </button>
       </div>
     </TransitionGroup>
   </div>
@@ -84,7 +88,6 @@ const toastStore = useToastStore();
   display: flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
   border-left: 4px solid var(--border);
   font-size: 13.5px;
   font-weight: 500;
@@ -116,6 +119,29 @@ const toastStore = useToastStore();
 
 .toast-message {
   flex: 1;
+}
+
+.toast-dismiss {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toast-dismiss:hover,
+.toast-dismiss:focus-visible {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.toast-dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 /* Animations */

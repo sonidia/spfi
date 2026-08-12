@@ -1,33 +1,42 @@
 import { defineEventHandler, readBody } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
-import type { ProductsResponse, ShopifyProductInput } from "~~/types/shopify";
+  requireShopifyCredentials,
+  requireShopifyPayload,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
+import { normalizeShopifyProductUpdate } from "~~/server/utils/shopify-product-update";
+import type { ProductsResponse } from "~~/types/shopify";
+import type { ShopifyProductUpdateInput } from "~~/types/shopify-product";
 
 interface ProductUpdateBody {
   storeId?: string;
   token?: string;
-  product?: ShopifyProductInput;
+  product?: ShopifyProductUpdateInput;
 }
 
 export default defineEventHandler(async (event) => {
+  const productId = requireShopifyResourceId(event.context.params?.id, "Product");
   const body = (await readBody<ProductUpdateBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
-  const product = body.product;
-  const productId = event.context.params?.id;
+  const { storeId, token } = requireShopifyCredentials(body);
+  const product = requireShopifyPayload<ShopifyProductUpdateInput>(
+    body.product,
+    "Product",
+  );
+  const requestBody = {
+    product: {
+      ...normalizeShopifyProductUpdate(product),
+      id: productId,
+    },
+  };
 
-  if (!storeId || !token || !product || !productId) {
-    throw createApiErrorFromMessage("Store ID, Access Token, Product ID, and Payload are required.", 400);
-  }
-
-  return callShopifyApi<ProductsResponse, { product: ShopifyProductInput }>({
+  return callShopifyApi<ProductsResponse, typeof requestBody>({
     event,
     storeId,
     token,
     method: "PUT",
     path: `/products/${productId}.json`,
-    body: { product },
+    body: requestBody,
+    missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

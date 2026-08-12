@@ -1,48 +1,44 @@
-import { defineEventHandler, getQuery } from "h3";
+import { defineEventHandler } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
-import { isShopifyNumericId } from "~~/server/utils/shopify-id";
+  getCustomerQueryCredentials,
+  requireCustomerResourceId,
+} from "~~/server/utils/shopify-customer-request";
 import type {
   CustomerDetailResponse,
   CustomersResponse,
-  OrdersResponse,
+  ShopifyOrder,
 } from "~~/types/shopify";
 
 export default defineEventHandler(async (event): Promise<CustomerDetailResponse> => {
-  const id = String(event.context.params?.id || "").trim();
-  const { storeId, token } = getQuery(event);
-  const sid = String(storeId || "").trim();
-  const accessToken = String(token || "").trim();
+  const id = requireCustomerResourceId(
+    event.context.params?.id,
+    "Customer",
+  );
+  const { storeId, token } = getCustomerQueryCredentials(event);
 
-  if (!isShopifyNumericId(id) || !sid || !accessToken) {
-    throw createApiErrorFromMessage(
-      "A numeric Customer ID, Store ID and Access Token are required.",
-      400,
-    );
-  }
-
-  const [customerResponse, ordersResponse] = await Promise.all([
+  const [customerResponse, orders] = await Promise.all([
     callShopifyApi<CustomersResponse>({
       event,
-      storeId: sid,
-      token: accessToken,
+      storeId,
+      token,
       path: `/customers/${id}.json`,
       missingProxyMessage: "Missing sock proxy for this store.",
     }),
-    callShopifyApi<OrdersResponse>({
+    callShopifyPaginatedApi<ShopifyOrder>({
       event,
-      storeId: sid,
-      token: accessToken,
+      storeId,
+      token,
       path: `/customers/${id}/orders.json`,
-      params: { status: "any", limit: 250 },
+      resourceKey: "orders",
+      params: { status: "any" },
       missingProxyMessage: "Missing sock proxy for this store.",
     }),
   ]);
 
   return {
     customer: customerResponse.customer || null,
-    orders: ordersResponse.orders || [],
+    orders,
   };
 });

@@ -1,9 +1,8 @@
 import { defineEventHandler, readBody } from "h3";
-import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
-import type { ProductsResponse } from "~~/types/shopify";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
+import { createApiSuccessResponse } from "~~/server/utils/api-response";
+import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
+import type { ProductsListResponse, ShopifyProduct } from "~~/types/shopify";
 
 interface ProductAllBody extends Record<string, unknown> {
   storeId?: string;
@@ -33,18 +32,23 @@ function toShopifyQueryParams(body: Record<string, unknown>) {
 
 export default defineEventHandler(async (event) => {
   const body = (await readBody<ProductAllBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
+  const { storeId, token } = requireShopifyCredentials(body);
 
-  if (!storeId || !token) {
-    throw createApiErrorFromMessage("Store ID and Access Token are required.", 400);
-  }
-
-  return callShopifyApi<ProductsResponse>({
+  const products = await callShopifyPaginatedApi<ShopifyProduct>({
     event,
     storeId,
     token,
     path: "/products.json",
+    resourceKey: "products",
     params: toShopifyQueryParams(body),
   });
+
+  return createApiSuccessResponse(
+    { products },
+    {
+      resource: "products",
+      strategy: "complete",
+      fieldConvention: "shopify-rest",
+    },
+  ) satisfies ProductsListResponse;
 });

@@ -1,12 +1,14 @@
-import { defineEventHandler, getQuery } from "h3";
+import { defineEventHandler } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
+import { callShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
+  getShopifyQueryCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 import type {
-  BalanceTransactionsResponse,
   PayoutDetailResponse,
   ShopifyPayout,
+  ShopifyBalanceTransaction,
 } from "~~/types/shopify";
 
 interface PayoutResponse {
@@ -14,33 +16,35 @@ interface PayoutResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  const payoutId = event.context.params?.id;
-  const query = getQuery(event);
-  const storeId = String(query.storeId || "");
-  const token = String(query.token || "");
+  const payoutId = requireShopifyResourceId(
+    event.context.params?.id,
+    "Payout",
+  );
+  const { storeId, token } = getShopifyQueryCredentials(event);
 
-  if (!storeId || !token || !payoutId) {
-    throw createApiErrorFromMessage("storeId, token and payout id are required.", 400);
-  }
-
-  const [payoutRes, txRes] = await Promise.all([
+  const [payoutRes, transactions] = await Promise.all([
     callShopifyApi<PayoutResponse>({
       event,
       storeId,
       token,
       path: `/shopify_payments/payouts/${payoutId}.json`,
+      preserveUnsafeIntegers: true,
     }),
-    callShopifyApi<BalanceTransactionsResponse>({
+    callShopifyPaginatedApi<ShopifyBalanceTransaction>({
       event,
       storeId,
       token,
       path: "/shopify_payments/balance/transactions.json",
+      resourceKey: "transactions",
       params: { payout_id: payoutId },
+      preserveUnsafeIntegers: true,
     }),
   ]);
 
   return {
-    payout: payoutRes.payout ?? null,
-    transactions: txRes.transactions ?? [],
+    payout: payoutRes.payout
+      ? { ...payoutRes.payout, id: payoutId }
+      : null,
+    transactions,
   } satisfies PayoutDetailResponse;
 });

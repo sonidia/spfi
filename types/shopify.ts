@@ -4,6 +4,8 @@ export interface JsonObject {
   [key: string]: JsonValue;
 }
 
+export type ShopifyNumericId = string | number;
+
 export interface AppErrorData {
   data?: {
     error?: {
@@ -26,14 +28,9 @@ export interface StoreLocalData {
   domain?: string;
   sock?: string;
   clientId?: string;
-  /**
-   * Legacy plaintext fields. They are read only during the one-time vault
-   * migration and are never written back to localStorage.
-   */
   clientSecret?: string;
   accessToken?: string;
   expiresTime?: number;
-  encryptedCredentials?: EncryptedPayload;
 }
 
 export interface StoreCredentials {
@@ -41,26 +38,16 @@ export interface StoreCredentials {
   accessToken?: string;
 }
 
-export interface EncryptedPayload {
-  version: 1;
-  iv: string;
-  ciphertext: string;
-}
-
-export interface CredentialVaultMetadata {
-  version: 1;
-  salt: string;
-  verifier: EncryptedPayload;
-}
-
 export interface ShopifyMoneySet {
   shop_money?: {
     amount?: string;
     currency_code?: string;
+    currency?: string;
   };
   presentment_money?: {
     amount?: string;
     currency_code?: string;
+    currency?: string;
   };
 }
 
@@ -70,6 +57,7 @@ export interface ShopifyAddress {
   address1?: string | null;
   address2?: string | null;
   city?: string | null;
+  phone?: string | null;
   province?: string | null;
   province_code?: string | null;
   zip?: string | null;
@@ -79,8 +67,8 @@ export interface ShopifyAddress {
 }
 
 export interface ShopifyCustomerAddress extends ShopifyAddress {
-  id?: number;
-  customer_id?: number;
+  id?: ShopifyNumericId;
+  customer_id?: ShopifyNumericId;
   first_name?: string | null;
   last_name?: string | null;
   country_code?: string | null;
@@ -96,7 +84,7 @@ export interface ShopifyMarketingConsent {
 }
 
 export interface ShopifyCustomer {
-  id?: number;
+  id?: ShopifyNumericId;
   email?: string | null;
   first_name?: string | null;
   last_name?: string | null;
@@ -111,7 +99,7 @@ export interface ShopifyCustomer {
   tax_exempt?: boolean;
   created_at?: string;
   updated_at?: string;
-  last_order_id?: number | null;
+  last_order_id?: ShopifyNumericId | null;
   last_order_name?: string | null;
   email_marketing_consent?: ShopifyMarketingConsent | null;
   sms_marketing_consent?: ShopifyMarketingConsent | null;
@@ -120,7 +108,8 @@ export interface ShopifyCustomer {
 }
 
 export interface ShopifyLineItem {
-  id: number;
+  id: ShopifyNumericId;
+  admin_graphql_api_id?: string;
   name?: string;
   title?: string;
   variant_title?: string | null;
@@ -128,34 +117,62 @@ export interface ShopifyLineItem {
   price?: string;
   quantity?: number;
   fulfillable_quantity?: number;
-  product_id?: number | null;
-  variant_id?: number | null;
+  product_id?: ShopifyNumericId | null;
+  variant_id?: ShopifyNumericId | null;
 }
 
 export interface ShopifyFulfillment {
-  id?: number;
+  id?: ShopifyNumericId;
+  order_id?: ShopifyNumericId;
   name?: string;
   status?: string;
   service?: string;
   shipment_status?: string | null;
+  location_id?: ShopifyNumericId | null;
   tracking_company?: string | null;
   tracking_number?: string | null;
+  tracking_numbers?: string[];
   tracking_url?: string | null;
+  tracking_urls?: string[];
   created_at?: string;
+  updated_at?: string;
+  admin_graphql_api_id?: string;
   line_items?: ShopifyLineItem[];
 }
 
+export interface ShopifyRefundLineItem {
+  id?: ShopifyNumericId;
+  line_item_id: ShopifyNumericId;
+  quantity: number;
+  restock_type?: string;
+}
+
+export interface ShopifyRefund {
+  id: ShopifyNumericId;
+  order_id?: ShopifyNumericId;
+  created_at?: string;
+  processed_at?: string;
+  note?: string | null;
+  user_id?: ShopifyNumericId | null;
+  admin_graphql_api_id?: string;
+  refund_line_items?: ShopifyRefundLineItem[];
+  transactions?: ShopifyOrderTransaction[];
+}
+
 export interface ShopifyOrder {
-  id: number;
+  id: ShopifyNumericId;
+  admin_graphql_api_id?: string;
   name?: string;
   order_number: number;
   created_at: string;
+  updated_at?: string;
   closed_at?: string | null;
   cancelled_at?: string | null;
   financial_status: string;
   fulfillment_status: string | null;
   total_price: string;
   current_total_price?: string;
+  total_outstanding?: string;
   subtotal_price?: string;
   current_subtotal_price?: string;
   total_tax?: string;
@@ -168,6 +185,8 @@ export interface ShopifyOrder {
   contact_email?: string | null;
   phone?: string | null;
   note?: string | null;
+  tags?: string;
+  test?: boolean;
   source_name?: string;
   referring_site?: string | null;
   customer?: ShopifyCustomer | null;
@@ -176,24 +195,116 @@ export interface ShopifyOrder {
   shipping_lines?: Array<{ title?: string }>;
   line_items: ShopifyLineItem[];
   fulfillments?: ShopifyFulfillment[];
+  refunds?: ShopifyRefund[];
+}
+
+export interface ShopifyOrderTransaction {
+  id: ShopifyNumericId;
+  order_id?: ShopifyNumericId;
+  kind: string;
+  gateway?: string;
+  status: string;
+  message?: string | null;
+  created_at: string;
+  test?: boolean;
+  authorization?: string | null;
+  authorization_expires_at?: string | null;
+  amount: string;
+  currency: string;
+  parent_id?: ShopifyNumericId | null;
+  processed_at?: string;
+  location_id?: ShopifyNumericId | null;
+  user_id?: ShopifyNumericId | null;
+  device_id?: ShopifyNumericId | null;
+  source_name?: string | null;
+  error_code?: string | null;
+  payment_id?: string | null;
+  manual_payment_gateway?: boolean;
+  admin_graphql_api_id?: string;
+  extended_authorization_attributes?: {
+    standard_authorization_expires_at?: string | null;
+    extended_authorization_expires_at?: string | null;
+  } | null;
+  total_unsettled_set?: ShopifyMoneySet | null;
+  currency_exchange_adjustment?: {
+    id: ShopifyNumericId;
+    adjustment: string;
+    original_amount: string;
+    final_amount: string;
+    currency: string;
+  } | null;
+  amount_rounding?: string | null;
+  payment_details?: {
+    credit_card_bin?: string | null;
+    credit_card_company?: string | null;
+    credit_card_number?: string | null;
+    credit_card_name?: string | null;
+    credit_card_wallet?: string | null;
+    credit_card_expiration_month?: number | null;
+    credit_card_expiration_year?: number | null;
+    payment_method_name?: string | null;
+    buyer_action_info?: Record<string, unknown> | null;
+    avs_result_code?: string | null;
+    cvv_result_code?: string | null;
+  } | null;
+  payments_refund_attributes?: {
+    status?: string | null;
+    acquirer_reference_number?: string | null;
+  } | null;
+  receipt?: Record<string, unknown> | null;
+}
+
+export interface ShopifyOrderEvent {
+  id: ShopifyNumericId;
+  subject_id: ShopifyNumericId;
+  subject_type: string;
+  verb: string;
+  created_at: string;
+  author?: string | null;
+  description?: string | null;
+  message?: string | null;
+  body?: string | null;
+  arguments?: string[];
+  path?: string | null;
 }
 
 export interface ShopifyVariant {
-  id: number;
+  id: ShopifyNumericId;
+  product_id?: ShopifyNumericId;
   title?: string;
   price?: string;
+  compare_at_price?: string | null;
   sku?: string | null;
-  inventory_item_id?: number;
+  barcode?: string | null;
+  position?: number;
+  option1?: string | null;
+  option2?: string | null;
+  option3?: string | null;
+  image_id?: ShopifyNumericId | null;
+  taxable?: boolean;
+  requires_shipping?: boolean;
+  weight?: number;
+  weight_unit?: string;
+  inventory_item_id?: ShopifyNumericId;
   inventory_management?: string | null;
   inventory_policy?: string;
   inventory_quantity?: number;
+  admin_graphql_api_id?: string;
 }
 
 export interface ShopifyProductImage {
-  id?: number;
+  id?: ShopifyNumericId;
   src: string;
   alt?: string | null;
+  position?: number;
+  product_id?: ShopifyNumericId;
+  variant_ids?: ShopifyNumericId[];
+  width?: number;
+  height?: number;
+  admin_graphql_api_id?: string;
 }
+
+export type ShopifyProductStatus = "active" | "archived" | "draft";
 
 export interface ShopifyProductInput {
   title: string;
@@ -201,14 +312,17 @@ export interface ShopifyProductInput {
   vendor?: string;
   product_type?: string;
   tags?: string;
+  status?: ShopifyProductStatus;
+  published?: boolean;
 }
 
 export interface ShopifyProduct extends ShopifyProductInput {
-  id: number;
-  status: string;
+  id: ShopifyNumericId;
+  status: ShopifyProductStatus;
   variants: ShopifyVariant[];
   image?: ShopifyProductImage | null;
   images?: ShopifyProductImage[];
+  published_at?: string | null;
   updated_at?: string;
 }
 
@@ -225,21 +339,13 @@ export interface ShopifyPayoutSummary {
   retried_payouts_gross_amount: string;
 }
 
-export interface ShopifyBankAccount {
-  bank_name?: string;
-  title?: string;
-  account_number?: string;
-  routing_number?: string;
-}
-
 export interface ShopifyPayout {
-  id: number;
+  id: ShopifyNumericId;
   status: string;
   date: string;
   currency: string;
   amount: string;
   summary: ShopifyPayoutSummary;
-  bank_account?: ShopifyBankAccount | null;
 }
 
 export interface ShopifyBalance {
@@ -249,27 +355,71 @@ export interface ShopifyBalance {
   pending_amount?: string;
 }
 
+export const SHOPIFY_REST_BALANCE_TRANSACTION_TYPES = [
+  "charge",
+  "refund",
+  "dispute",
+  "reserve",
+  "adjustment",
+  "credit",
+  "debit",
+  "payout",
+  "payout_failure",
+  "payout_cancellation",
+] as const;
+
+export type ShopifyRestBalanceTransactionType =
+  | (typeof SHOPIFY_REST_BALANCE_TRANSACTION_TYPES)[number]
+  | "capture"
+  | "advance"
+  | "SHOPIFY_COLLECTIVE_DEBIT_REVERSAL"
+  | "seller_protection_credit_reversal"
+  | (string & {});
+
+export type ShopifyBalanceTransactionSourceType =
+  | "charge"
+  | "refund"
+  | "dispute"
+  | "reserve"
+  | "adjustment"
+  | "payout"
+  | `Payments::${string}`
+  | (string & {});
+
+export interface ShopifyAdjustmentOrderTransaction {
+  id: ShopifyNumericId;
+  amount: string;
+  fee: string;
+  net: string;
+  order: {
+    id: ShopifyNumericId | null;
+    name: string;
+  };
+}
+
 export interface ShopifyBalanceTransaction {
-  id: number;
-  type: string;
+  id: ShopifyNumericId;
+  type: ShopifyRestBalanceTransactionType;
   test: boolean;
-  payout_id: number | null;
+  payout_id: ShopifyNumericId | null;
   payout_status: string;
   currency: string;
   amount: string;
   fee: string;
   net: string;
-  source_id: number | null;
-  source_type: string | null;
-  source_order_id: number | null;
-  source_order_transaction_id: number | null;
+  source_id: ShopifyNumericId | null;
+  source_type: ShopifyBalanceTransactionSourceType | null;
+  source_order_id: ShopifyNumericId | null;
+  /** Enriched from GraphQL ShopifyPaymentsAssociatedOrder. */
+  source_order_name?: string | null;
+  source_order_transaction_id: ShopifyNumericId | null;
   processed_at: string;
-  adjustment_order_transactions: unknown;
+  adjustment_order_transactions: ShopifyAdjustmentOrderTransaction[];
   adjustment_reason: string | null;
 }
 
 export interface ShopifyShop {
-  id?: number;
+  id?: ShopifyNumericId;
   name?: string;
   email?: string;
   domain?: string;
@@ -298,19 +448,22 @@ export interface ShopifyShop {
 }
 
 export interface ShopifyFulfillmentOrderLineItem {
-  id: number;
+  id: ShopifyNumericId;
   quantity: number;
   fulfillable_quantity?: number;
+  line_item_id?: ShopifyNumericId;
+  inventory_item_id?: ShopifyNumericId;
+  variant_id?: ShopifyNumericId | null;
 }
 
 export interface ShopifyFulfillmentOrder {
-  id: number;
+  id: ShopifyNumericId;
   status?: string;
   line_items?: ShopifyFulfillmentOrderLineItem[];
 }
 
 export interface ShopifyLocation {
-  id: number;
+  id: ShopifyNumericId;
   name?: string;
   active?: boolean;
   address1?: string | null;
@@ -332,8 +485,8 @@ export interface ShopifyLocation {
 }
 
 export interface ShopifyInventoryLevel {
-  inventory_item_id: number;
-  location_id: number;
+  inventory_item_id: ShopifyNumericId;
+  location_id: ShopifyNumericId;
   available: number | null;
   updated_at?: string;
   admin_graphql_api_id?: string;
@@ -356,6 +509,11 @@ export interface ProductsResponse {
   product?: ShopifyProduct;
 }
 
+export type ProductsListResponse = import("./api-contract").ApiSuccessResponse<
+  { products: ShopifyProduct[] },
+  import("./api-contract").ApiContractMeta<"products", "complete">
+>;
+
 export interface CustomersResponse {
   customers?: ShopifyCustomer[];
   customer?: ShopifyCustomer;
@@ -367,13 +525,13 @@ export interface CustomerDetailResponse {
 }
 
 export interface ShopifyMetafield {
-  id: number | string;
+  id: ShopifyNumericId;
   namespace: string;
   key: string;
   value: string;
   type: string;
   description?: string | null;
-  owner_id?: number | string;
+  owner_id?: ShopifyNumericId;
   owner_resource?: string;
   created_at?: string;
   updated_at?: string;
@@ -403,11 +561,33 @@ export interface BalanceTransactionsResponse {
   transactions: ShopifyBalanceTransaction[];
 }
 
-export interface PaymentsOverviewResponse {
+export interface OrderTransactionsResponse {
+  transactions: ShopifyOrderTransaction[];
+}
+
+export interface OrderTransactionResponse {
+  transaction: ShopifyOrderTransaction;
+}
+
+export interface OrderTransactionCountResponse {
+  count: number;
+}
+
+export interface OrderEventsResponse {
+  events: ShopifyOrderEvent[];
+}
+
+export interface PaymentsOverviewData {
   balance: ShopifyBalance | ShopifyBalance[] | null;
   payouts: ShopifyPayout[];
+  balanceTransactions: ShopifyBalanceTransaction[];
   transactionsByPayout: Record<string, ShopifyBalanceTransaction[]>;
 }
+
+export type PaymentsOverviewResponse = import("./api-contract").ApiSuccessResponse<
+  PaymentsOverviewData,
+  import("./api-contract").ApiContractMeta<"payments", "aggregate">
+>;
 
 export interface PayoutsResponse {
   payouts: ShopifyPayout[];

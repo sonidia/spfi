@@ -2,12 +2,12 @@
 import { defineEventHandler, readBody } from "h3";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import {
-  buildProxyVariants,
   createApiErrorFromMessage,
   createProxyAgent,
   hasInvisibleOrControlChars,
   inspectProxyInput,
   maskProxyUrl,
+  resolveShopifyProxyVariants,
   resolveStoreAdminDomain,
 } from "~~/server/utils/callShopifyApi";
 
@@ -46,16 +46,11 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  console.log(`[GenerateToken] Received StoreId: ${storeId}`);
-  console.log(
-    `[GenerateToken] Incoming Sock: ${sock ? `${sock.substring(0, 10)}...` : "MISSING"}`,
-  );
-
   if (!sock) {
     throw createApiErrorFromMessage("No proxy (sock) provided.", 400);
   }
 
-  const variants = buildNamedProxyVariants(sock);
+  const variants = await buildNamedProxyVariants(event, sock);
 
   for (const variant of variants) {
     console.log(
@@ -113,7 +108,7 @@ export default defineEventHandler(async (event) => {
       "Socks5 Authentication failed: proxy credential was rejected after trying encoded/raw SOCKS5H variants",
       500,
       {
-        hint: "Call POST /api/debug-proxy with body { proxy } to view which variant passes/fails with details.",
+        hint: "Verify the proxy credentials. The debug endpoint is available only when explicitly enabled.",
         variantsTried: variants.map((item) => ({
           name: item.name,
           maskedProxy: maskProxyUrl(item.proxyUrl),
@@ -134,12 +129,17 @@ export default defineEventHandler(async (event) => {
   );
 });
 
-function buildNamedProxyVariants(sock: string): ProxyVariant[] {
+async function buildNamedProxyVariants(
+  event: Parameters<typeof resolveShopifyProxyVariants>[0],
+  sock: string,
+): Promise<ProxyVariant[]> {
   try {
-    return buildProxyVariants(sock).map((proxyUrl, index) => ({
-      name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
-      proxyUrl,
-    }));
+    return (await resolveShopifyProxyVariants(event, sock)).map(
+      (proxyUrl, index) => ({
+        name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
+        proxyUrl,
+      }),
+    );
   } catch (error) {
     throw createApiErrorFromMessage(
       error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",

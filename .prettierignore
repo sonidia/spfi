@@ -1,0 +1,7 @@
+.nuxt
+.output
+dist
+node_modules
+src-tauri/target
+wrapper/src-tauri/target
+package-lock.json

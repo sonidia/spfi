@@ -13,6 +13,10 @@ const currentOption = computed(
     availableLocales.value[0],
 );
 
+function getFlagUrl(flagCode?: string) {
+  return `https://flagsapi.com/${flagCode || "US"}/flat/24.png`;
+}
+
 function closeMenu() {
   isOpen.value = false;
 }
@@ -22,7 +26,7 @@ function toggleMenu() {
 }
 
 function selectLocale(code: LocaleCode) {
-  setLocale(code);
+  void setLocale(code);
   closeMenu();
 }
 
@@ -59,8 +63,10 @@ onBeforeUnmount(() => {
       aria-haspopup="listbox"
       @click="toggleMenu"
     >
-      <span class="locale-code">{{ currentOption.shortLabel }}</span>
-      <span class="locale-name">{{ currentOption.nativeLabel }}</span>
+      <span class="locale-code" aria-hidden="true">
+        <img :src="getFlagUrl(currentOption?.flagCode)" alt="" width="24" height="24" />
+      </span>
+      <span class="locale-name">{{ currentOption?.nativeLabel }}</span>
       <span class="locale-caret" aria-hidden="true" />
     </button>
 
@@ -76,10 +82,17 @@ onBeforeUnmount(() => {
           :aria-selected="option.code === currentLocale"
           @click="selectLocale(option.code)"
         >
-          <span class="locale-option-code">{{ option.shortLabel }}</span>
+          <span class="locale-option-code" aria-hidden="true">
+            <img :src="getFlagUrl(option.flagCode)" alt="" width="24" height="24" />
+          </span>
           <span class="locale-option-copy">
             <strong>{{ option.nativeLabel }}</strong>
-            <small>{{ option.label }}</small>
+            <small>
+              {{ option.label }}
+              <em v-if="option.coverage === 'partial'">
+                {{ t("locale.partialCoverage") }}
+              </em>
+            </small>
           </span>
           <span
             v-if="option.code === currentLocale"
@@ -101,7 +114,7 @@ onBeforeUnmount(() => {
 
 .locale-trigger {
   display: inline-flex;
-  min-height: 34px;
+  min-height: 32px;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--border);
@@ -111,8 +124,8 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
   font-size: 12px;
-  font-weight: 800;
-  padding: 0 10px;
+  font-weight: 600;
+  padding: 0 10px 0 4px;
   box-shadow: var(--shadow-soft);
   transition:
     border-color 0.16s ease,
@@ -120,23 +133,26 @@ onBeforeUnmount(() => {
     box-shadow 0.16s ease;
 }
 
-.locale-trigger:hover,
 .locale-trigger[aria-expanded="true"] {
   border-color: rgba(31, 122, 77, 0.38);
-  background: var(--surface-soft);
 }
 
 .locale-code,
 .locale-option-code {
   display: inline-grid;
   width: 28px;
-  height: 22px;
+  height: 24px;
   place-items: center;
-  border-radius: 6px;
-  background: var(--green-soft);
-  color: var(--green);
-  font-size: 10px;
-  font-weight: 900;
+  overflow: hidden;
+  border-radius: 5px;
+}
+
+.locale-code img,
+.locale-option-code img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .locale-name {
@@ -158,7 +174,7 @@ onBeforeUnmount(() => {
 .locale-menu {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  inset-inline-end: 0;
   z-index: 1000;
   display: grid;
   width: 220px;
@@ -184,7 +200,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
   padding: 7px 9px;
-  text-align: left;
+  text-align: start;
 }
 
 .locale-option:hover,
@@ -205,15 +221,21 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.locale-option-copy em {
+  margin-inline-start: 4px;
+  color: var(--amber);
+  font-style: normal;
+}
+
 .locale-option-copy strong {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .locale-option-copy small {
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .locale-check {
@@ -249,14 +271,23 @@ onBeforeUnmount(() => {
 
 @media (max-width: 700px) {
   .locale-menu {
-    right: auto;
-    left: 50%;
+    inset-inline-end: auto;
+    inset-inline-start: 50%;
     transform: translateX(-50%);
+  }
+
+  :global(html[data-locale-direction="rtl"]) .locale-menu {
+    transform: translateX(50%);
   }
 
   .locale-menu-enter-from,
   .locale-menu-leave-to {
     transform: translateX(-50%) translateY(-4px);
+  }
+
+  :global(html[data-locale-direction="rtl"]) .locale-menu-enter-from,
+  :global(html[data-locale-direction="rtl"]) .locale-menu-leave-to {
+    transform: translateX(50%) translateY(-4px);
   }
 }
 </style>

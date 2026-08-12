@@ -1,10 +1,56 @@
+import {
+  DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+  DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
+} from "./server/utils/rate-limit-policy";
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
-  modules: ["@pinia/nuxt"],
+  modules: ["@pinia/nuxt", "@nuxt/eslint"],
+  typescript: {
+    tsConfig: {
+      compilerOptions: {
+        // Node's native TypeScript test runner needs explicit source extensions.
+        allowImportingTsExtensions: true,
+      },
+    },
+  },
+  app: {
+    head: {
+      script: [
+        {
+          src: "/theme-bootstrap.js",
+        },
+      ],
+    },
+  },
+  runtimeConfig: {
+    adminApiVersion: "2026-07",
+    allowedOrigins: "",
+    apiOriginRequired: true,
+    allowHostOriginFallback: process.env.NODE_ENV !== "production",
+    trustProxyHeaders: false,
+    allowPrivateProxyHosts: false,
+    debugProxyEnabled: process.env.NODE_ENV !== "production",
+    debugProxyAllowedHosts: "httpbin.org,api.ipify.org",
+    // Fail closed when no deployment-specific limits are configured.
+    apiRateLimitPerMinute: DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+    tokenRateLimitPerMinute: DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
+  },
   nitro: {
+    typescript: {
+      tsConfig: {
+        compilerOptions: {
+          allowImportingTsExtensions: true,
+        },
+      },
+    },
     externals: {
       external: ["papaparse"],
+      traceInclude: ["./node_modules/papaparse/papaparse.js"],
+    },
+    rollupConfig: {
+      external: [/papaparse/],
     },
   },
   vite: {
@@ -20,6 +66,9 @@ export default defineNuxtConfig({
         },
       },
     ],
+    optimizeDeps: {
+      include: ["@vue/devtools-core", "@vue/devtools-kit", "@lucide/vue", "papaparse"],
+    },
   },
   // Auto-import utils
   imports: {

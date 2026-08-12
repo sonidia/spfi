@@ -54,7 +54,7 @@ defineProps<{
 .batch-progress-meta {
   color: var(--muted);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .batch-progress-head strong {

@@ -1,9 +1,9 @@
 import { defineEventHandler, readBody } from "h3";
+import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
-  callShopifyApi,
-  createApiErrorFromMessage,
-} from "~~/server/utils/callShopifyApi";
-import type { ProductsResponse } from "~~/types/shopify";
+  requireShopifyCredentials,
+  requireShopifyResourceId,
+} from "~~/server/utils/shopify-admin-request";
 
 interface ProductDeleteBody {
   storeId?: string;
@@ -11,20 +11,19 @@ interface ProductDeleteBody {
 }
 
 export default defineEventHandler(async (event) => {
+  const productId = requireShopifyResourceId(
+    event.context.params?.id,
+    "Product",
+  );
   const body = (await readBody<ProductDeleteBody>(event)) || {};
-  const storeId = String(body.storeId || "");
-  const token = String(body.token || "");
-  const productId = event.context.params?.id;
+  const { storeId, token } = requireShopifyCredentials(body);
 
-  if (!storeId || !token || !productId) {
-    throw createApiErrorFromMessage("Store ID, Access Token, and Product ID are required.", 400);
-  }
-
-  return callShopifyApi<ProductsResponse>({
+  return callShopifyApi<Record<string, never>>({
     event,
     storeId,
     token,
     method: "DELETE",
     path: `/products/${productId}.json`,
+    missingProxyMessage: "Missing sock proxy for this store.",
   });
 });

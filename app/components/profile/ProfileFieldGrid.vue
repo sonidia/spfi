@@ -1,17 +1,25 @@
 <script setup lang="ts">
+import type { Component } from "vue";
 import type { ProfileFieldRow } from "~~/utils/shop-profile";
 
 defineProps<{
   title: string;
   rows: ProfileFieldRow[];
+  icon?: Component;
 }>();
 </script>
 
 <template>
   <section class="profile-card">
     <div class="profile-card-head">
-      <h2>{{ title }}</h2>
-      <span class="field-count">{{ rows.length }}</span>
+      <div class="profile-card-title">
+        <component :is="icon" v-if="icon" aria-hidden="true" />
+        <h2>{{ title }}</h2>
+      </div>
+      <div class="profile-card-actions">
+        <slot name="actions" />
+        <span class="field-count">{{ rows.length }}</span>
+      </div>
     </div>
 
     <div v-if="rows.length" class="field-grid">
@@ -22,9 +30,7 @@ defineProps<{
         :class="{ 'is-wide': row.isMultiline }"
       >
         <span class="field-label">{{ row.label }}</span>
-        <pre v-if="row.isMultiline" class="field-value is-code">{{
-          row.value
-        }}</pre>
+        <pre v-if="row.isMultiline" class="field-value is-code">{{ row.value }}</pre>
         <span v-else class="field-value">{{ row.value }}</span>
       </div>
     </div>
@@ -50,11 +56,30 @@ defineProps<{
   border-bottom: 1px solid var(--border);
 }
 
-.profile-card-head h2 {
+.profile-card-title,
+.profile-card-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card-title h2 {
   margin: 0;
   color: var(--text-primary);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
+}
+
+.profile-card-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+
+.profile-card-actions {
+  flex: 0 0 auto;
 }
 
 .field-count {
@@ -67,12 +92,12 @@ defineProps<{
   background: var(--surface-soft);
   color: var(--text-sub);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .field-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .field-item {
@@ -84,27 +109,21 @@ defineProps<{
   border-bottom: 1px solid var(--border);
 }
 
-.field-item:nth-child(2n) {
-  border-right: none;
-}
-
 .field-item.is-wide {
   grid-column: 1 / -1;
-  border-right: none;
 }
 
 .field-label {
   color: var(--text-sub);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .field-value {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -116,7 +135,7 @@ defineProps<{
   background: var(--bg);
   padding: 10px;
   color: var(--text-primary);
-  font-family: "DM Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 500;
   white-space: pre-wrap;
@@ -130,6 +149,16 @@ defineProps<{
 }
 
 @media (max-width: 720px) {
+  .profile-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profile-card-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }

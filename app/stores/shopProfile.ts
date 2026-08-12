@@ -1,16 +1,38 @@
-﻿import { defineStore } from "pinia";
+import { defineStore } from "pinia";
 import { ref } from "vue";
+import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type { ShopifyShop, ShopProfileResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
+
+interface ShopProfileCache {
+  shop: ShopifyShop | null;
+  hasFetchedProfile: boolean;
+}
 
 export const useShopProfileStore = defineStore("shopProfile", () => {
   const shop = ref<ShopifyShop | null>(null);
   const hasFetchedProfile = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  const storeCache = ref<
-    Record<string, { shop: ShopifyShop | null; hasFetchedProfile: boolean }>
-  >({});
+  let requestSequence = 0;
+  const storeCache = usePerStoreCache<ShopProfileCache>({
+    capture: () => ({
+      shop: shop.value ? { ...shop.value } : null,
+      hasFetchedProfile: hasFetchedProfile.value,
+    }),
+    restore: (cached) => {
+      shop.value = cached.shop ? { ...cached.shop } : null;
+      hasFetchedProfile.value = cached.hasFetchedProfile;
+      error.value = null;
+    },
+    reset: resetState,
+    onStoreChange: () => {
+      requestSequence += 1;
+    },
+  });
+  const activateStore = storeCache.activate;
+  const hydrate = storeCache.hydrate;
+  const evictStore = storeCache.evict;
 
   async function fetchProfile(storeId: string, token: string) {
     if (!storeId || !token) {
@@ -18,8 +40,10 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
       return;
     }
 
+    activateStore(storeId);
     isLoading.value = true;
     error.value = null;
+    const requestId = ++requestSequence;
 
     try {
       const response = await $fetch<ShopProfileResponse>("/api/shop/profile", {
@@ -27,30 +51,32 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
         body: { storeId, token },
       });
 
-      shop.value = response.shop ?? null;
-      hasFetchedProfile.value = true;
-      storeCache.value[storeId] = {
-        shop: shop.value ? { ...shop.value } : null,
-        hasFetchedProfile: hasFetchedProfile.value,
-      };
+      const nextShop = response.shop ?? null;
+      storeCache.set(storeId, {
+        shop: nextShop ? { ...nextShop } : null,
+        hasFetchedProfile: true,
+      });
+      if (requestId === requestSequence && storeCache.isActive(storeId)) {
+        shop.value = nextShop;
+        hasFetchedProfile.value = true;
+      }
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to fetch shop profile.");
+      if (requestId === requestSequence && storeCache.isActive(storeId)) {
+        error.value = getAppErrorMessage(err, "Failed to fetch shop profile.");
+      }
     } finally {
-      isLoading.value = false;
+      if (requestId === requestSequence && storeCache.isActive(storeId)) {
+        isLoading.value = false;
+      }
     }
   }
 
-  function hydrate(storeId: string): boolean {
-    const cached = storeCache.value[storeId];
-    if (!cached) return false;
-
-    shop.value = cached.shop ? { ...cached.shop } : null;
-    hasFetchedProfile.value = cached.hasFetchedProfile;
-    error.value = null;
-    return true;
+  function $reset() {
+    requestSequence += 1;
+    resetState();
   }
 
-  function $reset() {
+  function resetState() {
     shop.value = null;
     hasFetchedProfile.value = false;
     error.value = null;
@@ -62,8 +88,10 @@ export const useShopProfileStore = defineStore("shopProfile", () => {
     hasFetchedProfile,
     isLoading,
     error,
+    isStoreActive: storeCache.isActive,
     fetchProfile,
     hydrate,
+    evictStore,
     $reset,
   };
 });
