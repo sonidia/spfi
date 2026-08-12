@@ -17,24 +17,28 @@
   <img alt="Node 20+" src="https://img.shields.io/badge/Node.js-20%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
 </p>
 
-## ✨ Highlights
+## Highlights
 
 - One desk for Shopify setup, profile management, product operations, payments, order inspection, sheet lookup, and storefront checks.
 - Nitro server routes keep Shopify, proxy, status, and Google Sheets calls behind the app surface.
 - Proxy-aware status checking supports direct, shared proxy, and per-row proxy modes.
 - Local-first shop profile workflows help reduce repeated credential and token handling.
+- Store Operations groups draft orders, discounts, abandoned checkout recovery, and returns into one per-store queue.
+- Automatic tracking uses Tracktaco API v2's search-and-reveal workflow, then submits the revealed tracking number to Shopify fulfillment.
 
-## 🧭 Core Workflows
+## Core Workflows
 
 | Route       | Workflow        | What it does                                                                                                |
 | ----------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
 | `/setup`    | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                     |
 | `/manager`  | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                  |
+| `/store`    | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, and operations. |
+| `/dashboard` | Dashboard      | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.  |
 | `/payment`  | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs. |
 | `/status`   | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.             |
-| `/settings` | Settings        | Manages Tracktaco credentials, Pinia cache retention, and Google Sheets tabs and row previews.              |
+| `/settings` | Settings        | Manages Tracktaco v2 credentials, Pinia cache retention, and Google Sheets tabs and row previews.           |
 
-## 🧰 Tech Stack
+## Tech Stack
 
 - Nuxt 4, Vue 3, and TypeScript for the application shell.
 - Nitro server routes for Shopify, proxy, status, and Google Sheets APIs.
@@ -42,7 +46,7 @@
 - Google Sheets API via `googleapis`.
 - SOCKS/HTTP proxy support via `socks-proxy-agent` and `https-proxy-agent`.
 
-## 🚀 Quick Start
+## Quick Start
 
 Install dependencies:
 
@@ -58,7 +62,7 @@ npm run dev
 
 The app runs at `http://localhost:3000` by default.
 
-## 🔐 Configuration
+## Configuration
 
 ### Browser origin policy
 
@@ -164,16 +168,37 @@ Forwarded client IP headers are ignored by default. Set
 `NUXT_TRUST_PROXY_HEADERS=true` only behind a trusted reverse proxy that
 overwrites `X-Forwarded-For`; the bundled nginx and Compose configuration do.
 
-Automatic FedEx tracking is configured from `/settings`. The Tracktaco endpoint
-and API key are saved in browser-local storage; no PIN/password unlock or
-Tracktaco `.env` values are required.
+Automatic tracking is configured from `/settings`. The app uses Tracktaco API
+v2 on `https://v2.tracktaco.com`: it searches candidate tracking numbers for
+free, reveals one matching candidate with the saved Bearer API key, and then
+passes that tracking number and carrier URL to Shopify's fulfillment flow. The
+API key is saved in browser-local storage; no PIN/password unlock or Tracktaco
+`.env` values are required. See `docs/tracktaco-v2.md` for the exact request
+contract.
 
 The same page controls how long Shopify operational data stays reusable in
 Pinia. Presets range from no cache through one day to the default session mode,
 which keeps data until the browser page is refreshed. Only this preference is
 persisted; the Shopify response data remains in memory.
 
-## 🏭 Production
+
+### Store Operations
+
+The store page's Operations tab exposes one scoped queue for work that lives
+outside a single order detail page:
+
+- Draft orders: load, review, and complete recent draft orders.
+- Discounts: create basic amount, percentage, and free-shipping promotions.
+- Abandoned checkouts: read recent abandoned checkouts and copy Shopify-hosted
+  recovery URLs. The GraphQL query sorts with the supported
+  `AbandonedCheckoutSortKeys.UPDATED_AT` enum and requires both `read_orders`
+  and Shopify's `manage_abandoned_checkouts` staff permission.
+- Returns: read and manage return lifecycle actions where the store token has
+  the required return scopes.
+
+See `docs/shopify-commerce-operations.md` for endpoint and scope details.
+
+## Production
 
 Build the application:
 
@@ -264,7 +289,7 @@ unless the repository or organization has restricted package publishing. The
 token needs `contents: read` and `packages: write`, which are already declared
 in the workflow.
 
-## 🌐 Proxy Formats
+## Proxy Formats
 
 Proxy fields accept SOCKS5H remote-DNS shorthand or full proxy URLs:
 
@@ -280,7 +305,7 @@ The status checker supports three modes:
 - **Common proxy**: applies one SOCKS5 proxy to every target.
 - **Separate proxy**: parses each row as `proxy target`, `proxy|target`, `proxy,target`, or `proxy<TAB>target`.
 
-## 📊 Google Sheets
+## Google Sheets
 
 Sheet routes are backed by `server/service_account.json` and default to the `A:Z` range unless a specific range or tab is selected.
 
@@ -293,7 +318,7 @@ Expected header aliases for store auto-fill:
 - Domain: `domain`, `shop_domain`
 - Proxy URL: `proxy`, `proxy_url`
 
-## 🛡️ Security Notes
+## Security Notes
 
 ### API response contracts
 
@@ -315,7 +340,7 @@ routes expose app `camelCase` fields. Shopify responses also send
 - Store status targets and every redirect are restricted to public HTTPS port 443; direct connections use the validated DNS address to reduce DNS-rebinding risk.
 - Production environments must allow outbound HTTPS requests to Shopify, Google APIs, and any proxy endpoints used by status checks.
 
-## 🧪 Scripts
+## Scripts
 
 | Command               | Description                                          |
 | --------------------- | ---------------------------------------------------- |

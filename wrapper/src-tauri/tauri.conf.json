@@ -33,11 +33,11 @@
     "shortDescription": "Telescope the Shopify storefront in pipeline from one desk",
     "longDescription": "A compact workspace for connecting shops, rotating tokens, checking public store status, and reading data without jumping between tools.",
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "./icons/32x32.png",
+      "./icons/128x128.png",
+      "./icons/128x128@2x.png",
+      "./icons/icon.icns",
+      "./icons/icon.ico"
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
