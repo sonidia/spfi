@@ -2,6 +2,7 @@
 import { ArrowLeftToLine, ArrowRightToLine, Search, X } from "@lucide/vue";
 import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useMarketStore } from "~/stores/market";
 import { resolveStoreTab } from "~~/types/store";
 import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { useLoading } from "../composables/useLoading";
@@ -18,6 +19,7 @@ const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 const credentialVault = useCredentialVaultStore();
 const customerStore = useCustomerStore();
+const marketStore = useMarketStore();
 const commerceOpsStore = useCommerceOpsStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
@@ -67,6 +69,9 @@ const isFetching = computed(() => {
       return customerStore.isLoading || customerStore.isLoadingDetail;
     }
     if (route.query.tab === "operations") return commerceOpsStore.isLoading;
+    if (route.query.tab === "markets") {
+      return marketStore.isLoading || marketStore.isMutating || marketStore.isResolving;
+    }
     if (route.query.tab === "profile") {
       return (
         shopProfileStore.isLoading || paymentStore.isLoading || orderStore.isLoading

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Globe2 } from "@lucide/vue";
 import type { StoreTab } from "~~/types/store";
 
 defineProps<{
@@ -116,6 +117,17 @@ function moveFocus(event: KeyboardEvent) {
     >
       <IconsUsers />
       {{ t("store.tabCustomers") }}
+    </button>
+    <button
+      class="tab-btn"
+      :class="{ active: activeTab === 'markets' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'markets'"
+      @click="selectTab('markets')"
+    >
+      <Globe2 />
+      {{ t("store.tabMarkets") }}
     </button>
     <button
       class="tab-btn"

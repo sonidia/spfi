@@ -24,19 +24,20 @@
 - Proxy-aware status checking supports direct, shared proxy, and per-row proxy modes.
 - Local-first shop profile workflows help reduce repeated credential and token handling.
 - Store Operations groups draft orders, discounts, abandoned checkout recovery, and returns into one per-store queue.
+- Shopify Markets auditing covers buyer conditions, currency and price inclusion, catalogs, localized URLs, market-driven shipping, and country resolution.
 - Automatic tracking uses Tracktaco API v2's search-and-reveal workflow, then submits the revealed tracking number to Shopify fulfillment.
 
 ## Core Workflows
 
-| Route        | Workflow        | What it does                                                                                                              |
-| ------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `/setup`     | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                                   |
-| `/manager`   | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                                |
-| `/store`     | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, and operations. |
-| `/dashboard` | Dashboard       | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.                |
-| `/payment`   | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.               |
-| `/status`    | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                           |
-| `/settings`  | Settings        | Manages Tracktaco v2 credentials, Pinia cache retention, and Google Sheets tabs and row previews.                         |
+| Route        | Workflow        | What it does                                                                                                                       |
+| ------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `/setup`     | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                                            |
+| `/manager`   | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                                         |
+| `/store`     | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, markets, and operations. |
+| `/dashboard` | Dashboard       | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.                         |
+| `/payment`   | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.                        |
+| `/status`    | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                                    |
+| `/settings`  | Settings        | Manages Tracktaco v2 credentials, Pinia cache retention, and Google Sheets tabs and row previews.                                  |
 
 ## Tech Stack
 
@@ -205,6 +206,17 @@ outside a single order detail page:
   the required return scopes.
 
 See `docs/shopify-commerce-operations.md` for endpoint and scope details.
+
+### Shopify Markets
+
+The Markets tab uses the Admin GraphQL 2026-07 Markets model. It reads
+country/subdivision buyer conditions from the non-deprecated conditions tree,
+shows currency, price inclusion, catalogs, localized URLs and market-driven
+shipping, resolves the effective buyer experience for a country, and allows a
+confirmed Active/Draft status change.
+
+See `docs/shopify-markets-api.md` for the endpoint matrix, deprecation audit,
+scope requirements, and recommended next-phase editors.
 
 ## Production
 

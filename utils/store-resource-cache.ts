@@ -2,6 +2,7 @@ export type StoreDataResource =
   | "customers"
   | "disputes"
   | "locations"
+  | "markets"
   | "orders"
   | "commerceOps"
   | "payment"

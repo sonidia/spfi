@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDashboardStore } from "~/stores/dashboard";
 import { useFormStore } from "~/stores/form";
+import { useMarketStore } from "~/stores/market";
 import { useOrderStore } from "~/stores/order";
 import { useProductStore } from "~/stores/product";
 import { KNOWN_STORES_STORAGE_KEY } from "~~/utils/known-stores";
@@ -102,6 +103,62 @@ describe("product store", () => {
     expect(request.mock.calls[0]?.[0]).toBe("/api/product/9007199254740993");
     expect(request.mock.calls[1]?.[0]).toBe("/api/product/42");
     expect(request.mock.calls[2]?.[0]).toBe("/api/product/all");
+  });
+});
+
+describe("market store", () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it("caches market lists per store and updates status only after Shopify succeeds", async () => {
+    const request = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/market/status") {
+        return Promise.resolve({
+          id: "gid://shopify/Market/1",
+          status: "DRAFT",
+        });
+      }
+      return Promise.resolve({
+        items: [
+          {
+            id: "gid://shopify/Market/1",
+            handle: "us",
+            name: "United States",
+            status: "ACTIVE",
+            type: "REGION",
+            conditionTypes: ["REGION"],
+            conditionApplicationLevel: "SPECIFIC",
+            regions: [],
+            regionsTruncated: false,
+            currencySettings: null,
+            priceInclusions: null,
+            catalogCount: null,
+            catalogs: [],
+            catalogsTruncated: false,
+            webPresences: [],
+            webPresencesTruncated: false,
+            shipping: { inherits: true, enabled: null, optionCount: null },
+          },
+        ],
+        fetchedAt: "2026-08-12T00:00:00.000Z",
+        truncated: false,
+      });
+    });
+    vi.stubGlobal("$fetch", request);
+
+    const store = useMarketStore();
+    await expect(store.fetchAll("shop-a", "token")).resolves.toBe(true);
+    await expect(store.fetchAll("shop-a", "token")).resolves.toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+
+    await expect(
+      store.setStatus("shop-a", "token", "gid://shopify/Market/1", "DRAFT"),
+    ).resolves.toBe(true);
+    expect(store.markets[0]?.status).toBe("DRAFT");
+
+    expect(store.hydrate("shop-b")).toBe(false);
+    expect(store.markets).toEqual([]);
+    expect(store.hydrate("shop-a")).toBe(true);
+    expect(store.markets[0]?.status).toBe("DRAFT");
   });
 });
 

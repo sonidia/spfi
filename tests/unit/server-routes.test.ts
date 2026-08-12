@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import checkProxyHandler from "~~/server/api/check-proxy.post";
 import generateTokenHandler from "~~/server/api/generate-token.post";
+import marketAllHandler from "~~/server/api/market/all.post";
+import marketResolveHandler from "~~/server/api/market/resolve.post";
+import marketStatusHandler from "~~/server/api/market/status.post";
 import batchUpdateHandler from "~~/server/api/sheet/batch-update.post";
 import metaHandler from "~~/server/api/sheet/meta.post";
 import updateHandler from "~~/server/api/sheet/update.post";
@@ -128,6 +131,15 @@ describe("diagnostic and credential routes", () => {
       statusCode: 400,
     });
     await expect(generateTokenHandler({ body: {} } as never)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    await expect(marketAllHandler({ body: {} } as never)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    await expect(marketResolveHandler({ body: {} } as never)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    await expect(marketStatusHandler({ body: {} } as never)).rejects.toMatchObject({
       statusCode: 400,
     });
     await expect(checkProxyHandler({ body: {} } as never)).rejects.toMatchObject({
