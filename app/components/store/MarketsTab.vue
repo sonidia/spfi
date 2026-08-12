@@ -4,13 +4,17 @@ import {
   CircleDollarSign,
   Globe2,
   MapPinned,
+  Plus,
   Search,
+  Settings2,
   ShieldCheck,
   Truck,
 } from "@lucide/vue";
 import { computed, ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useMarketStore } from "~/stores/market";
+import MarketCreateModal from "./MarketCreateModal.vue";
+import MarketEditorModal from "./MarketEditorModal.vue";
 import type {
   ShopifyMarketStatus,
   ShopifyMarketSummary,
@@ -30,6 +34,8 @@ const searchQuery = ref("");
 const statusFilter = ref<StatusFilter>("ALL");
 const typeFilter = ref<TypeFilter>("ALL");
 const countryCode = ref("");
+const showCreateModal = ref(false);
+const editingMarketId = ref<string | null>(null);
 
 const filteredMarkets = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
@@ -140,6 +146,15 @@ function formatEnum(value: string) {
 function safeExternalUrl(value: string) {
   return getSafeExternalUrl(value);
 }
+
+function openEditor(marketId: string) {
+  editingMarketId.value = marketId;
+}
+
+function handleCreated(marketId: string) {
+  showCreateModal.value = false;
+  editingMarketId.value = marketId;
+}
 </script>
 
 <template>
@@ -151,6 +166,15 @@ function safeExternalUrl(value: string) {
         <p>{{ t("markets.description") }}</p>
         <small><ShieldCheck /> {{ t("markets.scopeHint") }}</small>
       </div>
+      <BaseButton
+        class="markets-create-button"
+        variant="primary"
+        size="medium"
+        @click="showCreateModal = true"
+      >
+        <template #icon><Plus /></template>
+        {{ t("markets.editor.createMarket") }}
+      </BaseButton>
     </header>
 
     <div v-if="marketStore.error" class="markets-alert is-error" role="alert">
@@ -320,6 +344,9 @@ function safeExternalUrl(value: string) {
       <Globe2 />
       <strong>{{ t("markets.noDataTitle") }}</strong>
       <p>{{ t("markets.noDataDescription") }}</p>
+      <BaseButton variant="primary" @click="showCreateModal = true">
+        <template #icon><Plus /></template>{{ t("markets.editor.createMarket") }}
+      </BaseButton>
     </div>
     <div v-else-if="!filteredMarkets.length" class="markets-empty">
       {{ t("markets.noFilterResults") }}
@@ -340,17 +367,22 @@ function safeExternalUrl(value: string) {
             </div>
             <code>{{ market.handle }}</code>
           </div>
-          <BaseButton
-            :variant="market.status === 'ACTIVE' ? 'secondary' : 'primary'"
-            :loading="marketStore.isMutating"
-            @click="changeStatus(market)"
-          >
-            {{
-              market.status === "ACTIVE"
-                ? t("markets.makeDraft")
-                : t("markets.makeActive")
-            }}
-          </BaseButton>
+          <div class="market-card-actions">
+            <BaseButton @click="openEditor(market.id)">
+              <template #icon><Settings2 /></template>{{ t("markets.editor.manage") }}
+            </BaseButton>
+            <BaseButton
+              :variant="market.status === 'ACTIVE' ? 'secondary' : 'primary'"
+              :loading="marketStore.isMutating"
+              @click="changeStatus(market)"
+            >
+              {{
+                market.status === "ACTIVE"
+                  ? t("markets.makeDraft")
+                  : t("markets.makeActive")
+              }}
+            </BaseButton>
+          </div>
         </header>
 
         <div class="market-facts">
@@ -496,6 +528,17 @@ function safeExternalUrl(value: string) {
         </details>
       </article>
     </div>
+
+    <MarketCreateModal
+      v-if="showCreateModal"
+      @close="showCreateModal = false"
+      @created="handleCreated"
+    />
+    <MarketEditorModal
+      v-if="editingMarketId"
+      :market-id="editingMarketId"
+      @close="editingMarketId = null"
+    />
   </section>
 </template>
 

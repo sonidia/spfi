@@ -19,6 +19,7 @@ import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
   capShopifyThrottleDelayMs,
+  getGraphqlCostSummary,
   getGraphqlThrottleDelayMs,
   getGraphqlThrottleStatus,
   isGraphqlThrottled,
@@ -220,6 +221,22 @@ function forwardGraphqlThrottleHeaders(
   const apiVersion = getAxiosHeaderValue(headers, "x-shopify-api-version");
   if (apiVersion !== undefined && apiVersion !== null) {
     setResponseHeader(event, "x-shopify-api-version", String(apiVersion));
+  }
+
+  const cost = getGraphqlCostSummary(extensions);
+  if (typeof cost?.requestedQueryCost === "number") {
+    setResponseHeader(
+      event,
+      "x-shopify-graphql-requested-cost",
+      String(cost.requestedQueryCost),
+    );
+  }
+  if (typeof cost?.actualQueryCost === "number") {
+    setResponseHeader(
+      event,
+      "x-shopify-graphql-actual-cost",
+      String(cost.actualQueryCost),
+    );
   }
 
   const status = getGraphqlThrottleStatus(extensions);

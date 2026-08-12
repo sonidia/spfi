@@ -344,6 +344,8 @@ const messages: Record<MessageKey, string> = {
   "common.add": "Thêm",
   "common.search": "Tìm kiếm",
   "common.refresh": "Làm mới",
+  "common.retry": "Thử lại",
+  "common.remove": "Xóa",
   "common.reset": "Đặt lại",
   "common.lock": "Khóa",
   "common.dismissNotification": "Đóng thông báo",
@@ -917,6 +919,249 @@ const messages: Record<MessageKey, string> = {
   "markets.dutiesIncluded": "Giá đã gồm thuế nhập khẩu",
   "markets.dutiesAtCheckout": "Thuế nhập khẩu cộng tại checkout",
   "markets.resolvedUrls": "URL được áp dụng",
+  "markets.editor.workspace": "Không gian Markets",
+  "markets.editor.createMarket": "Tạo market",
+  "markets.editor.manage": "Quản lý",
+  "markets.editor.createTitle": "Tạo market theo khu vực",
+  "markets.editor.create": "Tạo market",
+  "markets.editor.created": "Đã tạo market. Bạn có thể hoàn thiện cấu hình ngay.",
+  "markets.editor.createFailed": "Không thể tạo market.",
+  "markets.editor.createValidation":
+    "Nhập tên market và ít nhất một mã quốc gia hai chữ cái hợp lệ.",
+  "markets.editor.safeCreateTitle": "Bảo vệ xung đột theo hướng draft-first",
+  "markets.editor.safeCreateDescription":
+    "Nếu Shopify phát hiện điều kiện buyer bị trùng, market unique xung đột sẽ được chuyển sang draft thay vì chồng lấn âm thầm.",
+  "markets.editor.name": "Tên market",
+  "markets.editor.namePlaceholder": "Ví dụ: Bắc Mỹ",
+  "markets.editor.handle": "Handle",
+  "markets.editor.handlePlaceholder": "north-america",
+  "markets.editor.handleHint": "Chỉ dùng chữ cái, số và dấu gạch ngang.",
+  "markets.editor.initialStatus": "Trạng thái ban đầu",
+  "markets.editor.baseCurrencyOptional": "Tiền tệ cơ sở (không bắt buộc)",
+  "markets.editor.currencyPlaceholder": "USD",
+  "markets.editor.buyerRegions": "Khu vực buyer",
+  "markets.editor.regionFormatHint":
+    "Dùng mã quốc gia ISO alpha-2. Chỉ thêm subdivision khi nhắm đến bang hoặc tỉnh.",
+  "markets.editor.countryCode": "Mã quốc gia",
+  "markets.editor.subdivisionOptional": "Bang/tỉnh (không bắt buộc)",
+  "markets.editor.addRegion": "Thêm khu vực",
+  "markets.editor.removeRegion": "Xóa khu vực",
+  "markets.editor.duplicateDraftLabel": "Bảo vệ xung đột market unique",
+  "markets.editor.duplicateDraftDescription":
+    "Cho phép Shopify đưa market unique xung đột về draft khi điều kiện chồng lấn.",
+  "markets.editor.localCurrenciesLabel": "Dùng tiền tệ địa phương",
+  "markets.editor.localCurrenciesDescription":
+    "Hiển thị cho buyer bằng tiền tệ địa phương phù hợp.",
+  "markets.editor.roundingLabel": "Bật làm tròn giá",
+  "markets.editor.roundingDescription":
+    "Áp dụng quy tắc làm tròn theo market của Shopify.",
+  "markets.editor.sections": "Các phần cấu hình market",
+  "markets.editor.navDetails": "Thông tin",
+  "markets.editor.navRegions": "Khu vực",
+  "markets.editor.navPricing": "Giá & tiền tệ",
+  "markets.editor.navAssignments": "Catalog & URL",
+  "markets.editor.navShipping": "Shipping",
+  "markets.editor.navLocalization": "Nội dung bản địa hóa",
+  "markets.editor.loadingWorkspace": "Đang tải ngữ cảnh editor từ Shopify…",
+  "markets.editor.marketUnavailable": "Market này không còn trong store hiện tại.",
+  "markets.editor.contextFailedTitle": "Không thể tải ngữ cảnh editor",
+  "markets.editor.contextWarningTitle": "Một phần dữ liệu Shopify chưa khả dụng",
+  "markets.editor.warning.carrier_services_unavailable":
+    "Không tải được carrier service. Các loại shipping option khác vẫn dùng được.",
+  "markets.editor.warning.carrier_services_truncated":
+    "Editor chỉ hiển thị 250 carrier service đầu tiên.",
+  "markets.editor.warning.catalogs_truncated":
+    "Editor chỉ hiển thị 100 catalog loại MARKET đầu tiên.",
+  "markets.editor.warning.web_presences_truncated":
+    "Editor chỉ hiển thị 100 web presence đầu tiên.",
+  "markets.editor.subdivisionPreviewTitle":
+    "Đang áp dụng giới hạn API của subdivision market",
+  "markets.editor.subdivisionPreviewDescription":
+    "Ở 2026-07, subdivision market ưu tiên hỗ trợ market-driven shipping. Shopify có thể từ chối các cấu hình chưa hỗ trợ; editor sẽ giữ nguyên và hiển thị lỗi API.",
+  "markets.editor.detailsTitle": "Danh tính và handle",
+  "markets.editor.detailsDescription":
+    "Cập nhật tên hiển thị cho merchant và handle ổn định của market.",
+  "markets.editor.detailsValidation":
+    "Nhập tên và handle chỉ gồm chữ cái, số hoặc dấu gạch ngang.",
+  "markets.editor.detailsSaved": "Đã lưu thông tin market.",
+  "markets.editor.marketType": "Loại điều kiện buyer",
+  "markets.editor.marketId": "GraphQL ID",
+  "markets.editor.saveFailed": "Shopify đã từ chối cập nhật Markets.",
+  "markets.editor.regionsTitle": "Khu vực buyer",
+  "markets.editor.regionsDescription":
+    "Thay thế quốc gia và bang/tỉnh sẽ khớp với market khu vực này.",
+  "markets.editor.regionsTruncatedTitle": "Đã khóa chỉnh sửa khu vực",
+  "markets.editor.regionsTruncatedDescription":
+    "Shopify trả về hơn 250 khu vực. Trình chỉnh sửa sẽ không gửi một thay đổi điều kiện thiếu dữ liệu.",
+  "markets.editor.regionsUnavailableTitle": "Không thể sửa region cho loại market này",
+  "markets.editor.regionsUnavailableDescription":
+    "Shopify chỉ nhận regions condition cho market REGION. Điều kiện channel, location và company location thuộc resource tương ứng.",
+  "markets.editor.regionRulesTitle": "Market khu vực phải giữ ít nhất một region",
+  "markets.editor.regionRulesDescription":
+    "Editor gửi conditionsToAdd và conditionsToDelete, không ghi đè phần còn lại của cây điều kiện.",
+  "markets.editor.regionsValidation":
+    "Giữ ít nhất một dòng và dùng mã quốc gia hai chữ cái hợp lệ.",
+  "markets.editor.regionsConfirmTitle": "Áp dụng thay đổi khu vực buyer?",
+  "markets.editor.regionsConfirmMessage":
+    "Thay đổi {name} có thể lập tức làm buyer khớp sang market khác.",
+  "markets.editor.applyRegions": "Áp dụng khu vực",
+  "markets.editor.regionsSaved": "Đã cập nhật khu vực buyer.",
+  "markets.editor.pricingTitle": "Tiền tệ và thành phần giá",
+  "markets.editor.pricingDescription":
+    "Kiểm soát quy đổi tiền, làm tròn, thuế, thuế nhập khẩu và adaptive pricing của Managed Markets.",
+  "markets.editor.currencySettings": "Cài đặt tiền tệ",
+  "markets.editor.overrideCurrency": "Cấu hình tiền tệ cho market này",
+  "markets.editor.overrideCurrencyDescription":
+    "Tắt để xóa cấu hình tiền tệ cấp market.",
+  "markets.editor.manualRate": "Tỷ giá thủ công",
+  "markets.editor.automaticRate": "Tỷ giá Shopify tự động",
+  "markets.editor.manualRateHint": "Không thể dùng cùng tiền tệ địa phương.",
+  "markets.editor.priceInclusions": "Thuế và thuế nhập khẩu",
+  "markets.editor.overrideInclusions": "Cấu hình thành phần giá",
+  "markets.editor.overrideInclusionsDescription":
+    "Tắt để xóa cấu hình thuế cấp market.",
+  "markets.editor.taxCheckout": "Cộng thuế tại checkout",
+  "markets.editor.taxIncluded": "Giá đã gồm thuế",
+  "markets.editor.taxCountry": "Gồm thuế theo quốc gia buyer",
+  "markets.editor.dutyCheckout": "Cộng thuế nhập khẩu tại checkout",
+  "markets.editor.dutyIncluded": "Giá đã gồm thuế nhập khẩu",
+  "markets.editor.adaptivePricing": "Bật adaptive pricing",
+  "markets.editor.adaptivePricingDescription":
+    "Tối ưu giá quốc tế qua Managed Markets.",
+  "markets.editor.managedMarketsOnly": "Chỉ dành cho Managed Markets",
+  "markets.editor.adaptivePricingWarning":
+    "Shopify có thể ép cấu hình tiền tệ và thành phần giá tương thích khi bật tính năng này.",
+  "markets.editor.pricingValidation": "Nhập mã tiền tệ ba chữ cái hợp lệ.",
+  "markets.editor.manualRateConflict":
+    "Xóa tỷ giá thủ công hoặc tắt tiền tệ địa phương.",
+  "markets.editor.removePricingTitle": "Xóa cấu hình giá cấp market?",
+  "markets.editor.removePricingMessage":
+    "Cấu hình bị xóa sẽ quay về mặc định phù hợp của Shopify.",
+  "markets.editor.pricingSaved": "Đã cập nhật giá của market.",
+  "markets.editor.assignmentsTitle": "Catalog và web presence",
+  "markets.editor.assignmentsDescription":
+    "Chọn catalog sản phẩm/giá và trải nghiệm URL bản địa hóa cho market.",
+  "markets.editor.catalogHint":
+    "Catalog có thể mang product availability qua publication và giá quốc tế qua price list.",
+  "markets.editor.subdivisionCatalogTitle":
+    "Không thể gán catalog cho subdivision market",
+  "markets.editor.subdivisionCatalogDescription":
+    "Shopify ghi rõ catalog chưa được hỗ trợ cho subdivision market trong đợt phát hành 2026-07. Association hiện có vẫn được hiển thị nhưng không thể đổi tại đây.",
+  "markets.editor.noAvailableCatalogs": "Shop chưa có catalog loại MARKET.",
+  "markets.editor.salesChannelAvailability":
+    "Dùng product availability của sales channel; không có price list",
+  "markets.editor.catalogPublishingTitle": "Việc publish catalog luôn tách bạch",
+  "markets.editor.catalogPublishingDescription":
+    "Màn hình này chỉ gán catalog hiện có. Publish sản phẩm và bảo trì price list vẫn ở workflow chuyên biệt để tránh đổi assortment ngoài ý muốn.",
+  "markets.editor.webPresenceAssignmentHint":
+    "Gán chiến lược URL hiện có hoặc tạo mới bằng locale đã publish.",
+  "markets.editor.noAvailableWebPresences": "Chưa có web presence nào.",
+  "markets.editor.sharedWebPresenceTitle": "Web presence có thể được dùng chung",
+  "markets.editor.sharedWebPresenceDescription":
+    "Chỉnh một web presence có thể đổi URL của mọi market đang dùng nó. Hãy xem lại root URL trước khi lưu.",
+  "markets.editor.noAssignmentChanges":
+    "Không phát hiện thay đổi catalog hoặc web presence.",
+  "markets.editor.assignmentsConfirmTitle": "Áp dụng gán catalog và URL?",
+  "markets.editor.assignmentsConfirmMessage":
+    "Thay đổi {name} có thể đổi sản phẩm, giá và URL mà buyer nhận được.",
+  "markets.editor.applyAssignments": "Áp dụng gán",
+  "markets.editor.assignmentsSaved": "Đã cập nhật catalog và web presence.",
+  "markets.editor.createWebPresence": "Tạo web presence",
+  "markets.editor.editWebPresence": "Sửa web presence",
+  "markets.editor.webPresenceSharedHint":
+    "Chọn đúng một cách định tuyến: domain hoặc subfolder suffix.",
+  "markets.editor.defaultLocale": "Locale mặc định",
+  "markets.editor.urlStrategy": "Chiến lược URL",
+  "markets.editor.subfolder": "Subfolder trên domain của shop",
+  "markets.editor.primaryDomain": "Domain chính của shop",
+  "markets.editor.subfolderSuffix": "Hậu tố subfolder",
+  "markets.editor.asciiSuffixHint": "Chỉ chữ thường ASCII, số và dấu gạch ngang.",
+  "markets.editor.alternateLocales": "Locale đã publish bổ sung",
+  "markets.editor.webPresenceValidation":
+    "Chọn locale mặc định và chiến lược URL hợp lệ.",
+  "markets.editor.webPresenceCreated": "Đã tạo và chọn web presence.",
+  "markets.editor.webPresenceUpdated": "Đã cập nhật web presence dùng chung.",
+  "markets.editor.shippingTitle": "Market-driven shipping",
+  "markets.editor.shippingDescription":
+    "Kế thừa mặc định Shopify, tắt delivery hoặc quản lý shipping option riêng theo market.",
+  "markets.editor.shippingInherit": "Kế thừa",
+  "markets.editor.shippingInheritDescription":
+    "Xóa override của market và dùng cấu hình shop/cha phù hợp.",
+  "markets.editor.shippingCustom": "Option riêng",
+  "markets.editor.shippingCustomDescription":
+    "Bật rate cố định, theo giá trị đơn, theo cân nặng hoặc carrier.",
+  "markets.editor.shippingOff": "Không shipping",
+  "markets.editor.shippingOffDescription":
+    "Tắt mọi delivery option cho buyer trong market này.",
+  "markets.editor.inheritanceTitle": "Shopify sẽ xóa shipping override",
+  "markets.editor.inheritanceDescription":
+    "Option thực tế sau đó đến từ cấu hình được kế thừa phù hợp.",
+  "markets.editor.noShippingTitle": "Thao tác này chặn delivery tại checkout",
+  "markets.editor.noShippingDescription":
+    "Shopify cũng tắt delivery option do app quản lý cho market này.",
+  "markets.editor.currentShippingOptions": "Option hiện tại",
+  "markets.editor.deleteShippingHint": "Chọn option hiện có để đưa vào hàng chờ xóa.",
+  "markets.editor.addShippingOption": "Thêm option",
+  "markets.editor.noShippingOptions": "Market hiện chưa trả về custom option nào.",
+  "markets.editor.shippingOptionsTruncated":
+    "Còn shipping option chưa hiển thị; không nên xóa hàng loạt trước khi kiểm tra đầy đủ trong Shopify Admin.",
+  "markets.editor.queuedShippingOptions": "Đang chờ tạo",
+  "markets.editor.newShippingOption": "Delivery option mới",
+  "markets.editor.optionType": "Loại rate",
+  "markets.editor.shippingTypeFlatRate": "Rate cố định",
+  "markets.editor.shippingTypeValueBased": "Theo giá trị đơn",
+  "markets.editor.shippingTypeWeightBased": "Theo cân nặng",
+  "markets.editor.shippingTypeCarrierCalculated": "Carrier tính toán",
+  "markets.editor.optionName": "Tên option",
+  "markets.editor.currency": "Tiền tệ",
+  "markets.editor.price": "Giá shipping",
+  "markets.editor.minimum": "Tối thiểu",
+  "markets.editor.maximumOptional": "Tối đa (không bắt buộc)",
+  "markets.editor.weightUnit": "Đơn vị cân nặng",
+  "markets.editor.carrierService": "Carrier service",
+  "markets.editor.chooseCarrier": "Chọn carrier đang hoạt động",
+  "markets.editor.percentageAdjustment": "Điều chỉnh phần trăm",
+  "markets.editor.freeShippingMinimum": "Ngưỡng free shipping (không bắt buộc)",
+  "markets.editor.descriptionOptional": "Mô tả cho buyer (không bắt buộc)",
+  "markets.editor.optionActive": "Kích hoạt option này",
+  "markets.editor.optionInactive": "Đang tắt",
+  "markets.editor.enableOption": "Bật",
+  "markets.editor.disableOption": "Tắt",
+  "markets.editor.undoDelete": "Hoàn tác hàng chờ xóa",
+  "markets.editor.queueOption": "Đưa vào hàng chờ",
+  "markets.editor.shippingCurrencyValidation":
+    "Dùng mã tiền tệ shipping ba chữ cái hợp lệ.",
+  "markets.editor.shippingNameValidation": "Nhập tên hiển thị cho buyer.",
+  "markets.editor.shippingPriceValidation": "Nhập giá cho option.",
+  "markets.editor.carrierValidation": "Chọn carrier service đang hoạt động.",
+  "markets.editor.shippingConfirmTitle": "Áp dụng cấu hình shipping?",
+  "markets.editor.shippingConfirmMessage":
+    "Thay đổi shipping của {name} ảnh hưởng khả năng checkout và phí delivery.",
+  "markets.editor.applyShipping": "Áp dụng shipping",
+  "markets.editor.shippingSaved": "Đã cập nhật shipping của market.",
+  "markets.editor.localizationTitle": "Nội dung riêng theo market",
+  "markets.editor.localizationDescription":
+    "Sửa market localization hoặc translation theo market bằng content digest của Shopify.",
+  "markets.editor.localizationModesTitle": "Hai mô hình localization của Shopify",
+  "markets.editor.localizationModesDescription":
+    "Chỉ để trống locale cho nội dung market-localizable của METAFIELD hoặc METAOBJECT. Chọn locale cho product, collection, page và resource translatable khác.",
+  "markets.editor.resourceGid": "Shopify resource GID",
+  "markets.editor.localeOptional": "Locale / chế độ",
+  "markets.editor.marketSpecificContent": "Market localization (metafield/metaobject)",
+  "markets.editor.loadFields": "Tải field",
+  "markets.editor.resourceValidation": "Nhập Shopify GraphQL resource ID hợp lệ.",
+  "markets.editor.localizationLoadFailed":
+    "Resource không hỗ trợ localization ở chế độ đã chọn.",
+  "markets.editor.translationMode": "Translation theo market",
+  "markets.editor.marketLocalizationMode": "Market localization",
+  "markets.editor.outdated": "Đã cũ",
+  "markets.editor.readOnly": "Không có digest · chỉ đọc",
+  "markets.editor.sourceContent": "Nội dung nguồn",
+  "markets.editor.marketValue": "Giá trị của market",
+  "markets.editor.noDigestFields":
+    "Shopify không trả về content digest có thể ghi cho resource này.",
+  "markets.editor.saveLocalization": "Lưu nội dung bản địa hóa",
+  "markets.editor.localizationSaved": "Đã lưu và tải lại nội dung bản địa hóa.",
   "status.title": "Kiểm tra trạng thái",
   "status.subtitle": "Kiểm tra hàng loạt tín hiệu storefront công khai",
   "status.proxyMode": "Chế độ proxy",

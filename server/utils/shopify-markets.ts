@@ -7,6 +7,7 @@ import type {
   ShopifyMarketStatusResponse,
   ShopifyMarketSummary,
   ShopifyMarketWebPresenceSummary,
+  ShopifyMarketShippingOptionSummary,
 } from "~~/types/shopify-market";
 import { createApiErrorFromMessage } from "./callShopifyApi";
 import { assertNoGraphqlUserErrors, callShopifyGraphql } from "./callShopifyGraphql";
@@ -23,10 +24,16 @@ interface GraphqlCount {
   precision: string;
 }
 
+interface GraphqlPageInfo {
+  hasNextPage: boolean;
+  endCursor?: string | null;
+}
+
 interface GraphqlCatalog {
   id: string;
   title: string;
   status: string;
+  publication?: { id: string; autoPublish: boolean } | null;
   priceList?: {
     id: string;
     name: string;
@@ -37,7 +44,38 @@ interface GraphqlCatalog {
 interface GraphqlWebPresence {
   id: string;
   subfolderSuffix?: string | null;
+  defaultLocale: { locale: string };
+  alternateLocales: Array<{ locale: string }>;
+  domain?: { id: string; host: string; url: string } | null;
   rootUrls: Array<{ locale: string; url: string }>;
+}
+
+interface GraphqlShippingOption {
+  __typename: string;
+  id: string;
+  currency: string;
+  description?: string | null;
+  freeDeliveryMinimumValue?: { amount: string } | null;
+  isActive: boolean;
+  name?: string | null;
+  rateGroups?: {
+    nodes: Array<{
+      carrierService?: { id: string; name: string } | null;
+    }>;
+  } | null;
+}
+
+interface GraphqlMarketRegion {
+  __typename: "MarketRegionCountry" | "MarketRegionSubdivision" | string;
+  id: string;
+  name: string;
+  code?: string;
+  country?: { code?: string } | null;
+}
+
+interface GraphqlMarketRegionConnection {
+  nodes: GraphqlMarketRegion[];
+  pageInfo: GraphqlPageInfo;
 }
 
 interface GraphqlMarketNode {
@@ -51,16 +89,7 @@ interface GraphqlMarketNode {
     conditionTypes: string[];
     regionsCondition?: {
       applicationLevel?: string | null;
-      regions: {
-        nodes: Array<{
-          __typename: "MarketRegionCountry" | "MarketRegionSubdivision" | string;
-          id: string;
-          name: string;
-          code?: string;
-          country?: { code?: string } | null;
-        }>;
-        pageInfo: { hasNextPage: boolean };
-      };
+      regions: GraphqlMarketRegionConnection;
     } | null;
   } | null;
   currencySettings?: {
@@ -91,6 +120,10 @@ interface GraphqlMarketNode {
     shipping?: {
       isEnabled: boolean;
       optionDefinitionsCount: GraphqlCount;
+      optionDefinitions: {
+        nodes: GraphqlShippingOption[];
+        pageInfo: { hasNextPage: boolean };
+      };
     } | null;
   };
 }
@@ -101,108 +134,246 @@ interface GraphqlUserError {
   code?: string | null;
 }
 
-const MARKET_PAGE_SIZE = 250;
-const NESTED_PAGE_SIZE = 250;
-const CATALOG_PAGE_SIZE = 20;
-const WEB_PRESENCE_PAGE_SIZE = 20;
+export const MARKET_QUERY_PAGE_SIZES = Object.freeze({
+  markets: 50,
+  regions: 25,
+  catalogs: 10,
+  webPresences: 10,
+  shippingOptions: 10,
+});
+
+const MARKET_PAGE_SIZE = MARKET_QUERY_PAGE_SIZES.markets;
+const MAX_MARKETS = 250;
+const MAX_MARKET_REGIONS = 250;
+const REGION_PAGE_SIZE = MARKET_QUERY_PAGE_SIZES.regions;
+const CATALOG_PAGE_SIZE = MARKET_QUERY_PAGE_SIZES.catalogs;
+const WEB_PRESENCE_PAGE_SIZE = MARKET_QUERY_PAGE_SIZES.webPresences;
+const SHIPPING_OPTION_PAGE_SIZE = MARKET_QUERY_PAGE_SIZES.shippingOptions;
+
+export const MARKET_LIST_QUERY = `#graphql
+  query StoreMarketIds($first: Int!, $after: String) {
+    markets(first: $first, after: $after, sortKey: NAME) {
+      nodes { id }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
+
+export const MARKET_DETAILS_QUERY = `#graphql
+  query StoreMarketDetails($id: ID!, $regionFirst: Int!, $catalogFirst: Int!, $webPresenceFirst: Int!, $shippingOptionFirst: Int!) {
+    market(id: $id) {
+      id
+      handle
+      name
+      status
+      type
+      catalogsCount { count precision }
+      conditions {
+        conditionTypes
+        regionsCondition {
+          applicationLevel
+          regions(first: $regionFirst) {
+            nodes {
+              __typename
+              id
+              name
+              ... on MarketRegionCountry { code }
+              ... on MarketRegionSubdivision {
+                code
+                country { code }
+              }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+      currencySettings {
+        baseCurrency {
+          currencyCode
+          currencyName
+          enabled
+          manualRate
+          rateUpdatedAt
+        }
+        localCurrencies
+        roundingEnabled
+      }
+      priceInclusions {
+        adaptivePricingEnabled
+        inclusiveDutiesPricingStrategy
+        inclusiveTaxPricingStrategy
+      }
+      catalogs(first: $catalogFirst) {
+        nodes {
+          id
+          title
+          status
+          publication { id autoPublish }
+          priceList { id name currency }
+        }
+        pageInfo { hasNextPage }
+      }
+      webPresences(first: $webPresenceFirst) {
+        nodes {
+          id
+          subfolderSuffix
+          defaultLocale { locale }
+          alternateLocales { locale }
+          domain { id host url }
+          rootUrls { locale url }
+        }
+        pageInfo { hasNextPage }
+      }
+      delivery {
+        shipping {
+          isEnabled
+          optionDefinitionsCount { count precision }
+          optionDefinitions(first: $shippingOptionFirst) {
+            nodes {
+              __typename
+              id
+              currency
+              description
+              freeDeliveryMinimumValue { amount }
+              isActive
+              ... on DeliveryFlatRateOptionDefinition { name }
+              ... on DeliveryValueBasedOptionDefinition { name }
+              ... on DeliveryWeightBasedOptionDefinition { name }
+              ... on DeliveryCarrierCalculatedOptionDefinition {
+                rateGroups(first: 1) {
+                  nodes { carrierService { id name } }
+                }
+              }
+            }
+            pageInfo { hasNextPage }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const MARKET_REGIONS_PAGE_QUERY = `#graphql
+  query StoreMarketRegionPage($id: ID!, $first: Int!, $after: String) {
+    market(id: $id) {
+      conditions {
+        regionsCondition {
+          regions(first: $first, after: $after) {
+            nodes {
+              __typename
+              id
+              name
+              ... on MarketRegionCountry { code }
+              ... on MarketRegionSubdivision { code country { code } }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    }
+  }
+`;
 
 export async function fetchShopifyMarkets(
   context: MarketRequestContext,
 ): Promise<ShopifyMarketsResponse> {
-  const data = await callShopifyGraphql<{
-    markets: {
-      nodes: GraphqlMarketNode[];
-      pageInfo: { hasNextPage: boolean };
-    };
-  }>({
-    ...context,
-    operationName: "StoreMarkets",
-    query: `#graphql
-      query StoreMarkets($first: Int!, $regionFirst: Int!, $catalogFirst: Int!, $webPresenceFirst: Int!) {
-        markets(first: $first, sortKey: NAME) {
-          nodes {
-            id
-            handle
-            name
-            status
-            type
-            catalogsCount { count precision }
-            conditions {
-              conditionTypes
-              regionsCondition {
-                applicationLevel
-                regions(first: $regionFirst) {
-                  nodes {
-                    __typename
-                    id
-                    name
-                    ... on MarketRegionCountry { code }
-                    ... on MarketRegionSubdivision {
-                      code
-                      country { code }
-                    }
-                  }
-                  pageInfo { hasNextPage }
-                }
-              }
-            }
-            currencySettings {
-              baseCurrency {
-                currencyCode
-                currencyName
-                enabled
-                manualRate
-                rateUpdatedAt
-              }
-              localCurrencies
-              roundingEnabled
-            }
-            priceInclusions {
-              adaptivePricingEnabled
-              inclusiveDutiesPricingStrategy
-              inclusiveTaxPricingStrategy
-            }
-            catalogs(first: $catalogFirst) {
-              nodes {
-                id
-                title
-                status
-                priceList { id name currency }
-              }
-              pageInfo { hasNextPage }
-            }
-            webPresences(first: $webPresenceFirst) {
-              nodes {
-                id
-                subfolderSuffix
-                rootUrls { locale url }
-              }
-              pageInfo { hasNextPage }
-            }
-            delivery {
-              shipping {
-                isEnabled
-                optionDefinitionsCount { count precision }
-              }
-            }
-          }
-          pageInfo { hasNextPage }
-        }
-      }
-    `,
-    variables: {
-      first: MARKET_PAGE_SIZE,
-      regionFirst: NESTED_PAGE_SIZE,
-      catalogFirst: CATALOG_PAGE_SIZE,
-      webPresenceFirst: WEB_PRESENCE_PAGE_SIZE,
-    },
-  });
+  const marketIds: string[] = [];
+  let after: string | null = null;
+  let hasMoreMarkets: boolean;
+
+  do {
+    const data: {
+      markets: { nodes: Array<{ id: string }>; pageInfo: GraphqlPageInfo };
+    } = await callShopifyGraphql<{
+      markets: { nodes: Array<{ id: string }>; pageInfo: GraphqlPageInfo };
+    }>({
+      ...context,
+      operationName: "StoreMarketIds",
+      query: MARKET_LIST_QUERY,
+      variables: {
+        first: Math.min(MARKET_PAGE_SIZE, MAX_MARKETS - marketIds.length),
+        after,
+      },
+    });
+    marketIds.push(...data.markets.nodes.map((market) => market.id));
+    hasMoreMarkets = data.markets.pageInfo.hasNextPage;
+    after = data.markets.pageInfo.endCursor || null;
+  } while (hasMoreMarkets && after && marketIds.length < MAX_MARKETS);
+
+  const items: ShopifyMarketSummary[] = [];
+  for (const id of marketIds) {
+    const market = await fetchShopifyMarket(context, id);
+    if (market) items.push(market);
+  }
 
   return {
-    items: data.markets.nodes.map(normalizeMarket),
+    items,
     fetchedAt: new Date().toISOString(),
-    truncated: data.markets.pageInfo.hasNextPage,
+    truncated: hasMoreMarkets,
   };
+}
+
+export async function fetchShopifyMarket(
+  context: MarketRequestContext,
+  marketId: string,
+): Promise<ShopifyMarketSummary | null> {
+  const data = await callShopifyGraphql<{ market: GraphqlMarketNode | null }>({
+    ...context,
+    operationName: "StoreMarketDetails",
+    query: MARKET_DETAILS_QUERY,
+    variables: {
+      id: requireShopifyGid(marketId, "Market"),
+      regionFirst: REGION_PAGE_SIZE,
+      catalogFirst: CATALOG_PAGE_SIZE,
+      webPresenceFirst: WEB_PRESENCE_PAGE_SIZE,
+      shippingOptionFirst: SHIPPING_OPTION_PAGE_SIZE,
+    },
+  });
+  if (data.market) await loadRemainingMarketRegions(context, data.market);
+  return data.market ? normalizeMarket(data.market) : null;
+}
+
+async function loadRemainingMarketRegions(
+  context: MarketRequestContext,
+  market: GraphqlMarketNode,
+) {
+  const connection = market.conditions?.regionsCondition?.regions;
+  if (!connection?.pageInfo.hasNextPage) return;
+
+  let after = connection.pageInfo.endCursor || null;
+  while (
+    connection.pageInfo.hasNextPage &&
+    after &&
+    connection.nodes.length < MAX_MARKET_REGIONS
+  ) {
+    const data: {
+      market: {
+        conditions?: {
+          regionsCondition?: { regions: GraphqlMarketRegionConnection } | null;
+        } | null;
+      } | null;
+    } = await callShopifyGraphql<{
+      market: {
+        conditions?: {
+          regionsCondition?: { regions: GraphqlMarketRegionConnection } | null;
+        } | null;
+      } | null;
+    }>({
+      ...context,
+      operationName: "StoreMarketRegionPage",
+      query: MARKET_REGIONS_PAGE_QUERY,
+      variables: {
+        id: market.id,
+        first: Math.min(REGION_PAGE_SIZE, MAX_MARKET_REGIONS - connection.nodes.length),
+        after,
+      },
+    });
+    const page = data.market?.conditions?.regionsCondition?.regions;
+    if (!page) break;
+    connection.nodes.push(...page.nodes);
+    connection.pageInfo = page.pageInfo;
+    after = page.pageInfo.endCursor || null;
+  }
 }
 
 export async function resolveShopifyMarket(
@@ -239,12 +410,20 @@ export async function resolveShopifyMarket(
               id
               title
               status
+              publication { id autoPublish }
               priceList { id name currency }
             }
             pageInfo { hasNextPage }
           }
           webPresences(first: $webPresenceFirst) {
-            nodes { id subfolderSuffix rootUrls { locale url } }
+            nodes {
+              id
+              subfolderSuffix
+              defaultLocale { locale }
+              alternateLocales { locale }
+              domain { id host url }
+              rootUrls { locale url }
+            }
             pageInfo { hasNextPage }
           }
         }
@@ -263,9 +442,9 @@ export async function resolveShopifyMarket(
     currencyCode: resolved.currencyCode,
     taxesIncluded: resolved.priceInclusivity.taxesIncluded,
     dutiesIncluded: resolved.priceInclusivity.dutiesIncluded,
-    catalogs: resolved.catalogs.nodes.map(normalizeCatalog),
+    catalogs: resolved.catalogs.nodes.map(normalizeMarketCatalog),
     catalogsTruncated: resolved.catalogs.pageInfo.hasNextPage,
-    webPresences: resolved.webPresences.nodes.map(normalizeWebPresence),
+    webPresences: resolved.webPresences.nodes.map(normalizeMarketWebPresence),
     webPresencesTruncated: resolved.webPresences.pageInfo.hasNextPage,
   };
 }
@@ -351,23 +530,30 @@ function normalizeMarket(node: GraphqlMarketNode): ShopifyMarketSummary {
         }
       : null,
     catalogCount: normalizeCount(node.catalogsCount),
-    catalogs: node.catalogs.nodes.map(normalizeCatalog),
+    catalogs: node.catalogs.nodes.map(normalizeMarketCatalog),
     catalogsTruncated: node.catalogs.pageInfo.hasNextPage,
-    webPresences: node.webPresences.nodes.map(normalizeWebPresence),
+    webPresences: node.webPresences.nodes.map(normalizeMarketWebPresence),
     webPresencesTruncated: node.webPresences.pageInfo.hasNextPage,
     shipping: {
       inherits: !shipping,
       enabled: shipping?.isEnabled ?? null,
       optionCount: normalizeCount(shipping?.optionDefinitionsCount),
+      options: (shipping?.optionDefinitions.nodes || []).map(normalizeShippingOption),
+      optionsTruncated: Boolean(shipping?.optionDefinitions.pageInfo.hasNextPage),
     },
   };
 }
 
-function normalizeCatalog(node: GraphqlCatalog): ShopifyMarketCatalogSummary {
+export function normalizeMarketCatalog(
+  node: GraphqlCatalog,
+): ShopifyMarketCatalogSummary {
   return {
     id: node.id,
     title: node.title,
     status: node.status,
+    publication: node.publication
+      ? { id: node.publication.id, autoPublish: node.publication.autoPublish }
+      : null,
     priceList: node.priceList
       ? {
           id: node.priceList.id,
@@ -378,16 +564,47 @@ function normalizeCatalog(node: GraphqlCatalog): ShopifyMarketCatalogSummary {
   };
 }
 
-function normalizeWebPresence(
+export function normalizeMarketWebPresence(
   node: GraphqlWebPresence,
 ): ShopifyMarketWebPresenceSummary {
   return {
     id: node.id,
     subfolderSuffix: node.subfolderSuffix || null,
+    defaultLocale: node.defaultLocale.locale,
+    alternateLocales: node.alternateLocales.map((locale) => locale.locale),
+    domain: node.domain
+      ? { id: node.domain.id, host: node.domain.host, url: node.domain.url }
+      : null,
     rootUrls: node.rootUrls.map((item) => ({
       locale: item.locale,
       url: item.url,
     })),
+  };
+}
+
+function normalizeShippingOption(
+  node: GraphqlShippingOption,
+): ShopifyMarketShippingOptionSummary {
+  const type = (
+    {
+      DeliveryCarrierCalculatedOptionDefinition: "CARRIER_CALCULATED",
+      DeliveryFlatRateOptionDefinition: "FLAT_RATE",
+      DeliveryValueBasedOptionDefinition: "VALUE_BASED",
+      DeliveryWeightBasedOptionDefinition: "WEIGHT_BASED",
+    } as const
+  )[node.__typename];
+  const carrierService = node.rateGroups?.nodes[0]?.carrierService;
+  return {
+    id: node.id,
+    type: type || "FLAT_RATE",
+    name: node.name || carrierService?.name || null,
+    description: node.description || null,
+    currency: node.currency,
+    active: node.isActive,
+    freeDeliveryMinimumValue: node.freeDeliveryMinimumValue?.amount || null,
+    carrierService: carrierService
+      ? { id: carrierService.id, name: carrierService.name }
+      : null,
   };
 }
 

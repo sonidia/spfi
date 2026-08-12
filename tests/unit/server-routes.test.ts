@@ -2,8 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import checkProxyHandler from "~~/server/api/check-proxy.post";
 import generateTokenHandler from "~~/server/api/generate-token.post";
 import marketAllHandler from "~~/server/api/market/all.post";
+import marketAssignmentsHandler from "~~/server/api/market/assignments.post";
+import marketContextHandler from "~~/server/api/market/context.post";
+import marketCreateHandler from "~~/server/api/market/create.post";
+import marketIdentityHandler from "~~/server/api/market/identity.post";
+import marketLocalizationReadHandler from "~~/server/api/market/localization/read.post";
+import marketLocalizationSaveHandler from "~~/server/api/market/localization/save.post";
+import marketPricingHandler from "~~/server/api/market/pricing.post";
+import marketRegionsHandler from "~~/server/api/market/regions.post";
 import marketResolveHandler from "~~/server/api/market/resolve.post";
+import marketShippingHandler from "~~/server/api/market/shipping.post";
 import marketStatusHandler from "~~/server/api/market/status.post";
+import marketWebPresenceCreateHandler from "~~/server/api/market/web-presence/create.post";
+import marketWebPresenceUpdateHandler from "~~/server/api/market/web-presence/update.post";
 import batchUpdateHandler from "~~/server/api/sheet/batch-update.post";
 import metaHandler from "~~/server/api/sheet/meta.post";
 import updateHandler from "~~/server/api/sheet/update.post";
@@ -142,6 +153,23 @@ describe("diagnostic and credential routes", () => {
     await expect(marketStatusHandler({ body: {} } as never)).rejects.toMatchObject({
       statusCode: 400,
     });
+    for (const marketHandler of [
+      marketAssignmentsHandler,
+      marketContextHandler,
+      marketCreateHandler,
+      marketIdentityHandler,
+      marketLocalizationReadHandler,
+      marketLocalizationSaveHandler,
+      marketPricingHandler,
+      marketRegionsHandler,
+      marketShippingHandler,
+      marketWebPresenceCreateHandler,
+      marketWebPresenceUpdateHandler,
+    ]) {
+      await expect(marketHandler({ body: {} } as never)).rejects.toMatchObject({
+        statusCode: 400,
+      });
+    }
     await expect(checkProxyHandler({ body: {} } as never)).rejects.toMatchObject({
       statusCode: 400,
     });

@@ -163,6 +163,16 @@ export function getGraphqlThrottleStatus(extensions?: ShopifyGraphqlExtensions) 
   };
 }
 
+export function getGraphqlCostSummary(extensions?: ShopifyGraphqlExtensions) {
+  const cost = extensions?.cost;
+  if (!cost) return null;
+
+  return {
+    requestedQueryCost: toFiniteNumber(cost.requestedQueryCost),
+    actualQueryCost: toFiniteNumber(cost.actualQueryCost),
+  };
+}
+
 function cleanupThrottleGates(now: number) {
   for (const [key, gate] of throttleGates) {
     if (gate.blockedUntil <= now && now - gate.touchedAt >= THROTTLE_STATE_TTL_MS) {

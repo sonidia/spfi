@@ -23,6 +23,15 @@
     linear-gradient(135deg, var(--green-soft), var(--surface) 62%), var(--surface);
 }
 
+.markets-hero > div:nth-child(2) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.markets-create-button {
+  margin-left: auto;
+}
+
 .markets-hero-icon {
   width: 42px;
   height: 42px;
@@ -325,6 +334,12 @@
   padding: 15px 16px;
 }
 
+.market-card-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
 .market-title-row {
   display: flex;
   align-items: center;
@@ -507,6 +522,15 @@
   .market-card > header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .markets-hero {
+    flex-wrap: wrap;
+  }
+
+  .markets-create-button {
+    width: 100%;
+    margin-left: 0;
   }
 
   .buyer-preview-form input {

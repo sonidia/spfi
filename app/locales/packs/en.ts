@@ -13,6 +13,8 @@ const messages = {
   "common.delete": "Delete",
   "common.search": "Search",
   "common.refresh": "Refresh",
+  "common.retry": "Retry",
+  "common.remove": "Remove",
   "common.reset": "Reset",
   "common.lock": "Lock",
   "common.dismissNotification": "Dismiss notification",
@@ -755,6 +757,253 @@ const messages = {
   "markets.dutiesIncluded": "Duties included",
   "markets.dutiesAtCheckout": "Duties added at checkout",
   "markets.resolvedUrls": "Resolved URLs",
+  "markets.editor.workspace": "Markets workspace",
+  "markets.editor.createMarket": "Create market",
+  "markets.editor.manage": "Manage",
+  "markets.editor.createTitle": "Create a regional market",
+  "markets.editor.create": "Create market",
+  "markets.editor.created": "Market created. You can now finish its configuration.",
+  "markets.editor.createFailed": "The market could not be created.",
+  "markets.editor.createValidation":
+    "Enter a market name and at least one valid two-letter country code.",
+  "markets.editor.safeCreateTitle": "Draft-first conflict protection",
+  "markets.editor.safeCreateDescription":
+    "If Shopify detects duplicate buyer conditions, conflicting unique markets will be moved to draft instead of silently overlapping.",
+  "markets.editor.name": "Market name",
+  "markets.editor.namePlaceholder": "For example, North America",
+  "markets.editor.handle": "Handle",
+  "markets.editor.handlePlaceholder": "north-america",
+  "markets.editor.handleHint": "Letters, numbers, and hyphens only.",
+  "markets.editor.initialStatus": "Initial status",
+  "markets.editor.baseCurrencyOptional": "Base currency (optional)",
+  "markets.editor.currencyPlaceholder": "USD",
+  "markets.editor.buyerRegions": "Buyer regions",
+  "markets.editor.regionFormatHint":
+    "Use ISO alpha-2 country codes. Add a subdivision code only when targeting a state or province.",
+  "markets.editor.countryCode": "Country code",
+  "markets.editor.subdivisionOptional": "Subdivision (optional)",
+  "markets.editor.addRegion": "Add region",
+  "markets.editor.removeRegion": "Remove region",
+  "markets.editor.duplicateDraftLabel": "Protect unique-market conflicts",
+  "markets.editor.duplicateDraftDescription":
+    "Let Shopify draft conflicting unique markets when conditions overlap.",
+  "markets.editor.localCurrenciesLabel": "Use local currencies",
+  "markets.editor.localCurrenciesDescription":
+    "Present buyers with an eligible local currency.",
+  "markets.editor.roundingLabel": "Enable price rounding",
+  "markets.editor.roundingDescription": "Apply Shopify's market rounding rules.",
+  "markets.editor.sections": "Market configuration sections",
+  "markets.editor.navDetails": "Details",
+  "markets.editor.navRegions": "Regions",
+  "markets.editor.navPricing": "Pricing",
+  "markets.editor.navAssignments": "Catalogs & URLs",
+  "markets.editor.navShipping": "Shipping",
+  "markets.editor.navLocalization": "Localized content",
+  "markets.editor.loadingWorkspace": "Loading editor context from Shopify…",
+  "markets.editor.marketUnavailable":
+    "This market is no longer available in the current store.",
+  "markets.editor.contextFailedTitle": "Editor context could not load",
+  "markets.editor.contextWarningTitle": "Some Shopify context is unavailable",
+  "markets.editor.warning.carrier_services_unavailable":
+    "Carrier services could not be loaded. Other shipping option types remain available.",
+  "markets.editor.warning.carrier_services_truncated":
+    "Only the first 250 carrier services are available in this editor.",
+  "markets.editor.warning.catalogs_truncated":
+    "Only the first 100 MARKET catalogs are available in this editor.",
+  "markets.editor.warning.web_presences_truncated":
+    "Only the first 100 web presences are available in this editor.",
+  "markets.editor.subdivisionPreviewTitle": "Subdivision market API limitations apply",
+  "markets.editor.subdivisionPreviewDescription":
+    "In 2026-07, subdivision markets support market-driven shipping first. Shopify can reject unsupported configuration paths; each editor preserves and displays the API error.",
+  "markets.editor.detailsTitle": "Identity and handle",
+  "markets.editor.detailsDescription":
+    "Update the merchant-facing name and stable market handle.",
+  "markets.editor.detailsValidation":
+    "Enter a name and a handle containing only letters, numbers, or hyphens.",
+  "markets.editor.detailsSaved": "Market details saved.",
+  "markets.editor.marketType": "Buyer condition type",
+  "markets.editor.marketId": "GraphQL ID",
+  "markets.editor.saveFailed": "Shopify rejected the Markets update.",
+  "markets.editor.regionsTitle": "Buyer regions",
+  "markets.editor.regionsDescription":
+    "Replace the countries and subdivisions that match this regional market.",
+  "markets.editor.regionsTruncatedTitle": "Region editing is locked",
+  "markets.editor.regionsTruncatedDescription":
+    "Shopify returned more than 250 regions. This editor will not submit a partial condition change.",
+  "markets.editor.regionsUnavailableTitle":
+    "Region editing is not valid for this market type",
+  "markets.editor.regionsUnavailableDescription":
+    "Shopify only accepts a regions condition for REGION markets. Channel, location, and company-location conditions are owned by their respective resources.",
+  "markets.editor.regionRulesTitle": "A regional market must keep at least one region",
+  "markets.editor.regionRulesDescription":
+    "This editor sends Shopify conditionsToAdd and conditionsToDelete, preserving the rest of the condition tree.",
+  "markets.editor.regionsValidation":
+    "Keep at least one row and use valid two-letter country codes.",
+  "markets.editor.regionsConfirmTitle": "Apply buyer-region changes?",
+  "markets.editor.regionsConfirmMessage":
+    "Changing {name} can immediately change which market buyers match.",
+  "markets.editor.applyRegions": "Apply regions",
+  "markets.editor.regionsSaved": "Buyer regions updated.",
+  "markets.editor.pricingTitle": "Currency and price inclusions",
+  "markets.editor.pricingDescription":
+    "Control currency conversion, rounding, taxes, duties, and Managed Markets adaptive pricing.",
+  "markets.editor.currencySettings": "Currency settings",
+  "markets.editor.overrideCurrency": "Configure currency for this market",
+  "markets.editor.overrideCurrencyDescription":
+    "Turn off to remove market-level currency settings.",
+  "markets.editor.manualRate": "Manual conversion rate",
+  "markets.editor.automaticRate": "Automatic Shopify rate",
+  "markets.editor.manualRateHint": "Cannot be used together with local currencies.",
+  "markets.editor.priceInclusions": "Taxes and duties",
+  "markets.editor.overrideInclusions": "Configure price inclusions",
+  "markets.editor.overrideInclusionsDescription":
+    "Turn off to remove market-level tax and duty settings.",
+  "markets.editor.taxCheckout": "Add taxes at checkout",
+  "markets.editor.taxIncluded": "Include taxes in prices",
+  "markets.editor.taxCountry": "Include taxes based on buyer country",
+  "markets.editor.dutyCheckout": "Add duties at checkout",
+  "markets.editor.dutyIncluded": "Include duties in prices",
+  "markets.editor.adaptivePricing": "Enable adaptive pricing",
+  "markets.editor.adaptivePricingDescription":
+    "Optimize international prices through Managed Markets.",
+  "markets.editor.managedMarketsOnly": "Managed Markets only",
+  "markets.editor.adaptivePricingWarning":
+    "Shopify can force compatible currency and price-inclusion settings when this is enabled.",
+  "markets.editor.pricingValidation": "Enter a valid three-letter currency code.",
+  "markets.editor.manualRateConflict":
+    "Remove the manual rate or turn off local currencies.",
+  "markets.editor.removePricingTitle": "Remove market-level pricing settings?",
+  "markets.editor.removePricingMessage":
+    "Removed settings fall back to Shopify's applicable defaults.",
+  "markets.editor.pricingSaved": "Market pricing updated.",
+  "markets.editor.assignmentsTitle": "Catalogs and web presence",
+  "markets.editor.assignmentsDescription":
+    "Choose product/pricing catalogs and the localized URL experience assigned to this market.",
+  "markets.editor.catalogHint":
+    "A catalog can carry product availability through its publication and international prices through its price list.",
+  "markets.editor.subdivisionCatalogTitle":
+    "Catalog assignment is unavailable for subdivision markets",
+  "markets.editor.subdivisionCatalogDescription":
+    "Shopify documents catalogs as unsupported for subdivision markets in the 2026-07 rollout. Existing associations remain visible but cannot be changed here.",
+  "markets.editor.noAvailableCatalogs":
+    "No MARKET catalogs are available in this shop.",
+  "markets.editor.salesChannelAvailability":
+    "Uses sales-channel product availability; no price list",
+  "markets.editor.catalogPublishingTitle": "Catalog publishing stays explicit",
+  "markets.editor.catalogPublishingDescription":
+    "This screen assigns existing catalogs. Product publication and price-list maintenance stay in their dedicated Shopify workflows to avoid unintended assortment changes.",
+  "markets.editor.webPresenceAssignmentHint":
+    "Assign an existing URL strategy, or create one using a published shop locale.",
+  "markets.editor.noAvailableWebPresences": "No web presences are available yet.",
+  "markets.editor.sharedWebPresenceTitle": "Web presences can be shared",
+  "markets.editor.sharedWebPresenceDescription":
+    "Editing one can change URLs for every market that uses it. Review the listed root URLs before saving.",
+  "markets.editor.noAssignmentChanges":
+    "No catalog or web-presence changes were detected.",
+  "markets.editor.assignmentsConfirmTitle": "Apply catalog and URL assignments?",
+  "markets.editor.assignmentsConfirmMessage":
+    "Changing {name} can alter product availability, pricing, and buyer URLs.",
+  "markets.editor.applyAssignments": "Apply assignments",
+  "markets.editor.assignmentsSaved": "Catalog and web-presence assignments updated.",
+  "markets.editor.createWebPresence": "Create web presence",
+  "markets.editor.editWebPresence": "Edit web presence",
+  "markets.editor.webPresenceSharedHint":
+    "Choose exactly one routing strategy: a domain or a subfolder suffix.",
+  "markets.editor.defaultLocale": "Default locale",
+  "markets.editor.urlStrategy": "URL strategy",
+  "markets.editor.subfolder": "Subfolder on the shop domain",
+  "markets.editor.primaryDomain": "Shop primary domain",
+  "markets.editor.subfolderSuffix": "Subfolder suffix",
+  "markets.editor.asciiSuffixHint":
+    "Lowercase ASCII letters, numbers, and hyphens only.",
+  "markets.editor.alternateLocales": "Alternate published locales",
+  "markets.editor.webPresenceValidation":
+    "Choose a default locale and provide a valid routing strategy.",
+  "markets.editor.webPresenceCreated": "Web presence created and selected.",
+  "markets.editor.webPresenceUpdated": "Shared web presence updated.",
+  "markets.editor.shippingTitle": "Market-driven shipping",
+  "markets.editor.shippingDescription":
+    "Inherit Shopify defaults, disable delivery, or maintain market-specific delivery options.",
+  "markets.editor.shippingInherit": "Inherit",
+  "markets.editor.shippingInheritDescription":
+    "Remove the market override and use the applicable parent/shop setup.",
+  "markets.editor.shippingCustom": "Custom options",
+  "markets.editor.shippingCustomDescription":
+    "Enable market-specific flat, order-value, weight, or carrier rates.",
+  "markets.editor.shippingOff": "No shipping",
+  "markets.editor.shippingOffDescription":
+    "Disable every delivery option for buyers in this market.",
+  "markets.editor.inheritanceTitle": "Shopify will remove the shipping override",
+  "markets.editor.inheritanceDescription":
+    "The effective options will then come from the applicable inherited configuration.",
+  "markets.editor.noShippingTitle": "This blocks checkout delivery",
+  "markets.editor.noShippingDescription":
+    "Shopify also disables app-managed delivery options for this market.",
+  "markets.editor.currentShippingOptions": "Current options",
+  "markets.editor.deleteShippingHint":
+    "Select an existing option to queue it for deletion.",
+  "markets.editor.addShippingOption": "Add option",
+  "markets.editor.noShippingOptions":
+    "No custom options are currently returned for this market.",
+  "markets.editor.shippingOptionsTruncated":
+    "Additional shipping options are not shown; avoid bulk deletion until the full set is reviewed in Shopify Admin.",
+  "markets.editor.queuedShippingOptions": "Queued for creation",
+  "markets.editor.newShippingOption": "New delivery option",
+  "markets.editor.optionType": "Rate type",
+  "markets.editor.shippingTypeFlatRate": "Flat rate",
+  "markets.editor.shippingTypeValueBased": "Order-value tiers",
+  "markets.editor.shippingTypeWeightBased": "Weight tiers",
+  "markets.editor.shippingTypeCarrierCalculated": "Carrier calculated",
+  "markets.editor.optionName": "Option name",
+  "markets.editor.currency": "Currency",
+  "markets.editor.price": "Rate price",
+  "markets.editor.minimum": "Minimum",
+  "markets.editor.maximumOptional": "Maximum (optional)",
+  "markets.editor.weightUnit": "Weight unit",
+  "markets.editor.carrierService": "Carrier service",
+  "markets.editor.chooseCarrier": "Choose an active carrier",
+  "markets.editor.percentageAdjustment": "Percentage adjustment",
+  "markets.editor.freeShippingMinimum": "Free-delivery minimum (optional)",
+  "markets.editor.descriptionOptional": "Buyer-facing description (optional)",
+  "markets.editor.optionActive": "Make this option active",
+  "markets.editor.optionInactive": "Inactive",
+  "markets.editor.enableOption": "Enable",
+  "markets.editor.disableOption": "Disable",
+  "markets.editor.undoDelete": "Undo queued deletion",
+  "markets.editor.queueOption": "Queue option",
+  "markets.editor.shippingCurrencyValidation":
+    "Use a valid three-letter shipping currency.",
+  "markets.editor.shippingNameValidation": "Enter a buyer-facing name for this option.",
+  "markets.editor.shippingPriceValidation": "Enter a price for this option.",
+  "markets.editor.carrierValidation": "Choose an active carrier service.",
+  "markets.editor.shippingConfirmTitle": "Apply shipping configuration?",
+  "markets.editor.shippingConfirmMessage":
+    "Shipping changes for {name} affect checkout eligibility and delivery prices.",
+  "markets.editor.applyShipping": "Apply shipping",
+  "markets.editor.shippingSaved": "Market shipping updated.",
+  "markets.editor.localizationTitle": "Market-specific content",
+  "markets.editor.localizationDescription":
+    "Edit market localizations or market-scoped translations using Shopify content digests.",
+  "markets.editor.localizationModesTitle": "Two Shopify localization models",
+  "markets.editor.localizationModesDescription":
+    "Leave locale blank only for METAFIELD or METAOBJECT market-localizable content. Choose a locale for product, collection, page, and other translatable resources.",
+  "markets.editor.resourceGid": "Shopify resource GID",
+  "markets.editor.localeOptional": "Locale / mode",
+  "markets.editor.marketSpecificContent": "Market localization (metafield/metaobject)",
+  "markets.editor.loadFields": "Load fields",
+  "markets.editor.resourceValidation": "Enter a valid Shopify GraphQL resource ID.",
+  "markets.editor.localizationLoadFailed":
+    "The resource is not localizable in the selected mode.",
+  "markets.editor.translationMode": "Market-scoped translation",
+  "markets.editor.marketLocalizationMode": "Market localization",
+  "markets.editor.outdated": "Outdated",
+  "markets.editor.readOnly": "No digest · read only",
+  "markets.editor.sourceContent": "Source content",
+  "markets.editor.marketValue": "Market value",
+  "markets.editor.noDigestFields":
+    "Shopify did not return writable content digests for this resource.",
+  "markets.editor.saveLocalization": "Save localized content",
+  "markets.editor.localizationSaved": "Localized content saved and refreshed.",
   "status.title": "Check Status",
   "status.subtitle": "Batch check public storefront signals",
   "status.proxyMode": "Proxy mode",
