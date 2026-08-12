@@ -702,7 +702,7 @@ td.right {
   display: inline-flex;
   align-items: center;
   background: var(--blue);
-  color: white !important;
+  color: var(--on-accent) !important;
   font-size: 9px;
   font-weight: 600;
   padding: 2px 5px;

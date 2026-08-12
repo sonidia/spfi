@@ -120,7 +120,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
   place-items: center;
   border-radius: 999px;
   background: var(--green);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 10px;
   line-height: 1;
 }

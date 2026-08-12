@@ -6,6 +6,7 @@ import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import { useToastStore } from "~/stores/toast";
 import type {
+  ShopifyAddress,
   ShopifyFulfillmentOrder,
   ShopifyNumericId,
   ShopifyOrder,
@@ -17,13 +18,12 @@ import type {
 import { getAppErrorMessage } from "~~/utils/error";
 import { buildOrderTransactionStatusMap } from "~~/utils/payment-transactions";
 import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
+import { TRACKTACO_CARRIER_NAMES, TRACKTACO_TRACKING_URLS } from "~~/utils/tracktaco";
 
 const TRACKING_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
-const DEFAULT_TRACKING_STATE = "CA";
-const TRACKING_CARRIER = "fedex";
+const TRACKING_CARRIER = "fedex" as const;
 
 export function useAutomaticTracking() {
-  const appConfig = useAppConfig();
   const credentialVault = useCredentialVaultStore();
   const orderApi = useOrderApi();
   const orderStore = useOrderStore();
@@ -61,13 +61,8 @@ export function useAutomaticTracking() {
       return;
     }
 
-    if (
-      !credentialVault.trackingSettings.baseUrl ||
-      !credentialVault.trackingSettings.apiKey
-    ) {
-      toast.warning(
-        "Tracktaco is not configured. Add the endpoint and API key in Settings.",
-      );
+    if (!credentialVault.trackingSettings.apiKey) {
+      toast.warning("Tracktaco v2 is not configured. Add an API key in Settings.");
       return;
     }
 
@@ -75,7 +70,7 @@ export function useAutomaticTracking() {
     toast.info(`Adding tracking for ${orderLabel(order)}...`);
 
     try {
-      const trackingNumber = await requestTrackingNumber(order);
+      const tracking = await requestTrackingNumber(order);
       const fulfillmentOrder = await getOpenFulfillmentOrder(order);
       const fulfillmentLineItems = (fulfillmentOrder.line_items || [])
         .map((lineItem) => ({
@@ -101,9 +96,11 @@ export function useAutomaticTracking() {
             },
           ],
           tracking_info: {
-            number: trackingNumber,
-            company: String(appConfig.tracking.company || TRACKING_CARRIER),
-            url: `${appConfig.tracking.url}${encodeURIComponent(trackingNumber)}`,
+            number: tracking.trackingNumber,
+            company: TRACKTACO_CARRIER_NAMES[tracking.carrier],
+            url: `${TRACKTACO_TRACKING_URLS[tracking.carrier]}${encodeURIComponent(
+              tracking.trackingNumber,
+            )}`,
           },
         },
       );
@@ -121,10 +118,10 @@ export function useAutomaticTracking() {
       }
       if (orderStore.error || paymentStore.error) {
         toast.warning(
-          `Tracking added (${trackingNumber}), but the order list could not be fully refreshed.`,
+          `Tracking added (${tracking.trackingNumber}), but the order list could not be fully refreshed.`,
         );
       } else {
-        toast.success(`Tracking added successfully (${trackingNumber}).`);
+        toast.success(`Tracking added successfully (${tracking.trackingNumber}).`);
       }
     } catch (error) {
       toast.error(
@@ -136,14 +133,15 @@ export function useAutomaticTracking() {
   }
 
   async function requestTrackingNumber(order: ShopifyOrder) {
-    const to = Date.now();
+    const now = Date.now();
     const body: TrackingNumberProxyRequest = {
-      state: resolveTrackingState(order),
-      from: to - TRACKING_LOOKBACK_MS,
-      to,
       carrier: TRACKING_CARRIER,
+      destination: resolveTrackingDestination(order),
+      shippedBetween: {
+        from: formatIsoDate(now - TRACKING_LOOKBACK_MS),
+        to: formatIsoDate(now),
+      },
       provider: {
-        baseUrl: credentialVault.trackingSettings.baseUrl,
         apiKey: credentialVault.trackingSettings.apiKey,
       },
     };
@@ -154,13 +152,13 @@ export function useAutomaticTracking() {
         body,
       },
     );
-    const trackingNumber = String(response.trackingNr || "").trim();
+    const trackingNumber = String(response.trackingNumber || "").trim();
 
     if (!trackingNumber) {
       throw new Error("The tracking provider returned an empty number.");
     }
 
-    return trackingNumber;
+    return { ...response, trackingNumber };
   }
 
   async function getOpenFulfillmentOrder(order: ShopifyOrder) {
@@ -196,15 +194,26 @@ function isOpenAndFulfillable(order: ShopifyFulfillmentOrder) {
   );
 }
 
-function resolveTrackingState(order: ShopifyOrder) {
-  return String(
-    order.shipping_address?.province_code ||
-      order.billing_address?.province_code ||
-      order.customer?.default_address?.province_code ||
-      DEFAULT_TRACKING_STATE,
-  )
-    .trim()
-    .toUpperCase();
+function resolveTrackingDestination(order: ShopifyOrder) {
+  const address: ShopifyAddress =
+    order.shipping_address ||
+    order.billing_address ||
+    order.customer?.default_address ||
+    {};
+
+  return {
+    country: String(address.country_code || "")
+      .trim()
+      .toUpperCase(),
+    state: String(address.province_code || "")
+      .trim()
+      .toUpperCase(),
+    city: String(address.city || "").trim(),
+  };
+}
+
+function formatIsoDate(timestamp: number) {
+  return new Date(timestamp).toISOString().slice(0, 10);
 }
 
 function orderLabel(order: ShopifyOrder) {

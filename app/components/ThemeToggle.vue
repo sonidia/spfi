@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Moon, Sun } from "@lucide/vue";
+
 const { isDark, toggleTheme } = useTheme();
 const { t } = useLocalization();
 </script>
@@ -13,8 +15,8 @@ const { t } = useLocalization();
     @click="toggleTheme"
   >
     <span class="theme-icon" aria-hidden="true">
-      <IconsMoon v-if="isDark" />
-      <IconsSun v-else />
+      <Moon v-if="isDark" :size="18" />
+      <Sun v-else :size="18" />
     </span>
   </button>
 </template>
@@ -29,7 +31,7 @@ const { t } = useLocalization();
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  color: rgb(255, 153, 0);
+  color: var(--amber);
   cursor: pointer;
   font: inherit;
   padding: 0;

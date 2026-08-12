@@ -293,12 +293,19 @@
 .ops-modal-close {
   width: 32px;
   height: 32px;
+  display: inline-grid;
+  place-items: center;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--text-sub);
   font-size: 24px;
   cursor: pointer;
+}
+
+.ops-modal-close svg {
+  width: 17px;
+  height: 17px;
 }
 
 .ops-form-grid {

@@ -1,12 +1,23 @@
+export type TrackingCarrier = "fedex" | "ups" | "dhl";
+
+export interface TrackingDestination {
+  country?: string;
+  state?: string;
+  city?: string;
+}
+
+export interface TrackingDateRange {
+  from: string;
+  to: string;
+}
+
 export interface TrackingNumberRequest {
-  state: string;
-  from: number;
-  to: number;
-  carrier: string;
+  carrier: TrackingCarrier;
+  destination: TrackingDestination;
+  shippedBetween: TrackingDateRange;
 }
 
 export interface TrackingProviderSettings {
-  baseUrl: string;
   apiKey: string;
 }
 
@@ -15,5 +26,8 @@ export interface TrackingNumberProxyRequest extends TrackingNumberRequest {
 }
 
 export interface TrackingNumberResponse {
-  trackingNr: string;
+  trackingNumber: string;
+  carrier: TrackingCarrier;
+  service?: string;
+  creditsRemaining?: number;
 }

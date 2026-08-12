@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { X } from "@lucide/vue";
 import { useToastStore } from "../stores/toast";
 
 const toastStore = useToastStore();
@@ -58,7 +59,7 @@ const { t } = useLocalization();
           :aria-label="t('common.dismissNotification')"
           @click="toastStore.removeToast(toast.id)"
         >
-          ×
+          <X aria-hidden="true" />
         </button>
       </div>
     </TransitionGroup>
@@ -124,6 +125,8 @@ const { t } = useLocalization();
 .toast-dismiss {
   width: 24px;
   height: 24px;
+  display: inline-grid;
+  place-items: center;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -132,6 +135,11 @@ const { t } = useLocalization();
   font: inherit;
   font-size: 18px;
   line-height: 1;
+}
+
+.toast-dismiss :deep(svg) {
+  width: 14px;
+  height: 14px;
 }
 
 .toast-dismiss:hover,

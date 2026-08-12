@@ -133,7 +133,7 @@ function changePageSize(pageSize: number) {
   border: 0;
   border-radius: 6px;
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
   font: inherit;
   font-size: 12px;
   font-weight: 600;

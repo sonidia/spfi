@@ -80,7 +80,7 @@
   padding: 9px 15px;
   border-radius: 9px;
   background: var(--green);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 

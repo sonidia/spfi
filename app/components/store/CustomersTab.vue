@@ -145,7 +145,7 @@
               aria-label="Close customer detail"
               @click="clearSelection"
             >
-              ×
+              <X aria-hidden="true" />
             </button>
           </header>
 
@@ -207,6 +207,7 @@
 </template>
 
 <script setup lang="ts">
+import { X } from "@lucide/vue";
 import { useCustomers } from "~/composables/useCustomers";
 import { useFormStore } from "~/stores/form";
 import type { ShopifyCustomer } from "~~/types/shopify";
@@ -513,12 +514,19 @@ function formatOrderTotal(value: string, currency = "USD") {
 .close-button {
   width: 34px;
   height: 34px;
+  display: inline-grid;
+  place-items: center;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-sub);
   cursor: pointer;
   font-size: 22px;
+}
+
+.close-button :deep(svg) {
+  width: 17px;
+  height: 17px;
 }
 
 .detail-grid {

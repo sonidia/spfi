@@ -86,8 +86,8 @@ withDefaults(
 }
 
 .tone-violet {
-  --metric-accent: #7759b6;
-  --metric-soft: #eee8ff;
+  --metric-accent: var(--violet);
+  --metric-soft: var(--violet-soft);
 }
 
 .tone-red {
@@ -153,7 +153,7 @@ withDefaults(
   background: linear-gradient(
     90deg,
     var(--surface-soft),
-    color-mix(in srgb, var(--surface-soft) 48%, white),
+    color-mix(in srgb, var(--surface-soft) 48%, var(--surface-raised)),
     var(--surface-soft)
   );
   background-size: 220% 100%;

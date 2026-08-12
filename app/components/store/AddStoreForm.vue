@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from "@lucide/vue";
 import {
   useAddStoreConnection,
   type AddStoreMode,
@@ -186,6 +187,7 @@ async function connect() {
         {{ t("common.clear") }}
       </BaseButton>
       <BaseButton v-if="props.showCancel" @click="emit('cancel')">
+        <template #icon><X /></template>
         {{ t("common.cancel") }}
       </BaseButton>
       <BaseButton

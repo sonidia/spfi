@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Mail, Plus, Trash2 } from "@lucide/vue";
+import { CircleCheck, Mail, Plus, Trash2 } from "@lucide/vue";
 import { ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useCommerceOpsStore } from "~/stores/commerceOps";
@@ -109,6 +109,7 @@ async function runAction(draft: DraftOrderSummary, action: DraftOrderAction) {
                   :disabled="store.isMutating || draft.status === 'COMPLETED'"
                   @click="runAction(draft, 'complete')"
                 >
+                  <template #icon><CircleCheck /></template>
                   Complete
                 </BaseButton>
                 <BaseButton

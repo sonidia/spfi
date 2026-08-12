@@ -196,9 +196,12 @@ async function loadTransactions() {
 
 function selectDefaultTransactions() {
   const capture = captureOptions.value[0];
-  if (capture && !captureOptions.value.some(
-    (option) => String(option.transaction.id) === selectedAuthorizationId.value,
-  )) {
+  if (
+    capture &&
+    !captureOptions.value.some(
+      (option) => String(option.transaction.id) === selectedAuthorizationId.value,
+    )
+  ) {
     selectedAuthorizationId.value = String(capture.transaction.id);
     captureAmount.value = formatMoneyInput(
       capture.remaining,
@@ -207,9 +210,12 @@ function selectDefaultTransactions() {
   }
 
   const refund = refundOptions.value[0];
-  if (refund && !refundOptions.value.some(
-    (option) => String(option.transaction.id) === selectedRefundTransactionId.value,
-  )) {
+  if (
+    refund &&
+    !refundOptions.value.some(
+      (option) => String(option.transaction.id) === selectedRefundTransactionId.value,
+    )
+  ) {
     selectedRefundTransactionId.value = String(refund.transaction.id);
     refundAmount.value = "";
   }
@@ -218,8 +224,7 @@ function selectDefaultTransactions() {
   if (
     voidTransaction &&
     !voidOptions.value.some(
-      (option) =>
-        String(option.transaction.id) === selectedVoidTransactionId.value,
+      (option) => String(option.transaction.id) === selectedVoidTransactionId.value,
     )
   ) {
     selectedVoidTransactionId.value = String(voidTransaction.id);
@@ -372,15 +377,13 @@ async function capturePayment() {
 async function createRefund() {
   if (!isReady.value || !selectedRefundTransactionId.value) return;
   const parent = refundOptions.value.find(
-    (option) =>
-      String(option.transaction.id) === selectedRefundTransactionId.value,
+    (option) => String(option.transaction.id) === selectedRefundTransactionId.value,
   )?.transaction;
   if (!parent) return;
 
   if (!refundIdempotencyKey.value) {
     refundIdempotencyKey.value =
-      globalThis.crypto?.randomUUID?.() ||
-      `refund-${props.order.id}-${Date.now()}`;
+      globalThis.crypto?.randomUUID?.() || `refund-${props.order.id}-${Date.now()}`;
   }
 
   const updated = await orderStore.refundOrder(
@@ -395,8 +398,7 @@ async function createRefund() {
       lineItems: selectedRefundLines.value.map(({ lineItem }) => ({
         lineItemId: lineItem.id,
         quantity: Number(refundQuantities.value[String(lineItem.id)]),
-        restockType:
-          refundRestockTypes.value[String(lineItem.id)] || "NO_RESTOCK",
+        restockType: refundRestockTypes.value[String(lineItem.id)] || "NO_RESTOCK",
       })),
       note: refundNote.value,
       notify: notifyCustomer.value,
@@ -455,7 +457,10 @@ function formatTransactionTime(value?: string | null) {
   <section class="financial-panel" aria-labelledby="financial-actions-title">
     <header>
       <div>
-        <div class="panel-title"><CreditCard aria-hidden="true" /><h2 id="financial-actions-title">{{ t("financial.title") }}</h2></div>
+        <div class="panel-title">
+          <CreditCard aria-hidden="true" />
+          <h2 id="financial-actions-title">{{ t("financial.title") }}</h2>
+        </div>
         <p>{{ t("financial.description") }}</p>
       </div>
       <div class="action-row">
@@ -464,7 +469,9 @@ function formatTransactionTime(value?: string | null) {
           :disabled="orderStore.isMutating"
           @click="setMode('capture')"
         >
-          <template #icon><X v-if="mode === 'capture'" /><CreditCard v-else /></template>
+          <template #icon
+            ><X v-if="mode === 'capture'" /><CreditCard v-else
+          /></template>
           {{ mode === "capture" ? t("common.close") : t("financial.capture") }}
         </BaseButton>
         <BaseButton
@@ -526,7 +533,11 @@ function formatTransactionTime(value?: string | null) {
             :value="String(option.transaction.id)"
           >
             {{ option.transaction.gateway || t("financial.payment") }} ·
-            {{ t("financial.remaining", { amount: fmtMoney(option.remaining, option.transaction.currency) }) }}
+            {{
+              t("financial.remaining", {
+                amount: fmtMoney(option.remaining, option.transaction.currency),
+              })
+            }}
           </option>
         </select>
       </label>
@@ -545,6 +556,7 @@ function formatTransactionTime(value?: string | null) {
           :disabled="!selectedAuthorizationId || Number(captureAmount) <= 0"
           @click="capturePayment"
         >
+          <template #icon><CreditCard /></template>
           {{ t("financial.capturePayment") }}
         </BaseButton>
       </div>
@@ -564,12 +576,7 @@ function formatTransactionTime(value?: string | null) {
             :value="String(option.transaction.id)"
           >
             {{ option.transaction.gateway || t("financial.payment") }} ·
-            {{
-              fmtMoney(
-                option.remaining,
-                option.transaction.currency,
-              )
-            }}
+            {{ fmtMoney(option.remaining, option.transaction.currency) }}
             {{ t("financial.uncaptured") }}
           </option>
         </select>
@@ -584,6 +591,7 @@ function formatTransactionTime(value?: string | null) {
           :disabled="!selectedVoidTransactionId"
           @click="voidAuthorization"
         >
+          <template #icon><CircleOff /></template>
           {{ t("order.voidAuthorization") }}
         </BaseButton>
       </div>
@@ -629,6 +637,7 @@ function formatTransactionTime(value?: string | null) {
           "
           @click="createManualPayment"
         >
+          <template #icon><Banknote /></template>
           {{ t("financial.recordManualPayment") }}
         </BaseButton>
       </div>
@@ -648,16 +657,26 @@ function formatTransactionTime(value?: string | null) {
             :value="String(option.transaction.id)"
           >
             {{ option.transaction.gateway || t("financial.payment") }} ·
-            {{ t("financial.refundable", { amount: fmtMoney(option.remaining, option.transaction.currency) }) }}
+            {{
+              t("financial.refundable", {
+                amount: fmtMoney(option.remaining, option.transaction.currency),
+              })
+            }}
           </option>
         </select>
       </label>
 
       <div class="refund-lines">
         <div class="field-label">{{ t("financial.refundLineItems") }}</div>
-        <div v-for="entry in refundableLines" :key="entry.lineItem.id" class="refund-line">
+        <div
+          v-for="entry in refundableLines"
+          :key="entry.lineItem.id"
+          class="refund-line"
+        >
           <div>
-            <strong>{{ entry.lineItem.name || entry.lineItem.title || t("financial.item") }}</strong>
+            <strong>{{
+              entry.lineItem.name || entry.lineItem.title || t("financial.item")
+            }}</strong>
             <small>{{ t("financial.available", { count: entry.remaining }) }}</small>
           </div>
           <input
@@ -686,7 +705,10 @@ function formatTransactionTime(value?: string | null) {
         </label>
         <label>
           <span>{{ t("financial.internalNote") }}</span>
-          <input v-model="refundNote" :placeholder="t('financial.refundReasonPlaceholder')" />
+          <input
+            v-model="refundNote"
+            :placeholder="t('financial.refundReasonPlaceholder')"
+          />
         </label>
         <label>
           <span>{{ t("financial.adjustmentReason") }}</span>
@@ -712,6 +734,7 @@ function formatTransactionTime(value?: string | null) {
           :disabled="!selectedRefundLines.length || Number(refundAmount) <= 0"
           @click="createRefund"
         >
+          <template #icon><RotateCcw /></template>
           {{ t("financial.issuePartialRefund") }}
         </BaseButton>
       </div>
@@ -724,8 +747,14 @@ function formatTransactionTime(value?: string | null) {
     <section class="transaction-history" aria-labelledby="transaction-history-title">
       <div class="transaction-history-head">
         <div>
-          <strong id="transaction-history-title">{{ t("financial.transactionHistory") }}</strong>
-          <span>{{ t("financial.totalCount", { count: transactionCount || transactions.length }) }}</span>
+          <strong id="transaction-history-title">{{
+            t("financial.transactionHistory")
+          }}</strong>
+          <span>{{
+            t("financial.totalCount", {
+              count: transactionCount || transactions.length,
+            })
+          }}</span>
         </div>
         <label class="currency-toggle">
           <input v-model="showShopCurrency" type="checkbox" />
@@ -804,8 +833,7 @@ function formatTransactionTime(value?: string | null) {
                         <dt>{{ t("financial.parentId") }}</dt>
                         <dd>
                           {{
-                            transactionDetails[String(transaction.id)]?.parent_id ||
-                            "—"
+                            transactionDetails[String(transaction.id)]?.parent_id || "—"
                           }}
                         </dd>
                       </div>
@@ -845,9 +873,7 @@ function formatTransactionTime(value?: string | null) {
                     >
                       <strong>{{ t("financial.extendedAuthorization") }}</strong>
                       <pre>{{
-                        formattedExtendedAuthorizationAttributes[
-                          String(transaction.id)
-                        ]
+                        formattedExtendedAuthorizationAttributes[String(transaction.id)]
                       }}</pre>
                     </div>
                   </div>

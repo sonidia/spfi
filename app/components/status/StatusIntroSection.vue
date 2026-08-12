@@ -53,8 +53,8 @@ const { t } = useLocalization();
   border-radius: 14px;
   background: linear-gradient(
     145deg,
-    rgba(223, 244, 232, 0.88),
-    rgba(226, 238, 249, 0.72)
+    color-mix(in srgb, var(--green-soft) 88%, transparent),
+    color-mix(in srgb, var(--blue-soft) 72%, transparent)
   );
   color: var(--green);
 }

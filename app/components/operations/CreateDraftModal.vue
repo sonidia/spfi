@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FilePlus2, X } from "@lucide/vue";
 import { computed, reactive, ref } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useCommerceOpsStore } from "~/stores/commerceOps";
@@ -65,8 +66,13 @@ async function submit() {
             <p class="ops-eyebrow">Draft orders</p>
             <h2>Create a manual sale</h2>
           </div>
-          <button type="button" class="ops-modal-close" @click="emit('close')">
-            ×
+          <button
+            type="button"
+            class="ops-modal-close"
+            aria-label="Close"
+            @click="emit('close')"
+          >
+            <X aria-hidden="true" />
           </button>
         </header>
         <div class="ops-form-grid">
@@ -122,9 +128,11 @@ async function submit() {
         <p v-if="localError" class="ops-form-error" role="alert">{{ localError }}</p>
         <footer>
           <BaseButton type="button" :disabled="store.isMutating" @click="emit('close')">
+            <template #icon><X /></template>
             Cancel
           </BaseButton>
           <BaseButton type="submit" variant="primary" :loading="store.isMutating">
+            <template #icon><FilePlus2 /></template>
             Create draft
           </BaseButton>
         </footer>

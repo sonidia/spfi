@@ -55,7 +55,7 @@ const emit = defineEmits<{
   border-radius: 8px;
   padding: 0 12px;
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
   cursor: pointer;
   font-family: inherit;
   font-size: 0.8rem;
@@ -81,8 +81,8 @@ const emit = defineEmits<{
 .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: white;
+  border: 2px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-top-color: currentColor;
   border-radius: 999px;
   animation: spin 0.8s linear infinite;
 }

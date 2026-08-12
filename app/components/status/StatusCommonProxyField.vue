@@ -215,7 +215,7 @@ function getErrorMessage(error: unknown, fallback: string) {
   border-radius: 8px;
   padding: 0 12px;
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
   cursor: pointer;
   font: inherit;
   font-size: 0.8rem;

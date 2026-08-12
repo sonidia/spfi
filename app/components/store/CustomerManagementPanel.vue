@@ -1,5 +1,16 @@
 <script setup lang="ts">
-import { Copy, Link, Mail, MapPin, Pencil, Plus, Star, Trash2, X } from "@lucide/vue";
+import {
+  Copy,
+  Link,
+  Mail,
+  MapPin,
+  Pencil,
+  Plus,
+  Save,
+  Star,
+  Trash2,
+  X,
+} from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useCustomers } from "~/composables/useCustomers";
 import { useToastStore } from "~/stores/toast";
@@ -460,12 +471,16 @@ function addressSummary(address: ShopifyCustomerAddress) {
         </div>
 
         <footer>
-          <BaseButton type="button" @click="closeDialog">Cancel</BaseButton>
+          <BaseButton type="button" @click="closeDialog">
+            <template #icon><X /></template>
+            Cancel
+          </BaseButton>
           <BaseButton
             variant="primary"
             :loading="isMutating"
             @click="dialog === 'customer' ? submitCustomer() : submitAddress()"
           >
+            <template #icon><Save /></template>
             Save
           </BaseButton>
         </footer>

@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { Boxes, ImagePlus, Pencil, Plus, RefreshCw, Save, Trash2 } from "@lucide/vue";
+import {
+  Boxes,
+  ImagePlus,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Save,
+  Trash2,
+  X,
+} from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useLocations } from "~/composables/useLocations";
 import { useProductOperations } from "~/composables/useProductOperations";
@@ -377,9 +386,10 @@ async function afterMutation() {
           }}</span></label
         >
         <div class="form-actions">
-          <BaseButton v-if="editingVariantId" @click="resetVariantForm">{{
-            t("common.cancel")
-          }}</BaseButton>
+          <BaseButton v-if="editingVariantId" @click="resetVariantForm">
+            <template #icon><X /></template>
+            {{ t("common.cancel") }}
+          </BaseButton>
           <BaseButton
             variant="primary"
             :loading="operations.isLoading.value"

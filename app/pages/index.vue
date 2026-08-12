@@ -402,7 +402,7 @@ const faqItems = computed(() => [
 
 .hero-btn-primary {
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
 }
 
 .hero-btn-secondary {
@@ -885,7 +885,7 @@ const faqItems = computed(() => [
 }
 
 .runbook-item:hover {
-  background: rgba(255, 255, 255, 0.48);
+  background: color-mix(in srgb, var(--surface-raised) 48%, transparent);
   transform: translateY(-2px);
 }
 

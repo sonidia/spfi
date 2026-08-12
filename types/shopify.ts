@@ -62,6 +62,7 @@ export interface ShopifyAddress {
   province_code?: string | null;
   zip?: string | null;
   country?: string | null;
+  country_code?: string | null;
   latitude?: number | null;
   longitude?: number | null;
 }

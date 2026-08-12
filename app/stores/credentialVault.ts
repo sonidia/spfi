@@ -40,7 +40,6 @@ function writeStoredShop(storeId: string, data: StoreLocalData) {
 
 function emptyTrackingSettings(): TrackingProviderSettings {
   return {
-    baseUrl: "",
     apiKey: "",
   };
 }
@@ -49,7 +48,6 @@ function normalizeTrackingSettings(
   value: Partial<TrackingProviderSettings> | null | undefined,
 ): TrackingProviderSettings {
   return {
-    baseUrl: String(value?.baseUrl || "").trim(),
     apiKey: String(value?.apiKey || "").trim(),
   };
 }

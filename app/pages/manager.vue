@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ArrowDown, ArrowUp, X } from "@lucide/vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import type { AddStoreMode } from "~/composables/useAddStoreConnection";
@@ -388,6 +389,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                       close();
                     "
                   >
+                    <ArrowUp aria-hidden="true" />
                     Domain (A-Z)
                   </button>
                   <button
@@ -400,6 +402,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                       close();
                     "
                   >
+                    <ArrowDown aria-hidden="true" />
                     Domain (Z-A)
                   </button>
                   <div class="popover-divider"></div>
@@ -413,6 +416,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                       close();
                     "
                   >
+                    <ArrowUp aria-hidden="true" />
                     Expiry (Oldest)
                   </button>
                   <button
@@ -425,6 +429,7 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
                       close();
                     "
                   >
+                    <ArrowDown aria-hidden="true" />
                     Expiry (Newest)
                   </button>
                 </div>
@@ -498,7 +503,14 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
         <div class="modal-card">
           <div class="modal-head">
             <h3 class="modal-title">Edit Store</h3>
-            <button class="btn-ghost" @click="closeEditModal">✕</button>
+            <button
+              class="btn-ghost"
+              type="button"
+              :aria-label="t('common.close')"
+              @click="closeEditModal"
+            >
+              <X aria-hidden="true" />
+            </button>
           </div>
 
           <div class="modal-body">

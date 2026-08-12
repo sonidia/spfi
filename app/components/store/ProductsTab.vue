@@ -40,6 +40,7 @@
               :disabled="isBulkUpdating"
               @click="runBulkPublication(true)"
             >
+              <Eye aria-hidden="true" />
               {{
                 isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkPublish")
               }}
@@ -50,6 +51,7 @@
               :disabled="isBulkUpdating"
               @click="runBulkPublication(false)"
             >
+              <EyeOff aria-hidden="true" />
               {{
                 isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkUnpublish")
               }}
@@ -60,6 +62,7 @@
               :disabled="isBulkUpdating"
               @click="clearBulkSelection"
             >
+              <X aria-hidden="true" />
               {{ t("common.clear") }}
             </button>
           </div>
@@ -193,6 +196,7 @@
                                 close();
                               "
                             >
+                              <Eye aria-hidden="true" />
                               {{ t("product.details") }}
                             </button>
                             <button
@@ -203,6 +207,7 @@
                                 close();
                               "
                             >
+                              <Pencil aria-hidden="true" />
                               {{ t("common.edit") }}
                             </button>
                             <button
@@ -214,6 +219,11 @@
                                 close();
                               "
                             >
+                              <EyeOff
+                                v-if="isProductPublished(prod)"
+                                aria-hidden="true"
+                              />
+                              <Eye v-else aria-hidden="true" />
                               {{
                                 publishingProductId === prod.id
                                   ? t("product.publicationSaving")
@@ -230,6 +240,7 @@
                                 close();
                               "
                             >
+                              <Trash2 aria-hidden="true" />
                               {{ t("common.delete") }}
                             </button>
                           </div>
@@ -277,7 +288,7 @@
             :aria-label="t('common.close')"
             @click="showCreateModal = false"
           >
-            x
+            <X aria-hidden="true" />
           </button>
         </div>
         <div class="modal-body">
@@ -353,6 +364,7 @@
         </div>
         <div class="modal-actions">
           <button class="btn-outline" @click="showCreateModal = false">
+            <X aria-hidden="true" />
             {{ t("common.cancel") }}
           </button>
           <button
@@ -360,6 +372,7 @@
             @click="createProduct"
             :disabled="productStore.isLoading"
           >
+            <Plus aria-hidden="true" />
             {{
               productStore.isLoading ? t("product.creating") : t("product.createTitle")
             }}
@@ -383,7 +396,7 @@
             :aria-label="t('common.close')"
             @click="showEditModal = false"
           >
-            x
+            <X aria-hidden="true" />
           </button>
         </div>
         <div class="modal-body">
@@ -433,6 +446,7 @@
         </div>
         <div class="modal-actions">
           <button class="btn-outline" @click="showEditModal = false">
+            <X aria-hidden="true" />
             {{ t("common.cancel") }}
           </button>
           <button
@@ -440,6 +454,7 @@
             @click="saveEditProduct"
             :disabled="productStore.isLoading"
           >
+            <Save aria-hidden="true" />
             {{
               productStore.isLoading ? t("product.saving") : t("product.saveChanges")
             }}
@@ -451,7 +466,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus } from "@lucide/vue";
+import { Eye, EyeOff, Pencil, Plus, Save, Trash2, X } from "@lucide/vue";
 import { computed, nextTick, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
@@ -1011,7 +1026,7 @@ async function refreshProducts() {
   gap: 6px;
   padding: 6px 12px;
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
   border: none;
   border-radius: 6px;
   font-size: 13px;
@@ -1023,6 +1038,9 @@ async function refreshProducts() {
 }
 
 .btn-ghost-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: transparent;
   border: none;
   color: var(--text-link);
@@ -1036,6 +1054,14 @@ async function refreshProducts() {
   background: var(--blue-soft);
 }
 
+.btn-ghost-sm :deep(svg),
+.popover-item :deep(svg),
+.modal-actions button :deep(svg) {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
 .btn-icon {
   padding: 4px;
   display: flex;
@@ -1047,7 +1073,9 @@ async function refreshProducts() {
   padding: 4px;
 }
 .popover-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   width: 100%;
   text-align: left;
   padding: 8px 12px;
@@ -1119,11 +1147,18 @@ async function refreshProducts() {
   font-weight: 600;
 }
 .btn-close {
+  display: inline-grid;
+  place-items: center;
   background: none;
   border: none;
   font-size: 18px;
   cursor: pointer;
   color: var(--text-sub);
+}
+
+.btn-close :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 .modal-body {
   padding: 20px;
@@ -1183,6 +1218,9 @@ async function refreshProducts() {
   gap: 12px;
 }
 .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 10px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1196,9 +1234,12 @@ async function refreshProducts() {
   background: var(--surface-soft);
 }
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 10px 16px;
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
   border: none;
   border-radius: 8px;
   font-size: 14px;

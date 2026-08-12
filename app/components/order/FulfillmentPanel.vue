@@ -32,8 +32,7 @@ const trackingUrl = ref("");
 const notifyCustomer = ref(true);
 
 const canFulfill = computed(
-  () =>
-    !props.order.cancelled_at && props.order.fulfillment_status !== "fulfilled",
+  () => !props.order.cancelled_at && props.order.fulfillment_status !== "fulfilled",
 );
 const selectedGroups = computed(() =>
   fulfillmentOrders.value
@@ -87,10 +86,7 @@ async function loadFulfillmentOrders() {
       ),
     );
   } catch (error) {
-    localError.value = getAppErrorMessage(
-      error,
-      "Failed to load fulfillable items.",
-    );
+    localError.value = getAppErrorMessage(error, "Failed to load fulfillable items.");
   } finally {
     isLoading.value = false;
   }
@@ -111,7 +107,11 @@ function lineItemName(lineItem: ShopifyFulfillmentOrderLineItem) {
   const orderLine = (props.order.line_items || []).find(
     (candidate) => String(candidate.id) === String(lineItem.line_item_id),
   );
-  return orderLine?.name || orderLine?.title || `Item ${lineItem.line_item_id || lineItem.id}`;
+  return (
+    orderLine?.name ||
+    orderLine?.title ||
+    `Item ${lineItem.line_item_id || lineItem.id}`
+  );
 }
 
 function normalizeQuantity(
@@ -164,10 +164,17 @@ async function createFulfillment() {
 </script>
 
 <template>
-  <section v-if="canFulfill" class="fulfillment-panel" aria-labelledby="fulfillment-title">
+  <section
+    v-if="canFulfill"
+    class="fulfillment-panel"
+    aria-labelledby="fulfillment-title"
+  >
     <header>
       <div>
-        <div class="panel-title"><PackageCheck aria-hidden="true" /><h2 id="fulfillment-title">Fulfillment</h2></div>
+        <div class="panel-title">
+          <PackageCheck aria-hidden="true" />
+          <h2 id="fulfillment-title">Fulfillment</h2>
+        </div>
         <p>Select exact quantities to prevent accidental full fulfillment.</p>
       </div>
       <BaseButton :disabled="orderStore.isMutating" @click="togglePanel">
@@ -182,7 +189,11 @@ async function createFulfillment() {
         No open fulfillment items are available.
       </div>
       <template v-else>
-        <div v-for="fulfillmentOrder in fulfillmentOrders" :key="fulfillmentOrder.id" class="group">
+        <div
+          v-for="fulfillmentOrder in fulfillmentOrders"
+          :key="fulfillmentOrder.id"
+          class="group"
+        >
           <div class="group-title">Fulfillment order {{ fulfillmentOrder.id }}</div>
           <div
             v-for="lineItem in fulfillmentOrder.line_items || []"
@@ -210,7 +221,10 @@ async function createFulfillment() {
         <div class="tracking-grid">
           <label><span>Tracking number</span><input v-model="trackingNumber" /></label>
           <label><span>Carrier</span><input v-model="trackingCompany" /></label>
-          <label class="full"><span>Tracking URL (optional)</span><input v-model="trackingUrl" type="url" /></label>
+          <label class="full"
+            ><span>Tracking URL (optional)</span
+            ><input v-model="trackingUrl" type="url"
+          /></label>
           <label class="check-row">
             <input v-model="notifyCustomer" type="checkbox" />
             <span>Notify customer</span>
@@ -223,7 +237,10 @@ async function createFulfillment() {
             :disabled="!selectedGroups.length"
             @click="createFulfillment"
           >
-            Fulfill {{ selectedItemCount || "selected" }} item{{ selectedItemCount === 1 ? "" : "s" }}
+            <template #icon><PackageCheck /></template>
+            Fulfill {{ selectedItemCount || "selected" }} item{{
+              selectedItemCount === 1 ? "" : "s"
+            }}
           </BaseButton>
         </div>
       </template>
@@ -236,36 +253,154 @@ async function createFulfillment() {
 </template>
 
 <style scoped>
-.fulfillment-panel { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
-.panel-title { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
-.panel-title :deep(svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--green); }
-h2 { color: var(--text); font-size: 15px; }
-header p { margin: 3px 0 0; color: var(--text-sub); font-size: 12px; }
-.fulfillment-body { border-top: 1px solid var(--border); background: var(--surface-soft); }
-.group + .group { border-top: 1px solid var(--border); }
-.group-title { padding: 10px 16px 4px; color: var(--text-sub); font-size: 11px; font-weight: 600; }
-.item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; }
-.item-row > div { display: grid; min-width: 0; }
-.item-row strong { overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.item-row small { color: var(--text-sub); font-size: 11px; }
-.item-row label { display: grid; flex: 0 0 90px; gap: 4px; }
-.tracking-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; padding: 14px 16px; border-top: 1px solid var(--border); }
-label { display: grid; gap: 5px; }
-label > span { color: var(--text-sub); font-size: 11px; font-weight: 600; }
-input { width: 100%; min-height: 34px; border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; background: var(--surface-raised); color: var(--text); font: inherit; }
-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
-.full { grid-column: 1 / -1; }
-.check-row { display: flex; align-items: center; gap: 8px; }
-.check-row input { width: 16px; min-height: 16px; }
-.actions { display: flex; justify-content: flex-end; padding: 0 16px 16px; }
-.panel-note, .panel-error { padding: 10px 16px; font-size: 12px; }
-.panel-note { color: var(--text-sub); }
-.panel-error { border-top: 1px solid rgba(180, 49, 43, 0.2); background: var(--red-soft); color: var(--red); }
+.fulfillment-panel {
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+}
+.panel-title {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-title :deep(svg) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--green);
+}
+h2 {
+  color: var(--text);
+  font-size: 15px;
+}
+header p {
+  margin: 3px 0 0;
+  color: var(--text-sub);
+  font-size: 12px;
+}
+.fulfillment-body {
+  border-top: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.group + .group {
+  border-top: 1px solid var(--border);
+}
+.group-title {
+  padding: 10px 16px 4px;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+}
+.item-row > div {
+  display: grid;
+  min-width: 0;
+}
+.item-row strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-row small {
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.item-row label {
+  display: grid;
+  flex: 0 0 90px;
+  gap: 4px;
+}
+.tracking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+label {
+  display: grid;
+  gap: 5px;
+}
+label > span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+}
+input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+}
+.full {
+  grid-column: 1 / -1;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.check-row input {
+  width: 16px;
+  min-height: 16px;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 16px;
+}
+.panel-note,
+.panel-error {
+  padding: 10px 16px;
+  font-size: 12px;
+}
+.panel-note {
+  color: var(--text-sub);
+}
+.panel-error {
+  border-top: 1px solid rgba(180, 49, 43, 0.2);
+  background: var(--red-soft);
+  color: var(--red);
+}
 
 @media (max-width: 760px) {
-  header { align-items: flex-start; flex-direction: column; }
-  .tracking-grid { grid-template-columns: 1fr; }
-  .full { grid-column: auto; }
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .tracking-grid {
+    grid-template-columns: 1fr;
+  }
+  .full {
+    grid-column: auto;
+  }
 }
 </style>

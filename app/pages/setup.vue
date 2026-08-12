@@ -639,9 +639,9 @@ const copyScopes = async () => {
   height: 80px;
   background: linear-gradient(
     to bottom,
-    rgba(249, 249, 252, 0) 0%,
-    rgba(249, 249, 252, 0.8) 50%,
-    rgba(249, 249, 252, 1) 100%
+    transparent 0%,
+    color-mix(in srgb, var(--surface-soft) 80%, transparent) 50%,
+    var(--surface-soft) 100%
   );
   pointer-events: none;
   transition: opacity 0.4s ease;

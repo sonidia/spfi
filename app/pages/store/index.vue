@@ -548,9 +548,9 @@ watch([activeTabError, activeTab], ([message]) => {
 }
 
 .payment-warning {
-  border-color: rgba(161, 92, 0, 0.2);
-  background: rgba(255, 184, 0, 0.1);
-  color: #8a5500;
+  border-color: color-mix(in srgb, var(--amber) 24%, var(--border));
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 
 :deep(.empty) {

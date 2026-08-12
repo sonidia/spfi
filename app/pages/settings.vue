@@ -13,6 +13,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDataRetentionStore } from "~/stores/dataRetention";
 import { useToastStore } from "~/stores/toast";
 import { PINIA_RETENTION_PRESETS } from "~~/utils/pinia-retention";
+import { TRACKTACO_V2_BASE_URL } from "~~/utils/tracktaco";
 
 definePageMeta({ layout: false });
 
@@ -22,7 +23,6 @@ const dataRetention = useDataRetentionStore();
 const toast = useToastStore();
 const { requestConfirmation } = useConfirmDialog();
 
-const endpoint = ref("");
 const apiKey = ref("");
 const showApiKey = ref(false);
 const isSaving = ref(false);
@@ -55,25 +55,15 @@ const retentionLabel = computed(() => {
   }).format(value);
 });
 
-const isConfigured = computed(
-  () =>
-    Boolean(credentialVault.trackingSettings.baseUrl) &&
-    Boolean(credentialVault.trackingSettings.apiKey),
-);
+const isConfigured = computed(() => Boolean(credentialVault.trackingSettings.apiKey));
 
 const hasChanges = computed(
-  () =>
-    endpoint.value.trim() !== credentialVault.trackingSettings.baseUrl ||
-    apiKey.value.trim() !== credentialVault.trackingSettings.apiKey,
+  () => apiKey.value.trim() !== credentialVault.trackingSettings.apiKey,
 );
 
 watch(
-  () => [
-    credentialVault.trackingSettings.baseUrl,
-    credentialVault.trackingSettings.apiKey,
-  ],
+  () => credentialVault.trackingSettings.apiKey,
   () => {
-    endpoint.value = credentialVault.trackingSettings.baseUrl;
     apiKey.value = credentialVault.trackingSettings.apiKey;
     formError.value = "";
   },
@@ -81,36 +71,17 @@ watch(
 );
 
 async function saveSettings() {
-  const normalizedEndpoint = endpoint.value.trim();
   const normalizedApiKey = apiKey.value.trim();
   formError.value = "";
 
-  if (!normalizedEndpoint || !normalizedApiKey) {
+  if (!normalizedApiKey) {
     formError.value = t("settings.required");
-    return;
-  }
-
-  let parsedEndpoint: URL;
-  try {
-    parsedEndpoint = new URL(normalizedEndpoint);
-    if (
-      parsedEndpoint.protocol !== "https:" ||
-      parsedEndpoint.username ||
-      parsedEndpoint.password ||
-      (parsedEndpoint.port && parsedEndpoint.port !== "443")
-    ) {
-      throw new Error("Invalid HTTPS endpoint");
-    }
-  } catch {
-    formError.value = t("settings.httpsRequired");
     return;
   }
 
   isSaving.value = true;
   try {
-    parsedEndpoint.hash = "";
     await credentialVault.saveTrackingSettings({
-      baseUrl: parsedEndpoint.toString(),
       apiKey: normalizedApiKey,
     });
     toast.success(t("settings.saved"));
@@ -134,7 +105,6 @@ async function clearSettings() {
 
   try {
     credentialVault.removeTrackingSettings();
-    endpoint.value = "";
     apiKey.value = "";
     showApiKey.value = false;
     formError.value = "";
@@ -173,22 +143,14 @@ async function clearSettings() {
           </div>
 
           <div class="settings-form">
-            <label class="field">
+            <div class="field fixed-endpoint">
               <span class="field-label">
                 <Link2 />
                 {{ t("settings.endpointLabel") }}
               </span>
-              <input
-                v-model="endpoint"
-                type="url"
-                inputmode="url"
-                autocomplete="url"
-                spellcheck="false"
-                maxlength="2048"
-                :placeholder="t('settings.endpointPlaceholder')"
-              />
+              <code>{{ TRACKTACO_V2_BASE_URL }}/v2</code>
               <span class="field-hint">{{ t("settings.endpointHint") }}</span>
-            </label>
+            </div>
 
             <label class="field">
               <span class="field-label">
@@ -544,6 +506,20 @@ async function clearSettings() {
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+.fixed-endpoint code {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--text-link);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .field input:focus {

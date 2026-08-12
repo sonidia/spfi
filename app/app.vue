@@ -72,8 +72,11 @@ useTokenRotation();
   --blue-soft: #e2eef9;
   --amber: #9b6416;
   --amber-soft: #fff0d5;
+  --violet: #7759b6;
+  --violet-soft: #eee8ff;
   --red: #b4312b;
   --red-soft: #ffe2df;
+  --on-accent: #ffffff;
   --shadow: 0 20px 60px rgba(20, 34, 27, 0.1);
   --shadow-soft: 0 10px 28px rgba(20, 34, 27, 0.08);
   --body-gradient-start: rgba(231, 239, 234, 0.9);
@@ -122,8 +125,11 @@ html[data-theme="dark"] {
   --blue-soft: #182d42;
   --amber: #f3c56b;
   --amber-soft: #3a2b13;
+  --violet: #c7a7ff;
+  --violet-soft: #302144;
   --red: #ff8b82;
   --red-soft: #3e1f1f;
+  --on-accent: #0f1512;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   --shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.28);
   --body-gradient-start: rgba(39, 58, 47, 0.82);
@@ -236,7 +242,8 @@ input[type="checkbox"]:disabled {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(31, 122, 77, 0.45) rgba(217, 228, 221, 0.45);
+  scrollbar-color: color-mix(in srgb, var(--green) 45%, transparent)
+    color-mix(in srgb, var(--line) 45%, transparent);
 }
 
 *::-webkit-scrollbar {
@@ -462,15 +469,6 @@ html[data-theme="dark"] .note-card {
     ),
     var(--surface-soft);
   border-color: var(--border);
-}
-
-html[data-theme="dark"] .scope-box::after {
-  background: linear-gradient(
-    to bottom,
-    rgba(33, 50, 40, 0) 0%,
-    rgba(33, 50, 40, 0.82) 50%,
-    rgba(33, 50, 40, 1) 100%
-  );
 }
 
 .popover-content .popover-menu {

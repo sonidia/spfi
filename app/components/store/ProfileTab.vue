@@ -54,6 +54,7 @@
                 <IconsArrowRight />
               </a>
               <button class="profile-action" type="button" @click="openCredentialModal">
+                <KeyRound aria-hidden="true" />
                 {{ t("profile.manageCredentials") }}
               </button>
             </div>
@@ -211,6 +212,7 @@
 
           <div class="credential-modal-actions">
             <button class="profile-action" type="button" @click="closeCredentialModal">
+              <X aria-hidden="true" />
               {{ t("common.cancel") }}
             </button>
             <button

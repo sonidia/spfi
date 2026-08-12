@@ -257,7 +257,7 @@ td small {
 
 .status-badge.is-needs_response,
 .is-urgent {
-  color: #a15c00;
+  color: var(--amber);
 }
 
 .status-badge.is-won,

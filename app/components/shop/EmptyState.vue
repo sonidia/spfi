@@ -36,7 +36,11 @@ withDefaults(
   border-radius: var(--radius);
   padding: 48px 28px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.96)),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-raised) 96%, transparent),
+      color-mix(in srgb, var(--surface-soft) 74%, var(--surface))
+    ),
     var(--surface);
   text-align: center;
 }
@@ -108,7 +112,7 @@ withDefaults(
 
 :deep(.shop-empty-action.primary) {
   background: var(--text-primary);
-  color: white;
+  color: var(--bg);
 }
 
 :deep(.shop-empty-action.primary:hover) {

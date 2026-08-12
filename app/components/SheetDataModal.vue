@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { X } from "@lucide/vue";
+
 defineProps<{
   open: boolean;
   title?: string;
@@ -21,8 +23,13 @@ function onOverlayClick(event: MouseEvent) {
       <div class="modal-panel" role="dialog" aria-modal="true">
         <div class="modal-header">
           <h3 class="modal-title">{{ title || "Sheet Data" }}</h3>
-          <button class="modal-close" type="button" @click="emit('close')">
-            ×
+          <button
+            class="modal-close"
+            type="button"
+            aria-label="Close"
+            @click="emit('close')"
+          >
+            <X aria-hidden="true" />
           </button>
         </div>
         <div class="modal-body">
@@ -75,6 +82,8 @@ function onOverlayClick(event: MouseEvent) {
 .modal-close {
   width: 30px;
   height: 30px;
+  display: inline-grid;
+  place-items: center;
   border: 1px solid var(--border, #e5e5e5);
   border-radius: 6px;
   background: var(--surface, #fff);
@@ -82,6 +91,11 @@ function onOverlayClick(event: MouseEvent) {
   line-height: 1;
   cursor: pointer;
   color: var(--text-primary, #333);
+}
+
+.modal-close :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 
 .modal-close:hover {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from "@lucide/vue";
 import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useLocations } from "~/composables/useLocations";
 import type {
@@ -226,7 +227,7 @@ onUnmounted(() => {
           :aria-label="t('common.close')"
           @click="close"
         >
-          x
+          <X aria-hidden="true" />
         </button>
       </header>
 
@@ -435,6 +436,8 @@ onUnmounted(() => {
 .btn-close {
   width: 32px;
   height: 32px;
+  display: inline-grid;
+  place-items: center;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
@@ -442,6 +445,11 @@ onUnmounted(() => {
   cursor: pointer;
   font: inherit;
   font-size: 15px;
+}
+
+.btn-close :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 
 .btn-close:hover {

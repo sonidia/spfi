@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check, Trash2, X } from "@lucide/vue";
 import { nextTick, onUnmounted, ref, useId, watch } from "vue";
 
 const props = withDefaults(
@@ -108,6 +109,7 @@ onUnmounted(() => previousFocus?.focus());
               :disabled="busy"
               @click="cancel"
             >
+              <X aria-hidden="true" />
               {{ cancelLabel || t("common.cancel") }}
             </button>
             <button
@@ -117,6 +119,8 @@ onUnmounted(() => previousFocus?.focus());
               :disabled="busy"
               @click="emit('confirm')"
             >
+              <Trash2 v-if="danger" aria-hidden="true" />
+              <Check v-else aria-hidden="true" />
               {{ busy ? t("common.processing") : confirmLabel || t("common.delete") }}
             </button>
           </div>
@@ -168,12 +172,21 @@ onUnmounted(() => previousFocus?.focus());
 
 .confirm-actions button {
   min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 0 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+.confirm-actions button :deep(svg) {
+  width: 15px;
+  height: 15px;
 }
 
 .btn-secondary {
@@ -184,7 +197,7 @@ onUnmounted(() => previousFocus?.focus());
 .btn-confirm {
   border-color: var(--green);
   background: var(--green);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn-confirm.danger {

@@ -309,7 +309,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: rgba(238, 244, 240, 0.86);
+  background: var(--surface-overlay);
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 600;
