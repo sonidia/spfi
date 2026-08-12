@@ -33,11 +33,6 @@ export interface StoreLocalData {
   expiresTime?: number;
 }
 
-export interface StoreCredentials {
-  clientSecret?: string;
-  accessToken?: string;
-}
-
 export interface ShopifyMoneySet {
   shop_money?: {
     amount?: string;

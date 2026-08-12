@@ -7,13 +7,19 @@ import {
   Link2,
   Save,
   Settings2,
+  Truck,
   Trash2,
 } from "@lucide/vue";
+import type { TrackingCarrier } from "~~/types/tracking";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDataRetentionStore } from "~/stores/dataRetention";
 import { useToastStore } from "~/stores/toast";
 import { PINIA_RETENTION_PRESETS } from "~~/utils/pinia-retention";
-import { TRACKTACO_V2_BASE_URL } from "~~/utils/tracktaco";
+import {
+  TRACKTACO_CARRIERS,
+  TRACKTACO_CARRIER_NAMES,
+  TRACKTACO_V2_BASE_URL,
+} from "~~/utils/tracktaco";
 
 definePageMeta({ layout: false });
 
@@ -24,6 +30,7 @@ const toast = useToastStore();
 const { requestConfirmation } = useConfirmDialog();
 
 const apiKey = ref("");
+const carrier = ref<TrackingCarrier>("fedex");
 const showApiKey = ref(false);
 const isSaving = ref(false);
 const formError = ref("");
@@ -58,16 +65,23 @@ const retentionLabel = computed(() => {
 const isConfigured = computed(() => Boolean(credentialVault.trackingSettings.apiKey));
 
 const hasChanges = computed(
-  () => apiKey.value.trim() !== credentialVault.trackingSettings.apiKey,
+  () =>
+    apiKey.value.trim() !== credentialVault.trackingSettings.apiKey ||
+    carrier.value !== credentialVault.trackingSettings.carrier,
 );
+const carrierOptions = TRACKTACO_CARRIERS.map((value) => ({
+  value,
+  label: TRACKTACO_CARRIER_NAMES[value],
+}));
 
 watch(
-  () => credentialVault.trackingSettings.apiKey,
-  () => {
-    apiKey.value = credentialVault.trackingSettings.apiKey;
+  () => credentialVault.trackingSettings,
+  (settings) => {
+    apiKey.value = settings.apiKey;
+    carrier.value = settings.carrier;
     formError.value = "";
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
 
 async function saveSettings() {
@@ -83,6 +97,7 @@ async function saveSettings() {
   try {
     await credentialVault.saveTrackingSettings({
       apiKey: normalizedApiKey,
+      carrier: carrier.value,
     });
     toast.success(t("settings.saved"));
   } catch (error) {
@@ -106,6 +121,7 @@ async function clearSettings() {
   try {
     credentialVault.removeTrackingSettings();
     apiKey.value = "";
+    carrier.value = "fedex";
     showApiKey.value = false;
     formError.value = "";
     toast.success(t("settings.cleared"));
@@ -182,6 +198,19 @@ async function clearSettings() {
                 </button>
               </span>
               <span class="field-hint">{{ t("settings.apiKeyHint") }}</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">
+                <Truck />
+                {{ t("settings.carrierLabel") }}
+              </span>
+              <BaseSelect
+                v-model="carrier"
+                :options="carrierOptions"
+                :aria-label="t('settings.carrierLabel')"
+              />
+              <span class="field-hint">{{ t("settings.carrierHint") }}</span>
             </label>
 
             <p v-if="formError" class="form-error" role="alert">
@@ -307,6 +336,10 @@ async function clearSettings() {
 .retention-card {
   grid-column: 1 / -1;
   overflow: hidden;
+}
+
+.provider-card {
+  overflow: visible;
 }
 
 .retention-heading {

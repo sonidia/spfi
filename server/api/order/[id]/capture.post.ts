@@ -10,6 +10,11 @@ import {
   requireShopifyCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
+import {
+  loadShopifyFinancialOrder,
+  loadShopifyFinancialTransactions,
+} from "~~/server/utils/shopify-order-financial-context";
+import { assertCaptureAllowed } from "~~/server/utils/shopify-order-financial-validation";
 
 interface CaptureBody extends OrderCaptureInput {
   storeId?: string;
@@ -50,6 +55,17 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("Currency must be a three-letter code.", 400);
   }
 
+  const financialRequest = { event, storeId, token, orderId };
+  const [order, transactions] = await Promise.all([
+    loadShopifyFinancialOrder(financialRequest),
+    loadShopifyFinancialTransactions(financialRequest),
+  ]);
+  const validated = assertCaptureAllowed(order, transactions, {
+    parentTransactionId,
+    amount,
+    currency,
+  });
+
   const data = await callShopifyGraphql<
     CaptureData,
     { input: Record<string, unknown> }
@@ -77,9 +93,9 @@ export default defineEventHandler(async (event) => {
     variables: {
       input: {
         id: toShopifyGid("Order", orderId),
-        parentTransactionId: toShopifyGid("OrderTransaction", parentTransactionId),
-        amount,
-        ...(currency ? { currency } : {}),
+        parentTransactionId: toShopifyGid("OrderTransaction", validated.parent.id),
+        amount: validated.amount,
+        currency: validated.currency,
         ...(typeof body.finalCapture === "boolean"
           ? { finalCapture: body.finalCapture }
           : {}),

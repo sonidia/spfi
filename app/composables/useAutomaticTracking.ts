@@ -18,10 +18,9 @@ import type {
 import { getAppErrorMessage } from "~~/utils/error";
 import { buildOrderTransactionStatusMap } from "~~/utils/payment-transactions";
 import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
-import { TRACKTACO_CARRIER_NAMES, TRACKTACO_TRACKING_URLS } from "~~/utils/tracktaco";
+import { buildCarrierTrackingUrl, TRACKTACO_CARRIER_NAMES } from "~~/utils/tracktaco";
 
 const TRACKING_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
-const TRACKING_CARRIER = "fedex" as const;
 
 export function useAutomaticTracking() {
   const credentialVault = useCredentialVaultStore();
@@ -98,9 +97,7 @@ export function useAutomaticTracking() {
           tracking_info: {
             number: tracking.trackingNumber,
             company: TRACKTACO_CARRIER_NAMES[tracking.carrier],
-            url: `${TRACKTACO_TRACKING_URLS[tracking.carrier]}${encodeURIComponent(
-              tracking.trackingNumber,
-            )}`,
+            url: buildCarrierTrackingUrl(tracking.carrier, tracking.trackingNumber),
           },
         },
       );
@@ -135,7 +132,7 @@ export function useAutomaticTracking() {
   async function requestTrackingNumber(order: ShopifyOrder) {
     const now = Date.now();
     const body: TrackingNumberProxyRequest = {
-      carrier: TRACKING_CARRIER,
+      carrier: credentialVault.trackingSettings.carrier,
       destination: resolveTrackingDestination(order),
       shippedBetween: {
         from: formatIsoDate(now - TRACKING_LOOKBACK_MS),

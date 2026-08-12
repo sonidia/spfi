@@ -10,6 +10,8 @@ import {
   requireShopifyCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
+import { loadShopifyFinancialOrder } from "~~/server/utils/shopify-order-financial-context";
+import { assertManualPaymentAllowed } from "~~/server/utils/shopify-order-financial-validation";
 
 interface ManualPaymentBody extends OrderManualPaymentInput {
   storeId?: string;
@@ -61,9 +63,20 @@ export default defineEventHandler(async (event) => {
     throw createApiErrorFromMessage("Currency must be a three-letter code.", 400);
   }
 
+  const order = await loadShopifyFinancialOrder({
+    event,
+    storeId,
+    token,
+    orderId,
+  });
+  const validated = assertManualPaymentAllowed(order, { amount, currency });
+
   const variables: ManualPaymentVariables = {
     id: toShopifyGid("Order", orderId),
-    amount: { amount, currencyCode: currency },
+    amount: {
+      amount: validated.amount,
+      currencyCode: validated.currency,
+    },
     ...(paymentMethodName ? { paymentMethodName } : {}),
     ...(processedAt ? { processedAt } : {}),
   };

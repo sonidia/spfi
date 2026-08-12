@@ -644,6 +644,9 @@ const messages = {
   "settings.apiKeyPlaceholder": "Enter a tt_live_… or tt_test_… key",
   "settings.apiKeyHint":
     "Saved in this browser and sent as a Bearer token only for Tracktaco v2 requests.",
+  "settings.carrierLabel": "Default carrier",
+  "settings.carrierHint":
+    "Automatic tracking searches use this carrier. The revealed carrier is still used for the Shopify fulfillment.",
   "settings.showApiKey": "Show API key",
   "settings.hideApiKey": "Hide API key",
   "settings.save": "Save settings",

@@ -28,15 +28,15 @@
 
 ## Core Workflows
 
-| Route       | Workflow        | What it does                                                                                                |
-| ----------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
-| `/setup`    | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                     |
-| `/manager`  | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                  |
-| `/store`    | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, and operations. |
-| `/dashboard` | Dashboard      | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.  |
-| `/payment`  | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs. |
-| `/status`   | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.             |
-| `/settings` | Settings        | Manages Tracktaco v2 credentials, Pinia cache retention, and Google Sheets tabs and row previews.           |
+| Route        | Workflow        | What it does                                                                                                              |
+| ------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `/setup`     | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                                   |
+| `/manager`   | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                                |
+| `/store`     | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, and operations. |
+| `/dashboard` | Dashboard       | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.                |
+| `/payment`   | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.               |
+| `/status`    | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                           |
+| `/settings`  | Settings        | Manages Tracktaco v2 credentials, Pinia cache retention, and Google Sheets tabs and row previews.                         |
 
 ## Tech Stack
 
@@ -136,9 +136,11 @@ subscriptions, schema introspection, oversized inputs, and excessively nested
 queries are rejected.
 
 CSV downloads are available from `POST /api/export/csv/:resource`, where
-`resource` is `orders`, `products`, or `payments`. Responses are streamed page
-by page, emitted as UTF-8 CSV, and protected against spreadsheet formula
-injection. The store UI exposes the same exports through reusable buttons.
+`resource` is `orders`, `products`, or `payments`. Pages are written to a
+temporary UTF-8 CSV first, so an upstream pagination failure can still return a
+non-200 response; the completed file is then streamed and removed. CSV values
+are protected against spreadsheet formula injection. The store UI exposes the
+same exports through reusable buttons.
 
 `/dashboard` is an all-store operational view. The browser loads saved stores
 with a concurrency limit and calls `POST /api/dashboard` once per store. Each
@@ -180,7 +182,6 @@ The same page controls how long Shopify operational data stays reusable in
 Pinia. Presets range from no cache through one day to the default session mode,
 which keeps data until the browser page is refreshed. Only this preference is
 persisted; the Shopify response data remains in memory.
-
 
 ### Store Operations
 
@@ -309,7 +310,19 @@ The status checker supports three modes:
 
 Sheet routes are backed by `server/service_account.json` and default to the `A:Z` range unless a specific range or tab is selected.
 
-Known sheet tab defaults are configured in `utils/sheetConfig.ts`. Optional default sheet URLs can be added in `utils/sheets.ts` when a deployment needs preloaded sheets.
+Sheet defaults are deployment configuration rather than source-code constants:
+
+```env
+NUXT_PUBLIC_SHEET_URLS=https://docs.google.com/spreadsheets/d/example
+NUXT_PUBLIC_MASTER_SHEET_URL=https://docs.google.com/spreadsheets/d/master
+NUXT_PUBLIC_MASTER_SHEET_TABS=["Shopify T3/2026","Shopify T4/2026"]
+```
+
+`NUXT_PUBLIC_SHEET_URLS` preloads sheets in the viewer. The master sheet is used
+to populate store credentials when they are not entered manually. If
+`NUXT_PUBLIC_MASTER_SHEET_TABS` is empty, the app discovers and searches the
+master spreadsheet's tabs. These values are browser-visible; don't put secrets
+in the URLs or tab names.
 
 Expected header aliases for store auto-fill:
 

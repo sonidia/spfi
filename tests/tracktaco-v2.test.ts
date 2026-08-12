@@ -6,6 +6,19 @@ import {
   normalizeTrackingNumberRequest,
   parseTracktacoReveal,
 } from "../server/utils/tracktaco-v2.ts";
+import {
+  buildCarrierTrackingUrl,
+  normalizeTrackingCarrier,
+} from "../utils/tracktaco.ts";
+
+test("carrier settings normalize safely and tracking URLs encode numbers", () => {
+  assert.equal(normalizeTrackingCarrier("UPS"), "ups");
+  assert.equal(normalizeTrackingCarrier("unknown"), "fedex");
+  assert.equal(
+    buildCarrierTrackingUrl("dhl", "ABC 123&next=bad"),
+    "https://www.dhl.com/global-en/home/tracking.html?tracking-id=ABC+123%26next%3Dbad",
+  );
+});
 
 test("Tracktaco v2 request normalization validates destination and ISO dates", () => {
   assert.deepEqual(

@@ -37,16 +37,9 @@ import {
   waitForShopifyThrottle,
 } from "./shopify-throttle";
 import { resolveShopifyRestTransportRetry } from "./shopify-transport-retry";
+import type { StoreLocalData } from "~~/types/shopify";
 type ShopifyApiMethod = "GET" | "POST" | "PUT" | "DELETE";
 type ShopifyQueryParams = Record<string, unknown>;
-export type StoreCookieData = {
-  domain?: string;
-  sock?: string;
-  clientId?: string;
-  clientSecret?: string;
-  accessToken?: string;
-  expiresTime?: number;
-};
 
 export type ProxyInputMeta = {
   hasScheme: boolean;
@@ -155,7 +148,7 @@ export function inspectProxyInput(input: string): ProxyInputMeta {
   };
 }
 
-function tryParseCookieValue(rawValue: string): StoreCookieData | null {
+function tryParseCookieValue(rawValue: string): StoreLocalData | null {
   if (!rawValue) return null;
 
   const candidates = [
@@ -167,7 +160,7 @@ function tryParseCookieValue(rawValue: string): StoreCookieData | null {
     try {
       const parsed = JSON.parse(candidate);
       if (parsed && typeof parsed === "object") {
-        return parsed as StoreCookieData;
+        return parsed as StoreLocalData;
       }
     } catch {
       // Try fallback decode below.
@@ -177,7 +170,7 @@ function tryParseCookieValue(rawValue: string): StoreCookieData | null {
       const decoded = decodeURIComponent(candidate);
       const parsed = JSON.parse(decoded);
       if (parsed && typeof parsed === "object") {
-        return parsed as StoreCookieData;
+        return parsed as StoreLocalData;
       }
     } catch {
       // Ignore malformed cookie values.
@@ -220,7 +213,7 @@ function toRawProxyVariant(sock: string): string | null {
 export function resolveStoreCookieData(
   event: H3Event,
   storeId: string,
-): StoreCookieData | null {
+): StoreLocalData | null {
   const headerData = event.node?.req?.headers?.["x-store-data"];
   const requestStoreData =
     typeof headerData === "string" &&
@@ -228,7 +221,7 @@ export function resolveStoreCookieData(
     headerData.length <= MAX_STORE_DATA_HEADER_LENGTH
       ? sanitizeRequestStoreData(tryParseCookieValue(headerData))
       : null;
-  const mergeRequestData = (persisted: StoreCookieData | null) => {
+  const mergeRequestData = (persisted: StoreLocalData | null) => {
     if (!requestStoreData) return persisted;
     return {
       ...(persisted || {}),
@@ -237,7 +230,7 @@ export function resolveStoreCookieData(
       // routes that require explicit authentication input.
       accessToken: persisted?.accessToken,
       clientSecret: persisted?.clientSecret,
-    } satisfies StoreCookieData;
+    } satisfies StoreLocalData;
   };
 
   const normalizedStoreId = String(storeId || "").trim();
@@ -277,9 +270,7 @@ export function resolveStoreCookieData(
   return mergeRequestData(null);
 }
 
-function sanitizeRequestStoreData(
-  value: StoreCookieData | null,
-): StoreCookieData | null {
+function sanitizeRequestStoreData(value: StoreLocalData | null): StoreLocalData | null {
   if (!value) return null;
 
   const domain = normalizeStoreHost(value.domain).slice(0, 253);

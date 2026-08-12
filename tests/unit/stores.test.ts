@@ -36,6 +36,23 @@ describe("credential vault store", () => {
     localStorage.setItem("broken-shop", "{not-json");
     expect(vault.getStoreData("broken-shop")).toEqual({});
   });
+
+  it("migrates tracking settings to FedEx and persists another carrier", async () => {
+    localStorage.setItem(
+      "spf_tracking_provider_settings",
+      JSON.stringify({ apiKey: " legacy-key " }),
+    );
+    const vault = useCredentialVaultStore();
+    vault.initialize();
+
+    expect(vault.trackingSettings).toEqual({
+      apiKey: "legacy-key",
+      carrier: "fedex",
+    });
+
+    await vault.saveTrackingSettings({ apiKey: "key", carrier: "ups" });
+    expect(vault.trackingSettings).toEqual({ apiKey: "key", carrier: "ups" });
+  });
 });
 
 describe("order store", () => {

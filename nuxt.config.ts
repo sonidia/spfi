@@ -33,6 +33,11 @@ export default defineNuxtConfig({
     allowPrivateProxyHosts: false,
     debugProxyEnabled: process.env.NODE_ENV !== "production",
     debugProxyAllowedHosts: "httpbin.org,api.ipify.org",
+    public: {
+      sheetUrls: "",
+      masterSheetUrl: "",
+      masterSheetTabs: "",
+    },
     // Fail closed when no deployment-specific limits are configured.
     apiRateLimitPerMinute: DEFAULT_API_RATE_LIMIT_PER_MINUTE,
     tokenRateLimitPerMinute: DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,

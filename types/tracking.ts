@@ -19,10 +19,11 @@ export interface TrackingNumberRequest {
 
 export interface TrackingProviderSettings {
   apiKey: string;
+  carrier: TrackingCarrier;
 }
 
 export interface TrackingNumberProxyRequest extends TrackingNumberRequest {
-  provider: TrackingProviderSettings;
+  provider: Pick<TrackingProviderSettings, "apiKey">;
 }
 
 export interface TrackingNumberResponse {

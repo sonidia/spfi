@@ -9,7 +9,7 @@ export default withNuxt(
       ".output/**",
       "dist/**",
       "node_modules/**",
-      "src-tauri/target/**",
+      "wrapper/src-tauri/target/**",
     ],
   },
   {

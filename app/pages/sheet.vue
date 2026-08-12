@@ -17,6 +17,7 @@ import {
 definePageMeta({ layout: false });
 
 const { t } = useLocalization();
+const runtimeConfig = useRuntimeConfig();
 const { requestConfirmation } = useConfirmDialog();
 const { state: sheetList, set: setSheetList } = useLocalStorage<
   (StoredSheet | LegacyStoredSheet)[]
@@ -98,7 +99,7 @@ async function initializeDefaultSheets() {
   if (normalized.length) return;
 
   const initialSheets: StoredSheet[] = [];
-  for (const source of defaultSheets()) {
+  for (const source of defaultSheets(runtimeConfig.public.sheetUrls)) {
     const meta = await readSheetMetaSafe(source);
     if (!meta) continue;
     initialSheets.push({

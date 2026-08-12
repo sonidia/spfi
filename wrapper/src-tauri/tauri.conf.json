@@ -5,7 +5,7 @@
   "identifier": "me.thuongtruong.spfi",
   "build": {
     "devUrl": "http://localhost:3000",
-    "frontendDist": "https://app.example.com",
+    "frontendDist": "https://spfi.netlify.app",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },

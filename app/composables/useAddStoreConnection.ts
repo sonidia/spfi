@@ -3,8 +3,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import type { ShopifyAccessTokenResponse } from "~~/types/shopify";
 import { getAppErrorMessage } from "~~/utils/error";
-import { SPF_SHEET_TABS } from "~~/utils/sheetConfig";
-import { getSheetUrls } from "~~/utils/sheets";
+import { resolveMasterSheetTabs } from "~~/utils/sheetConfig";
 import { resolveTokenExpiresAt } from "~~/utils/token-lifecycle";
 
 export type AddStoreMode = "single" | "bulking";
@@ -14,9 +13,13 @@ export function useAddStoreConnection() {
   const formStore = useFormStore();
   const credentialVault = useCredentialVaultStore();
   const { t } = useLocalization();
-  const { SPF_SHEET_URL } = getSheetUrls();
-  const { readProxySheetRows, buildRangeFromSheetName, normalizeSpreadsheetId } =
-    useSheetService();
+  const runtimeConfig = useRuntimeConfig();
+  const {
+    readProxySheetRows,
+    buildRangeFromSheetName,
+    normalizeSpreadsheetId,
+    loadMetaByInput,
+  } = useSheetService();
 
   const mode = ref<AddStoreMode>("single");
   const storeId = ref("");
@@ -189,15 +192,28 @@ export function useAddStoreConnection() {
     },
     rowsBySheet: Record<string, ProxySheetRow[]>,
   ) {
-    const spreadsheetUrl = SPF_SHEET_URL.trim();
+    const spreadsheetUrl = String(runtimeConfig.public.masterSheetUrl || "").trim();
     if (!spreadsheetUrl) {
       throw new Error(
         "Master sheet is not configured. Enter Store ID, Client ID, and Client Secret manually.",
       );
     }
 
+    const configuredTabs = resolveMasterSheetTabs(
+      runtimeConfig.public.masterSheetTabs,
+    );
+    const metadata = configuredTabs.length
+      ? null
+      : await loadMetaByInput(spreadsheetUrl);
+    const sheetTabs = configuredTabs.length
+      ? configuredTabs
+      : resolveMasterSheetTabs("", metadata?.sheets || []);
+    if (!sheetTabs.length) {
+      throw new Error("The master sheet has no configured or discoverable tabs.");
+    }
+
     let match: ProxySheetRow | undefined;
-    for (const sheetName of SPF_SHEET_TABS) {
+    for (const sheetName of sheetTabs) {
       rowsBySheet[sheetName] ||= await readProxySheetRows({
         spreadsheetId: normalizeSpreadsheetId(spreadsheetUrl),
         range: buildRangeFromSheetName(sheetName),

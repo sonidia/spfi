@@ -4,11 +4,7 @@ import * as https from "node:https";
 import tls from "node:tls";
 import { URL } from "node:url";
 import type { SocksProxyAgent } from "socks-proxy-agent";
-import type {
-  CheckItem,
-  CheckSeverity,
-  StoreCheckResult,
-} from "~~/types/store-status";
+import type { CheckItem, CheckSeverity, StoreCheckResult } from "~~/types/store-status";
 import { StoreStatusInputError } from "./status-checker-errors";
 import { createSocksProxyAgents } from "./callShopifyApi";
 import { resolveProxyIp } from "./status-proxy-ip";
@@ -22,6 +18,11 @@ import {
   buildShopifyStatusVerdict,
   classifyShopifyStoreStatus,
 } from "./shopify-status-classifier";
+import {
+  buildTlsCertificateSnapshot,
+  type CertificateDetails,
+  type TlsCertificateSnapshot,
+} from "./tls-certificate";
 
 interface StoreCheckOptions {
   proxy?: string;
@@ -37,7 +38,7 @@ interface FetchSnapshot {
   headers: Record<string, string>;
   bodySnippet: string;
   contentType: string;
-  ssl?: SslSnapshot;
+  ssl?: TlsCertificateSnapshot;
   error?: string;
 }
 
@@ -47,28 +48,6 @@ interface DnsSnapshot {
   cname: string[];
   ns: string[];
   errors: string[];
-}
-
-interface SslSnapshot {
-  ok: boolean;
-  validFrom?: string;
-  validTo?: string;
-  subject?: string;
-  issuer?: string;
-  fingerprint?: string;
-  daysRemaining?: number;
-  error?: string;
-}
-
-
-type CertificateFieldValue = string | string[] | undefined;
-
-interface CertificateDetails {
-  valid_from?: string;
-  valid_to?: string;
-  subject?: Record<string, CertificateFieldValue>;
-  issuer?: Record<string, CertificateFieldValue>;
-  fingerprint256?: string;
 }
 
 const SHOPIFY_A_RECORDS = new Set(["23.227.38.65"]);
@@ -129,7 +108,7 @@ export async function checkShopifyStoreStatus(
       () => buildTimeoutSnapshot(productsUrl, "GET", "Products endpoint"),
     ),
     hasProxy
-      ? Promise.resolve<SslSnapshot | null>(null)
+      ? Promise.resolve<TlsCertificateSnapshot | null>(null)
       : resolveWithin(checkSsl(host), SSL_CHECK_TIMEOUT_MS, () => ({
           ok: false,
           error: `TLS check exceeded ${SSL_CHECK_TIMEOUT_MS}ms.`,
@@ -139,14 +118,11 @@ export async function checkShopifyStoreStatus(
       : Promise.resolve(""),
   ]);
 
-  if (
-    hasProxy &&
-    [website, http, endpoint].every((snapshot) => snapshot.error)
-  ) {
+  if (hasProxy && [website, http, endpoint].every((snapshot) => snapshot.error)) {
     const errors = Array.from(
       new Set(
-        [website.error, http.error, endpoint.error].filter(
-          (error): error is string => Boolean(error),
+        [website.error, http.error, endpoint.error].filter((error): error is string =>
+          Boolean(error),
         ),
       ),
     );
@@ -234,14 +210,10 @@ function buildTimeoutSnapshot(
 function normalizeTarget(input: string) {
   const trimmed = input.trim().replace(/^@/, "");
   if (!trimmed || /\s/.test(trimmed)) {
-    throw new StoreStatusInputError(
-      "Invalid target. Enter one public domain or URL.",
-    );
+    throw new StoreStatusInputError("Invalid target. Enter one public domain or URL.");
   }
 
-  const withHost = trimmed.includes(".")
-    ? trimmed
-    : `${trimmed}.myshopify.com`;
+  const withHost = trimmed.includes(".") ? trimmed : `${trimmed}.myshopify.com`;
   const withProtocol = /^https?:\/\//i.test(withHost)
     ? withHost
     : `https://${withHost}`;
@@ -251,14 +223,10 @@ function normalizeTarget(input: string) {
 
     url.protocol = "https:";
     if (url.username || url.password) {
-      throw new StoreStatusInputError(
-        "Target URLs cannot contain credentials.",
-      );
+      throw new StoreStatusInputError("Target URLs cannot contain credentials.");
     }
     if (url.port && url.port !== "443") {
-      throw new StoreStatusInputError(
-        "Only the standard HTTPS port can be checked.",
-      );
+      throw new StoreStatusInputError("Only the standard HTTPS port can be checked.");
     }
     const blockedHostReason = getUnsafeHostnameReason(url.hostname);
     if (blockedHostReason) {
@@ -299,12 +267,7 @@ async function fetchSnapshotWithProxyVariants(
   let lastSnapshot: FetchSnapshot | null = null;
 
   for (const agent of agents) {
-    const snapshot = await fetchSnapshotWithNodeRequest(
-      url,
-      method,
-      redirect,
-      agent,
-    );
+    const snapshot = await fetchSnapshotWithNodeRequest(url, method, redirect, agent);
 
     if (!snapshot.error) {
       return snapshot;
@@ -546,9 +509,7 @@ async function resolveOrEmpty<T>(
     return await resolver();
   } catch (error) {
     const code =
-      typeof error === "object" && error && "code" in error
-        ? String(error.code)
-        : "";
+      typeof error === "object" && error && "code" in error ? String(error.code) : "";
 
     if (code && !["ENODATA", "ENOTFOUND", "ENODOMAIN"].includes(code)) {
       errors.push(
@@ -583,9 +544,7 @@ function buildWebsiteCheck(snapshot: FetchSnapshot): CheckItem {
       details: [
         `HTTP ${snapshot.status} ${snapshot.statusText}`,
         "The page content includes a store unavailable signal.",
-        snapshot.redirected
-          ? `Redirected to ${snapshot.url}`
-          : "No redirect recorded.",
+        snapshot.redirected ? `Redirected to ${snapshot.url}` : "No redirect recorded.",
       ],
     };
   }
@@ -624,9 +583,7 @@ function buildWebsiteCheck(snapshot: FetchSnapshot): CheckItem {
       severity: "ok",
       details: [
         `HTTP ${snapshot.status} ${snapshot.statusText}`,
-        snapshot.redirected
-          ? `Redirected to ${snapshot.url}`
-          : "No redirect recorded.",
+        snapshot.redirected ? `Redirected to ${snapshot.url}` : "No redirect recorded.",
         snapshot.contentType
           ? `Content-Type: ${snapshot.contentType}`
           : "No Content-Type header.",
@@ -641,9 +598,7 @@ function buildWebsiteCheck(snapshot: FetchSnapshot): CheckItem {
     severity: snapshot.status && snapshot.status >= 500 ? "danger" : "warning",
     details: [
       `HTTP ${snapshot.status} ${snapshot.statusText}`,
-      snapshot.redirected
-        ? `Redirected to ${snapshot.url}`
-        : "No redirect recorded.",
+      snapshot.redirected ? `Redirected to ${snapshot.url}` : "No redirect recorded.",
     ],
   };
 }
@@ -833,7 +788,7 @@ function buildProductsCheck(snapshot: FetchSnapshot): CheckItem {
   };
 }
 
-async function checkSsl(host: string): Promise<SslSnapshot> {
+async function checkSsl(host: string): Promise<TlsCertificateSnapshot> {
   let resolution;
 
   try {
@@ -856,12 +811,17 @@ async function checkSsl(host: string): Promise<SslSnapshot> {
         host: pinnedAddress.address,
         port: 443,
         servername: host,
-        rejectUnauthorized: false,
+        rejectUnauthorized: true,
         timeout: SSL_CHECK_TIMEOUT_MS,
       },
       () => {
         const certificate = socket.getPeerCertificate();
-        resolve(buildSslSnapshotFromCertificate(certificate));
+        resolve(
+          buildTlsCertificateSnapshot(certificate, {
+            authorized: socket.authorized,
+            authorizationError: socket.authorizationError,
+          }),
+        );
         socket.end();
       },
     );
@@ -883,8 +843,14 @@ async function checkSsl(host: string): Promise<SslSnapshot> {
   });
 }
 
-function getSslSnapshotFromSocket(socket: unknown): SslSnapshot | undefined {
-  const tlsSocket = socket as { getPeerCertificate?: () => CertificateDetails } | undefined;
+function getSslSnapshotFromSocket(socket: unknown): TlsCertificateSnapshot | undefined {
+  const tlsSocket = socket as
+    | {
+        authorized?: boolean;
+        authorizationError?: unknown;
+        getPeerCertificate?: () => CertificateDetails;
+      }
+    | undefined;
 
   if (typeof tlsSocket?.getPeerCertificate !== "function") {
     return undefined;
@@ -896,50 +862,14 @@ function getSslSnapshotFromSocket(socket: unknown): SslSnapshot | undefined {
     return undefined;
   }
 
-  return buildSslSnapshotFromCertificate(certificate);
-}
-
-function buildSslSnapshotFromCertificate(certificate: CertificateDetails): SslSnapshot {
-  const validToTime = certificate.valid_to
-    ? new Date(certificate.valid_to).getTime()
-    : NaN;
-  const daysRemaining = Number.isFinite(validToTime)
-    ? Math.ceil((validToTime - Date.now()) / 86_400_000)
-    : undefined;
-
-  return {
-    ok:
-      Boolean(certificate.valid_to) &&
-      (daysRemaining === undefined || daysRemaining > 0),
-    validFrom: certificate.valid_from,
-    validTo: certificate.valid_to,
-    subject: formatCertificateName(certificate.subject),
-    issuer: formatCertificateName(certificate.issuer),
-    fingerprint: certificate.fingerprint256,
-    daysRemaining,
-  };
-}
-
-function formatCertificateName(
-  value?: Record<string, CertificateFieldValue>,
-): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const parts = Object.values(value).flatMap((item) => {
-    if (Array.isArray(item)) {
-      return item;
-    }
-
-    return item ? [item] : [];
+  return buildTlsCertificateSnapshot(certificate, {
+    authorized: tlsSocket.authorized === true,
+    authorizationError: tlsSocket.authorizationError,
   });
-
-  return parts.length ? parts.join(", ") : undefined;
 }
 
 function buildSslCheck(
-  snapshot: SslSnapshot,
+  snapshot: TlsCertificateSnapshot,
   host: string,
   viaProxy = false,
 ): CheckItem {
@@ -992,12 +922,8 @@ function buildSslCheck(
 function formatDnsDetails(snapshot: DnsSnapshot) {
   const details = [
     snapshot.a.length ? `A: ${snapshot.a.join(", ")}` : "No A record.",
-    snapshot.aaaa.length
-      ? `AAAA: ${snapshot.aaaa.join(", ")}`
-      : "No AAAA record.",
-    snapshot.cname.length
-      ? `CNAME: ${snapshot.cname.join(", ")}`
-      : "No CNAME record.",
+    snapshot.aaaa.length ? `AAAA: ${snapshot.aaaa.join(", ")}` : "No AAAA record.",
+    snapshot.cname.length ? `CNAME: ${snapshot.cname.join(", ")}` : "No CNAME record.",
     snapshot.ns.length ? `NS: ${snapshot.ns.join(", ")}` : "No NS record.",
   ];
 
@@ -1006,12 +932,8 @@ function formatDnsDetails(snapshot: DnsSnapshot) {
 
 function getBlockedDnsReason(snapshot: DnsSnapshot) {
   const blockedA = snapshot.a.find((record) => !isPublicIpAddress(record));
-  const blockedAaaa = snapshot.aaaa.find(
-    (record) => !isPublicIpAddress(record),
-  );
-  const blockedCname = snapshot.cname.find((record) =>
-    getUnsafeHostnameReason(record),
-  );
+  const blockedAaaa = snapshot.aaaa.find((record) => !isPublicIpAddress(record));
+  const blockedCname = snapshot.cname.find((record) => getUnsafeHostnameReason(record));
 
   if (blockedA || blockedAaaa) {
     return "The domain resolves to a private, loopback, or link-local IP, so the request was blocked.";
@@ -1023,7 +945,3 @@ function getBlockedDnsReason(snapshot: DnsSnapshot) {
 
   return "";
 }
-
-
-
-

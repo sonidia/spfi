@@ -1,9 +1,9 @@
-import { Readable } from "node:stream";
 import { defineEventHandler, readBody, setResponseHeaders, type H3Event } from "h3";
 import Papa from "papaparse";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import { iterateShopifyPaginatedApi } from "~~/server/utils/callShopifyPaginatedApi";
 import { getCsvExportDefinition } from "~~/server/utils/csv-export";
+import { prepareTextDownload } from "~~/server/utils/prepared-download";
 
 interface CsvExportBody {
   storeId?: string;
@@ -22,14 +22,22 @@ export default defineEventHandler(async (event) => {
 
   const definition = getCsvExportDefinition(resource, body.filters);
   const filename = buildFilename(storeId, resource);
-  setResponseHeaders(event, {
-    "content-type": "text/csv; charset=utf-8",
-    "content-disposition": `attachment; filename="${filename}"`,
-    "cache-control": "private, no-store",
-    "x-content-type-options": "nosniff",
-  });
+  const prepared = await prepareTextDownload(streamCsv(event, body, definition));
 
-  return Readable.from(streamCsv(event, body, definition));
+  try {
+    setResponseHeaders(event, {
+      "content-type": "text/csv; charset=utf-8",
+      "content-length": prepared.size,
+      "content-disposition": `attachment; filename="${filename}"`,
+      "cache-control": "private, no-store",
+      "x-content-type-options": "nosniff",
+      "x-spf-export-mode": "prepared",
+    });
+    return prepared.stream;
+  } catch (error) {
+    await prepared.dispose();
+    throw error;
+  }
 });
 
 async function* streamCsv(

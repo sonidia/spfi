@@ -10,6 +10,8 @@
 node_modules
 dist
 wrapper
+tests
+docs
 
 .env
 .env.*

@@ -40,10 +40,7 @@ export default defineEventHandler(async (event) => {
   const sock = String(body.sock || "").trim();
 
   if (!storeId || !clientId || !clientSecret) {
-    throw createApiErrorFromMessage(
-      "Missing storeId, clientId, or clientSecret",
-      400,
-    );
+    throw createApiErrorFromMessage("Missing storeId, clientId, or clientSecret", 400);
   }
 
   if (!sock) {
@@ -51,12 +48,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const variants = await buildNamedProxyVariants(event, sock);
-
-  for (const variant of variants) {
-    console.log(
-      `[GenerateToken] Trying proxy variant (${variant.name}): ${maskProxyUrl(variant.proxyUrl)}`,
-    );
-  }
 
   const adminDomain = resolveStoreAdminDomain(storeId);
   const url = `https://${adminDomain}/admin/oauth/access_token`;
@@ -134,12 +125,10 @@ async function buildNamedProxyVariants(
   sock: string,
 ): Promise<ProxyVariant[]> {
   try {
-    return (await resolveShopifyProxyVariants(event, sock)).map(
-      (proxyUrl, index) => ({
-        name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
-        proxyUrl,
-      }),
-    );
+    return (await resolveShopifyProxyVariants(event, sock)).map((proxyUrl, index) => ({
+      name: index === 0 ? "normalized_socks5h" : "raw_socks5h",
+      proxyUrl,
+    }));
   } catch (error) {
     throw createApiErrorFromMessage(
       error instanceof Error ? error.message : "Invalid SOCKS5 proxy.",

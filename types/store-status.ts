@@ -3,7 +3,6 @@ export type CheckSeverity = "ok" | "warning" | "danger" | "neutral";
 export type CheckPlatform = "shopify";
 export type ProxyMode = "common-proxy" | "separate-proxy" | "no-proxy";
 export type BatchStatus = "queued" | "checking" | "done" | "error";
-export type StatusRowState = BatchStatus;
 export type StoreLifecycleStatus = "alive" | "dead";
 
 export interface CheckItem {

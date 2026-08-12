@@ -8,6 +8,7 @@ import {
   writeStorageValue,
 } from "~~/utils/browser-storage";
 import { readKnownStores, writeKnownStores } from "~~/utils/known-stores";
+import { normalizeTrackingCarrier } from "~~/utils/tracktaco";
 
 const TRACKING_SETTINGS_STORAGE_KEY = "spf_tracking_provider_settings";
 const STORE_TTL_MS = 10 * 365 * 24 * 60 * 60 * 1000;
@@ -41,6 +42,7 @@ function writeStoredShop(storeId: string, data: StoreLocalData) {
 function emptyTrackingSettings(): TrackingProviderSettings {
   return {
     apiKey: "",
+    carrier: "fedex",
   };
 }
 
@@ -49,6 +51,7 @@ function normalizeTrackingSettings(
 ): TrackingProviderSettings {
   return {
     apiKey: String(value?.apiKey || "").trim(),
+    carrier: normalizeTrackingCarrier(value?.carrier),
   };
 }
 

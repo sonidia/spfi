@@ -10,6 +10,11 @@ import {
   requireShopifyCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
+import {
+  loadShopifyFinancialOrder,
+  loadShopifyFinancialTransactions,
+} from "~~/server/utils/shopify-order-financial-context";
+import { assertVoidAllowed } from "~~/server/utils/shopify-order-financial-validation";
 
 interface VoidBody extends OrderVoidInput {
   storeId?: string;
@@ -33,7 +38,7 @@ interface VoidData {
 }
 
 export default defineEventHandler(async (event) => {
-  requireShopifyResourceId(event.context.params?.id, "Order");
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<VoidBody>(event)) || ({} as VoidBody);
   const { storeId, token } = requireShopifyCredentials(body);
   const parentTransactionId = String(body.parentTransactionId || "").trim();
@@ -41,6 +46,13 @@ export default defineEventHandler(async (event) => {
   if (!parentTransactionId) {
     throw createApiErrorFromMessage("Parent transaction is required.", 400);
   }
+
+  const financialRequest = { event, storeId, token, orderId };
+  const [order, transactions] = await Promise.all([
+    loadShopifyFinancialOrder(financialRequest),
+    loadShopifyFinancialTransactions(financialRequest),
+  ]);
+  const parent = assertVoidAllowed(order, transactions, parentTransactionId);
 
   const data = await callShopifyGraphql<VoidData, { parentTransactionId: string }>({
     event,
@@ -66,7 +78,7 @@ export default defineEventHandler(async (event) => {
       }
     `,
     variables: {
-      parentTransactionId: toShopifyGid("OrderTransaction", parentTransactionId),
+      parentTransactionId: toShopifyGid("OrderTransaction", parent.id),
     },
   });
 

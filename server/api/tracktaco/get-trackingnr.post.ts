@@ -178,11 +178,6 @@ async function callTracktaco<T>(
       candidate.statusMessage ||
       "Tracktaco v2 request failed.";
 
-    console.error("[Tracktaco v2]", {
-      code: providerError?.code || "request_failed",
-      requestId: providerError?.request_id,
-      statusCode,
-    });
     throw createError({
       statusCode,
       statusMessage: "Tracktaco v2 request failed.",

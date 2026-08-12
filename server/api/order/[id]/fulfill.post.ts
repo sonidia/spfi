@@ -17,6 +17,10 @@ import {
 } from "~~/server/utils/shopify-fulfillment";
 import type { ShopifyFulfillmentOrder } from "~~/types/shopify";
 import type { OrderFulfillmentInput } from "~~/types/shopify-order";
+import {
+  buildCarrierTrackingUrl,
+  findTrackingCarrierByCompany,
+} from "~~/utils/tracktaco";
 
 interface OrderFulfillBody {
   storeId?: string;
@@ -60,11 +64,7 @@ const FULFILLMENT_CREATE_MUTATION = `#graphql
 `;
 
 export default defineEventHandler(async (event) => {
-  const appConfig = useAppConfig();
-  const orderId = requireShopifyResourceId(
-    event.context.params?.id,
-    "Order",
-  );
+  const orderId = requireShopifyResourceId(event.context.params?.id, "Order");
   const body = (await readBody<OrderFulfillBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
   const fulfillmentInfo = body.fulfillment || {};
@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     fulfillmentInfo.line_items_by_fulfillment_order,
     response.fulfillment_orders || [],
   );
-  const trackingInfo = buildTrackingInfo(fulfillmentInfo, appConfig.tracking);
+  const trackingInfo = buildTrackingInfo(fulfillmentInfo);
   const data = await callShopifyGraphql<
     FulfillmentCreateData,
     { fulfillment: GraphqlFulfillmentInput }
@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     retryTransport: false,
     variables: {
       fulfillment: {
-        notifyCustomer: fulfillmentInfo.notify_customer !== false,
+        notifyCustomer: fulfillmentInfo.notify_customer === true,
         lineItemsByFulfillmentOrder,
         ...(trackingInfo ? { trackingInfo } : {}),
       },
@@ -113,25 +113,13 @@ export default defineEventHandler(async (event) => {
   return { fulfillment: result.fulfillment };
 });
 
-function buildTrackingInfo(
-  fulfillment: Partial<OrderFulfillmentInput>,
-  defaults: { company?: unknown; url?: unknown },
-) {
-  const trackingNumber = String(
-    fulfillment.tracking_info?.number || "",
-  ).trim();
-  const trackingCompany = String(
-    fulfillment.tracking_info?.company || defaults.company || "",
-  ).trim();
-  const canUseDefaultTrackingUrl =
-    trackingNumber &&
-    trackingCompany.toLowerCase() ===
-      String(defaults.company || "").trim().toLowerCase();
+function buildTrackingInfo(fulfillment: Partial<OrderFulfillmentInput>) {
+  const trackingNumber = String(fulfillment.tracking_info?.number || "").trim();
+  const trackingCompany = String(fulfillment.tracking_info?.company || "").trim();
+  const carrier = findTrackingCarrierByCompany(trackingCompany);
   const trackingUrl = String(
     fulfillment.tracking_info?.url ||
-      (canUseDefaultTrackingUrl
-        ? `${String(defaults.url || "")}${trackingNumber}`
-        : ""),
+      (carrier ? buildCarrierTrackingUrl(carrier, trackingNumber) : ""),
   ).trim();
 
   if (!trackingNumber && !trackingUrl) return undefined;

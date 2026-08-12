@@ -928,6 +928,9 @@ const messages: Record<MessageKey, string> = {
   "setup.installApp": "Click Install app",
   "setup.chooseStore": "Chọn store hiện tại, sau đó click Install",
   "setup.noteTitle": "Note vào sheet theo format",
+  "settings.carrierLabel": "Hãng vận chuyển mặc định",
+  "settings.carrierHint":
+    "Tìm tracking tự động sẽ dùng hãng này. Fulfillment Shopify vẫn dùng hãng thực tế do Tracktaco trả về.",
 };
 
 export default messages;

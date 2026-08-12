@@ -16,18 +16,32 @@ export type CurrentSheetSelection = {
   sheetName: string;
 };
 
-const SHEET_URLS = {
-  SPF_SHEET_URL: "",
-} as const;
-
-export const getSheetUrls = () => SHEET_URLS;
-
 export const SHEET_RECENT_STORAGE_KEY = "proxy:sheet-viewer:recent";
 export const SHEET_CURRENT_STORAGE_KEY = "proxy:sheet-viewer:current";
 
-export const defaultSheets = (): string[] => {
-  return Object.values(SHEET_URLS).filter(Boolean);
-};
+export const defaultSheets = (configuredUrls: unknown): string[] =>
+  parseSheetConfigList(configuredUrls);
+
+export function parseSheetConfigList(value: unknown): string[] {
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+
+  let values: unknown[];
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      values = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      values = [];
+    }
+  } else {
+    values = raw.split(/[\r\n,]+/);
+  }
+
+  return Array.from(
+    new Set(values.map((item) => String(item || "").trim()).filter(Boolean)),
+  );
+}
 
 export function normalizeSheetNameFromRange(value: string): string {
   const beforeBang = value.split("!")[0]?.trim() || "";
@@ -66,9 +80,7 @@ export function normalizeSheetEntries(
     );
 
     const prev = normalized.get(source);
-    const mergedRanges = Array.from(
-      new Set([...(prev?.ranges || []), ...ranges]),
-    );
+    const mergedRanges = Array.from(new Set([...(prev?.ranges || []), ...ranges]));
 
     normalized.set(source, {
       source,

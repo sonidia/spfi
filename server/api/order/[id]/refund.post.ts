@@ -11,6 +11,12 @@ import {
   requireShopifyCredentials,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
+import {
+  loadShopifyFinancialOrder,
+  loadShopifyFinancialRefunds,
+  loadShopifyFinancialTransactions,
+} from "~~/server/utils/shopify-order-financial-context";
+import { assertRefundAllowed } from "~~/server/utils/shopify-order-financial-validation";
 
 interface RefundBody extends OrderRefundInput {
   storeId?: string;
@@ -97,6 +103,20 @@ export default defineEventHandler(async (event) => {
     };
   });
 
+  const financialRequest = { event, storeId, token, orderId };
+  const [order, transactions, refunds] = await Promise.all([
+    loadShopifyFinancialOrder(financialRequest),
+    loadShopifyFinancialTransactions(financialRequest),
+    loadShopifyFinancialRefunds(financialRequest),
+  ]);
+  const validated = assertRefundAllowed(order, transactions, refunds, {
+    parentTransactionId,
+    amount,
+    currency,
+    gateway,
+    lineItems,
+  });
+
   const idempotencyKey = String(body.idempotencyKey || randomUUID()).trim();
   if (!idempotencyKey || idempotencyKey.length > 255) {
     throw createApiErrorFromMessage("Invalid refund idempotency key.", 400);
@@ -108,14 +128,14 @@ export default defineEventHandler(async (event) => {
     transactions: [
       {
         orderId: toShopifyGid("Order", orderId),
-        parentId: toShopifyGid("OrderTransaction", parentTransactionId),
+        parentId: toShopifyGid("OrderTransaction", validated.parent.id),
         kind: "REFUND",
-        gateway,
-        amount,
+        gateway: validated.gateway,
+        amount: validated.amount,
       },
     ],
     discrepancyReason,
-    ...(currency ? { currency } : {}),
+    currency: validated.currency,
     ...(body.note?.trim() ? { note: body.note.trim() } : {}),
     ...(typeof body.notify === "boolean" ? { notify: body.notify } : {}),
   };
