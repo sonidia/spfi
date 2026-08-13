@@ -141,6 +141,7 @@ onMounted(async () => {
               <MarketRegionsEditor
                 v-else-if="activeSection === 'regions'"
                 :market="market"
+                :context="context"
               />
               <MarketPricingEditor
                 v-else-if="activeSection === 'pricing'"

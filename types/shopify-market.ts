@@ -3,6 +3,13 @@ export type ShopifyMarketStatus = "ACTIVE" | "DRAFT";
 export type ShopifyMarketType =
   "CHANNEL" | "COMPANY_LOCATION" | "LOCATION" | "NONE" | "REGION";
 
+export interface ShopifyMarketListFilters {
+  search?: string;
+  status?: ShopifyMarketStatus;
+  type?: ShopifyMarketType;
+  conditionTypes?: Array<Exclude<ShopifyMarketType, "NONE">>;
+}
+
 export interface ShopifyMarketCount {
   count: number;
   precision: string;
@@ -29,6 +36,39 @@ export interface ShopifyMarketCatalogSummary {
     name: string;
     currency: string;
   } | null;
+}
+
+export interface ShopifyMarketDiscountSummary {
+  id: string;
+  type: string;
+  title: string;
+  code: string | null;
+  status: string;
+}
+
+export type ShopifyMarketConditionApplicationLevel = "ALL" | "SPECIFIED";
+
+export interface ShopifyMarketConditionResourceSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean | null;
+}
+
+export interface ShopifyMarketResourceConditionSummary {
+  applicationLevel: ShopifyMarketConditionApplicationLevel | null;
+  items: ShopifyMarketConditionResourceSummary[];
+  truncated: boolean;
+}
+
+export interface ShopifyMarketConditionsSummary {
+  regions: {
+    applicationLevel: ShopifyMarketConditionApplicationLevel | null;
+    truncated: boolean;
+  } | null;
+  companyLocations: ShopifyMarketResourceConditionSummary | null;
+  locations: ShopifyMarketResourceConditionSummary | null;
+  channels: ShopifyMarketResourceConditionSummary | null;
 }
 
 export interface ShopifyMarketWebPresenceSummary {
@@ -59,6 +99,18 @@ export interface ShopifyMarketShippingOptionSummary {
   active: boolean;
   freeDeliveryMinimumValue: string | null;
   carrierService: { id: string; name: string } | null;
+  rateGroupId: string | null;
+  rates: ShopifyMarketShippingRateSummary[];
+  ratesTruncated: boolean;
+  percentageAdjustment: number | null;
+}
+
+export interface ShopifyMarketShippingRateSummary {
+  id: string;
+  price: string;
+  minimum: string | null;
+  maximum: string | null;
+  weightUnit: "GRAMS" | "KILOGRAMS" | "OUNCES" | "POUNDS" | null;
 }
 
 export interface ShopifyMarketSummary {
@@ -69,6 +121,7 @@ export interface ShopifyMarketSummary {
   type: ShopifyMarketType;
   conditionTypes: string[];
   conditionApplicationLevel: string | null;
+  conditions: ShopifyMarketConditionsSummary;
   regions: ShopifyMarketRegionSummary[];
   regionsTruncated: boolean;
   currencySettings: {
@@ -88,6 +141,9 @@ export interface ShopifyMarketSummary {
   catalogCount: ShopifyMarketCount | null;
   catalogs: ShopifyMarketCatalogSummary[];
   catalogsTruncated: boolean;
+  discountCount: ShopifyMarketCount | null;
+  discounts: ShopifyMarketDiscountSummary[];
+  discountsTruncated: boolean;
   webPresences: ShopifyMarketWebPresenceSummary[];
   webPresencesTruncated: boolean;
   shipping: {
@@ -135,7 +191,13 @@ export interface ShopifyMarketEditorContext {
     published: boolean;
   }>;
   catalogs: ShopifyMarketCatalogSummary[];
+  discounts: ShopifyMarketDiscountSummary[];
   webPresences: ShopifyMarketWebPresenceSummary[];
+  conditionOptions: {
+    companyLocations: ShopifyMarketConditionResourceSummary[];
+    locations: ShopifyMarketConditionResourceSummary[];
+    channels: ShopifyMarketConditionResourceSummary[];
+  };
   carrierServices: Array<{
     id: string;
     name: string;
@@ -180,6 +242,33 @@ export interface ShopifyMarketShippingOptionInput {
   weightUnit?: "GRAMS" | "KILOGRAMS" | "OUNCES" | "POUNDS";
   carrierServiceId?: string;
   percentageAdjustment?: number | null;
+}
+
+export interface ShopifyMarketShippingOptionUpdateInput {
+  id: string;
+  type: ShopifyMarketShippingOptionType;
+  name?: string;
+  description?: string;
+  currency: string;
+  active: boolean;
+  freeDeliveryMinimumValue?: string | null;
+  rateGroupId?: string | null;
+  rates?: ShopifyMarketShippingRateSummary[];
+  carrierServiceId?: string;
+  percentageAdjustment?: number | null;
+}
+
+export interface ShopifyMarketConditionsInput {
+  regions?: ShopifyMarketRegionInput[];
+  companyLocations?: {
+    applicationLevel: ShopifyMarketConditionApplicationLevel;
+    ids: string[];
+  };
+  locations?: {
+    applicationLevel: ShopifyMarketConditionApplicationLevel;
+    ids: string[];
+  };
+  channels?: { ids: string[] };
 }
 
 export interface ShopifyMarketLocalizationField {

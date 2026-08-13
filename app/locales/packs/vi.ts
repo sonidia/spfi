@@ -855,8 +855,13 @@ const messages: Record<MessageKey, string> = {
   "markets.title": "Shopify Markets",
   "markets.description":
     "Kiểm tra điều kiện người mua, tiền tệ, giá, catalog, URL bản địa hóa và market-driven shipping.",
-  "markets.scopeHint": "Cần scope read_markets; đổi trạng thái cần thêm write_markets.",
-  "markets.searchPlaceholder": "Tìm market, handle, quốc gia hoặc bang/tỉnh",
+  "markets.scopeHint":
+    "Tính năng chính dùng read_markets/write_markets; picker ưu đãi và điều kiện buyer dùng các read scope tương ứng.",
+  "markets.searchPlaceholder": "Tìm theo tên market",
+  "markets.filtering": "Đang lọc bằng Shopify…",
+  "markets.allConditionTypes": "Mọi loại điều kiện",
+  "markets.filterTruncated":
+    "Có hơn 250 market khớp bộ lọc. Hãy thu hẹp tên, trạng thái, loại market hoặc loại điều kiện.",
   "markets.allStatuses": "Mọi trạng thái",
   "markets.allTypes": "Mọi loại",
   "markets.total": "Tổng market",
@@ -957,9 +962,9 @@ const messages: Record<MessageKey, string> = {
     "Áp dụng quy tắc làm tròn theo market của Shopify.",
   "markets.editor.sections": "Các phần cấu hình market",
   "markets.editor.navDetails": "Thông tin",
-  "markets.editor.navRegions": "Khu vực",
+  "markets.editor.navRegions": "Điều kiện buyer",
   "markets.editor.navPricing": "Giá & tiền tệ",
-  "markets.editor.navAssignments": "Catalog & URL",
+  "markets.editor.navAssignments": "Catalog, ưu đãi & URL",
   "markets.editor.navShipping": "Shipping",
   "markets.editor.navLocalization": "Nội dung bản địa hóa",
   "markets.editor.loadingWorkspace": "Đang tải ngữ cảnh editor từ Shopify…",
@@ -1133,6 +1138,10 @@ const messages: Record<MessageKey, string> = {
     "Dùng mã tiền tệ shipping ba chữ cái hợp lệ.",
   "markets.editor.shippingNameValidation": "Nhập tên hiển thị cho buyer.",
   "markets.editor.shippingPriceValidation": "Nhập giá cho option.",
+  "markets.editor.shippingRangeValidation":
+    "Giá trị tối đa phải lớn hơn hoặc bằng giá trị tối thiểu.",
+  "markets.editor.shippingUpdateValidation":
+    "Hãy kiểm tra tên option, tiền tệ, mức phí, khoảng tier và điều chỉnh carrier.",
   "markets.editor.carrierValidation": "Chọn carrier service đang hoạt động.",
   "markets.editor.shippingConfirmTitle": "Áp dụng cấu hình shipping?",
   "markets.editor.shippingConfirmMessage":
@@ -1489,6 +1498,109 @@ const messages: Record<MessageKey, string> = {
   "product.saveOptionNames": "Lưu tên tùy chọn",
   "product.optionNamesInvalid": "Tên tùy chọn phải khác nhau và không được để trống.",
   "product.optionNamesUpdated": "Đã cập nhật tên tùy chọn sản phẩm.",
+  "markets.discounts": "Ưu đãi",
+  "markets.editor.createTitleExpanded": "Tạo và cấu hình market",
+  "markets.editor.createdConfigured": "Đã tạo market cùng cấu hình ban đầu.",
+  "markets.editor.createValidationExpanded":
+    "Hãy nhập tên market và sửa các trường điều kiện hoặc giá chưa hợp lệ.",
+  "markets.editor.createSections": "Các phần cấu hình market mới",
+  "markets.editor.createNavDetails": "Thông tin market",
+  "markets.editor.createNavConditions": "Điều kiện buyer",
+  "markets.editor.createNavExperience": "Giá và gán tài nguyên",
+  "markets.editor.createNavShipping": "Giao hàng",
+  "markets.editor.warning.discounts_unavailable":
+    "Không tải được ưu đãi. Hãy kiểm tra token có scope read_discounts.",
+  "markets.editor.warning.discounts_truncated":
+    "Editor chỉ hiển thị 250 ưu đãi đầu tiên.",
+  "markets.editor.warning.company_locations_unavailable":
+    "Company location B2B không khả dụng với shop, gói dịch vụ hoặc token này.",
+  "markets.editor.warning.company_locations_truncated":
+    "Editor chỉ hiển thị 250 company location đầu tiên.",
+  "markets.editor.warning.locations_unavailable":
+    "Không tải được retail location để chỉnh điều kiện buyer.",
+  "markets.editor.warning.locations_truncated":
+    "Editor chỉ hiển thị 250 retail location đầu tiên.",
+  "markets.editor.warning.channels_unavailable":
+    "Không tải được channel để chỉnh điều kiện buyer.",
+  "markets.editor.warning.channels_truncated":
+    "Editor chỉ hiển thị 250 channel đầu tiên.",
+  "markets.editor.conditionsTitle": "Điều kiện buyer",
+  "markets.editor.conditionsDescription":
+    "Khớp buyer theo region, company location B2B, retail location hoặc channel.",
+  "markets.editor.createConditionsDescription":
+    "Kết hợp các điều kiện market cần khớp. Để trống toàn bộ nếu market không có điều kiện.",
+  "markets.editor.conditionsTruncatedTitle": "Đã khóa chỉnh sửa điều kiện",
+  "markets.editor.conditionsTruncatedDescription":
+    "Ít nhất một điều kiện có hơn 250 tài nguyên nên không thể thay thế an toàn bằng dữ liệu thiếu.",
+  "markets.editor.conditionRulesTitle":
+    "Điều kiện được cập nhật theo phần chênh lệch rõ ràng",
+  "markets.editor.conditionRulesDescription":
+    "Editor chỉ thêm hoặc xóa nhóm đã đổi và vẫn bật bảo vệ xung đột của Shopify.",
+  "markets.editor.regionFormatHintOptional":
+    "Dùng mã quốc gia ISO alpha-2. Region là tùy chọn khi dùng điều kiện buyer khác.",
+  "markets.editor.noRegionCondition": "Chưa cấu hình điều kiện region.",
+  "markets.editor.regionsValidationOptional":
+    "Mỗi dòng region phải dùng mã quốc gia hai chữ cái hợp lệ.",
+  "markets.editor.companyLocationsCondition": "Company location B2B",
+  "markets.editor.companyLocationsConditionHint":
+    "Khớp mọi company location hiện tại và tương lai hoặc chỉ các location B2B đã chọn.",
+  "markets.editor.locationsCondition": "Retail location",
+  "markets.editor.locationsConditionHint":
+    "Khớp mọi retail location hoặc một nhóm điểm bán đã chọn.",
+  "markets.editor.channelsCondition": "Kênh bán",
+  "markets.editor.channelsConditionHint":
+    "Khớp buyer mua hàng qua một hoặc nhiều channel khả dụng.",
+  "markets.editor.conditionNone": "Không dùng",
+  "markets.editor.conditionAll": "Mọi tài nguyên",
+  "markets.editor.conditionSpecified": "Tài nguyên đã chọn",
+  "markets.editor.searchConditions": "Tìm tài nguyên khả dụng",
+  "markets.editor.noConditionOptions":
+    "Không có tài nguyên khả dụng. Hãy kiểm tra entitlement của shop và access scope.",
+  "markets.editor.noBuyerConditions": "Không có điều kiện buyer",
+  "markets.editor.conditionsListTruncated":
+    "Chỉ hiển thị 250 tài nguyên đầu tiên của ít nhất một điều kiện.",
+  "markets.editor.conditionInactive": "Đã ngừng hoạt động",
+  "markets.editor.conditionSelectionRequired":
+    "Hãy chọn ít nhất một tài nguyên cho mỗi điều kiện theo lựa chọn.",
+  "markets.editor.conditionsConfirmTitle": "Áp dụng thay đổi điều kiện buyer?",
+  "markets.editor.conditionsConfirmMessage":
+    "Thay đổi {name} có thể lập tức đổi market mà buyer khớp.",
+  "markets.editor.applyConditions": "Áp dụng điều kiện",
+  "markets.editor.conditionsSaved": "Đã cập nhật điều kiện buyer.",
+  "markets.editor.discountAssignmentHint":
+    "Chọn các ưu đãi Shopify hiện có mà buyer trong market này có thể dùng.",
+  "markets.editor.noAvailableDiscounts": "Không có ưu đãi để gán.",
+  "markets.editor.noAssignedDiscounts": "Chưa gán ưu đãi nào.",
+  "markets.discountsTruncated": "Chỉ hiển thị 250 ưu đãi đầu tiên.",
+  "markets.editor.deleteWebPresence": "Xóa web presence",
+  "markets.editor.deleteWebPresenceTitle": "Xóa web presence này?",
+  "markets.editor.deleteWebPresenceMessage":
+    "Xóa vĩnh viễn {name}? Shopify có thể từ chối nếu web presence còn được gán cho market khác.",
+  "markets.editor.deleteWebPresenceFailed": "Không thể xóa web presence.",
+  "markets.editor.webPresenceDeleted": "Đã xóa web presence.",
+  "markets.editor.editShippingOption": "Sửa shipping option",
+  "markets.editor.editShippingOptionHint":
+    "Cập nhật thông tin hiển thị cho buyer và các rate Shopify đã trả về.",
+  "markets.editor.shippingRates": "Rate và tier",
+  "markets.editor.shippingRatesUnavailable":
+    "Shopify không trả về chi tiết rate có thể chỉnh cho option này.",
+  "markets.editor.shippingRatesTruncated":
+    "Một số rate group hoặc tier chưa hiển thị. Chỉ rate đã tải được cập nhật.",
+  "markets.editor.queueUpdate": "Đưa cập nhật vào hàng chờ",
+  "markets.editor.createExperienceTitle": "Giá và gán tài nguyên",
+  "markets.editor.createExperienceDescription":
+    "Cấu hình tiền tệ, price inclusions, catalog, ưu đãi và URL ngay trong mutation tạo.",
+  "markets.editor.configureAtCreation": "Cấu hình thuế và thuế nhập khẩu ngay",
+  "markets.editor.configureAtCreationHint":
+    "Gửi priceInclusions trong MarketCreateInput.",
+  "markets.editor.createAssignments": "Gán tài nguyên ban đầu",
+  "markets.editor.createShippingDescription":
+    "Kế thừa delivery, tắt delivery hoặc tạo option riêng cho market trong cùng thao tác.",
+  "markets.editor.noQueuedShippingOptions":
+    "Shipping đang bật nhưng chưa có option riêng. Hãy thêm nếu buyer cần rate theo market.",
+  "markets.editor.readyToCreate": "Đã hoàn tất các trường bắt buộc.",
+  "markets.editor.completeRequiredFields":
+    "Hoàn tất các trường bắt buộc trước khi tạo.",
 };
 
 export default messages;

@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   ShopifyMarketEditorContext,
+  ShopifyMarketListFilters,
   ShopifyMarketLocalizationResource,
   ShopifyMarketResolution,
   ShopifyMarketsResponse,
@@ -29,6 +30,10 @@ export const useMarketStore = defineStore("market", () => {
   const fetchedAt = ref<string | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const filteredResults = ref<ShopifyMarketSummary[] | null>(null);
+  const filteredTruncated = ref(false);
+  const isFiltering = ref(false);
+  const filterError = ref<string | null>(null);
   const isMutating = ref(false);
   const mutationError = ref<string | null>(null);
   const isResolving = ref(false);
@@ -39,6 +44,8 @@ export const useMarketStore = defineStore("market", () => {
   const managerError = ref<string | null>(null);
   const localization = ref<ShopifyMarketLocalizationResource | null>(null);
   let scopeVersion = 0;
+  let filterVersion = 0;
+  let activeFilters: ShopifyMarketListFilters | null = null;
 
   const cache = usePerStoreCache<MarketStoreCache>({
     capture: captureState,
@@ -84,6 +91,56 @@ export const useMarketStore = defineStore("market", () => {
     }
   }
 
+  async function fetchFiltered(
+    storeId: string,
+    token: string,
+    filters: ShopifyMarketListFilters,
+  ) {
+    if (!storeId || !token) return false;
+    cache.activate(storeId);
+    const requestVersion = scopeVersion;
+    const requestFilterVersion = ++filterVersion;
+    isFiltering.value = true;
+    filterError.value = null;
+    try {
+      const response = await $fetch<ShopifyMarketsResponse>("/api/market/all", {
+        method: "POST",
+        body: { storeId, token, filters },
+      });
+      if (
+        !isActive(storeId, requestVersion) ||
+        requestFilterVersion !== filterVersion
+      ) {
+        return false;
+      }
+      filteredResults.value = response.items || [];
+      filteredTruncated.value = response.truncated;
+      activeFilters = { ...filters };
+      return true;
+    } catch (requestError) {
+      if (isActive(storeId, requestVersion) && requestFilterVersion === filterVersion) {
+        filterError.value = getAppErrorMessage(
+          requestError,
+          "Failed to filter markets.",
+        );
+      }
+      return false;
+    } finally {
+      if (isActive(storeId, requestVersion) && requestFilterVersion === filterVersion) {
+        isFiltering.value = false;
+      }
+    }
+  }
+
+  function clearFiltered() {
+    filterVersion += 1;
+    filteredResults.value = null;
+    filteredTruncated.value = false;
+    activeFilters = null;
+    filterError.value = null;
+    isFiltering.value = false;
+  }
+
   async function setStatus(
     storeId: string,
     token: string,
@@ -105,6 +162,13 @@ export const useMarketStore = defineStore("market", () => {
       markets.value = markets.value.map((market) =>
         market.id === response.id ? { ...market, status: response.status } : market,
       );
+      if (filteredResults.value) {
+        filteredResults.value = filteredResults.value
+          .map((market) =>
+            market.id === response.id ? { ...market, status: response.status } : market,
+          )
+          .filter(matchesActiveFilters);
+      }
       cache.remember(storeId);
       return true;
     } catch (requestError) {
@@ -187,6 +251,9 @@ export const useMarketStore = defineStore("market", () => {
       input,
     });
     if (market) markets.value = [market, ...markets.value];
+    if (market && filteredResults.value && matchesActiveFilters(market)) {
+      filteredResults.value = [market, ...filteredResults.value];
+    }
     if (market) cache.remember(storeId);
     return market;
   }
@@ -203,6 +270,15 @@ export const useMarketStore = defineStore("market", () => {
     markets.value = markets.value.map((item) =>
       item.id === market.id ? market : item,
     );
+    if (filteredResults.value) {
+      const exists = filteredResults.value.some((item) => item.id === market.id);
+      filteredResults.value = filteredResults.value
+        .map((item) => (item.id === market.id ? market : item))
+        .filter(matchesActiveFilters);
+      if (!exists && matchesActiveFilters(market)) {
+        filteredResults.value = [market, ...filteredResults.value];
+      }
+    }
     cache.remember(storeId);
     return market;
   }
@@ -253,9 +329,47 @@ export const useMarketStore = defineStore("market", () => {
           item.id === presence.id ? presence : item,
         ),
       }));
+      if (filteredResults.value) {
+        filteredResults.value = filteredResults.value.map((market) => ({
+          ...market,
+          webPresences: market.webPresences.map((item) =>
+            item.id === presence.id ? presence : item,
+          ),
+        }));
+      }
       cache.remember(storeId);
     }
     return presence;
+  }
+
+  async function deleteWebPresence(storeId: string, token: string, id: string) {
+    const result = await requestManagement<{ id: string }>(
+      storeId,
+      token,
+      "/api/market/web-presence/delete",
+      { id },
+    );
+    if (!result) return false;
+    if (editorContext.value) {
+      editorContext.value = {
+        ...editorContext.value,
+        webPresences: editorContext.value.webPresences.filter(
+          (item) => item.id !== result.id,
+        ),
+      };
+    }
+    markets.value = markets.value.map((market) => ({
+      ...market,
+      webPresences: market.webPresences.filter((item) => item.id !== result.id),
+    }));
+    if (filteredResults.value) {
+      filteredResults.value = filteredResults.value.map((market) => ({
+        ...market,
+        webPresences: market.webPresences.filter((item) => item.id !== result.id),
+      }));
+    }
+    cache.remember(storeId);
+    return true;
   }
 
   async function loadLocalization(
@@ -344,6 +458,23 @@ export const useMarketStore = defineStore("market", () => {
     return cache.isActive(storeId) && scopeVersion === requestVersion;
   }
 
+  function matchesActiveFilters(market: ShopifyMarketSummary) {
+    if (!activeFilters) return true;
+    const search = activeFilters.search?.trim().toLowerCase();
+    if (search && !market.name.toLowerCase().includes(search)) return false;
+    if (activeFilters.status && market.status !== activeFilters.status) return false;
+    if (activeFilters.type && market.type !== activeFilters.type) return false;
+    if (
+      activeFilters.conditionTypes?.length &&
+      !activeFilters.conditionTypes.every((type) =>
+        market.conditionTypes.includes(type),
+      )
+    ) {
+      return false;
+    }
+    return true;
+  }
+
   function captureState(): MarketStoreCache {
     return {
       markets: [...markets.value],
@@ -362,6 +493,7 @@ export const useMarketStore = defineStore("market", () => {
     fetchedAt.value = snapshot.fetchedAt;
     resolution.value = snapshot.resolution;
     editorContext.value = snapshot.editorContext;
+    clearFiltered();
     clearTransientState();
   }
 
@@ -373,12 +505,15 @@ export const useMarketStore = defineStore("market", () => {
     resolution.value = null;
     editorContext.value = null;
     localization.value = null;
+    clearFiltered();
     clearTransientState();
   }
 
   function clearTransientState() {
     isLoading.value = false;
     error.value = null;
+    isFiltering.value = false;
+    filterError.value = null;
     isMutating.value = false;
     mutationError.value = null;
     isResolving.value = false;
@@ -398,6 +533,10 @@ export const useMarketStore = defineStore("market", () => {
     fetchedAt,
     isLoading,
     error,
+    filteredResults,
+    filteredTruncated,
+    isFiltering,
+    filterError,
     isMutating,
     mutationError,
     isResolving,
@@ -411,6 +550,8 @@ export const useMarketStore = defineStore("market", () => {
     hydrate: cache.hydrate,
     evictStore: cache.evict,
     fetchAll,
+    fetchFiltered,
+    clearFiltered,
     setStatus,
     resolveCountry,
     fetchEditorContext,
@@ -418,6 +559,7 @@ export const useMarketStore = defineStore("market", () => {
     updateMarket,
     createWebPresence,
     updateWebPresence,
+    deleteWebPresence,
     loadLocalization,
     saveLocalization,
     clearLocalization,

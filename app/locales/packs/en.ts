@@ -693,8 +693,12 @@ const messages = {
   "markets.description":
     "Inspect buyer targeting, currencies, pricing, catalogs, localized URLs, and market-driven shipping.",
   "markets.scopeHint":
-    "Requires the read_markets scope; status changes also require write_markets.",
-  "markets.searchPlaceholder": "Search market, handle, country, or subdivision",
+    "Core access uses read_markets/write_markets; discount and buyer-condition pickers use their matching read scopes.",
+  "markets.searchPlaceholder": "Search market name",
+  "markets.filtering": "Filtering with Shopify…",
+  "markets.allConditionTypes": "All condition types",
+  "markets.filterTruncated":
+    "More than 250 markets match these filters. Refine the name, status, market type, or condition type.",
   "markets.allStatuses": "All statuses",
   "markets.allTypes": "All types",
   "markets.total": "Total markets",
@@ -719,6 +723,7 @@ const messages = {
   "markets.taxStrategy": "Tax strategy",
   "markets.dutyStrategy": "Duty strategy",
   "markets.catalogs": "Catalogs",
+  "markets.discounts": "Discounts",
   "markets.noCatalogs": "No market catalog assigned",
   "markets.priceList": "Price list",
   "markets.webPresence": "Web presence",
@@ -760,12 +765,17 @@ const messages = {
   "markets.editor.workspace": "Markets workspace",
   "markets.editor.createMarket": "Create market",
   "markets.editor.manage": "Manage",
-  "markets.editor.createTitle": "Create a regional market",
+  "markets.editor.createTitle": "Create a market",
+  "markets.editor.createTitleExpanded": "Create and configure a market",
   "markets.editor.create": "Create market",
   "markets.editor.created": "Market created. You can now finish its configuration.",
+  "markets.editor.createdConfigured":
+    "Market and its initial configuration were created.",
   "markets.editor.createFailed": "The market could not be created.",
   "markets.editor.createValidation":
     "Enter a market name and at least one valid two-letter country code.",
+  "markets.editor.createValidationExpanded":
+    "Complete the market name and correct the highlighted condition or pricing fields.",
   "markets.editor.safeCreateTitle": "Draft-first conflict protection",
   "markets.editor.safeCreateDescription":
     "If Shopify detects duplicate buyer conditions, conflicting unique markets will be moved to draft instead of silently overlapping.",
@@ -794,11 +804,16 @@ const messages = {
   "markets.editor.roundingDescription": "Apply Shopify's market rounding rules.",
   "markets.editor.sections": "Market configuration sections",
   "markets.editor.navDetails": "Details",
-  "markets.editor.navRegions": "Regions",
+  "markets.editor.navRegions": "Buyer conditions",
   "markets.editor.navPricing": "Pricing",
-  "markets.editor.navAssignments": "Catalogs & URLs",
+  "markets.editor.navAssignments": "Catalogs, discounts & URLs",
   "markets.editor.navShipping": "Shipping",
   "markets.editor.navLocalization": "Localized content",
+  "markets.editor.createSections": "New market configuration sections",
+  "markets.editor.createNavDetails": "Market details",
+  "markets.editor.createNavConditions": "Buyer conditions",
+  "markets.editor.createNavExperience": "Pricing & assignments",
+  "markets.editor.createNavShipping": "Delivery",
   "markets.editor.loadingWorkspace": "Loading editor context from Shopify…",
   "markets.editor.marketUnavailable":
     "This market is no longer available in the current store.",
@@ -809,9 +824,25 @@ const messages = {
   "markets.editor.warning.carrier_services_truncated":
     "Only the first 250 carrier services are available in this editor.",
   "markets.editor.warning.catalogs_truncated":
-    "Only the first 100 MARKET catalogs are available in this editor.",
+    "Only the first 250 MARKET catalogs are available in this editor.",
   "markets.editor.warning.web_presences_truncated":
-    "Only the first 100 web presences are available in this editor.",
+    "Only the first 250 web presences are available in this editor.",
+  "markets.editor.warning.discounts_unavailable":
+    "Discounts could not be loaded. Confirm the token has read_discounts.",
+  "markets.editor.warning.discounts_truncated":
+    "Only the first 250 discounts are available in this editor.",
+  "markets.editor.warning.company_locations_unavailable":
+    "B2B company locations are unavailable for this shop, plan, or token.",
+  "markets.editor.warning.company_locations_truncated":
+    "Only the first 250 company locations are available in this editor.",
+  "markets.editor.warning.locations_unavailable":
+    "Retail locations could not be loaded for buyer-condition editing.",
+  "markets.editor.warning.locations_truncated":
+    "Only the first 250 retail locations are available in this editor.",
+  "markets.editor.warning.channels_unavailable":
+    "Channels could not be loaded for buyer-condition editing.",
+  "markets.editor.warning.channels_truncated":
+    "Only the first 250 channels are available in this editor.",
   "markets.editor.subdivisionPreviewTitle": "Subdivision market API limitations apply",
   "markets.editor.subdivisionPreviewDescription":
     "In 2026-07, subdivision markets support market-driven shipping first. Shopify can reject unsupported configuration paths; each editor preserves and displays the API error.",
@@ -844,6 +875,48 @@ const messages = {
     "Changing {name} can immediately change which market buyers match.",
   "markets.editor.applyRegions": "Apply regions",
   "markets.editor.regionsSaved": "Buyer regions updated.",
+  "markets.editor.conditionsTitle": "Buyer conditions",
+  "markets.editor.conditionsDescription":
+    "Match buyers by region, B2B company location, retail location, or channel.",
+  "markets.editor.createConditionsDescription":
+    "Combine the conditions this market should match. Leave every group empty for a conditionless market.",
+  "markets.editor.conditionsTruncatedTitle": "Condition editing is locked",
+  "markets.editor.conditionsTruncatedDescription":
+    "At least one condition contains more than 250 resources, so a partial replacement would be unsafe.",
+  "markets.editor.conditionRulesTitle": "Conditions are updated as an explicit diff",
+  "markets.editor.conditionRulesDescription":
+    "The editor adds and removes only changed groups and keeps Shopify conflict protection enabled.",
+  "markets.editor.regionFormatHintOptional":
+    "Use ISO alpha-2 country codes. Regions are optional when another buyer condition is used.",
+  "markets.editor.noRegionCondition": "No region condition is configured.",
+  "markets.editor.regionsValidationOptional":
+    "Every region row must use a valid two-letter country code.",
+  "markets.editor.companyLocationsCondition": "B2B company locations",
+  "markets.editor.companyLocationsConditionHint":
+    "Match all current and future company locations, or select specific B2B locations.",
+  "markets.editor.locationsCondition": "Retail locations",
+  "markets.editor.locationsConditionHint":
+    "Match all retail locations or a selected set of point-of-sale locations.",
+  "markets.editor.channelsCondition": "Sales channels",
+  "markets.editor.channelsConditionHint":
+    "Match buyers shopping through one or more available channels.",
+  "markets.editor.conditionNone": "Not used",
+  "markets.editor.conditionAll": "All resources",
+  "markets.editor.conditionSpecified": "Selected resources",
+  "markets.editor.searchConditions": "Search available resources",
+  "markets.editor.noConditionOptions":
+    "No resources are available. Check the shop entitlement and access scopes.",
+  "markets.editor.noBuyerConditions": "No buyer conditions",
+  "markets.editor.conditionsListTruncated":
+    "Only the first 250 resources in at least one condition are shown.",
+  "markets.editor.conditionInactive": "Inactive",
+  "markets.editor.conditionSelectionRequired":
+    "Choose at least one resource for each selected-resource condition.",
+  "markets.editor.conditionsConfirmTitle": "Apply buyer-condition changes?",
+  "markets.editor.conditionsConfirmMessage":
+    "Changing {name} can immediately change which buyers match this market.",
+  "markets.editor.applyConditions": "Apply conditions",
+  "markets.editor.conditionsSaved": "Buyer conditions updated.",
   "markets.editor.pricingTitle": "Currency and price inclusions",
   "markets.editor.pricingDescription":
     "Control currency conversion, rounding, taxes, duties, and Managed Markets adaptive pricing.",
@@ -876,9 +949,14 @@ const messages = {
   "markets.editor.removePricingMessage":
     "Removed settings fall back to Shopify's applicable defaults.",
   "markets.editor.pricingSaved": "Market pricing updated.",
-  "markets.editor.assignmentsTitle": "Catalogs and web presence",
+  "markets.editor.assignmentsTitle": "Catalogs, discounts, and web presence",
   "markets.editor.assignmentsDescription":
-    "Choose product/pricing catalogs and the localized URL experience assigned to this market.",
+    "Choose product/pricing catalogs, eligible discounts, and the localized URL experience assigned to this market.",
+  "markets.editor.discountAssignmentHint":
+    "Choose existing Shopify discounts that buyers in this market can use.",
+  "markets.editor.noAvailableDiscounts": "No discounts are available to assign.",
+  "markets.editor.noAssignedDiscounts": "No discounts are assigned.",
+  "markets.discountsTruncated": "Only the first 250 discounts are shown.",
   "markets.editor.catalogHint":
     "A catalog can carry product availability through its publication and international prices through its price list.",
   "markets.editor.subdivisionCatalogTitle":
@@ -899,12 +977,13 @@ const messages = {
   "markets.editor.sharedWebPresenceDescription":
     "Editing one can change URLs for every market that uses it. Review the listed root URLs before saving.",
   "markets.editor.noAssignmentChanges":
-    "No catalog or web-presence changes were detected.",
+    "No catalog, discount, or web-presence changes were detected.",
   "markets.editor.assignmentsConfirmTitle": "Apply catalog and URL assignments?",
   "markets.editor.assignmentsConfirmMessage":
     "Changing {name} can alter product availability, pricing, and buyer URLs.",
   "markets.editor.applyAssignments": "Apply assignments",
-  "markets.editor.assignmentsSaved": "Catalog and web-presence assignments updated.",
+  "markets.editor.assignmentsSaved":
+    "Catalog, discount, and web-presence assignments updated.",
   "markets.editor.createWebPresence": "Create web presence",
   "markets.editor.editWebPresence": "Edit web presence",
   "markets.editor.webPresenceSharedHint":
@@ -921,6 +1000,12 @@ const messages = {
     "Choose a default locale and provide a valid routing strategy.",
   "markets.editor.webPresenceCreated": "Web presence created and selected.",
   "markets.editor.webPresenceUpdated": "Shared web presence updated.",
+  "markets.editor.deleteWebPresence": "Delete web presence",
+  "markets.editor.deleteWebPresenceTitle": "Delete this web presence?",
+  "markets.editor.deleteWebPresenceMessage":
+    "Permanently delete {name}? Shopify can reject deletion while it is assigned to another market.",
+  "markets.editor.deleteWebPresenceFailed": "The web presence could not be deleted.",
+  "markets.editor.webPresenceDeleted": "Web presence deleted.",
   "markets.editor.shippingTitle": "Market-driven shipping",
   "markets.editor.shippingDescription":
     "Inherit Shopify defaults, disable delivery, or maintain market-specific delivery options.",
@@ -947,6 +1032,15 @@ const messages = {
     "No custom options are currently returned for this market.",
   "markets.editor.shippingOptionsTruncated":
     "Additional shipping options are not shown; avoid bulk deletion until the full set is reviewed in Shopify Admin.",
+  "markets.editor.editShippingOption": "Edit shipping option",
+  "markets.editor.editShippingOptionHint":
+    "Update buyer-facing details and the rates Shopify returned for this option.",
+  "markets.editor.shippingRates": "Rates and tiers",
+  "markets.editor.shippingRatesUnavailable":
+    "Shopify did not return editable rate details for this option.",
+  "markets.editor.shippingRatesTruncated":
+    "Some rate groups or tiers are not shown. Only the loaded rates will be updated.",
+  "markets.editor.queueUpdate": "Queue update",
   "markets.editor.queuedShippingOptions": "Queued for creation",
   "markets.editor.newShippingOption": "New delivery option",
   "markets.editor.optionType": "Rate type",
@@ -975,12 +1069,30 @@ const messages = {
     "Use a valid three-letter shipping currency.",
   "markets.editor.shippingNameValidation": "Enter a buyer-facing name for this option.",
   "markets.editor.shippingPriceValidation": "Enter a price for this option.",
+  "markets.editor.shippingRangeValidation":
+    "The maximum must be greater than or equal to the minimum.",
+  "markets.editor.shippingUpdateValidation":
+    "Review option names, currencies, rate prices, tier ranges, and carrier adjustments.",
   "markets.editor.carrierValidation": "Choose an active carrier service.",
   "markets.editor.shippingConfirmTitle": "Apply shipping configuration?",
   "markets.editor.shippingConfirmMessage":
     "Shipping changes for {name} affect checkout eligibility and delivery prices.",
   "markets.editor.applyShipping": "Apply shipping",
   "markets.editor.shippingSaved": "Market shipping updated.",
+  "markets.editor.createExperienceTitle": "Pricing and assignments",
+  "markets.editor.createExperienceDescription":
+    "Configure currency, price inclusions, catalogs, discounts, and URLs in the create mutation.",
+  "markets.editor.configureAtCreation": "Configure taxes and duties now",
+  "markets.editor.configureAtCreationHint":
+    "Send priceInclusions as part of MarketCreateInput.",
+  "markets.editor.createAssignments": "Initial assignments",
+  "markets.editor.createShippingDescription":
+    "Inherit delivery, disable it, or create market-specific options in the same operation.",
+  "markets.editor.noQueuedShippingOptions":
+    "Shipping is enabled without a custom option. Add one if buyers need a market-specific rate.",
+  "markets.editor.readyToCreate": "Required fields are complete.",
+  "markets.editor.completeRequiredFields":
+    "Complete the required fields before creating.",
   "markets.editor.localizationTitle": "Market-specific content",
   "markets.editor.localizationDescription":
     "Edit market localizations or market-scoped translations using Shopify content digests.",

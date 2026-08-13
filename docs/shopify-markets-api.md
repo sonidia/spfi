@@ -7,14 +7,17 @@ Admin API.
 ## Official sources
 
 - [`Market` and `markets`](https://shopify.dev/docs/api/admin-graphql/2026-07/objects/Market)
+- [`MarketConditionsInput`](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/MarketConditionsInput)
+  and [`MarketCreateInput`](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/MarketCreateInput)
 - [`marketCreate`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/marketCreate),
   [`marketUpdate`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/marketUpdate),
   and [`MarketUpdateInput`](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/MarketUpdateInput)
 - [`marketsResolvedValues`](https://shopify.dev/docs/api/admin-graphql/2026-07/queries/marketsResolvedValues)
 - [Subdivision markets guide](https://shopify.dev/docs/apps/build/markets/subdivision-markets)
 - [`MarketWebPresence`](https://shopify.dev/docs/api/admin-graphql/2026-07/objects/MarketWebPresence)
-  and [`WebPresenceCreateInput`](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/WebPresenceCreateInput)
+  and [`webPresenceDelete`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/webPresenceDelete)
 - [`ShippingConfigurationUpdateInput`](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/ShippingConfigurationUpdateInput)
+  and [`DeliveryOptionDefinitionUpdateInput`](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/DeliveryOptionDefinitionUpdateInput)
   and [market-driven shipping changelog](https://shopify.dev/changelog/market-driven-delivery-profiles-admin-api)
 - [`marketLocalizableResource`](https://shopify.dev/docs/api/admin-graphql/2026-07/queries/marketLocalizableResource),
   [`marketLocalizationsRegister`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/marketLocalizationsRegister),
@@ -27,7 +30,10 @@ Admin API.
 Reading Markets requires `read_markets`; mutations require both `read_markets`
 and `write_markets`. Catalog reads also require `read_products`. Locale discovery
 uses `read_locales` or `read_markets_home`. Localized content requires
-`read_translations` and `write_translations`.
+`read_translations` and `write_translations`. Discount assignment requires
+`read_discounts`; B2B company-location and retail-location pickers depend on the
+corresponding company and location scopes. Optional editor resources fail
+independently and surface an actionable warning instead of hiding the market.
 
 Changing configured scopes does not expand an already-issued token. Stores
 connected before these scopes were added must regenerate their token. Every app
@@ -37,26 +43,28 @@ safe transport retry policy, and sanitized errors.
 
 ## Implemented API surface
 
-| App route                              | Shopify operation                                    | Purpose                                                                                               |
-| -------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `POST /api/market/all`                 | `markets`, then cost-bounded `market(id)` reads      | Page up to 250 IDs, then read each market's condition regions, pricing, catalogs, URLs, and shipping. |
-| `POST /api/market/resolve`             | `marketsResolvedValues`                              | Resolve effective currency, tax/duty inclusion, catalogs, and URLs for a buyer country.               |
-| `POST /api/market/context`             | `shopLocales`, `catalogs`, `webPresences`            | Load reusable locales, MARKET catalogs, web presences, primary domain, and carrier services.          |
-| `POST /api/market/create`              | `marketCreate`                                       | Create a regional market with conditions, optional currency, status, and duplicate conflict policy.   |
-| `POST /api/market/status`              | `marketUpdate`                                       | Change `Market.status` between `ACTIVE` and `DRAFT`.                                                  |
-| `POST /api/market/identity`            | `marketUpdate`                                       | Update name and handle.                                                                               |
-| `POST /api/market/regions`             | `marketUpdate.conditions`                            | Diff region conditions into `conditionsToAdd` and `conditionsToDelete`.                               |
-| `POST /api/market/pricing`             | `marketUpdate`                                       | Update or remove currency settings and price inclusions.                                              |
-| `POST /api/market/assignments`         | `marketUpdate`                                       | Associate or dissociate existing catalogs and web presences.                                          |
-| `POST /api/market/shipping`            | `marketUpdate.delivery`                              | Inherit, disable, enable, create, activate/deactivate, or remove 2026-07 shipping options.            |
-| `POST /api/market/web-presence/create` | `webPresenceCreate`                                  | Create a localized domain or subfolder URL strategy.                                                  |
-| `POST /api/market/web-presence/update` | `webPresenceUpdate`                                  | Update locales and, for an existing subfolder presence, its suffix.                                   |
-| `POST /api/market/localization/read`   | `marketLocalizableResource`/`translatableResource`   | Load source content, digest, current market value, and `outdated`.                                    |
-| `POST /api/market/localization/save`   | `marketLocalizationsRegister`/`translationsRegister` | Save digest-protected market content or locale translations.                                          |
+| App route                              | Shopify operation                                     | Purpose                                                                                                |
+| -------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `POST /api/market/all`                 | `markets`, then concurrent bounded `market(id)` reads | Filter by name, status, market type, and condition type; page up to 250 IDs and load editor summaries. |
+| `POST /api/market/resolve`             | `marketsResolvedValues`                               | Resolve effective currency, tax/duty inclusion, catalogs, and URLs for a buyer country.                |
+| `POST /api/market/context`             | Resource connections                                  | Load locales, catalogs, discounts, web presences, condition resources, primary domain, and carriers.   |
+| `POST /api/market/create`              | `marketCreate`                                        | Create a complete market with conditions, pricing, assignments, delivery, status, and conflict policy. |
+| `POST /api/market/status`              | `marketUpdate`                                        | Change `Market.status` between `ACTIVE` and `DRAFT`.                                                   |
+| `POST /api/market/identity`            | `marketUpdate`                                        | Update name and handle.                                                                                |
+| `POST /api/market/regions`             | `marketUpdate.conditions`                             | Diff region conditions into `conditionsToAdd` and `conditionsToDelete`.                                |
+| `POST /api/market/conditions`          | `marketUpdate.conditions`                             | Diff region, B2B company-location, retail-location, and channel conditions.                            |
+| `POST /api/market/pricing`             | `marketUpdate`                                        | Update or remove currency settings and price inclusions.                                               |
+| `POST /api/market/assignments`         | `marketUpdate`                                        | Associate or dissociate catalogs, eligible discounts, and web presences.                               |
+| `POST /api/market/shipping`            | `marketUpdate.delivery`                               | Inherit, disable, enable, create, fully edit, or remove 2026-07 shipping options.                      |
+| `POST /api/market/web-presence/create` | `webPresenceCreate`                                   | Create a localized domain or subfolder URL strategy.                                                   |
+| `POST /api/market/web-presence/update` | `webPresenceUpdate`                                   | Update locales and, for an existing subfolder presence, its suffix.                                    |
+| `POST /api/market/web-presence/delete` | `webPresenceDelete`                                   | Delete a web presence after explicit destructive confirmation.                                         |
+| `POST /api/market/localization/read`   | `marketLocalizableResource`/`translatableResource`    | Load source content, digest, current market value, and `outdated`.                                     |
+| `POST /api/market/localization/save`   | `marketLocalizationsRegister`/`translationsRegister`  | Save digest-protected market content or locale translations.                                           |
 
 ## Contract decisions
 
-### Conditions and subdivisions
+### Buyer conditions and subdivisions
 
 `Market.regions` is deprecated and can omit `MarketRegionSubdivision`. Reads use
 `market.conditions.regionsCondition.regions` and branch on `__typename`.
@@ -64,6 +72,13 @@ Subdivision conditions use `{countryCode, subdivision}` in
 `MarketConditionsRegionInput`. Updates calculate a diff and send
 `conditionsToAdd`/`conditionsToDelete`; deprecated `marketRegionsCreate/Delete`
 are not used.
+
+The editor also reads and updates `companyLocationsCondition`,
+`locationsCondition`, and `channelsCondition`. Company and retail conditions
+support both `ALL` and `SPECIFIED`; the channel input accepts explicit channel
+IDs. Condition updates replace only changed groups through a single explicit
+diff. Editing is locked if any condition is truncated, preventing accidental
+replacement from partial data.
 
 Subdivision markets support market-driven shipping first in the 2026-07
 rollout. Shopify documents catalog, discount, theme contextualization, and
@@ -92,7 +107,8 @@ fields and `marketWebPresence*` mutations are not used. `WebPresenceCreateInput`
 accepts either `domainId` or `subfolderSuffix`, never both.
 `WebPresenceUpdateInput` does not accept `domainId`, so the UI locks the routing
 type after creation. A shared-presence warning is shown because editing one can
-change URLs for several markets.
+change URLs for several markets. Deletion uses the current `webPresenceDelete`
+mutation, never deprecated `marketWebPresenceDelete`, and requires confirmation.
 
 ### Market-driven shipping
 
@@ -105,14 +121,19 @@ Custom mode supports exactly one of `flatRate`, `valueBased`, `weightBased`, or
 required `conditions: {}` when no collection/location filter is selected.
 Carrier percentage adjustments are integers. Tier maxima must be greater than
 or equal to minima. Existing concrete option IDs can be activated, deactivated,
-or deleted; new options are queued and sent in one confirmed mutation.
+or deleted; they can also update buyer-facing metadata, currency,
+free-shipping thresholds, flat/tier rates, and carrier adjustments. New options
+are queued and sent in one confirmed mutation. Carrier updates use Shopify's
+singular `rateGroupToUpdate`; the other option types use `rateGroupsToUpdate`.
 
-### Catalogs
+### Catalogs and discounts
 
 The Markets workspace associates existing `MARKET` catalogs. It shows whether a
 catalog has a publication and price list. Catalog creation, product publication,
 and price-list maintenance remain separate workflows because they have broader
 product scopes and can change assortment or pricing outside one market edit.
+Discounts are read from `Market.discounts`, displayed with `discountsCount`, and
+assigned with `discountsToAdd`/`discountsToDelete`.
 
 ### Localized content
 
@@ -135,14 +156,20 @@ precedence instead of reimplementing it in the client.
 Shopify rejects a GraphQL request before execution when its requested cost is
 greater than 1,000, even if the actual store contains fewer records. For that
 reason, the Markets list never nests large connections under
-`markets(first: 250)`. It cursor-pages IDs in groups of 50, then loads each
-market with bounded connections: 25 regions and 10 each for catalogs, web
-presences, and shipping options. Mutation payloads return only the updated
-market ID; a separate bounded detail query refreshes the UI.
+`markets(first: 250)`. It cursor-pages IDs in groups of 50, applies Shopify's
+`name`, `status`, `market_type`, and `market_condition_types` filters with
+`sortKey: NAME`, then loads details through a concurrency-limited worker pool.
+A failed detail read fails the request visibly instead of silently dropping a
+market. Mutation payloads return only the updated market ID; a separate bounded
+detail query refreshes the UI.
 
-Editor context connections are queried independently and cursor-paged in groups
-of 25, up to 100 items. Every connection checks `pageInfo.hasNextPage` and
-surfaces a truncation warning. `Count.precision` is preserved. Shopify's
+Market detail and editor-context connections are queried independently and
+cursor-paged in groups of 25, up to 250 items. This includes conditions,
+catalogs, discounts, web presences, and shipping options. Every connection
+checks `pageInfo.hasNextPage` and surfaces a precise truncation warning.
+Shipping rate groups are cost-bounded to one group per option and ten tier rates;
+the editor warns instead of pretending a partial rate graph is complete.
+`Count.precision` is preserved. Shopify's
 `requestedQueryCost` and `actualQueryCost` are forwarded as
 `x-shopify-graphql-requested-cost` and `x-shopify-graphql-actual-cost` response
 headers for production diagnostics.
@@ -153,8 +180,10 @@ would make edits less predictable. A future export/reporting workflow that must
 read a large graph should use a bulk query instead of increasing these page
 sizes.
 
-`marketDelete` and `webPresenceDelete` are intentionally not exposed. They need
-a cross-resource impact report and a stronger destructive confirmation workflow.
+`marketDelete` remains intentionally unexposed because deleting a market needs a
+cross-resource impact report. `webPresenceDelete` is exposed with a dedicated
+confirmation that warns about shared assignments; Shopify remains the final
+integrity check and can reject a presence still in use.
 
 ## Upgrade checklist
 

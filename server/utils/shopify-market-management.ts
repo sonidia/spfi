@@ -10,7 +10,9 @@ import type {
 import { assertNoGraphqlUserErrors, callShopifyGraphql } from "./callShopifyGraphql";
 import {
   fetchShopifyMarket,
+  normalizeConditionResource,
   normalizeMarketCatalog,
+  normalizeMarketDiscount,
   normalizeMarketWebPresence,
 } from "./shopify-markets";
 import {
@@ -19,6 +21,7 @@ import {
   normalizeDutyStrategy,
   normalizeManualRate,
   normalizeMarketRegions,
+  normalizeMoney,
   normalizeShippingOption,
   normalizeStringList,
   normalizeTaxStrategy,
@@ -40,7 +43,22 @@ interface GraphqlUserError {
 
 export const MARKET_EDITOR_CONTEXT_PAGE_SIZE = 25;
 const CONTEXT_PAGE_SIZE = MARKET_EDITOR_CONTEXT_PAGE_SIZE;
-const MAX_CONTEXT_ITEMS = 100;
+const MAX_CONTEXT_ITEMS = 250;
+
+const EDITOR_DISCOUNT_FIELDS = `
+  id
+  discount {
+    __typename
+    ... on DiscountCodeBasic { title status codes(first: 1) { nodes { code } } }
+    ... on DiscountAutomaticBasic { title status }
+    ... on DiscountCodeBxgy { title status codes(first: 1) { nodes { code } } }
+    ... on DiscountAutomaticBxgy { title status }
+    ... on DiscountCodeFreeShipping { title status codes(first: 1) { nodes { code } } }
+    ... on DiscountAutomaticFreeShipping { title status }
+    ... on DiscountCodeApp { title status codes(first: 1) { nodes { code } } }
+    ... on DiscountAutomaticApp { title status }
+  }
+`;
 
 export const CREATE_MANAGED_MARKET_MUTATION = `#graphql
   mutation CreateManagedMarket($input: MarketCreateInput!) {
@@ -83,31 +101,84 @@ export async function fetchMarketEditorContext(
     `,
   });
 
-  const catalogResult = await fetchEditorCatalogs(context);
+  const [
+    catalogResult,
+    webPresenceResult,
+    discountResult,
+    companyLocationResult,
+    locationResult,
+    channelResult,
+    carrierResult,
+  ] = await Promise.all([
+    fetchEditorCatalogs(context),
+    fetchEditorWebPresences(context),
+    fetchOptionalEditorResource(context, fetchEditorDiscounts, "discounts"),
+    fetchOptionalEditorResource(
+      context,
+      fetchEditorCompanyLocations,
+      "company_locations",
+    ),
+    fetchOptionalEditorResource(context, fetchEditorLocations, "locations"),
+    fetchOptionalEditorResource(context, fetchEditorChannels, "channels"),
+    fetchOptionalEditorResource(
+      context,
+      fetchEditorCarrierServices,
+      "carrier_services",
+    ),
+  ]);
+
   if (catalogResult.truncated) warnings.push("catalogs_truncated");
-
-  const webPresenceResult = await fetchEditorWebPresences(context);
   if (webPresenceResult.truncated) warnings.push("web_presences_truncated");
-
-  let carrierServices: ShopifyMarketEditorContext["carrierServices"] = [];
-  try {
-    const carrierResult = await fetchEditorCarrierServices(context);
-    carrierServices = carrierResult.items;
-    if (carrierResult.truncated) {
-      warnings.push("carrier_services_truncated");
-    }
-  } catch {
-    warnings.push("carrier_services_unavailable");
+  for (const result of [
+    discountResult,
+    companyLocationResult,
+    locationResult,
+    channelResult,
+    carrierResult,
+  ]) {
+    if (result.warning) warnings.push(result.warning);
+    if (result.truncatedWarning) warnings.push(result.truncatedWarning);
   }
 
   return {
     primaryDomain: base.shop.primaryDomain,
     locales: base.shopLocales,
     catalogs: catalogResult.items.map(normalizeMarketCatalog),
+    discounts: discountResult.items.map(normalizeMarketDiscount),
     webPresences: webPresenceResult.items.map(normalizeMarketWebPresence),
-    carrierServices,
+    conditionOptions: {
+      companyLocations: companyLocationResult.items.map(normalizeConditionResource),
+      locations: locationResult.items.map(normalizeConditionResource),
+      channels: channelResult.items.map(normalizeConditionResource),
+    },
+    carrierServices: carrierResult.items,
     warnings,
   };
+}
+
+async function fetchOptionalEditorResource<T>(
+  context: MarketRequestContext,
+  loader: (request: MarketRequestContext) => Promise<{
+    items: T[];
+    truncated: boolean;
+  }>,
+  warningPrefix: string,
+) {
+  try {
+    const result = await loader(context);
+    return {
+      ...result,
+      warning: null,
+      truncatedWarning: result.truncated ? `${warningPrefix}_truncated` : null,
+    };
+  } catch {
+    return {
+      items: [] as T[],
+      truncated: false,
+      warning: `${warningPrefix}_unavailable`,
+      truncatedWarning: null,
+    };
+  }
 }
 
 async function fetchEditorCatalogs(context: MarketRequestContext) {
@@ -198,6 +269,113 @@ async function fetchEditorWebPresences(context: MarketRequestContext) {
   return { items, truncated: hasNextPage };
 }
 
+async function fetchEditorDiscounts(context: MarketRequestContext) {
+  const items: RawDiscountNode[] = [];
+  let after: string | null = null;
+  let hasNextPage: boolean;
+
+  do {
+    const data: {
+      discountNodes: {
+        nodes: RawDiscountNode[];
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      };
+    } = await callShopifyGraphql({
+      ...context,
+      operationName: "MarketEditorDiscounts",
+      query: `#graphql
+        query MarketEditorDiscounts($first: Int!, $after: String) {
+          discountNodes(first: $first, after: $after, sortKey: UPDATED_AT) {
+            nodes { ${EDITOR_DISCOUNT_FIELDS} }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      `,
+      variables: {
+        first: Math.min(CONTEXT_PAGE_SIZE, MAX_CONTEXT_ITEMS - items.length),
+        after,
+      },
+    });
+    items.push(...data.discountNodes.nodes);
+    hasNextPage = data.discountNodes.pageInfo.hasNextPage;
+    after = data.discountNodes.pageInfo.endCursor;
+  } while (hasNextPage && after && items.length < MAX_CONTEXT_ITEMS);
+
+  return { items, truncated: hasNextPage };
+}
+
+async function fetchEditorCompanyLocations(context: MarketRequestContext) {
+  return fetchEditorConditionResources(context, {
+    operationName: "MarketEditorCompanyLocations",
+    field: "companyLocations",
+    selection: "id name company { name }",
+  });
+}
+
+async function fetchEditorLocations(context: MarketRequestContext) {
+  return fetchEditorConditionResources(context, {
+    operationName: "MarketEditorLocations",
+    field: "locations",
+    selection: "id name isActive",
+    arguments: "includeInactive: true",
+  });
+}
+
+async function fetchEditorChannels(context: MarketRequestContext) {
+  return fetchEditorConditionResources(context, {
+    operationName: "MarketEditorChannels",
+    field: "channels",
+    selection: "id accountName specificationHandle",
+  });
+}
+
+async function fetchEditorConditionResources(
+  context: MarketRequestContext,
+  options: {
+    operationName: string;
+    field: "companyLocations" | "locations" | "channels";
+    selection: string;
+    arguments?: string;
+  },
+) {
+  const items: RawConditionResource[] = [];
+  let after: string | null = null;
+  let hasNextPage: boolean;
+  const extraArguments = options.arguments ? `, ${options.arguments}` : "";
+
+  do {
+    const data: Record<
+      string,
+      {
+        nodes: RawConditionResource[];
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      }
+    > = await callShopifyGraphql({
+      ...context,
+      operationName: options.operationName,
+      query: `#graphql
+        query ${options.operationName}($first: Int!, $after: String) {
+          ${options.field}(first: $first, after: $after${extraArguments}) {
+            nodes { ${options.selection} }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      `,
+      variables: {
+        first: Math.min(CONTEXT_PAGE_SIZE, MAX_CONTEXT_ITEMS - items.length),
+        after,
+      },
+    });
+    const connection = data[options.field];
+    if (!connection) throw badGateway(`Missing ${options.field} editor context.`);
+    items.push(...connection.nodes);
+    hasNextPage = connection.pageInfo.hasNextPage;
+    after = connection.pageInfo.endCursor;
+  } while (hasNextPage && after && items.length < MAX_CONTEXT_ITEMS);
+
+  return { items, truncated: hasNextPage };
+}
+
 async function fetchEditorCarrierServices(context: MarketRequestContext) {
   const items: ShopifyMarketEditorContext["carrierServices"] = [];
   let after: string | null = null;
@@ -251,26 +429,87 @@ export async function createShopifyMarket(
   if (status !== "ACTIVE" && status !== "DRAFT") {
     throw badRequest("Market status must be ACTIVE or DRAFT.");
   }
-  const regions = normalizeMarketRegions(input.regions);
-  if (!regions.length) throw badRequest("Add at least one buyer region.");
   const handle = String(input.handle || "").trim();
   if (handle && !/^[A-Za-z0-9-]{1,255}$/.test(handle)) {
     throw badRequest("Market handle can contain only letters, numbers, and hyphens.");
   }
 
+  const conditions = normalizeMarketConditionsInput(
+    input.conditions || { regions: input.regions },
+    false,
+  );
   const marketInput: Record<string, unknown> = {
     name,
     status,
     makeDuplicateUniqueMarketsDraft: input.makeDuplicateUniqueMarketsDraft === true,
-    conditions: { regionsCondition: { regions } },
+    ...(Object.keys(conditions).length ? { conditions } : {}),
     ...(handle ? { handle } : {}),
   };
-  if (input.baseCurrency) {
+
+  const catalogIds = validateGidList(input.catalogIds, "Catalog", "Catalogs");
+  const discountIds = validateGidList(input.discountIds, "DiscountNode", "Discounts");
+  const webPresenceIds = validateGidList(
+    input.webPresenceIds,
+    "MarketWebPresence",
+    "Web presences",
+  );
+  if (catalogIds.length) marketInput.catalogs = catalogIds;
+  if (discountIds.length) marketInput.discounts = discountIds;
+  if (webPresenceIds.length) marketInput.webPresences = webPresenceIds;
+
+  const currencyInput =
+    input.currency ||
+    (input.baseCurrency
+      ? {
+          baseCurrency: input.baseCurrency,
+          localCurrencies: input.localCurrencies,
+          roundingEnabled: input.roundingEnabled,
+        }
+      : null);
+  if (currencyInput) {
+    const currency = asRecord(currencyInput, "Currency settings");
+    const localCurrencies = currency.localCurrencies === true;
+    const manualRate = normalizeManualRate(currency.manualRate);
+    if (localCurrencies && manualRate) {
+      throw badRequest("Manual rates cannot be combined with local currencies.");
+    }
     marketInput.currencySettings = {
-      baseCurrency: normalizeCurrencyCode(input.baseCurrency),
-      localCurrencies: input.localCurrencies === true,
-      roundingEnabled: input.roundingEnabled === true,
+      baseCurrency: normalizeCurrencyCode(currency.baseCurrency),
+      baseCurrencyManualRate: manualRate,
+      localCurrencies,
+      roundingEnabled: currency.roundingEnabled === true,
     };
+  }
+
+  if (input.priceInclusions) {
+    const prices = asRecord(input.priceInclusions, "Price inclusion settings");
+    marketInput.priceInclusions = {
+      adaptivePricingEnabled: prices.adaptivePricingEnabled === true,
+      dutiesPricingStrategy: normalizeDutyStrategy(prices.dutiesPricingStrategy),
+      taxPricingStrategy: normalizeTaxStrategy(prices.taxPricingStrategy),
+    } satisfies ShopifyMarketPricingInput["priceInclusions"];
+  }
+
+  if (input.delivery) {
+    const delivery = asRecord(input.delivery, "Delivery settings");
+    const mode = String(delivery.mode || "INHERIT").toUpperCase();
+    if (mode !== "INHERIT") {
+      if (mode !== "ENABLED" && mode !== "DISABLED") {
+        throw badRequest("Invalid shipping mode.");
+      }
+      const options = Array.isArray(delivery.options)
+        ? delivery.options.map(normalizeShippingOption)
+        : [];
+      marketInput.delivery = {
+        shipping: {
+          isEnabled: mode === "ENABLED",
+          optionDefinitions:
+            mode === "ENABLED"
+              ? options.map(buildShippingOptionCreateInput)
+              : undefined,
+        },
+      };
+    }
   }
 
   const data = await callShopifyGraphql<MarketMutationResult>({
@@ -338,6 +577,69 @@ export async function replaceMarketRegions(
   );
 }
 
+export async function updateMarketConditions(
+  context: MarketRequestContext,
+  marketId: unknown,
+  currentValue: unknown,
+  nextValue: unknown,
+  makeDuplicatesDraft: unknown,
+) {
+  const current = normalizeMarketConditionsInput(currentValue, true);
+  const next = normalizeMarketConditionsInput(nextValue, true);
+  const conditionsToAdd: Record<string, unknown> = {};
+  const conditionsToDelete: Record<string, unknown> = {};
+
+  const currentRegions = getConditionRegions(current);
+  const nextRegions = getConditionRegions(next);
+  const currentRegionMap = new Map(
+    currentRegions.map((region) => [regionKey(region), region]),
+  );
+  const nextRegionMap = new Map(
+    nextRegions.map((region) => [regionKey(region), region]),
+  );
+  const regionAdditions = nextRegions.filter(
+    (region) => !currentRegionMap.has(regionKey(region)),
+  );
+  const regionDeletions = currentRegions.filter(
+    (region) => !nextRegionMap.has(regionKey(region)),
+  );
+  if (regionAdditions.length) {
+    conditionsToAdd.regionsCondition = { regions: regionAdditions };
+  }
+  if (regionDeletions.length) {
+    conditionsToDelete.regionsCondition = { regions: regionDeletions };
+  }
+
+  for (const key of [
+    "companyLocationsCondition",
+    "locationsCondition",
+    "channelsCondition",
+  ] as const) {
+    const before = current[key];
+    const after = next[key];
+    if (stableConditionValue(before) === stableConditionValue(after)) continue;
+    if (before) conditionsToDelete[key] = before;
+    if (after) conditionsToAdd[key] = after;
+  }
+
+  if (!Object.keys(conditionsToAdd).length && !Object.keys(conditionsToDelete).length) {
+    throw badRequest("No buyer-condition changes were detected.");
+  }
+
+  return updateMarket(
+    context,
+    marketId,
+    {
+      makeDuplicateUniqueMarketsDraft: makeDuplicatesDraft === true,
+      conditions: {
+        ...(Object.keys(conditionsToAdd).length ? { conditionsToAdd } : {}),
+        ...(Object.keys(conditionsToDelete).length ? { conditionsToDelete } : {}),
+      },
+    },
+    "update market conditions",
+  );
+}
+
 export async function updateMarketPricing(
   context: MarketRequestContext,
   marketId: unknown,
@@ -400,18 +702,37 @@ export async function updateMarketAssignments(
     "MarketWebPresence",
     "Web presences to remove",
   );
+  const discountsToAdd = validateGidList(
+    input.discountsToAdd,
+    "DiscountNode",
+    "Discounts to add",
+  );
+  const discountsToDelete = validateGidList(
+    input.discountsToDelete,
+    "DiscountNode",
+    "Discounts to remove",
+  );
   if (
     !catalogsToAdd.length &&
     !catalogsToDelete.length &&
     !webPresencesToAdd.length &&
-    !webPresencesToDelete.length
+    !webPresencesToDelete.length &&
+    !discountsToAdd.length &&
+    !discountsToDelete.length
   ) {
     throw badRequest("No assignment changes were detected.");
   }
   return updateMarket(
     context,
     marketId,
-    { catalogsToAdd, catalogsToDelete, webPresencesToAdd, webPresencesToDelete },
+    {
+      catalogsToAdd,
+      catalogsToDelete,
+      discountsToAdd,
+      discountsToDelete,
+      webPresencesToAdd,
+      webPresencesToDelete,
+    },
     "update market assignments",
   );
 }
@@ -459,7 +780,7 @@ export async function updateMarketShipping(
     return id;
   });
   const updateOptions = Array.isArray(input.updateOptions)
-    ? input.updateOptions.map(buildShippingOptionStatusUpdate)
+    ? input.updateOptions.map(buildShippingOptionUpdateInput)
     : [];
   return updateMarket(
     context,
@@ -553,6 +874,43 @@ export async function updateWebPresence(
   );
   if (!data.webPresenceUpdate.webPresence) throw badGateway("Missing web presence.");
   return normalizeMarketWebPresence(data.webPresenceUpdate.webPresence);
+}
+
+export async function deleteWebPresence(
+  context: MarketRequestContext,
+  presenceId: unknown,
+) {
+  const id = requireGenericShopifyGid(presenceId, "Web presence ID");
+  if (!id.startsWith("gid://shopify/MarketWebPresence/")) {
+    throw badRequest("Web presence ID has the wrong resource type.");
+  }
+  const data = await callShopifyGraphql<{
+    webPresenceDelete: {
+      deletedId: string | null;
+      userErrors: GraphqlUserError[];
+    };
+  }>({
+    ...context,
+    operationName: "DeleteMarketWebPresence",
+    retryTransport: false,
+    query: `#graphql
+      mutation DeleteMarketWebPresence($id: ID!) {
+        webPresenceDelete(id: $id) {
+          deletedId
+          userErrors { field message code }
+        }
+      }
+    `,
+    variables: { id },
+  });
+  assertNoGraphqlUserErrors(
+    data.webPresenceDelete.userErrors,
+    "Failed to delete the web presence.",
+  );
+  if (!data.webPresenceDelete.deletedId) {
+    throw badGateway("Shopify did not return the deleted web presence ID.");
+  }
+  return { id: data.webPresenceDelete.deletedId };
 }
 
 export async function fetchMarketLocalization(
@@ -898,7 +1256,181 @@ export function buildShippingOptionStatusUpdate(value: unknown) {
     VALUE_BASED: "valueBased",
     WEIGHT_BASED: "weightBased",
   };
-  return { [fieldByType[type] as string]: { id, isActive: row.active === true } };
+  return {
+    [fieldByType[type] as string]: {
+      id,
+      isActive: row.active === true,
+    },
+  };
+}
+
+export function buildShippingOptionUpdateInput(value: unknown) {
+  const row = asRecord(value, "Shipping option update");
+  const type = String(row.type || "").toUpperCase();
+  const resourceByType: Record<string, string> = {
+    CARRIER_CALCULATED: "DeliveryCarrierCalculatedOptionDefinition",
+    FLAT_RATE: "DeliveryFlatRateOptionDefinition",
+    VALUE_BASED: "DeliveryValueBasedOptionDefinition",
+    WEIGHT_BASED: "DeliveryWeightBasedOptionDefinition",
+  };
+  const resource = resourceByType[type];
+  if (!resource) throw badRequest("Invalid shipping option update type.");
+  const id = requireGenericShopifyGid(row.id, "Shipping option ID");
+  if (!id.startsWith(`gid://shopify/${resource}/`)) {
+    throw badRequest("Shipping option ID does not match its option type.");
+  }
+  const fieldByType: Record<string, string> = {
+    CARRIER_CALCULATED: "carrierCalculated",
+    FLAT_RATE: "flatRate",
+    VALUE_BASED: "valueBased",
+    WEIGHT_BASED: "weightBased",
+  };
+  const currency = normalizeCurrencyCode(row.currency);
+  const freeDeliveryMinimumValue = normalizeMoney(
+    row.freeDeliveryMinimumValue,
+    "Free-shipping threshold",
+    true,
+  );
+  const common: Record<string, unknown> = {
+    id,
+    isActive: row.active === true,
+    currency,
+    description: String(row.description || "").trim(),
+    freeDeliveryMinimumValue: freeDeliveryMinimumValue
+      ? { amount: freeDeliveryMinimumValue, currencyCode: currency }
+      : null,
+  };
+  if (type !== "CARRIER_CALCULATED") {
+    const name = String(row.name || "").trim();
+    if (!name) throw badRequest("Shipping option name is required.");
+    common.name = name;
+  }
+
+  const rateGroupId = String(row.rateGroupId || "").trim();
+  const rates = Array.isArray(row.rates) ? row.rates : [];
+  if (rateGroupId) {
+    const groupId = requireGenericShopifyGid(rateGroupId, "Shipping rate group ID");
+    const groupResourceByType: Record<string, string> = {
+      CARRIER_CALCULATED: "DeliveryCarrierCalculatedRateGroup",
+      FLAT_RATE: "DeliveryFlatRateGroup",
+      VALUE_BASED: "DeliveryValueBasedRateGroup",
+      WEIGHT_BASED: "DeliveryWeightBasedRateGroup",
+    };
+    if (!groupId.startsWith(`gid://shopify/${groupResourceByType[type]}/`)) {
+      throw badRequest("Shipping rate group ID does not match its option type.");
+    }
+    if (type === "FLAT_RATE" && rates[0]) {
+      const rate = asRecord(rates[0], "Flat shipping rate");
+      common.rateGroupsToUpdate = [
+        {
+          id: groupId,
+          rate: {
+            price: {
+              amount: normalizeMoney(rate.price, "Shipping price"),
+              currencyCode: currency,
+            },
+          },
+        },
+      ];
+    } else if (type === "VALUE_BASED" && rates.length) {
+      common.rateGroupsToUpdate = [
+        {
+          id: groupId,
+          ratesToUpdate: rates.map((value, index) => {
+            const rate = asRecord(value, `Value rate ${index + 1}`);
+            const minimum = normalizeMoney(rate.minimum, "Minimum tier value") || "0";
+            const maximum = normalizeMoney(rate.maximum, "Maximum tier value", true);
+            if (maximum && Number(maximum) < Number(minimum)) {
+              throw badRequest(
+                "Maximum tier value must be greater than or equal to the minimum.",
+              );
+            }
+            const rateId = requireGenericShopifyGid(rate.id, "Value rate ID");
+            if (!rateId.startsWith("gid://shopify/DeliveryValueBasedRate/")) {
+              throw badRequest("Value rate ID has the wrong resource type.");
+            }
+            return {
+              id: rateId,
+              minValue: { amount: minimum, currencyCode: currency },
+              maxValue: maximum ? { amount: maximum, currencyCode: currency } : null,
+              price: {
+                amount: normalizeMoney(rate.price, "Shipping price"),
+                currencyCode: currency,
+              },
+            };
+          }),
+        },
+      ];
+    } else if (type === "WEIGHT_BASED" && rates.length) {
+      common.rateGroupsToUpdate = [
+        {
+          id: groupId,
+          ratesToUpdate: rates.map((value, index) => {
+            const rate = asRecord(value, `Weight rate ${index + 1}`);
+            const unit = String(rate.weightUnit || "KILOGRAMS").toUpperCase();
+            if (!new Set(["GRAMS", "KILOGRAMS", "OUNCES", "POUNDS"]).has(unit)) {
+              throw badRequest("Invalid shipping weight unit.");
+            }
+            const minimum = normalizeMoney(rate.minimum, "Minimum tier weight") || "0";
+            const maximum = normalizeMoney(rate.maximum, "Maximum tier weight", true);
+            if (maximum && Number(maximum) < Number(minimum)) {
+              throw badRequest(
+                "Maximum tier weight must be greater than or equal to the minimum.",
+              );
+            }
+            const rateId = requireGenericShopifyGid(rate.id, "Weight rate ID");
+            if (!rateId.startsWith("gid://shopify/DeliveryWeightBasedRate/")) {
+              throw badRequest("Weight rate ID has the wrong resource type.");
+            }
+            return {
+              id: rateId,
+              minWeight: { value: Number(minimum), unit },
+              maxWeight: maximum ? { value: Number(maximum), unit } : null,
+              price: {
+                amount: normalizeMoney(rate.price, "Shipping price"),
+                currencyCode: currency,
+              },
+            };
+          }),
+        },
+      ];
+    } else if (type === "CARRIER_CALCULATED") {
+      const adjustment = row.percentageAdjustment;
+      const percentageAdjustment =
+        adjustment === null || adjustment === undefined || adjustment === ""
+          ? null
+          : Number(adjustment);
+      if (
+        percentageAdjustment !== null &&
+        (!Number.isInteger(percentageAdjustment) ||
+          percentageAdjustment < -100 ||
+          percentageAdjustment > 1000)
+      ) {
+        throw badRequest("Carrier adjustment must be an integer from -100 to 1000.");
+      }
+      common.rateGroupToUpdate = {
+        ...(row.carrierServiceId
+          ? {
+              carrierServiceId: requireGenericShopifyGid(
+                row.carrierServiceId,
+                "Carrier service ID",
+              ),
+            }
+          : {}),
+        percentageAdjustment,
+      };
+    }
+  } else if (
+    type === "CARRIER_CALCULATED" &&
+    (row.carrierServiceId ||
+      (row.percentageAdjustment !== null &&
+        row.percentageAdjustment !== undefined &&
+        row.percentageAdjustment !== ""))
+  ) {
+    throw badRequest("Carrier shipping option is missing its rate group ID.");
+  }
+
+  return { [fieldByType[type] as string]: common };
 }
 
 export function normalizeWebPresenceInput(value: unknown, create: boolean) {
@@ -972,6 +1504,84 @@ function validateGidList(value: unknown, resource: string, label: string) {
   });
 }
 
+function normalizeMarketConditionsInput(
+  value: unknown,
+  allowEmpty: boolean,
+): Record<string, Record<string, unknown>> {
+  if ((value === null || value === undefined) && allowEmpty) return {};
+  const input = asRecord(value, "Market conditions");
+  const result: Record<string, Record<string, unknown>> = {};
+
+  if (input.regions !== undefined) {
+    const regions = normalizeMarketRegions(input.regions);
+    if (regions.length) result.regionsCondition = { regions };
+  }
+  if (input.companyLocations !== undefined) {
+    result.companyLocationsCondition = normalizeResourceConditionInput(
+      input.companyLocations,
+      "Company location condition",
+      "companyLocationIds",
+      "CompanyLocation",
+    );
+  }
+  if (input.locations !== undefined) {
+    result.locationsCondition = normalizeResourceConditionInput(
+      input.locations,
+      "Retail location condition",
+      "locationIds",
+      "Location",
+    );
+  }
+  if (input.channels !== undefined) {
+    const channelInput = asRecord(input.channels, "Channel condition");
+    const channelIds = validateGidList(
+      channelInput.ids,
+      "Channel",
+      "Channel condition",
+    );
+    if (!channelIds.length) {
+      throw badRequest("Channel condition requires at least one channel.");
+    }
+    result.channelsCondition = { channelIds };
+  }
+
+  return result;
+}
+
+function normalizeResourceConditionInput(
+  value: unknown,
+  label: string,
+  idField: "companyLocationIds" | "locationIds",
+  resource: "CompanyLocation" | "Location",
+) {
+  const input = asRecord(value, label);
+  const applicationLevel = String(input.applicationLevel || "SPECIFIED").toUpperCase();
+  if (applicationLevel !== "ALL" && applicationLevel !== "SPECIFIED") {
+    throw badRequest(`${label} application level must be ALL or SPECIFIED.`);
+  }
+  if (applicationLevel === "ALL") return { applicationLevel: "ALL" };
+  const ids = validateGidList(input.ids, resource, label);
+  if (!ids.length) throw badRequest(`${label} requires at least one selection.`);
+  return { applicationLevel: "SPECIFIED", [idField]: ids };
+}
+
+function getConditionRegions(conditions: Record<string, Record<string, unknown>>) {
+  const regions = conditions.regionsCondition?.regions;
+  return Array.isArray(regions) ? (regions as ShopifyMarketRegionInput[]) : [];
+}
+
+function stableConditionValue(value: unknown) {
+  if (!value) return "";
+  const input = value as Record<string, unknown>;
+  const normalized = Object.fromEntries(
+    Object.entries(input).map(([key, item]) => [
+      key,
+      Array.isArray(item) ? [...item].sort() : item,
+    ]),
+  );
+  return JSON.stringify(normalized);
+}
+
 function regionKey(region: ShopifyMarketRegionInput) {
   return `${region.countryCode}:${region.subdivision || ""}`;
 }
@@ -989,6 +1599,23 @@ function badGateway(message: string) {
 }
 
 type RawCatalog = ShopifyMarketCatalogSummary;
+interface RawDiscountNode {
+  id: string;
+  discount: {
+    __typename: string;
+    title?: string | null;
+    status?: string | null;
+    codes?: { nodes?: Array<{ code: string }> } | null;
+  };
+}
+interface RawConditionResource {
+  id: string;
+  name?: string | null;
+  accountName?: string | null;
+  specificationHandle?: string | null;
+  isActive?: boolean | null;
+  company?: { name?: string | null } | null;
+}
 interface RawWebPresence {
   id: string;
   subfolderSuffix: string | null;

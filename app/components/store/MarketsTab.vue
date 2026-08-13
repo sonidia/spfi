@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Truck,
 } from "@lucide/vue";
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useMarketStore } from "~/stores/market";
 import MarketCreateModal from "./MarketCreateModal.vue";
@@ -24,6 +24,7 @@ import { getSafeExternalUrl } from "~~/utils/safe-url";
 
 type StatusFilter = "ALL" | ShopifyMarketStatus;
 type TypeFilter = "ALL" | ShopifyMarketType;
+type ConditionFilter = "ALL" | Exclude<ShopifyMarketType, "NONE">;
 
 const marketStore = useMarketStore();
 const { storeId, token } = useActiveShopAuth();
@@ -33,11 +34,24 @@ const { t } = useLocalization();
 const searchQuery = ref("");
 const statusFilter = ref<StatusFilter>("ALL");
 const typeFilter = ref<TypeFilter>("ALL");
+const conditionFilter = ref<ConditionFilter>("ALL");
 const countryCode = ref("");
 const showCreateModal = ref(false);
 const editingMarketId = ref<string | null>(null);
+let filterTimer: ReturnType<typeof setTimeout> | null = null;
+
+const hasServerFilters = computed(
+  () =>
+    Boolean(searchQuery.value.trim()) ||
+    statusFilter.value !== "ALL" ||
+    typeFilter.value !== "ALL" ||
+    conditionFilter.value !== "ALL",
+);
 
 const filteredMarkets = computed(() => {
+  if (hasServerFilters.value && marketStore.filteredResults) {
+    return marketStore.filteredResults;
+  }
   const query = searchQuery.value.trim().toLowerCase();
   return marketStore.markets.filter((market) => {
     if (statusFilter.value !== "ALL" && market.status !== statusFilter.value) {
@@ -46,19 +60,44 @@ const filteredMarkets = computed(() => {
     if (typeFilter.value !== "ALL" && market.type !== typeFilter.value) {
       return false;
     }
+    if (
+      conditionFilter.value !== "ALL" &&
+      !market.conditionTypes.includes(conditionFilter.value)
+    ) {
+      return false;
+    }
     if (!query) return true;
 
-    return [
-      market.name,
-      market.handle,
-      market.type,
-      ...market.regions.flatMap((region) => [
-        region.name,
-        region.code,
-        region.countryCode || "",
-      ]),
-    ].some((value) => value.toLowerCase().includes(query));
+    return market.name.toLowerCase().includes(query);
   });
+});
+
+watch(
+  [searchQuery, statusFilter, typeFilter, conditionFilter, storeId, token],
+  () => {
+    if (filterTimer) clearTimeout(filterTimer);
+    if (!hasServerFilters.value || !storeId.value || !token.value) {
+      marketStore.clearFiltered();
+      return;
+    }
+    marketStore.clearFiltered();
+    filterTimer = setTimeout(() => {
+      void marketStore.fetchFiltered(storeId.value, token.value, {
+        ...(searchQuery.value.trim() ? { search: searchQuery.value.trim() } : {}),
+        ...(statusFilter.value !== "ALL" ? { status: statusFilter.value } : {}),
+        ...(typeFilter.value !== "ALL" ? { type: typeFilter.value } : {}),
+        ...(conditionFilter.value !== "ALL"
+          ? { conditionTypes: [conditionFilter.value] }
+          : {}),
+      });
+    }, 350);
+  },
+  { flush: "post" },
+);
+
+onBeforeUnmount(() => {
+  if (filterTimer) clearTimeout(filterTimer);
+  marketStore.clearFiltered();
 });
 
 const summary = computed(() => ({
@@ -327,6 +366,25 @@ function handleCreated(marketId: string) {
         <option value="CHANNEL">{{ t("markets.typeChannel") }}</option>
         <option value="NONE">{{ t("markets.typeNone") }}</option>
       </select>
+      <select v-model="conditionFilter" :aria-label="t('markets.allConditionTypes')">
+        <option value="ALL">{{ t("markets.allConditionTypes") }}</option>
+        <option value="REGION">{{ t("markets.typeRegion") }}</option>
+        <option value="COMPANY_LOCATION">
+          {{ t("markets.typeCompanyLocation") }}
+        </option>
+        <option value="LOCATION">{{ t("markets.typeLocation") }}</option>
+        <option value="CHANNEL">{{ t("markets.typeChannel") }}</option>
+      </select>
+      <span v-if="marketStore.isFiltering" class="markets-filter-progress">
+        <IconsSync class="spin" /> {{ t("markets.filtering") }}
+      </span>
+    </div>
+
+    <div v-if="marketStore.filterError" class="markets-alert is-error" role="alert">
+      {{ marketStore.filterError }}
+    </div>
+    <div v-if="marketStore.filteredTruncated" class="markets-alert is-warning">
+      {{ t("markets.filterTruncated") }}
     </div>
 
     <div
@@ -422,15 +480,57 @@ function handleCreated(marketId: string) {
           <summary>{{ t("markets.details") }}</summary>
           <div class="market-detail-grid">
             <section>
-              <h3>{{ t("markets.regions") }}</h3>
+              <h3>{{ t("markets.editor.conditionsTitle") }}</h3>
               <div class="market-chips">
                 <span v-for="region in market.regions" :key="region.id">
                   {{ region.code || region.countryCode }} · {{ region.name }}
                 </span>
-                <span v-if="!market.regions.length">—</span>
+                <span
+                  v-if="market.conditions.companyLocations?.applicationLevel === 'ALL'"
+                >
+                  {{ t("markets.editor.companyLocationsCondition") }} ·
+                  {{ t("markets.editor.conditionAll") }}
+                </span>
+                <span
+                  v-for="item in market.conditions.companyLocations?.items || []"
+                  :key="`company-${item.id}`"
+                >
+                  {{ t("markets.editor.companyLocationsCondition") }} · {{ item.name }}
+                </span>
+                <span v-if="market.conditions.locations?.applicationLevel === 'ALL'">
+                  {{ t("markets.editor.locationsCondition") }} ·
+                  {{ t("markets.editor.conditionAll") }}
+                </span>
+                <span
+                  v-for="item in market.conditions.locations?.items || []"
+                  :key="`location-${item.id}`"
+                >
+                  {{ t("markets.editor.locationsCondition") }} · {{ item.name }}
+                </span>
+                <span v-if="market.conditions.channels?.applicationLevel === 'ALL'">
+                  {{ t("markets.editor.channelsCondition") }} ·
+                  {{ t("markets.editor.conditionAll") }}
+                </span>
+                <span
+                  v-for="item in market.conditions.channels?.items || []"
+                  :key="`channel-${item.id}`"
+                >
+                  {{ t("markets.editor.channelsCondition") }} · {{ item.name }}
+                </span>
+                <span v-if="!market.conditionTypes.length">
+                  {{ t("markets.editor.noBuyerConditions") }}
+                </span>
               </div>
-              <small v-if="market.regionsTruncated" class="market-warning">
-                {{ t("markets.regionsTruncated") }}
+              <small
+                v-if="
+                  market.regionsTruncated ||
+                  market.conditions.companyLocations?.truncated ||
+                  market.conditions.locations?.truncated ||
+                  market.conditions.channels?.truncated
+                "
+                class="market-warning"
+              >
+                {{ t("markets.editor.conditionsListTruncated") }}
               </small>
             </section>
 
@@ -498,6 +598,30 @@ function handleCreated(marketId: string) {
               </ul>
               <small v-if="market.catalogsTruncated" class="market-warning">
                 {{ t("markets.catalogsTruncated") }}
+              </small>
+            </section>
+
+            <section>
+              <h3>
+                {{ t("markets.discounts") }}
+                <span>{{
+                  market.discountCount?.count ?? market.discounts.length
+                }}</span>
+              </h3>
+              <p v-if="!market.discounts.length">
+                {{ t("markets.editor.noAssignedDiscounts") }}
+              </p>
+              <ul v-else>
+                <li v-for="discount in market.discounts" :key="discount.id">
+                  <strong>{{ discount.title }}</strong>
+                  <small>
+                    {{ formatEnum(discount.status) }}
+                    <template v-if="discount.code"> · {{ discount.code }}</template>
+                  </small>
+                </li>
+              </ul>
+              <small v-if="market.discountsTruncated" class="market-warning">
+                {{ t("markets.discountsTruncated") }}
               </small>
             </section>
 

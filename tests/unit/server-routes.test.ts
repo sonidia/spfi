@@ -4,6 +4,7 @@ import generateTokenHandler from "~~/server/api/generate-token.post";
 import marketAllHandler from "~~/server/api/market/all.post";
 import marketAssignmentsHandler from "~~/server/api/market/assignments.post";
 import marketContextHandler from "~~/server/api/market/context.post";
+import marketConditionsHandler from "~~/server/api/market/conditions.post";
 import marketCreateHandler from "~~/server/api/market/create.post";
 import marketIdentityHandler from "~~/server/api/market/identity.post";
 import marketLocalizationReadHandler from "~~/server/api/market/localization/read.post";
@@ -14,6 +15,7 @@ import marketResolveHandler from "~~/server/api/market/resolve.post";
 import marketShippingHandler from "~~/server/api/market/shipping.post";
 import marketStatusHandler from "~~/server/api/market/status.post";
 import marketWebPresenceCreateHandler from "~~/server/api/market/web-presence/create.post";
+import marketWebPresenceDeleteHandler from "~~/server/api/market/web-presence/delete.post";
 import marketWebPresenceUpdateHandler from "~~/server/api/market/web-presence/update.post";
 import batchUpdateHandler from "~~/server/api/sheet/batch-update.post";
 import metaHandler from "~~/server/api/sheet/meta.post";
@@ -156,6 +158,7 @@ describe("diagnostic and credential routes", () => {
     for (const marketHandler of [
       marketAssignmentsHandler,
       marketContextHandler,
+      marketConditionsHandler,
       marketCreateHandler,
       marketIdentityHandler,
       marketLocalizationReadHandler,
@@ -164,6 +167,7 @@ describe("diagnostic and credential routes", () => {
       marketRegionsHandler,
       marketShippingHandler,
       marketWebPresenceCreateHandler,
+      marketWebPresenceDeleteHandler,
       marketWebPresenceUpdateHandler,
     ]) {
       await expect(marketHandler({ body: {} } as never)).rejects.toMatchObject({

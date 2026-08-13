@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { Plus, Save, Trash2 } from "@lucide/vue";
-import { computed, reactive, ref, watch } from "vue";
+import { Edit3, Plus, Save, Trash2, X } from "@lucide/vue";
+import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useMarketStore } from "~/stores/market";
+import MarketShippingOptionBuilder from "./MarketShippingOptionBuilder.vue";
 import type {
   ShopifyMarketEditorContext,
   ShopifyMarketShippingOptionInput,
+  ShopifyMarketShippingOptionSummary,
   ShopifyMarketShippingOptionType,
+  ShopifyMarketShippingOptionUpdateInput,
   ShopifyMarketSummary,
 } from "~~/types/shopify-market";
 
@@ -21,26 +24,14 @@ const { t } = useLocalization();
 const feedback = useStoreFeedback();
 const mode = ref<"INHERIT" | "DISABLED" | "ENABLED">("INHERIT");
 const deleteOptionIds = ref<string[]>([]);
-const updateOptions = ref<
-  Array<{ id: string; type: ShopifyMarketShippingOptionType; active: boolean }>
->([]);
+const updateOptions = ref<ShopifyMarketShippingOptionUpdateInput[]>([]);
 const createOptions = ref<ShopifyMarketShippingOptionInput[]>([]);
 const showBuilder = ref(false);
+const editingOptionId = ref<string | null>(null);
 const error = ref("");
-const draft = reactive({
-  type: "FLAT_RATE" as ShopifyMarketShippingOptionType,
-  name: "",
-  description: "",
-  currency: "",
-  active: true,
-  freeDeliveryMinimumValue: "",
-  price: "",
-  minimum: "0",
-  maximum: "",
-  weightUnit: "KILOGRAMS" as "GRAMS" | "KILOGRAMS" | "OUNCES" | "POUNDS",
-  carrierServiceId: "",
-  percentageAdjustment: "",
-});
+const editingOption = computed(
+  () => updateOptions.value.find((item) => item.id === editingOptionId.value) || null,
+);
 
 watch(
   () => props.market,
@@ -53,14 +44,11 @@ watch(
     deleteOptionIds.value = [];
     updateOptions.value = [];
     createOptions.value = [];
-    draft.currency = market.currencySettings?.baseCurrencyCode || "USD";
+    editingOptionId.value = null;
     error.value = "";
   },
   { immediate: true },
 );
-
-const requiresName = computed(() => draft.type !== "CARRIER_CALCULATED");
-const requiresPrice = computed(() => draft.type !== "CARRIER_CALCULATED");
 
 function typeLabel(type: ShopifyMarketShippingOptionType) {
   if (type === "FLAT_RATE") return t("markets.editor.shippingTypeFlatRate");
@@ -82,75 +70,76 @@ function activeValue(id: string, fallback: boolean) {
   return updateOptions.value.find((item) => item.id === id)?.active ?? fallback;
 }
 
-function toggleActive(
-  id: string,
-  type: ShopifyMarketShippingOptionType,
-  current: boolean,
-) {
-  updateOptions.value = [
-    ...updateOptions.value.filter((item) => item.id !== id),
-    { id, type, active: !activeValue(id, current) },
-  ];
-  deleteOptionIds.value = deleteOptionIds.value.filter((item) => item !== id);
+function toggleActive(option: ShopifyMarketShippingOptionSummary) {
+  const draft = ensureOptionDraft(option);
+  draft.active = !draft.active;
+  deleteOptionIds.value = deleteOptionIds.value.filter((item) => item !== option.id);
 }
 
-function resetDraft() {
-  Object.assign(draft, {
-    type: "FLAT_RATE",
-    name: "",
-    description: "",
-    currency: props.market.currencySettings?.baseCurrencyCode || "USD",
-    active: true,
-    freeDeliveryMinimumValue: "",
-    price: "",
-    minimum: "0",
-    maximum: "",
-    weightUnit: "KILOGRAMS",
-    carrierServiceId: "",
-    percentageAdjustment: "",
-  });
+function ensureOptionDraft(option: ShopifyMarketShippingOptionSummary) {
+  const existing = updateOptions.value.find((item) => item.id === option.id);
+  if (existing) return existing;
+  const draft: ShopifyMarketShippingOptionUpdateInput = {
+    id: option.id,
+    type: option.type,
+    name: option.name || undefined,
+    description: option.description || "",
+    currency: option.currency,
+    active: option.active,
+    freeDeliveryMinimumValue: option.freeDeliveryMinimumValue,
+    rateGroupId: option.rateGroupId,
+    rates: option.rates.map((rate) => ({ ...rate })),
+    carrierServiceId: option.carrierService?.id,
+    percentageAdjustment: option.percentageAdjustment,
+  };
+  updateOptions.value.push(draft);
+  return draft;
 }
 
-function queueOption() {
-  error.value = "";
-  if (!/^[A-Za-z]{3}$/.test(draft.currency.trim())) {
-    error.value = t("markets.editor.shippingCurrencyValidation");
-    return;
-  }
-  if (requiresName.value && !draft.name.trim()) {
-    error.value = t("markets.editor.shippingNameValidation");
-    return;
-  }
-  if (requiresPrice.value && !draft.price.trim()) {
-    error.value = t("markets.editor.shippingPriceValidation");
-    return;
-  }
-  if (draft.type === "CARRIER_CALCULATED" && !draft.carrierServiceId) {
-    error.value = t("markets.editor.carrierValidation");
-    return;
-  }
-  createOptions.value.push({
-    type: draft.type,
-    name: draft.name.trim() || undefined,
-    description: draft.description.trim() || undefined,
-    currency: draft.currency.trim().toUpperCase(),
-    active: draft.active,
-    freeDeliveryMinimumValue: draft.freeDeliveryMinimumValue.trim() || null,
-    price: draft.price.trim() || undefined,
-    minimum: draft.minimum.trim() || undefined,
-    maximum: draft.maximum.trim() || null,
-    weightUnit: draft.weightUnit,
-    carrierServiceId: draft.carrierServiceId || undefined,
-    percentageAdjustment: draft.percentageAdjustment.trim()
-      ? Number(draft.percentageAdjustment)
-      : null,
-  });
-  resetDraft();
+function editOption(option: ShopifyMarketShippingOptionSummary) {
+  ensureOptionDraft(option);
+  editingOptionId.value = option.id;
+  deleteOptionIds.value = deleteOptionIds.value.filter((item) => item !== option.id);
+}
+
+function cancelOptionEdit(id: string) {
+  updateOptions.value = updateOptions.value.filter((item) => item.id !== id);
+  editingOptionId.value = null;
+}
+
+function queueOption(option: ShopifyMarketShippingOptionInput) {
+  createOptions.value.push(option);
   showBuilder.value = false;
 }
 
 async function save() {
   error.value = "";
+  const invalidUpdate = updateOptions.value.some((option) => {
+    if (!/^[A-Za-z]{3}$/.test(option.currency.trim())) return true;
+    if (option.type !== "CARRIER_CALCULATED" && !option.name?.trim()) return true;
+    if (
+      option.type === "CARRIER_CALCULATED" &&
+      option.percentageAdjustment !== null &&
+      option.percentageAdjustment !== undefined &&
+      (!Number.isInteger(Number(option.percentageAdjustment)) ||
+        Number(option.percentageAdjustment) < -100 ||
+        Number(option.percentageAdjustment) > 1000)
+    ) {
+      return true;
+    }
+    return (option.rates || []).some(
+      (rate) =>
+        !String(rate.price ?? "").trim() ||
+        Number(rate.price) < 0 ||
+        (rate.maximum !== null &&
+          String(rate.maximum).trim() !== "" &&
+          Number(rate.maximum) < Number(rate.minimum || 0)),
+    );
+  });
+  if (invalidUpdate) {
+    error.value = t("markets.editor.shippingUpdateValidation");
+    return;
+  }
   const confirmed = await requestConfirmation({
     title: t("markets.editor.shippingConfirmTitle"),
     message: t("markets.editor.shippingConfirmMessage", { name: props.market.name }),
@@ -258,13 +247,22 @@ async function save() {
             </div>
             <BaseButton
               :disabled="deleteOptionIds.includes(option.id)"
-              @click="toggleActive(option.id, option.type, option.active)"
+              @click="toggleActive(option)"
             >
               {{
                 activeValue(option.id, option.active)
                   ? t("markets.editor.disableOption")
                   : t("markets.editor.enableOption")
               }}
+            </BaseButton>
+            <BaseButton
+              variant="ghost"
+              icon-only
+              :disabled="deleteOptionIds.includes(option.id)"
+              :aria-label="t('markets.editor.editShippingOption')"
+              @click="editOption(option)"
+            >
+              <template #icon><Edit3 /></template>
             </BaseButton>
             <BaseButton
               :variant="deleteOptionIds.includes(option.id) ? 'danger' : 'danger-ghost'"
@@ -283,6 +281,135 @@ async function save() {
         <small v-if="market.shipping.optionsTruncated" class="market-warning">{{
           t("markets.editor.shippingOptionsTruncated")
         }}</small>
+        <div v-if="editingOption" class="market-inline-editor">
+          <div class="market-section-heading is-compact">
+            <div>
+              <h4>{{ t("markets.editor.editShippingOption") }}</h4>
+              <p>{{ t("markets.editor.editShippingOptionHint") }}</p>
+            </div>
+            <BaseButton
+              variant="ghost"
+              icon-only
+              :aria-label="t('common.close')"
+              @click="cancelOptionEdit(editingOption.id)"
+            >
+              <template #icon><X /></template>
+            </BaseButton>
+          </div>
+          <div class="market-form-grid">
+            <label
+              v-if="editingOption.type !== 'CARRIER_CALCULATED'"
+              class="market-field"
+            >
+              <span>{{ t("markets.editor.optionName") }}</span>
+              <input v-model="editingOption.name" required maxlength="255" />
+            </label>
+            <label class="market-field">
+              <span>{{ t("markets.editor.currency") }}</span>
+              <input v-model="editingOption.currency" required maxlength="3" />
+            </label>
+            <label class="market-field">
+              <span>{{ t("markets.editor.freeShippingMinimum") }}</span>
+              <input
+                v-model="editingOption.freeDeliveryMinimumValue"
+                type="number"
+                min="0"
+                step="0.01"
+              />
+            </label>
+            <label class="market-field is-wide">
+              <span>{{ t("markets.editor.descriptionOptional") }}</span>
+              <input v-model="editingOption.description" maxlength="255" />
+            </label>
+            <label
+              v-if="editingOption.type === 'CARRIER_CALCULATED'"
+              class="market-field"
+            >
+              <span>{{ t("markets.editor.carrierService") }}</span>
+              <select v-model="editingOption.carrierServiceId">
+                <option
+                  v-for="carrier in context.carrierServices"
+                  :key="carrier.id"
+                  :value="carrier.id"
+                  :disabled="!carrier.active"
+                >
+                  {{ carrier.name }}
+                </option>
+              </select>
+            </label>
+            <label
+              v-if="editingOption.type === 'CARRIER_CALCULATED'"
+              class="market-field"
+            >
+              <span>{{ t("markets.editor.percentageAdjustment") }}</span>
+              <input
+                v-model="editingOption.percentageAdjustment"
+                type="number"
+                min="-100"
+                max="1000"
+                step="1"
+              />
+            </label>
+          </div>
+          <fieldset
+            v-if="editingOption.type !== 'CARRIER_CALCULATED'"
+            class="market-fieldset"
+          >
+            <legend>{{ t("markets.editor.shippingRates") }}</legend>
+            <div v-if="!editingOption.rates?.length" class="market-empty-small">
+              {{ t("markets.editor.shippingRatesUnavailable") }}
+            </div>
+            <div v-else class="market-rate-editor-list">
+              <div v-for="rate in editingOption.rates" :key="rate.id">
+                <label v-if="editingOption.type !== 'FLAT_RATE'" class="market-field">
+                  <span>{{ t("markets.editor.minimum") }}</span>
+                  <input v-model="rate.minimum" type="number" min="0" step="any" />
+                </label>
+                <label v-if="editingOption.type !== 'FLAT_RATE'" class="market-field">
+                  <span>{{ t("markets.editor.maximumOptional") }}</span>
+                  <input v-model="rate.maximum" type="number" min="0" step="any" />
+                </label>
+                <label class="market-field">
+                  <span>{{ t("markets.editor.price") }}</span>
+                  <input v-model="rate.price" type="number" min="0" step="0.01" />
+                </label>
+                <label
+                  v-if="editingOption.type === 'WEIGHT_BASED'"
+                  class="market-field"
+                >
+                  <span>{{ t("markets.editor.weightUnit") }}</span>
+                  <select v-model="rate.weightUnit">
+                    <option value="GRAMS">g</option>
+                    <option value="KILOGRAMS">kg</option>
+                    <option value="OUNCES">oz</option>
+                    <option value="POUNDS">lb</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <small
+              v-if="
+                market.shipping.options.find((item) => item.id === editingOption?.id)
+                  ?.ratesTruncated
+              "
+              class="market-warning"
+            >
+              {{ t("markets.editor.shippingRatesTruncated") }}
+            </small>
+          </fieldset>
+          <BaseCheckbox
+            v-model="editingOption.active"
+            :label="t('markets.editor.optionActive')"
+          />
+          <div class="market-section-actions">
+            <BaseButton @click="cancelOptionEdit(editingOption.id)">
+              {{ t("common.cancel") }}
+            </BaseButton>
+            <BaseButton variant="primary" @click="editingOptionId = null">
+              {{ t("markets.editor.queueUpdate") }}
+            </BaseButton>
+          </div>
+        </div>
         <div v-if="createOptions.length" class="market-queued-list">
           <strong>{{ t("markets.editor.queuedShippingOptions") }}</strong>
           <div v-for="(option, index) in createOptions" :key="index">
@@ -300,108 +427,13 @@ async function save() {
         </div>
       </fieldset>
 
-      <fieldset v-if="showBuilder" class="market-fieldset market-option-builder">
-        <legend>{{ t("markets.editor.newShippingOption") }}</legend>
-        <div class="market-form-grid">
-          <label class="market-field">
-            <span>{{ t("markets.editor.optionType") }}</span>
-            <select v-model="draft.type">
-              <option value="FLAT_RATE">
-                {{ t("markets.editor.shippingTypeFlatRate") }}
-              </option>
-              <option value="VALUE_BASED">
-                {{ t("markets.editor.shippingTypeValueBased") }}
-              </option>
-              <option value="WEIGHT_BASED">
-                {{ t("markets.editor.shippingTypeWeightBased") }}
-              </option>
-              <option value="CARRIER_CALCULATED">
-                {{ t("markets.editor.shippingTypeCarrierCalculated") }}
-              </option>
-            </select>
-          </label>
-          <label v-if="requiresName" class="market-field"
-            ><span>{{ t("markets.editor.optionName") }}</span
-            ><input v-model="draft.name" required placeholder="Standard"
-          /></label>
-          <label class="market-field"
-            ><span>{{ t("markets.editor.currency") }}</span
-            ><input v-model="draft.currency" required maxlength="3" placeholder="USD"
-          /></label>
-          <label v-if="requiresPrice" class="market-field"
-            ><span>{{ t("markets.editor.price") }}</span
-            ><input v-model="draft.price" type="number" min="0" step="0.01" required
-          /></label>
-          <label
-            v-if="draft.type === 'VALUE_BASED' || draft.type === 'WEIGHT_BASED'"
-            class="market-field"
-            ><span>{{ t("markets.editor.minimum") }}</span
-            ><input v-model="draft.minimum" type="number" min="0" step="any" required
-          /></label>
-          <label
-            v-if="draft.type === 'VALUE_BASED' || draft.type === 'WEIGHT_BASED'"
-            class="market-field"
-            ><span>{{ t("markets.editor.maximumOptional") }}</span
-            ><input v-model="draft.maximum" type="number" min="0" step="any"
-          /></label>
-          <label v-if="draft.type === 'WEIGHT_BASED'" class="market-field"
-            ><span>{{ t("markets.editor.weightUnit") }}</span
-            ><select v-model="draft.weightUnit">
-              <option value="GRAMS">g</option>
-              <option value="KILOGRAMS">kg</option>
-              <option value="OUNCES">oz</option>
-              <option value="POUNDS">lb</option>
-            </select></label
-          >
-          <label v-if="draft.type === 'CARRIER_CALCULATED'" class="market-field"
-            ><span>{{ t("markets.editor.carrierService") }}</span
-            ><select v-model="draft.carrierServiceId" required>
-              <option value="">{{ t("markets.editor.chooseCarrier") }}</option>
-              <option
-                v-for="carrier in context.carrierServices"
-                :key="carrier.id"
-                :value="carrier.id"
-                :disabled="!carrier.active"
-              >
-                {{ carrier.name }}
-              </option>
-            </select></label
-          >
-          <label v-if="draft.type === 'CARRIER_CALCULATED'" class="market-field"
-            ><span>{{ t("markets.editor.percentageAdjustment") }}</span
-            ><input
-              v-model="draft.percentageAdjustment"
-              type="number"
-              min="-100"
-              max="1000"
-              step="1"
-              placeholder="0"
-          /></label>
-          <label class="market-field"
-            ><span>{{ t("markets.editor.freeShippingMinimum") }}</span
-            ><input
-              v-model="draft.freeDeliveryMinimumValue"
-              type="number"
-              min="0"
-              step="0.01"
-          /></label>
-          <label class="market-field is-wide"
-            ><span>{{ t("markets.editor.descriptionOptional") }}</span
-            ><input v-model="draft.description" maxlength="255"
-          /></label>
-        </div>
-        <BaseCheckbox
-          v-model="draft.active"
-          :label="t('markets.editor.optionActive')"
-        />
-        <div class="market-section-actions">
-          <BaseButton @click="showBuilder = false">{{ t("common.cancel") }}</BaseButton
-          ><BaseButton variant="primary" @click="queueOption"
-            ><template #icon><Plus /></template
-            >{{ t("markets.editor.queueOption") }}</BaseButton
-          >
-        </div>
-      </fieldset>
+      <MarketShippingOptionBuilder
+        v-if="showBuilder"
+        :context="context"
+        :default-currency="market.currencySettings?.baseCurrencyCode || 'USD'"
+        @cancel="showBuilder = false"
+        @add="queueOption"
+      />
     </template>
 
     <p v-if="error" class="market-form-error" role="alert">{{ error }}</p>

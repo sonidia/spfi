@@ -257,8 +257,22 @@
 
 .markets-toolbar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) auto auto;
+  grid-template-columns: minmax(240px, 1fr) repeat(3, auto) auto;
   gap: 8px;
+}
+
+.markets-filter-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.markets-filter-progress svg {
+  width: 13px;
+  height: 13px;
 }
 
 .markets-search {

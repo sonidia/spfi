@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Edit3, Plus, Save } from "@lucide/vue";
+import { Edit3, Plus, Save, Trash2 } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useMarketStore } from "~/stores/market";
@@ -20,12 +20,14 @@ const { requestConfirmation } = useConfirmDialog();
 const { t } = useLocalization();
 const feedback = useStoreFeedback();
 const selectedCatalogs = ref<string[]>([]);
+const selectedDiscounts = ref<string[]>([]);
 const selectedPresences = ref<string[]>([]);
 const presenceEditor = ref<ShopifyMarketWebPresenceSummary | null | undefined>(
   undefined,
 );
 const error = ref("");
 const originalCatalogs = computed(() => props.market.catalogs.map((item) => item.id));
+const originalDiscounts = computed(() => props.market.discounts.map((item) => item.id));
 const originalPresences = computed(() =>
   props.market.webPresences.map((item) => item.id),
 );
@@ -37,6 +39,7 @@ watch(
   () => props.market,
   () => {
     selectedCatalogs.value = [...originalCatalogs.value];
+    selectedDiscounts.value = [...originalDiscounts.value];
     selectedPresences.value = [...originalPresences.value];
     error.value = "";
   },
@@ -59,6 +62,31 @@ function handlePresenceSaved(presence: ShopifyMarketWebPresenceSummary) {
     selectedPresences.value.push(presence.id);
 }
 
+async function removePresence(presence: ShopifyMarketWebPresenceSummary) {
+  const confirmed = await requestConfirmation({
+    title: t("markets.editor.deleteWebPresenceTitle"),
+    message: t("markets.editor.deleteWebPresenceMessage", {
+      name: presence.domain?.host || `/${presence.subfolderSuffix || ""}`,
+    }),
+    confirmLabel: t("common.delete"),
+    danger: true,
+  });
+  if (!confirmed) return;
+  const deleted = await marketStore.deleteWebPresence(
+    storeId.value,
+    token.value,
+    presence.id,
+  );
+  if (!deleted) {
+    error.value =
+      marketStore.managerError || t("markets.editor.deleteWebPresenceFailed");
+    return;
+  }
+  selectedPresences.value = selectedPresences.value.filter((id) => id !== presence.id);
+  if (presenceEditor.value?.id === presence.id) presenceEditor.value = undefined;
+  feedback.success(t("markets.editor.webPresenceDeleted"));
+}
+
 async function save() {
   error.value = "";
   const payload = {
@@ -67,6 +95,12 @@ async function save() {
     ),
     catalogsToDelete: originalCatalogs.value.filter(
       (id) => !selectedCatalogs.value.includes(id),
+    ),
+    discountsToAdd: selectedDiscounts.value.filter(
+      (id) => !originalDiscounts.value.includes(id),
+    ),
+    discountsToDelete: originalDiscounts.value.filter(
+      (id) => !selectedDiscounts.value.includes(id),
     ),
     webPresencesToAdd: selectedPresences.value.filter(
       (id) => !originalPresences.value.includes(id),
@@ -141,6 +175,24 @@ async function save() {
     </fieldset>
 
     <fieldset class="market-fieldset">
+      <legend>{{ t("markets.discounts") }}</legend>
+      <p>{{ t("markets.editor.discountAssignmentHint") }}</p>
+      <div v-if="!context.discounts.length" class="market-empty-small">
+        {{ t("markets.editor.noAvailableDiscounts") }}
+      </div>
+      <div v-else class="market-selection-list">
+        <BaseCheckbox
+          v-for="discount in context.discounts"
+          :key="discount.id"
+          :model-value="selectedDiscounts.includes(discount.id)"
+          :label="discount.title"
+          :description="`${discount.code || discount.type} · ${discount.status}`"
+          @change="toggle(selectedDiscounts, discount.id)"
+        />
+      </div>
+    </fieldset>
+
+    <fieldset class="market-fieldset">
       <div class="market-legend-row">
         <div>
           <legend>{{ t("markets.webPresence") }}</legend>
@@ -175,6 +227,13 @@ async function save() {
             :aria-label="t('markets.editor.editWebPresence')"
             @click="editPresence(presence)"
             ><template #icon><Edit3 /></template
+          ></BaseButton>
+          <BaseButton
+            variant="danger-ghost"
+            icon-only
+            :aria-label="t('markets.editor.deleteWebPresence')"
+            @click="removePresence(presence)"
+            ><template #icon><Trash2 /></template
           ></BaseButton>
         </article>
       </div>
