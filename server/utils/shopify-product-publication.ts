@@ -31,8 +31,11 @@ export async function setShopifyProductsPublished(options: {
   token: string;
   productIds: ShopifyNumericId[];
   publish: boolean;
+  publicationIds?: string[];
 }) {
-  const publicationId = await resolveOnlineStorePublicationId(options);
+  const publicationIds = options.publicationIds?.length
+    ? options.publicationIds
+    : [await resolveOnlineStorePublicationId(options)];
   const failedIds: ShopifyNumericId[] = [];
 
   for (
@@ -46,7 +49,7 @@ export async function setShopifyProductsPublished(options: {
     );
     const { query, variables } = buildPublicationMutation(
       productIds,
-      publicationId,
+      publicationIds,
       options.publish,
     );
     const data = await callShopifyGraphql<Record<string, MutationPayload>>({

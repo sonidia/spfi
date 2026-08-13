@@ -263,12 +263,40 @@ onUnmounted(() => {
             <span>{{ t("product.columnUpdated") }}</span>
             <strong>{{ formatDate(product.updated_at) }}</strong>
           </div>
+          <div class="detail-meta-item">
+            <span>{{ t("product.media") }}</span>
+            <strong>{{ product.media_count || 0 }}</strong>
+          </div>
+          <div class="detail-meta-item">
+            <span>{{ t("product.productKind") }}</span>
+            <strong>{{
+              product.is_gift_card
+                ? t("product.giftCardProduct")
+                : t("product.standardProduct")
+            }}</strong>
+          </div>
         </div>
 
         <div class="detail-section detail-info-grid">
           <div>
             <div class="detail-section-title">{{ t("product.productType") }}</div>
             <div class="detail-value">{{ product.product_type || "-" }}</div>
+          </div>
+          <div>
+            <div class="detail-section-title">{{ t("product.shopifyCategory") }}</div>
+            <div class="detail-value">
+              {{ product.category?.full_name || product.category?.name || "-" }}
+            </div>
+          </div>
+          <div>
+            <div class="detail-section-title">{{ t("product.subscriptionOnly") }}</div>
+            <div class="detail-value">
+              {{
+                product.requires_selling_plan
+                  ? t("product.required")
+                  : t("product.notRequired")
+              }}
+            </div>
           </div>
           <div>
             <div class="detail-section-title">{{ t("product.tags") }}</div>
@@ -380,6 +408,7 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <ProductMediaManager :product-id="product.id" @refreshed="emit('refreshed')" />
         <ProductOperationsPanel :product="product" @refreshed="emit('refreshed')" />
       </div>
     </section>

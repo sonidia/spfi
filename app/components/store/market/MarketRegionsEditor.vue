@@ -262,6 +262,7 @@ async function save() {
       </fieldset>
 
       <MarketConditionResourcePicker
+        v-if="context.capabilities.companyLocationsAvailable"
         :title="t('markets.editor.companyLocationsCondition')"
         :description="t('markets.editor.companyLocationsConditionHint')"
         :options="companyOptions"
@@ -271,7 +272,22 @@ async function save() {
         @update:mode="companyMode = $event"
         @update:selected="companyIds = $event"
       />
+      <div v-else class="market-callout is-warning">
+        <strong>{{ t("markets.editor.b2bUnavailableTitle") }}</strong>
+        <span>{{ t("markets.editor.b2bUnavailableDescription") }}</span>
+        <div
+          v-if="market.conditions.companyLocations?.items.length"
+          class="market-chips"
+        >
+          <span
+            v-for="item in market.conditions.companyLocations.items"
+            :key="item.id"
+            >{{ item.name }}</span
+          >
+        </div>
+      </div>
       <MarketConditionResourcePicker
+        v-if="context.capabilities.locationsAvailable"
         :title="t('markets.editor.locationsCondition')"
         :description="t('markets.editor.locationsConditionHint')"
         :options="locationOptions"
@@ -281,7 +297,12 @@ async function save() {
         @update:mode="locationMode = $event"
         @update:selected="locationIds = $event"
       />
+      <div v-else class="market-callout is-warning">
+        <strong>{{ t("markets.editor.locationsUnavailableTitle") }}</strong>
+        <span>{{ t("markets.editor.locationsUnavailableDescription") }}</span>
+      </div>
       <MarketConditionResourcePicker
+        v-if="context.capabilities.channelsAvailable"
         :title="t('markets.editor.channelsCondition')"
         :description="t('markets.editor.channelsConditionHint')"
         :options="channelOptions"
@@ -290,6 +311,10 @@ async function save() {
         @update:mode="channelMode = $event"
         @update:selected="channelIds = $event"
       />
+      <div v-else class="market-callout is-warning">
+        <strong>{{ t("markets.editor.channelsUnavailableTitle") }}</strong>
+        <span>{{ t("markets.editor.channelsUnavailableDescription") }}</span>
+      </div>
 
       <BaseCheckbox
         v-model="duplicateDraft"

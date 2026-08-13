@@ -184,6 +184,18 @@ export interface ShopifyMarketRegionInput {
 
 export interface ShopifyMarketEditorContext {
   primaryDomain: { id: string; host: string; url: string } | null;
+  domains: Array<{
+    id: string;
+    host: string;
+    url: string;
+    primary: boolean;
+    assigned: boolean;
+  }>;
+  capabilities: {
+    companyLocationsAvailable: boolean;
+    locationsAvailable: boolean;
+    channelsAvailable: boolean;
+  };
   locales: Array<{
     locale: string;
     name: string;
@@ -204,6 +216,12 @@ export interface ShopifyMarketEditorContext {
     active: boolean;
     supportsServiceDiscovery: boolean;
   }>;
+  warnings: string[];
+}
+
+export interface ShopifyMarketCatalogCreateResult {
+  catalog: ShopifyMarketCatalogSummary;
+  priceListCreated: boolean;
   warnings: string[];
 }
 
@@ -285,4 +303,20 @@ export interface ShopifyMarketLocalizationResource {
   mode: "MARKET_LOCALIZATION" | "TRANSLATION";
   locale: string | null;
   fields: ShopifyMarketLocalizationField[];
+}
+
+export interface ShopifyMarketLocalizationOverviewItem {
+  resourceId: string;
+  fieldCount: number;
+  localizedCount: number;
+  outdatedCount: number;
+  preview: string;
+}
+
+export interface ShopifyMarketLocalizationOverview {
+  mode: "MARKET_LOCALIZATION" | "TRANSLATION";
+  resourceType: string;
+  locale: string | null;
+  items: ShopifyMarketLocalizationOverviewItem[];
+  truncated: boolean;
 }

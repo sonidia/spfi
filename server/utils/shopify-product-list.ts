@@ -3,6 +3,7 @@ import { callShopifyGraphql } from "./callShopifyGraphql";
 import {
   buildProductSearchQuery,
   normalizeProductPageSize,
+  resolveProductSort,
 } from "./shopify-product-query";
 import type {
   ShopifyNumericId,
@@ -28,6 +29,11 @@ interface ProductListNode {
   updatedAt: string;
   publishedAt: string | null;
   totalInventory: number;
+  category: { id: string; name: string; fullName: string } | null;
+  seo: { title: string | null; description: string | null };
+  isGiftCard: boolean;
+  requiresSellingPlan: boolean;
+  mediaCount: { count: number } | null;
   variantsCount: { count: number } | null;
   priceRangeV2: {
     minVariantPrice: { amount: string; currencyCode: string };
@@ -94,20 +100,33 @@ export async function listShopifyProducts(options: {
   const first = normalizeProductPageSize(options.query?.limit);
   const after = String(options.query?.page_info || "").trim() || null;
   const searchQuery = buildProductSearchQuery(options.query);
-  const variables = { first, after, query: searchQuery };
+  const sort = resolveProductSort(options.query);
+  const variables = {
+    first,
+    after,
+    query: searchQuery,
+    sortKey: sort.sortKey,
+    reverse: sort.reverse,
+  };
   const data = await callShopifyGraphql<ProductListData, typeof variables>({
     event: options.event,
     storeId: options.storeId,
     token: options.token,
     operationName: "ProductsPage",
     query: `
-      query ProductsPage($first: Int!, $after: String, $query: String!) {
+      query ProductsPage(
+        $first: Int!
+        $after: String
+        $query: String!
+        $sortKey: ProductSortKeys!
+        $reverse: Boolean!
+      ) {
         products(
           first: $first
           after: $after
           query: $query
-          sortKey: UPDATED_AT
-          reverse: true
+          sortKey: $sortKey
+          reverse: $reverse
         ) {
           nodes {
             id
@@ -124,6 +143,11 @@ export async function listShopifyProducts(options: {
             updatedAt
             publishedAt
             totalInventory
+            category { id name fullName }
+            seo { title description }
+            isGiftCard
+            requiresSellingPlan
+            mediaCount { count }
             variantsCount { count }
             priceRangeV2 {
               minVariantPrice { amount currencyCode }
@@ -205,6 +229,17 @@ function mapProduct(node: ProductListNode): ShopifyProduct {
     min_price: node.priceRangeV2.minVariantPrice.amount,
     max_price: node.priceRangeV2.maxVariantPrice.amount,
     price_currency: node.priceRangeV2.minVariantPrice.currencyCode,
+    category: node.category
+      ? {
+          id: node.category.id,
+          name: node.category.name,
+          full_name: node.category.fullName,
+        }
+      : null,
+    seo: node.seo,
+    is_gift_card: node.isGiftCard,
+    requires_selling_plan: node.requiresSellingPlan,
+    media_count: node.mediaCount?.count || 0,
     options: node.options.map(mapOption),
     variants: node.variants.nodes.map((variant) =>
       mapVariant(variant, node.legacyResourceId),

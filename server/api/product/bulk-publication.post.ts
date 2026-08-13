@@ -10,6 +10,7 @@ interface BulkPublicationBody {
   token?: string;
   productIds?: ShopifyNumericId[];
   publish?: boolean;
+  publicationIds?: string[];
 }
 
 export default defineEventHandler(async (event) => {
@@ -33,6 +34,24 @@ export default defineEventHandler(async (event) => {
       400,
     );
   }
+  const publicationIds = Array.from(
+    new Set(
+      (Array.isArray(body.publicationIds) ? body.publicationIds : [])
+        .map((id) => String(id).trim())
+        .filter(Boolean),
+    ),
+  );
+  if (
+    publicationIds.length > 25 ||
+    publicationIds.some(
+      (id) => !id.startsWith("gid://shopify/Publication/") || id.includes("?"),
+    )
+  ) {
+    throw createApiErrorFromMessage(
+      "Provide no more than 25 valid Shopify Publication IDs.",
+      400,
+    );
+  }
 
   return setShopifyProductsPublished({
     event,
@@ -40,5 +59,6 @@ export default defineEventHandler(async (event) => {
     token,
     productIds,
     publish: body.publish,
+    ...(publicationIds.length ? { publicationIds } : {}),
   });
 });

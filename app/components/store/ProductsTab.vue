@@ -35,17 +35,26 @@
             class="inp"
             :placeholder="t('product.searchPlaceholder')"
           />
-          <select v-model="filterForm.status" class="inp">
-            <option value="">{{ t("product.filterStatusAny") }}</option>
-            <option value="active">{{ t("product.statusActive") }}</option>
-            <option value="draft">{{ t("product.statusDraft") }}</option>
-            <option value="archived">{{ t("product.statusArchived") }}</option>
-          </select>
-          <select v-model="filterForm.published_status" class="inp">
-            <option value="">{{ t("product.filterPublishedAny") }}</option>
-            <option value="published">{{ t("product.filterPublished") }}</option>
-            <option value="unpublished">{{ t("product.filterUnpublished") }}</option>
-          </select>
+          <BaseSelect
+            class-name="product-filter-select"
+            :model-value="filterForm.status"
+            :options="productStatusFilterOptions"
+            :aria-label="t('product.filterStatusAny')"
+            @update:model-value="
+              filterForm.status = String($event || '') as typeof filterForm.status
+            "
+          />
+          <BaseSelect
+            class-name="product-filter-select"
+            :model-value="filterForm.published_status"
+            :options="publicationFilterOptions"
+            :aria-label="t('product.filterPublishedAny')"
+            @update:model-value="
+              filterForm.published_status = String(
+                $event || '',
+              ) as typeof filterForm.published_status
+            "
+          />
           <input
             v-model="filterForm.vendor"
             class="inp"
@@ -56,13 +65,84 @@
             class="inp"
             :placeholder="t('product.filterTypePlaceholder')"
           />
+          <BaseSelect
+            class-name="product-filter-select"
+            :model-value="filterForm.collection_id"
+            :options="collectionFilterOptions"
+            :placeholder="t('product.filterCollectionAny')"
+            :aria-label="t('product.filterCollectionAny')"
+            @update:model-value="filterForm.collection_id = String($event || '')"
+          />
+          <BaseSelect
+            class-name="product-filter-select"
+            :model-value="filterForm.sort_key"
+            :options="productSortOptions"
+            :aria-label="t('product.sortBy')"
+            @update:model-value="
+              filterForm.sort_key = String($event || 'UPDATED_AT') as ProductSortKey
+            "
+          />
+          <BaseSelect
+            class-name="product-filter-select"
+            :model-value="filterForm.reverse ? 'DESC' : 'ASC'"
+            :options="sortDirectionOptions"
+            :aria-label="t('product.sortDirection')"
+            @update:model-value="filterForm.reverse = $event !== 'ASC'"
+          />
+          <button
+            class="btn-outline product-filter-toggle"
+            type="button"
+            :aria-expanded="showAdvancedFilters"
+            @click="showAdvancedFilters = !showAdvancedFilters"
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {{ t("product.dateFilters") }}
+            <ChevronDown
+              aria-hidden="true"
+              :class="{ 'is-rotated': showAdvancedFilters }"
+            />
+          </button>
           <button class="btn-primary-sm" type="submit">
             {{ t("product.search") }}
           </button>
           <button class="btn-outline filter-reset" type="button" @click="resetFilters">
             {{ t("product.resetFilters") }}
           </button>
+          <div v-if="showAdvancedFilters" class="product-date-filters">
+            <label>
+              <span>{{ t("product.createdFrom") }}</span>
+              <input v-model="filterForm.created_at_min" class="inp" type="date" />
+            </label>
+            <label>
+              <span>{{ t("product.createdThrough") }}</span>
+              <input v-model="filterForm.created_at_max" class="inp" type="date" />
+            </label>
+            <label>
+              <span>{{ t("product.updatedFrom") }}</span>
+              <input v-model="filterForm.updated_at_min" class="inp" type="date" />
+            </label>
+            <label>
+              <span>{{ t("product.updatedThrough") }}</span>
+              <input v-model="filterForm.updated_at_max" class="inp" type="date" />
+            </label>
+            <label>
+              <span>{{ t("product.publishedFrom") }}</span>
+              <input v-model="filterForm.published_at_min" class="inp" type="date" />
+            </label>
+            <label>
+              <span>{{ t("product.publishedThrough") }}</span>
+              <input v-model="filterForm.published_at_max" class="inp" type="date" />
+            </label>
+          </div>
         </form>
+
+        <div
+          v-for="warning in productStore.managementContext?.warnings || []"
+          :key="warning"
+          class="product-context-warning"
+        >
+          {{ t(`product.contextWarning.${warning}` as never) }}
+        </div>
 
         <div
           v-if="selectedProductCount"
@@ -74,6 +154,41 @@
             {{ t("product.bulkSelected", { count: selectedProductCount }) }}
           </strong>
           <div class="bulk-toolbar-actions">
+            <BasePopover align="left">
+              <template #trigger="{ isOpen, triggerProps }">
+                <button
+                  v-bind="triggerProps"
+                  class="btn-ghost-sm publication-picker-trigger"
+                  :class="{ 'is-active': isOpen }"
+                  type="button"
+                >
+                  <RadioTower aria-hidden="true" />
+                  {{
+                    selectedPublicationIds.length
+                      ? t("product.publicationsSelected", {
+                          count: selectedPublicationIds.length,
+                        })
+                      : t("product.choosePublications")
+                  }}
+                  <ChevronDown aria-hidden="true" />
+                </button>
+              </template>
+              <div class="publication-picker" role="group">
+                <strong>{{ t("product.publicationChannels") }}</strong>
+                <p v-if="!productStore.managementContext?.publications.length">
+                  {{ t("product.noPublicationsAvailable") }}
+                </p>
+                <BaseCheckbox
+                  v-for="publication in productStore.managementContext?.publications ||
+                  []"
+                  :key="publication.id"
+                  :model-value="selectedPublicationIds.includes(publication.id)"
+                  :label="publication.name"
+                  :description="publication.catalogTitle || undefined"
+                  @change="togglePublication(publication.id)"
+                />
+              </div>
+            </BasePopover>
             <button
               class="btn-ghost-sm"
               type="button"
@@ -84,6 +199,24 @@
               {{
                 isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkPublish")
               }}
+            </button>
+            <button
+              class="btn-ghost-sm"
+              type="button"
+              :disabled="isBulkUpdating"
+              @click="runBulkProductAction('ARCHIVE')"
+            >
+              <Archive aria-hidden="true" />
+              {{ t("product.bulkArchive") }}
+            </button>
+            <button
+              class="btn-ghost-sm text-danger"
+              type="button"
+              :disabled="isBulkUpdating"
+              @click="runBulkProductAction('DELETE')"
+            >
+              <Trash2 aria-hidden="true" />
+              {{ t("product.bulkDelete") }}
             </button>
             <button
               class="btn-ghost-sm"
@@ -245,6 +378,17 @@
                               role="menuitem"
                               class="popover-item"
                               @click.stop="
+                                openDuplicateModal(prod);
+                                close();
+                              "
+                            >
+                              <Copy aria-hidden="true" />
+                              {{ t("product.duplicate") }}
+                            </button>
+                            <button
+                              role="menuitem"
+                              class="popover-item"
+                              @click.stop="
                                 openEditModal(prod);
                                 close();
                               "
@@ -370,11 +514,14 @@
           <div class="field-row">
             <div class="field">
               <label class="field-label">{{ t("product.columnStatus") }}</label>
-              <select v-model="newProduct.status" class="inp">
-                <option value="active">{{ t("product.statusActive") }}</option>
-                <option value="draft">{{ t("product.statusDraft") }}</option>
-                <option value="archived">{{ t("product.statusArchived") }}</option>
-              </select>
+              <BaseSelect
+                class-name="product-form-select"
+                :model-value="newProduct.status || 'active'"
+                :options="productStatusOptions"
+                @update:model-value="
+                  newProduct.status = String($event) as ShopifyProductStatus
+                "
+              />
             </div>
             <label class="field checkbox-field">
               <input
@@ -535,11 +682,14 @@
           <div class="field-row">
             <div class="field">
               <label class="field-label">{{ t("product.columnStatus") }}</label>
-              <select v-model="editProduct.status" class="inp">
-                <option value="active">{{ t("product.statusActive") }}</option>
-                <option value="draft">{{ t("product.statusDraft") }}</option>
-                <option value="archived">{{ t("product.statusArchived") }}</option>
-              </select>
+              <BaseSelect
+                class-name="product-form-select"
+                :model-value="editProduct.status"
+                :options="productStatusOptions"
+                @update:model-value="
+                  editProduct.status = String($event) as ShopifyProductStatus
+                "
+              />
             </div>
             <label class="field checkbox-field">
               <input
@@ -558,6 +708,76 @@
             <div class="field">
               <label class="field-label">{{ t("product.templateSuffix") }}</label>
               <input v-model="editProduct.template_suffix" type="text" class="inp" />
+            </div>
+          </div>
+          <div class="advanced-product-fields">
+            <div class="advanced-product-heading">
+              <div>
+                <strong>{{ t("product.commerceSettings") }}</strong>
+                <p>{{ t("product.commerceSettingsDescription") }}</p>
+              </div>
+              <span v-if="isAdvancedProductLoading">{{ t("common.loading") }}</span>
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.shopifyCategory") }}</label>
+              <input
+                v-model.trim="editProduct.category_id"
+                class="inp"
+                placeholder="gid://shopify/TaxonomyCategory/sg-..."
+              />
+              <small>{{ t("product.shopifyCategoryHint") }}</small>
+            </div>
+            <div class="field-row product-readonly-facts">
+              <div>
+                <span>{{ t("product.productKind") }}</span>
+                <strong>{{
+                  editProduct.is_gift_card
+                    ? t("product.giftCardProduct")
+                    : t("product.standardProduct")
+                }}</strong>
+              </div>
+              <label class="field checkbox-field compact-checkbox">
+                <BaseCheckbox
+                  v-model="editProduct.requires_selling_plan"
+                  :label="t('product.subscriptionOnly')"
+                  :description="t('product.subscriptionOnlyHint')"
+                />
+              </label>
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.collections") }}</label>
+              <div
+                v-if="productStore.managementContext?.collections.length"
+                class="product-collection-picker"
+              >
+                <BaseCheckbox
+                  v-for="collection in productStore.managementContext.collections"
+                  :key="collection.id"
+                  :model-value="editProduct.collection_ids.includes(collection.id)"
+                  :label="collection.title"
+                  :description="
+                    t('product.collectionProductCount', {
+                      count: collection.productsCount,
+                    })
+                  "
+                  @change="toggleEditCollection(collection.id)"
+                />
+              </div>
+              <div v-else class="product-form-empty">
+                {{ t("product.noCollectionsAvailable") }}
+              </div>
+              <small v-if="editProduct.collections_truncated">
+                {{ t("product.assignedCollectionsTruncated") }}
+              </small>
+            </div>
+            <div v-if="editProduct.selling_plan_groups.length" class="field">
+              <label class="field-label">{{ t("product.sellingPlanGroups") }}</label>
+              <div class="product-plan-chips">
+                <span v-for="group in editProduct.selling_plan_groups" :key="group.id">
+                  {{ group.name }}
+                </span>
+              </div>
+              <small>{{ t("product.sellingPlanOwnershipHint") }}</small>
             </div>
           </div>
           <div class="field-row">
@@ -607,24 +827,91 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="duplicateProductSource"
+      class="modal-backdrop"
+      @click.self="duplicateProductSource = null"
+    >
+      <form class="modal-card duplicate-modal" @submit.prevent="submitDuplicateProduct">
+        <div class="modal-head">
+          <div>
+            <h3 class="modal-title">{{ t("product.duplicateTitle") }}</h3>
+            <p>{{ duplicateProductSource.title }}</p>
+          </div>
+          <button
+            class="btn-close"
+            type="button"
+            :aria-label="t('common.close')"
+            @click="duplicateProductSource = null"
+          >
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label class="field-label">{{ t("product.duplicateNewTitle") }}</label>
+            <input v-model="duplicateForm.title" required maxlength="255" class="inp" />
+          </div>
+          <div class="field">
+            <label class="field-label">{{ t("product.columnStatus") }}</label>
+            <BaseSelect
+              class-name="product-form-select"
+              :model-value="duplicateForm.status"
+              :options="duplicateStatusOptions"
+              @update:model-value="
+                duplicateForm.status = String($event) as typeof duplicateForm.status
+              "
+            />
+          </div>
+          <div class="product-context-warning">
+            {{ t("product.duplicateAsyncHint") }}
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button
+            class="btn-outline"
+            type="button"
+            @click="duplicateProductSource = null"
+          >
+            {{ t("common.cancel") }}
+          </button>
+          <button class="btn-primary" type="submit" :disabled="productStore.isLoading">
+            <Copy aria-hidden="true" />{{ t("product.duplicate") }}
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Eye, EyeOff, Pencil, Plus, Save, Trash2, X } from "@lucide/vue";
+import {
+  Archive,
+  ChevronDown,
+  Copy,
+  Eye,
+  EyeOff,
+  Pencil,
+  Plus,
+  RadioTower,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "@lucide/vue";
 import { computed, nextTick, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import type {
-  MetafieldsResponse,
   ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductInput,
   ShopifyProductStatus,
 } from "~~/types/shopify";
-import type { ProductListQuery } from "~~/types/shopify-product";
+import type { ProductListQuery, ProductSortKey } from "~~/types/shopify-product";
 import {
   buildVariantsFromOptions,
   isValidProductPrice,
@@ -655,6 +942,7 @@ const selectedProductId = ref<ShopifyNumericId | null>(null);
 const selectedProductIds = ref<Set<string>>(new Set());
 const selectAllCheckbox = ref<HTMLInputElement | null>(null);
 const isBulkUpdating = ref(false);
+const selectedPublicationIds = ref<string[]>([]);
 const selectedProductCount = computed(() => selectedProductIds.value.size);
 const allProductsSelected = computed(
   () =>
@@ -676,13 +964,72 @@ const detailProduct = computed(() =>
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const publishingProductId = ref<ShopifyNumericId | null>(null);
+const showAdvancedFilters = ref(false);
+const isAdvancedProductLoading = ref(false);
+const duplicateProductSource = ref<ShopifyProduct | null>(null);
+const duplicateForm = ref({
+  title: "",
+  status: "DRAFT" as "ACTIVE" | "ARCHIVED" | "DRAFT" | "UNLISTED",
+});
 const filterForm = ref({
   title: "",
   status: "" as "" | ShopifyProductStatus,
   published_status: "" as "" | "published" | "unpublished",
   vendor: "",
   product_type: "",
+  collection_id: "",
+  created_at_min: "",
+  created_at_max: "",
+  updated_at_min: "",
+  updated_at_max: "",
+  published_at_min: "",
+  published_at_max: "",
+  sort_key: "UPDATED_AT" as ProductSortKey,
+  reverse: true,
 });
+const productStatusOptions = computed(() => [
+  { label: t("product.statusActive"), value: "active" },
+  { label: t("product.statusDraft"), value: "draft" },
+  { label: t("product.statusArchived"), value: "archived" },
+]);
+const productStatusFilterOptions = computed(() => [
+  { label: t("product.filterStatusAny"), value: "" },
+  ...productStatusOptions.value,
+]);
+const publicationFilterOptions = computed(() => [
+  { label: t("product.filterPublishedAny"), value: "" },
+  { label: t("product.filterPublished"), value: "published" },
+  { label: t("product.filterUnpublished"), value: "unpublished" },
+]);
+const collectionFilterOptions = computed(() => [
+  { label: t("product.filterCollectionAny"), value: "" },
+  ...(productStore.managementContext?.collections || []).map((collection) => ({
+    label: collection.title,
+    value: String(collection.legacyResourceId),
+    description: t("product.collectionProductCount", {
+      count: collection.productsCount,
+    }),
+  })),
+]);
+const productSortOptions = computed(() => [
+  { label: t("product.sortUpdated"), value: "UPDATED_AT" },
+  { label: t("product.sortCreated"), value: "CREATED_AT" },
+  { label: t("product.sortPublished"), value: "PUBLISHED_AT" },
+  { label: t("product.sortTitle"), value: "TITLE" },
+  { label: t("product.sortInventory"), value: "INVENTORY_TOTAL" },
+  { label: t("product.sortVendor"), value: "VENDOR" },
+  { label: t("product.sortProductType"), value: "PRODUCT_TYPE" },
+]);
+const sortDirectionOptions = computed(() => [
+  { label: t("product.sortDescending"), value: "DESC" },
+  { label: t("product.sortAscending"), value: "ASC" },
+]);
+const duplicateStatusOptions = computed(() => [
+  { label: t("product.statusDraft"), value: "DRAFT" },
+  { label: t("product.statusActive"), value: "ACTIVE" },
+  { label: t("product.statusArchived"), value: "ARCHIVED" },
+  { label: t("product.statusUnlisted"), value: "UNLISTED" },
+]);
 
 const newProduct = ref<ShopifyProductInput>({
   title: "",
@@ -714,9 +1061,33 @@ const editProduct = ref({
   template_suffix: "" as string | null,
   seo_title: "",
   seo_description: "",
-  seo_title_id: null as ShopifyNumericId | null,
-  seo_description_id: null as ShopifyNumericId | null,
+  category_id: "",
+  is_gift_card: false,
+  requires_selling_plan: false,
+  original_requires_selling_plan: false,
+  collection_ids: [] as string[],
+  original_collection_ids: [] as string[],
+  collections_truncated: false,
+  selling_plan_groups: [] as Array<{
+    id: string;
+    name: string;
+    merchantCode: string;
+  }>,
 });
+
+watch(
+  [() => formStore.storeId, activeToken],
+  async ([sid, token]) => {
+    if (!sid || !token) return;
+    const context = await productStore.fetchManagementContext(sid, token);
+    if (!context || selectedPublicationIds.value.length) return;
+    const onlineStore = context.publications.find(
+      (publication) => publication.onlineStore,
+    );
+    if (onlineStore) selectedPublicationIds.value = [onlineStore.id];
+  },
+  { immediate: true },
+);
 
 // ── Actions ──
 function selectProduct(prod: ShopifyProduct) {
@@ -745,6 +1116,18 @@ function clearBulkSelection() {
   selectedProductIds.value = new Set();
 }
 
+function togglePublication(id: string) {
+  selectedPublicationIds.value = selectedPublicationIds.value.includes(id)
+    ? selectedPublicationIds.value.filter((item) => item !== id)
+    : [...selectedPublicationIds.value, id];
+}
+
+function selectedProducts() {
+  return products.value
+    .filter((product) => selectedProductIds.value.has(String(product.id)))
+    .map((product) => product.id);
+}
+
 async function runBulkPublication(publish: boolean) {
   const sid = formStore.storeId;
   const token = activeToken.value;
@@ -753,10 +1136,15 @@ async function runBulkPublication(publish: boolean) {
     return;
   }
 
-  const selected = products.value
-    .filter((product) => selectedProductIds.value.has(String(product.id)))
-    .map((product) => product.id);
+  const selected = selectedProducts();
   if (!selected.length) return;
+  if (
+    productStore.managementContext?.publications.length &&
+    !selectedPublicationIds.value.length
+  ) {
+    feedback.warning(t("product.choosePublicationRequired"));
+    return;
+  }
 
   isBulkUpdating.value = true;
   try {
@@ -765,6 +1153,7 @@ async function runBulkPublication(publish: boolean) {
       token,
       selected,
       publish,
+      selectedPublicationIds.value,
     );
     selectedProductIds.value = new Set(result.failedIds.map(String));
 
@@ -785,6 +1174,82 @@ async function runBulkPublication(publish: boolean) {
   } finally {
     isBulkUpdating.value = false;
   }
+}
+
+async function runBulkProductAction(action: "ARCHIVE" | "DELETE") {
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  const selected = selectedProducts();
+  if (!sid || !token || !selected.length) return;
+  const confirmed = await requestConfirmation({
+    title: t(
+      action === "DELETE"
+        ? "product.bulkDeleteConfirmTitle"
+        : "product.bulkArchiveConfirmTitle",
+    ),
+    message: t(
+      action === "DELETE"
+        ? "product.bulkDeleteConfirmMessage"
+        : "product.bulkArchiveConfirmMessage",
+      { count: selected.length },
+    ),
+    confirmLabel: t(action === "DELETE" ? "product.bulkDelete" : "product.bulkArchive"),
+    danger: action === "DELETE",
+  });
+  if (!confirmed) return;
+  isBulkUpdating.value = true;
+  try {
+    const result = await productStore.runBulkAction(sid, token, selected, action);
+    selectedProductIds.value = new Set(result.failedIds.map(String));
+    if (result.failedIds.length) {
+      feedback.error(
+        t("product.bulkActionPartial", {
+          succeeded: result.succeeded,
+          failed: result.failedIds.length,
+        }),
+      );
+    } else {
+      feedback.success(
+        t(
+          action === "DELETE"
+            ? "product.bulkDeleteSuccess"
+            : "product.bulkArchiveSuccess",
+          {
+            count: result.succeeded,
+          },
+        ),
+      );
+    }
+  } finally {
+    isBulkUpdating.value = false;
+  }
+}
+
+function openDuplicateModal(product: ShopifyProduct) {
+  duplicateProductSource.value = product;
+  duplicateForm.value = {
+    title: t("product.duplicateDefaultTitle", { title: product.title }),
+    status: "DRAFT",
+  };
+}
+
+async function submitDuplicateProduct() {
+  const source = duplicateProductSource.value;
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  if (!source || !sid || !token || !duplicateForm.value.title.trim()) return;
+  const result = await productStore.duplicateProduct(sid, token, source.id, {
+    newTitle: duplicateForm.value.title.trim(),
+    newStatus: duplicateForm.value.status,
+  });
+  if (!result) {
+    feedback.error(productStore.error, t("product.duplicateFailed"));
+    return;
+  }
+  duplicateProductSource.value = null;
+  feedback.success(
+    result.queued ? t("product.duplicateQueued") : t("product.duplicateSuccess"),
+  );
 }
 
 watch(
@@ -860,7 +1325,10 @@ async function loadProductDetail(productId: ShopifyNumericId) {
       },
     );
     if (detailProductId.value === productId && response.product) {
-      detailProductRecord.value = response.product;
+      detailProductRecord.value = {
+        ...(detailProductRecord.value || {}),
+        ...response.product,
+      } as ShopifyProduct;
     }
   } catch {
     // Keep the list summary visible if the dedicated detail request fails.
@@ -897,14 +1365,38 @@ async function resetFilters() {
     published_status: "",
     vendor: "",
     product_type: "",
+    collection_id: "",
+    created_at_min: "",
+    created_at_max: "",
+    updated_at_min: "",
+    updated_at_max: "",
+    published_at_min: "",
+    published_at_max: "",
+    sort_key: "UPDATED_AT",
+    reverse: true,
   };
   await applyProductFilters();
 }
 
 function toProductFilters(): ProductListQuery {
-  return Object.fromEntries(
-    Object.entries(filterForm.value).filter(([, value]) => value.trim()),
-  );
+  const filters: ProductListQuery = {
+    ...Object.fromEntries(
+      Object.entries(filterForm.value).filter(
+        ([, value]) => typeof value === "boolean" || String(value).trim(),
+      ),
+    ),
+    sort_key: filterForm.value.sort_key,
+    reverse: filterForm.value.reverse,
+  };
+  for (const key of ["created_at_min", "updated_at_min", "published_at_min"] as const) {
+    const value = filterForm.value[key];
+    if (value) filters[key] = `${value}T00:00:00.000Z`;
+  }
+  for (const key of ["created_at_max", "updated_at_max", "published_at_max"] as const) {
+    const value = filterForm.value[key];
+    if (value) filters[key] = `${value}T23:59:59.999Z`;
+  }
+  return filters;
 }
 
 async function loadMoreProducts() {
@@ -1004,38 +1496,46 @@ async function openEditModal(prod: ShopifyProduct) {
     published_at: prod.published_at || null,
     handle: prod.handle || "",
     template_suffix: prod.template_suffix || "",
-    seo_title: "",
-    seo_description: "",
-    seo_title_id: null,
-    seo_description_id: null,
+    seo_title: prod.seo?.title || "",
+    seo_description: prod.seo?.description || "",
+    category_id: prod.category?.id || "",
+    is_gift_card: Boolean(prod.is_gift_card),
+    requires_selling_plan: Boolean(prod.requires_selling_plan),
+    original_requires_selling_plan: Boolean(prod.requires_selling_plan),
+    collection_ids: [],
+    original_collection_ids: [],
+    collections_truncated: false,
+    selling_plan_groups: [],
   };
   showEditModal.value = true;
 
   const sid = formStore.storeId;
   const token = activeToken.value;
   if (!sid || !token) return;
-  try {
-    const response = await $fetch<MetafieldsResponse>(
-      `/api/metafield/product/${prod.id}`,
-      {
-        query: { storeId: sid, namespace: "global" },
-        headers: { "X-Shopify-Access-Token": token },
-      },
-    );
-    if (editProduct.value.id !== prod.id) return;
-    const titleMetafield = response.metafields?.find(
-      (metafield) => metafield.key === "title_tag",
-    );
-    const descriptionMetafield = response.metafields?.find(
-      (metafield) => metafield.key === "description_tag",
-    );
-    editProduct.value.seo_title = titleMetafield?.value || "";
-    editProduct.value.seo_description = descriptionMetafield?.value || "";
-    editProduct.value.seo_title_id = titleMetafield?.id || null;
-    editProduct.value.seo_description_id = descriptionMetafield?.id || null;
-  } catch {
-    // Product fields remain editable even when optional SEO metafields cannot load.
-  }
+  isAdvancedProductLoading.value = true;
+  const [, advanced] = await Promise.all([
+    productStore.fetchManagementContext(sid, token),
+    productStore.fetchAdvancedDetails(sid, token, prod.id),
+  ]);
+  isAdvancedProductLoading.value = false;
+  if (!advanced || editProduct.value.id !== prod.id) return;
+  const collectionIds = advanced.collections.map((collection) => collection.id);
+  editProduct.value.category_id = advanced.category?.id || "";
+  editProduct.value.seo_title = advanced.seo.title || "";
+  editProduct.value.seo_description = advanced.seo.description || "";
+  editProduct.value.is_gift_card = advanced.isGiftCard;
+  editProduct.value.requires_selling_plan = advanced.requiresSellingPlan;
+  editProduct.value.original_requires_selling_plan = advanced.requiresSellingPlan;
+  editProduct.value.collection_ids = collectionIds;
+  editProduct.value.original_collection_ids = [...collectionIds];
+  editProduct.value.collections_truncated = advanced.collectionsTruncated;
+  editProduct.value.selling_plan_groups = advanced.sellingPlanGroups;
+}
+
+function toggleEditCollection(id: string) {
+  editProduct.value.collection_ids = editProduct.value.collection_ids.includes(id)
+    ? editProduct.value.collection_ids.filter((item) => item !== id)
+    : [...editProduct.value.collection_ids, id];
 }
 
 async function saveEditProduct() {
@@ -1050,55 +1550,72 @@ async function saveEditProduct() {
   const shouldPublish =
     editProduct.value.status === "active" && editProduct.value.published;
 
-  const metafields = [
-    ...(editProduct.value.seo_title || editProduct.value.seo_title_id
-      ? [
-          {
-            ...(editProduct.value.seo_title_id
-              ? { id: editProduct.value.seo_title_id }
-              : {}),
-            namespace: "global",
-            key: "title_tag",
-            value: editProduct.value.seo_title,
-            type: "single_line_text_field",
-          },
-        ]
-      : []),
-    ...(editProduct.value.seo_description || editProduct.value.seo_description_id
-      ? [
-          {
-            ...(editProduct.value.seo_description_id
-              ? { id: editProduct.value.seo_description_id }
-              : {}),
-            namespace: "global",
-            key: "description_tag",
-            value: editProduct.value.seo_description,
-            type: "single_line_text_field",
-          },
-        ]
-      : []),
-  ];
-  const success = await productStore.updateProduct(sid, token, editProduct.value.id, {
-    title: editProduct.value.title,
-    body_html: editProduct.value.body_html,
-    vendor: editProduct.value.vendor,
-    product_type: editProduct.value.product_type,
-    tags: editProduct.value.tags,
-    status: editProduct.value.status,
-    handle: editProduct.value.handle.trim(),
-    template_suffix: editProduct.value.template_suffix?.trim() || null,
-    ...(metafields.length ? { metafields } : {}),
-    published_at: shouldPublish
-      ? editProduct.value.published_at || new Date().toISOString()
-      : null,
-    ...(shouldPublish ? { published_scope: "web" as const } : {}),
-  });
-  if (success) {
-    showEditModal.value = false;
-    feedback.success(t("product.saved"));
-  } else {
-    feedback.error(productStore.error, t("product.updateFailed"));
+  const categoryId = editProduct.value.category_id.trim();
+  if (categoryId && !categoryId.startsWith("gid://shopify/TaxonomyCategory/")) {
+    feedback.error(t("product.shopifyCategoryInvalid"));
+    return;
   }
+  if (
+    editProduct.value.requires_selling_plan &&
+    !editProduct.value.original_requires_selling_plan
+  ) {
+    const confirmed = await requestConfirmation({
+      title: t("product.subscriptionOnlyConfirmTitle"),
+      message: t("product.subscriptionOnlyConfirmMessage"),
+      confirmLabel: t("product.saveChanges"),
+    });
+    if (!confirmed) return;
+  }
+  isAdvancedProductLoading.value = true;
+  const advanced = await productStore.updateAdvancedDetails(
+    sid,
+    token,
+    editProduct.value.id,
+    {
+      title: editProduct.value.title,
+      descriptionHtml: editProduct.value.body_html,
+      vendor: editProduct.value.vendor,
+      productType: editProduct.value.product_type,
+      tags: editProduct.value.tags,
+      status: editProduct.value.status.toUpperCase(),
+      handle: editProduct.value.handle.trim(),
+      templateSuffix: editProduct.value.template_suffix?.trim() || null,
+      categoryId: categoryId || null,
+      seo: {
+        title: editProduct.value.seo_title,
+        description: editProduct.value.seo_description,
+      },
+      requiresSellingPlan: editProduct.value.requires_selling_plan,
+      collectionsToJoin: editProduct.value.collection_ids.filter(
+        (id) => !editProduct.value.original_collection_ids.includes(id),
+      ),
+      collectionsToLeave: editProduct.value.original_collection_ids.filter(
+        (id) => !editProduct.value.collection_ids.includes(id),
+      ),
+    },
+  );
+  if (!advanced) {
+    isAdvancedProductLoading.value = false;
+    feedback.error(productStore.error, t("product.updateFailed"));
+    return;
+  }
+  const onlineStorePublication = productStore.managementContext?.publications.find(
+    (publication) => publication.onlineStore,
+  );
+  const publicationResult = await productStore.setProductsPublished(
+    sid,
+    token,
+    [editProduct.value.id],
+    shouldPublish,
+    onlineStorePublication ? [onlineStorePublication.id] : [],
+  );
+  isAdvancedProductLoading.value = false;
+  if (publicationResult.failedIds.length) {
+    feedback.warning(t("product.savedPublicationFailed"));
+  } else {
+    feedback.success(t("product.saved"));
+  }
+  showEditModal.value = false;
 }
 
 async function toggleProductPublication(prod: ShopifyProduct) {
@@ -1112,13 +1629,18 @@ async function toggleProductPublication(prod: ShopifyProduct) {
   const publish = !isProductPublished(prod);
   publishingProductId.value = prod.id;
   try {
-    const success = await productStore.updateProduct(sid, token, prod.id, {
-      ...(publish ? { status: "active" as const } : {}),
-      published_at: publish ? new Date().toISOString() : null,
-      ...(publish ? { published_scope: "web" as const } : {}),
-    });
+    const onlineStorePublication = productStore.managementContext?.publications.find(
+      (publication) => publication.onlineStore,
+    );
+    const result = await productStore.setProductsPublished(
+      sid,
+      token,
+      [prod.id],
+      publish,
+      onlineStorePublication ? [onlineStorePublication.id] : [],
+    );
 
-    if (success) {
+    if (!result.failedIds.length) {
       feedback.success(
         publish ? t("product.publishSuccess") : t("product.unpublishSuccess"),
       );
@@ -1183,13 +1705,69 @@ async function refreshProducts() {
 }
 .product-filters {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(120px, 1fr)) auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
   gap: 8px;
   margin-bottom: 12px;
+}
+.product-filters > input:first-child {
+  grid-column: span 2;
 }
 .product-filters .inp {
   padding: 7px 9px;
   font-size: 12px;
+}
+.product-filters :deep(.select-trigger),
+.product-form-select :deep(.select-trigger) {
+  width: 100%;
+  min-height: 34px;
+}
+.product-filters :deep(.select-dropdown),
+.product-form-select :deep(.select-dropdown) {
+  min-width: min(280px, calc(100vw - 32px));
+}
+.product-filter-toggle {
+  justify-content: center;
+  white-space: nowrap;
+}
+.product-filter-toggle :deep(svg) {
+  width: 14px;
+  height: 14px;
+}
+.product-filter-toggle :deep(svg:last-child) {
+  transition: transform 0.16s ease;
+}
+.product-filter-toggle :deep(svg:last-child.is-rotated) {
+  transform: rotate(180deg);
+}
+.product-date-filters {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-low);
+}
+.product-date-filters label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.product-date-filters span {
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+}
+.product-context-warning {
+  margin-bottom: 10px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--border));
+  border-radius: 7px;
+  background: var(--amber-soft);
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 .filter-reset {
   padding: 6px 12px;
@@ -1214,6 +1792,25 @@ async function refreshProducts() {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+.publication-picker-trigger {
+  max-width: 210px;
+}
+.publication-picker {
+  width: min(330px, calc(100vw - 34px));
+  max-height: min(430px, 70vh);
+  overflow-y: auto;
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+.publication-picker > strong {
+  font-size: 12px;
+}
+.publication-picker > p {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: 12px;
 }
 
 .required-marker {
@@ -1524,6 +2121,11 @@ async function refreshProducts() {
   display: flex;
   flex-direction: column;
   max-height: 90vh;
+  max-width: min(680px, calc(100vw - 28px));
+  min-width: 0;
+}
+.duplicate-modal {
+  max-width: min(520px, calc(100vw - 28px));
 }
 .option-editor-head {
   display: flex;
@@ -1566,6 +2168,7 @@ async function refreshProducts() {
 .modal-body {
   padding: 20px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .field {
   margin-bottom: 16px;
@@ -1600,6 +2203,87 @@ async function refreshProducts() {
   font-weight: 500;
   font-size: 13px;
   color: var(--text);
+}
+.field > small,
+.advanced-product-fields small {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.advanced-product-fields {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-low);
+}
+.advanced-product-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.advanced-product-heading strong {
+  font-size: 13px;
+}
+.advanced-product-heading p,
+.modal-head p {
+  margin: 3px 0 0;
+  color: var(--text-sub);
+  font-size: 11px;
+}
+.product-readonly-facts > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+}
+.product-readonly-facts span {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.compact-checkbox {
+  padding-top: 0;
+}
+.product-collection-picker {
+  max-height: 260px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 2px;
+}
+.product-form-empty {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 7px;
+  color: var(--text-sub);
+  font-size: 12px;
+  text-align: center;
+}
+.product-plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.product-plan-chips span {
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 .inp {
   width: 100%;
@@ -1676,6 +2360,37 @@ async function refreshProducts() {
   .product-filters,
   .option-row {
     grid-template-columns: 1fr;
+  }
+
+  .product-filters > input:first-child,
+  .product-date-filters {
+    grid-column: 1;
+  }
+
+  .product-collection-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-card,
+  .duplicate-modal {
+    width: 100%;
+    max-width: none;
+    max-height: 94dvh;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .modal-actions button {
+    flex: 1 1 140px;
+    justify-content: center;
   }
 
   .checkbox-field {

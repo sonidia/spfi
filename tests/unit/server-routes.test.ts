@@ -6,8 +6,11 @@ import marketAssignmentsHandler from "~~/server/api/market/assignments.post";
 import marketContextHandler from "~~/server/api/market/context.post";
 import marketConditionsHandler from "~~/server/api/market/conditions.post";
 import marketCreateHandler from "~~/server/api/market/create.post";
+import marketCatalogCreateHandler from "~~/server/api/market/catalog/create.post";
+import marketDeleteHandler from "~~/server/api/market/delete.post";
 import marketIdentityHandler from "~~/server/api/market/identity.post";
 import marketLocalizationReadHandler from "~~/server/api/market/localization/read.post";
+import marketLocalizationResourcesHandler from "~~/server/api/market/localization/resources.post";
 import marketLocalizationSaveHandler from "~~/server/api/market/localization/save.post";
 import marketPricingHandler from "~~/server/api/market/pricing.post";
 import marketRegionsHandler from "~~/server/api/market/regions.post";
@@ -160,8 +163,11 @@ describe("diagnostic and credential routes", () => {
       marketContextHandler,
       marketConditionsHandler,
       marketCreateHandler,
+      marketCatalogCreateHandler,
+      marketDeleteHandler,
       marketIdentityHandler,
       marketLocalizationReadHandler,
+      marketLocalizationResourcesHandler,
       marketLocalizationSaveHandler,
       marketPricingHandler,
       marketRegionsHandler,

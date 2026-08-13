@@ -3,7 +3,7 @@ import type { ShopifyNumericId } from "~~/types/shopify";
 
 export function buildPublicationMutation(
   productIds: ShopifyNumericId[],
-  publicationId: string,
+  publicationIds: string | string[],
   publish: boolean,
 ) {
   const definitions = productIds.map((_, index) => `$product${index}: ID!`);
@@ -31,7 +31,10 @@ export function buildPublicationMutation(
           buildShopifyGid("Product", productId),
         ]),
       ),
-      publicationInput: [{ publicationId }],
+      publicationInput: (Array.isArray(publicationIds)
+        ? publicationIds
+        : [publicationIds]
+      ).map((publicationId) => ({ publicationId })),
     },
   };
 }

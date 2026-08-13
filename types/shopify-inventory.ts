@@ -16,3 +16,15 @@ export interface ShopifyInventoryAdjustInput {
 export interface ShopifyInventoryLevelResponse {
   inventory_level: ShopifyInventoryLevel;
 }
+
+export type ShopifyInventoryBulkMode = "SET" | "ADJUST";
+
+export interface ShopifyInventoryBulkItemInput {
+  inventory_item_id: ShopifyNumericId;
+  compare_quantity?: number;
+}
+
+export interface ShopifyInventoryBulkResult {
+  mode: ShopifyInventoryBulkMode;
+  updatedCount: number;
+}

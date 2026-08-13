@@ -20,6 +20,21 @@ test("bulk publication uses one aliased GraphQL mutation without losing 64-bit I
   });
 });
 
+test("bulk publication can target multiple selected sales channels", () => {
+  const mutation = buildPublicationMutation(
+    ["42"],
+    ["gid://shopify/Publication/7", "gid://shopify/Publication/8"],
+    false,
+  );
+
+  assert.doesNotMatch(mutation.query, /productUpdate/);
+  assert.match(mutation.query, /publishableUnpublish/);
+  assert.deepEqual(mutation.variables.publicationInput, [
+    { publicationId: "gid://shopify/Publication/7" },
+    { publicationId: "gid://shopify/Publication/8" },
+  ]);
+});
+
 test("product option updates use targeted aliased mutations", () => {
   const mutation = buildProductOptionUpdateMutation("9007199254740993", [
     { id: "101", name: "Color", position: 1, values: ["Black"] },

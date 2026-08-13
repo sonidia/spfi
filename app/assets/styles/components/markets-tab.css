@@ -152,8 +152,7 @@
 }
 
 .buyer-preview-form input,
-.markets-search input,
-.markets-toolbar select {
+.markets-search input {
   min-height: 34px;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -293,13 +292,15 @@
   padding: 0 10px 0 32px;
 }
 
-.markets-toolbar select {
-  padding: 0 30px 0 10px;
+.markets-toolbar .market-toolbar-select .select-trigger {
+  width: 100%;
+  min-width: 138px;
+  min-height: 34px;
+  padding-block: 5px;
 }
 
 .buyer-preview-form input:focus,
-.markets-search input:focus,
-.markets-toolbar select:focus {
+.markets-search input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--green) 46%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 14%, transparent);
@@ -352,6 +353,8 @@
   display: flex;
   gap: 7px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .market-title-row {

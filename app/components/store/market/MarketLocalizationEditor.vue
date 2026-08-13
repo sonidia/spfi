@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Languages, RefreshCw, Save } from "@lucide/vue";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useMarketStore } from "~/stores/market";
 import type {
@@ -18,11 +18,66 @@ const { t } = useLocalization();
 const feedback = useStoreFeedback();
 const resourceId = ref("");
 const locale = ref("");
+const resourceType = ref("METAFIELD");
 const values = ref<Record<string, string>>({});
 const error = ref("");
 const publishedLocales = computed(() =>
   props.context.locales.filter((item) => item.published),
 );
+const localeOptions = computed(() => [
+  { label: t("markets.editor.marketSpecificContent"), value: "" },
+  ...publishedLocales.value.map((item) => ({
+    label: `${item.name} · ${item.locale}`,
+    value: item.locale,
+  })),
+]);
+const resourceTypeOptions = computed(() =>
+  (locale.value
+    ? [
+        "PRODUCT",
+        "COLLECTION",
+        "PAGE",
+        "ARTICLE",
+        "BLOG",
+        "MENU",
+        "METAOBJECT",
+        "METAFIELD",
+        "SELLING_PLAN_GROUP",
+        "SELLING_PLAN",
+        "SHOP",
+      ]
+    : ["METAFIELD", "METAOBJECT"]
+  ).map((value) => ({
+    label: t(`markets.editor.resourceType${value}` as never),
+    value,
+  })),
+);
+
+watch(locale, (nextLocale) => {
+  if (!nextLocale && !["METAFIELD", "METAOBJECT"].includes(resourceType.value)) {
+    resourceType.value = "METAFIELD";
+  }
+});
+
+async function discoverResources() {
+  error.value = "";
+  const overview = await marketStore.loadLocalizationOverview(
+    storeId.value,
+    token.value,
+    props.market.id,
+    resourceType.value,
+    locale.value,
+  );
+  if (!overview) {
+    error.value =
+      marketStore.managerError || t("markets.editor.localizationLoadFailed");
+  }
+}
+
+async function selectResource(id: string) {
+  resourceId.value = id;
+  await load();
+}
 
 async function load() {
   error.value = "";
@@ -94,6 +149,61 @@ async function save() {
       <strong>{{ t("markets.editor.localizationModesTitle") }}</strong>
       <span>{{ t("markets.editor.localizationModesDescription") }}</span>
     </div>
+    <form class="market-localization-browser" @submit.prevent="discoverResources">
+      <label class="market-field">
+        <span>{{ t("markets.editor.resourceType") }}</span>
+        <BaseSelect
+          :model-value="resourceType"
+          :options="resourceTypeOptions"
+          :aria-label="t('markets.editor.resourceType')"
+          @update:model-value="resourceType = String($event || 'METAFIELD')"
+        />
+      </label>
+      <BaseButton type="submit" :loading="marketStore.isManaging">
+        <template #icon><RefreshCw /></template
+        >{{ t("markets.editor.discoverResources") }}
+      </BaseButton>
+    </form>
+    <div
+      v-if="marketStore.localizationOverview"
+      class="market-localization-browser-results"
+    >
+      <div class="market-resource-summary">
+        <span>{{
+          t("markets.editor.resourcesFound", {
+            count: marketStore.localizationOverview.items.length,
+          })
+        }}</span>
+        <small v-if="marketStore.localizationOverview.truncated">
+          {{ t("markets.editor.resourcesTruncated") }}
+        </small>
+      </div>
+      <button
+        v-for="item in marketStore.localizationOverview.items"
+        :key="item.resourceId"
+        type="button"
+        :class="{ 'is-selected': item.resourceId === resourceId }"
+        @click="selectResource(item.resourceId)"
+      >
+        <span>
+          <strong>{{ item.preview || item.resourceId }}</strong>
+          <code>{{ item.resourceId }}</code>
+        </span>
+        <small>{{
+          t("markets.editor.localizationProgress", {
+            localized: item.localizedCount,
+            total: item.fieldCount,
+            outdated: item.outdatedCount,
+          })
+        }}</small>
+      </button>
+      <div
+        v-if="!marketStore.localizationOverview.items.length"
+        class="market-empty-small"
+      >
+        {{ t("markets.editor.noLocalizableResources") }}
+      </div>
+    </div>
     <form class="market-localization-loader" @submit.prevent="load">
       <label class="market-field">
         <span>{{ t("markets.editor.resourceGid") }}</span>
@@ -101,16 +211,12 @@ async function save() {
       </label>
       <label class="market-field">
         <span>{{ t("markets.editor.localeOptional") }}</span>
-        <select v-model="locale">
-          <option value="">{{ t("markets.editor.marketSpecificContent") }}</option>
-          <option
-            v-for="item in publishedLocales"
-            :key="item.locale"
-            :value="item.locale"
-          >
-            {{ item.name }} · {{ item.locale }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="locale"
+          :options="localeOptions"
+          :aria-label="t('markets.editor.localeOptional')"
+          @update:model-value="locale = String($event || '')"
+        />
       </label>
       <BaseButton type="submit" variant="primary" :loading="marketStore.isManaging"
         ><template #icon><Languages /></template

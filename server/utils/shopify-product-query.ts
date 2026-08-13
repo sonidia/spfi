@@ -1,6 +1,17 @@
 import { buildShopifyCursorPageParams } from "./shopify-pagination.ts";
 import { pickPrimitiveQueryParams } from "./shopify-query-params.ts";
-import type { ProductCountQuery, ProductListQuery } from "~~/types/shopify-product";
+import type { ProductListQuery, ProductSortKey } from "~~/types/shopify-product";
+
+const PRODUCT_SORT_KEYS = new Set<ProductSortKey>([
+  "CREATED_AT",
+  "ID",
+  "INVENTORY_TOTAL",
+  "PRODUCT_TYPE",
+  "PUBLISHED_AT",
+  "TITLE",
+  "UPDATED_AT",
+  "VENDOR",
+]);
 
 const PRODUCT_COUNT_QUERY_KEYS = [
   "collection_id",
@@ -33,13 +44,6 @@ const PRODUCT_VARIANT_LIST_QUERY_KEYS = [
   "since_id",
 ] as const;
 const PRODUCT_IMAGE_LIST_QUERY_KEYS = ["fields", "limit", "since_id"] as const;
-
-export function buildProductCountParams(query?: ProductCountQuery) {
-  return pickPrimitiveQueryParams(
-    query as Record<string, unknown> | undefined,
-    PRODUCT_COUNT_QUERY_KEYS,
-  );
-}
 
 export function buildProductDetailParams(
   _query: Record<string, unknown> | null | undefined,
@@ -83,7 +87,7 @@ export function buildProductSearchQuery(query?: ProductListQuery) {
   addSearchTerm(terms, "published_status", query.published_status);
   addSearchTerm(terms, "status", query.status);
   const title = String(query.title ?? "").trim();
-  if (title) terms.push(quoteSearchValue(title));
+  if (title) terms.push(`title:${quoteSearchValue(title)}`);
   addSearchTerm(terms, "vendor", query.vendor);
   addRangeTerm(terms, "created_at", ">=", query.created_at_min);
   addRangeTerm(terms, "created_at", "<=", query.created_at_max);
@@ -92,6 +96,20 @@ export function buildProductSearchQuery(query?: ProductListQuery) {
   addRangeTerm(terms, "updated_at", ">=", query.updated_at_min);
   addRangeTerm(terms, "updated_at", "<=", query.updated_at_max);
   return terms.join(" AND ");
+}
+
+export function resolveProductSort(query?: ProductListQuery): {
+  sortKey: ProductSortKey;
+  reverse: boolean;
+} {
+  const candidate = String(query?.sort_key || "UPDATED_AT").toUpperCase();
+  const sortKey = PRODUCT_SORT_KEYS.has(candidate as ProductSortKey)
+    ? (candidate as ProductSortKey)
+    : "UPDATED_AT";
+  return {
+    sortKey,
+    reverse: typeof query?.reverse === "boolean" ? query.reverse : true,
+  };
 }
 
 function addSearchTerm(terms: string[], field: string, value: unknown) {

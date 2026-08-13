@@ -40,6 +40,7 @@ const editingVariantId = ref<ShopifyNumericId | null>(null);
 const variantForm = ref<ShopifyVariantInput>(emptyVariantForm());
 const selectedVariantIds = ref<Set<string>>(new Set());
 const variantPriceDrafts = ref<Record<string, string>>({});
+const variantCompareAtDrafts = ref<Record<string, string>>({});
 const presentmentCurrencyInput = ref("");
 const imageUrl = ref("");
 const imageAlt = ref("");
@@ -53,6 +54,7 @@ const imageDrafts = ref<
 const inventoryVariantId = ref<ShopifyNumericId | null>(null);
 const inventoryLocationId = ref<ShopifyNumericId | null>(null);
 const inventoryMode = ref<"set" | "adjust">("set");
+const inventoryTargetMode = ref<"single" | "selected">("single");
 const inventoryAmount = ref(0);
 const metafieldForm = ref<ShopifyMetafieldInput>(emptyMetafieldForm());
 const metafieldDrafts = ref<Record<string, { value: string; type: string }>>({});
@@ -75,6 +77,11 @@ const inventoryVariants = computed(() =>
 const selectedInventoryVariant = computed(() =>
   inventoryVariants.value.find((variant) => variant.id === inventoryVariantId.value),
 );
+const selectedInventoryVariants = computed(() =>
+  inventoryVariants.value.filter((variant) =>
+    selectedVariantIds.value.has(String(variant.id)),
+  ),
+);
 const selectedInventoryLevel = computed(() => {
   const itemId = selectedInventoryVariant.value?.inventory_item_id;
   if (!itemId || !inventoryLocationId.value) return null;
@@ -84,6 +91,45 @@ const selectedInventoryLevel = computed(() => {
       level.location_id === inventoryLocationId.value,
   );
 });
+const variantImageOptions = computed(() => [
+  { label: t("product.noImage"), value: null },
+  ...operations.images.value.map((image) => ({
+    label: t("product.imageNumber", { id: image.position || image.id || "" }),
+    value: image.id || null,
+  })),
+]);
+const inventoryPolicyOptions = computed(() => [
+  { label: t("product.stopSellingAtZero"), value: "deny" },
+  { label: t("product.continueSelling"), value: "continue" },
+]);
+const inventoryVariantOptions = computed(() =>
+  inventoryVariants.value.map((variant) => ({
+    label: variant.title || variant.sku || String(variant.id),
+    value: variant.id,
+    description: variant.sku || undefined,
+  })),
+);
+const inventoryLocationOptions = computed(() =>
+  locations.value.map((location) => ({
+    label: location.name || String(location.id),
+    value: location.id,
+    description: [location.city, location.country_code].filter(Boolean).join(", "),
+  })),
+);
+const inventoryModeOptions = computed(() => [
+  { label: t("product.setQuantity"), value: "set" },
+  { label: t("product.adjustQuantity"), value: "adjust" },
+]);
+const inventoryTargetOptions = computed(() => [
+  { label: t("product.oneVariant"), value: "single" },
+  {
+    label: t("product.selectedVariants", {
+      count: selectedInventoryVariants.value.length,
+    }),
+    value: "selected",
+    disabled: selectedInventoryVariants.value.length === 0,
+  },
+]);
 
 function formatVariantInventory(variant: ShopifyVariant) {
   if (typeof variant.inventory_quantity === "number") {
@@ -95,18 +141,32 @@ function formatVariantInventory(variant: ShopifyVariant) {
   return variant.inventory_management ? t("product.tracked") : t("product.notTracked");
 }
 
+function formatVariantFulfillment(variant: ShopifyVariant) {
+  const source = (props.product.variants || []).find(
+    (candidate) => String(candidate.id) === String(variant.id),
+  );
+  const service =
+    source?.fulfillment_service || variant.fulfillment_service || "manual";
+  return t("product.variantInventoryMeta", {
+    management: variant.inventory_management ? "Shopify" : t("product.notTracked"),
+    service,
+  });
+}
+
 watch(
   () => props.product.id,
   () => {
     resetVariantForm();
     selectedVariantIds.value = new Set();
     variantPriceDrafts.value = {};
+    variantCompareAtDrafts.value = {};
     imageUrl.value = "";
     imageAlt.value = "";
     imageUpload.value = null;
     imageDrafts.value = {};
     inventoryVariantId.value = null;
     inventoryLocationId.value = null;
+    inventoryTargetMode.value = "single";
     inventoryAmount.value = 0;
     metafieldForm.value = emptyMetafieldForm();
     metafieldDrafts.value = {};
@@ -174,6 +234,12 @@ function initializeDrafts() {
     operations.variants.value.map((variant) => [
       String(variant.id),
       variant.price || "0.00",
+    ]),
+  );
+  variantCompareAtDrafts.value = Object.fromEntries(
+    operations.variants.value.map((variant) => [
+      String(variant.id),
+      variant.compare_at_price || "",
     ]),
   );
   selectedVariantIds.value = new Set(
@@ -310,10 +376,18 @@ async function saveSelectedPrices() {
     .map((variant) => ({
       id: variant.id,
       price: String(variantPriceDrafts.value[String(variant.id)] || "").trim(),
+      compare_at_price:
+        String(variantCompareAtDrafts.value[String(variant.id)] || "").trim() || null,
     }));
   if (
     !variants.length ||
-    variants.some((variant) => !isValidProductPrice(variant.price))
+    variants.some(
+      (variant) =>
+        !isValidProductPrice(variant.price) ||
+        (variant.compare_at_price !== null &&
+          (!isValidProductPrice(variant.compare_at_price) ||
+            Number(variant.compare_at_price) <= Number(variant.price))),
+    )
   ) {
     toast.error(t("product.validPricesRequired"));
     return;
@@ -552,27 +626,49 @@ function toggleImageVariant(imageId: ShopifyNumericId, variantId: ShopifyNumeric
 }
 
 async function updateInventory() {
-  const itemId = selectedInventoryVariant.value?.inventory_item_id;
   const locationId = inventoryLocationId.value;
   const amount = Number(inventoryAmount.value);
-  if (!itemId || !locationId || !Number.isSafeInteger(amount)) {
+  const targets =
+    inventoryTargetMode.value === "selected"
+      ? selectedInventoryVariants.value
+      : selectedInventoryVariant.value
+        ? [selectedInventoryVariant.value]
+        : [];
+  if (!targets.length || !locationId || !Number.isSafeInteger(amount)) {
     toast.error(t("product.selectVariantLocationWhole"));
     return;
   }
-  const response =
-    inventoryMode.value === "set"
-      ? await operations.setInventory(locationId, itemId, amount)
-      : await operations.adjustInventory(locationId, itemId, amount);
-  if (!response) return;
-
-  operations.replaceInventoryLevel(inventoryLevels.value, response.inventory_level);
-  toast.success(
-    inventoryMode.value === "set"
-      ? t("product.inventoryUpdated")
-      : t("product.inventoryAdjustmentApplied"),
+  const items = targets.map((variant) => {
+    const level = inventoryLevels.value.find(
+      (candidate) =>
+        String(candidate.inventory_item_id) === String(variant.inventory_item_id) &&
+        String(candidate.location_id) === String(locationId),
+    );
+    return { variant, level };
+  });
+  if (
+    items.some(
+      ({ variant, level }) =>
+        !variant.inventory_item_id || typeof level?.available !== "number",
+    )
+  ) {
+    toast.error(t("product.inventoryTargetsNotConnected"));
+    return;
+  }
+  const response = await operations.updateInventoryBulk(
+    locationId,
+    items.map(({ variant, level }) => ({
+      inventory_item_id: variant.inventory_item_id!,
+      ...(inventoryMode.value === "set" ? { compare_quantity: level!.available! } : {}),
+    })),
+    inventoryMode.value === "set" ? "SET" : "ADJUST",
+    amount,
   );
+  if (!response) return;
+  toast.success(t("product.inventoryBulkUpdated", { count: response.updatedCount }));
   inventoryAmount.value = 0;
   emit("refreshed");
+  await refreshAll();
 }
 
 async function afterMutation() {
@@ -680,23 +776,25 @@ async function afterMutation() {
         /></label>
         <label>
           <span>{{ t("product.image") }}</span>
-          <select v-model.number="variantForm.image_id">
-            <option :value="null">{{ t("product.noImage") }}</option>
-            <option
-              v-for="image in operations.images.value"
-              :key="image.id"
-              :value="image.id"
-            >
-              {{ t("product.imageNumber", { id: image.position || image.id || "" }) }}
-            </option>
-          </select>
+          <BaseSelect
+            :model-value="variantForm.image_id || null"
+            :options="variantImageOptions"
+            :aria-label="t('product.image')"
+            @update:model-value="
+              variantForm.image_id = ($event as ShopifyNumericId | null) || null
+            "
+          />
         </label>
         <label>
           <span>{{ t("product.inventoryPolicy") }}</span>
-          <select v-model="variantForm.inventory_policy">
-            <option value="deny">{{ t("product.stopSellingAtZero") }}</option>
-            <option value="continue">{{ t("product.continueSelling") }}</option>
-          </select>
+          <BaseSelect
+            :model-value="variantForm.inventory_policy || 'deny'"
+            :options="inventoryPolicyOptions"
+            :aria-label="t('product.inventoryPolicy')"
+            @update:model-value="
+              variantForm.inventory_policy = String($event) as 'continue' | 'deny'
+            "
+          />
         </label>
         <label class="check"
           ><input v-model="variantForm.taxable" type="checkbox" /><span>{{
@@ -772,6 +870,7 @@ async function afterMutation() {
               >{{ variant.sku || t("product.noSku") }} -
               {{ formatVariantInventory(variant) }}</span
             >
+            <span class="variant-summary">{{ formatVariantFulfillment(variant) }}</span>
             <span
               v-for="presentment in variant.presentment_prices || []"
               :key="presentment.price.currency_code"
@@ -780,15 +879,27 @@ async function afterMutation() {
               {{ presentment.price.amount }} {{ presentment.price.currency_code }}
             </span>
           </div>
-          <label class="inline-price" @click.stop>
-            <span>{{ t("product.price") }}</span>
-            <input
-              v-model="variantPriceDrafts[String(variant.id)]"
-              type="number"
-              min="0"
-              step="0.01"
-            />
-          </label>
+          <div class="variant-price-fields" @click.stop>
+            <label class="inline-price">
+              <span>{{ t("product.price") }}</span>
+              <input
+                v-model="variantPriceDrafts[String(variant.id)]"
+                type="number"
+                min="0"
+                step="0.01"
+              />
+            </label>
+            <label class="inline-price">
+              <span>{{ t("product.compareAtPrice") }}</span>
+              <input
+                v-model="variantCompareAtDrafts[String(variant.id)]"
+                type="number"
+                min="0"
+                step="0.01"
+                :placeholder="t('product.none')"
+              />
+            </label>
+          </div>
           <div class="row-actions">
             <BaseButton
               icon-only
@@ -962,35 +1073,43 @@ async function afterMutation() {
       </div>
       <div class="inventory-form">
         <label>
+          <span>{{ t("product.inventoryTargets") }}</span>
+          <BaseSelect
+            :model-value="inventoryTargetMode"
+            :options="inventoryTargetOptions"
+            :aria-label="t('product.inventoryTargets')"
+            @update:model-value="
+              inventoryTargetMode = String($event) as 'single' | 'selected'
+            "
+          />
+        </label>
+        <label>
           <span>{{ t("product.variant") }}</span>
-          <select v-model.number="inventoryVariantId">
-            <option
-              v-for="variant in inventoryVariants"
-              :key="variant.id"
-              :value="variant.id"
-            >
-              {{ variant.title || variant.sku || variant.id }}
-            </option>
-          </select>
+          <BaseSelect
+            :model-value="inventoryVariantId"
+            :options="inventoryVariantOptions"
+            :aria-label="t('product.variant')"
+            :disabled="inventoryTargetMode === 'selected'"
+            @update:model-value="inventoryVariantId = $event as ShopifyNumericId"
+          />
         </label>
         <label>
           <span>{{ t("product.location") }}</span>
-          <select v-model.number="inventoryLocationId">
-            <option
-              v-for="location in locations"
-              :key="location.id"
-              :value="location.id"
-            >
-              {{ location.name || location.id }}
-            </option>
-          </select>
+          <BaseSelect
+            :model-value="inventoryLocationId"
+            :options="inventoryLocationOptions"
+            :aria-label="t('product.location')"
+            @update:model-value="inventoryLocationId = $event as ShopifyNumericId"
+          />
         </label>
         <label>
           <span>{{ t("product.operation") }}</span>
-          <select v-model="inventoryMode">
-            <option value="set">{{ t("product.setQuantity") }}</option>
-            <option value="adjust">{{ t("product.adjustQuantity") }}</option>
-          </select>
+          <BaseSelect
+            :model-value="inventoryMode"
+            :options="inventoryModeOptions"
+            :aria-label="t('product.operation')"
+            @update:model-value="inventoryMode = String($event) as 'set' | 'adjust'"
+          />
         </label>
         <label>
           <span>{{
@@ -999,9 +1118,17 @@ async function afterMutation() {
           <input v-model.number="inventoryAmount" type="number" step="1" />
         </label>
         <div class="inventory-current">
-          {{ t("product.current") }}:
+          {{
+            inventoryTargetMode === "selected"
+              ? t("product.inventoryTargetCount", {
+                  count: selectedInventoryVariants.length,
+                })
+              : `${t("product.current")}:`
+          }}
           <strong>{{
-            selectedInventoryLevel?.available ?? t("product.notConnected")
+            inventoryTargetMode === "selected"
+              ? selectedInventoryVariants.length
+              : (selectedInventoryLevel?.available ?? t("product.notConnected"))
           }}</strong>
         </div>
         <BaseButton
@@ -1183,6 +1310,10 @@ select {
   width: 110px;
   flex: 0 0 auto;
 }
+.variant-price-fields {
+  display: flex;
+  gap: 7px;
+}
 .presentment-price {
   color: var(--green) !important;
 }
@@ -1262,6 +1393,10 @@ select {
   }
   .inline-price {
     width: 100%;
+  }
+  .variant-price-fields {
+    width: 100%;
+    flex-direction: column;
   }
   .form-actions {
     grid-column: auto;

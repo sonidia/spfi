@@ -3,7 +3,9 @@ import { ref } from "vue";
 import { usePerStoreCache } from "~/composables/usePerStoreCache";
 import type {
   ShopifyMarketEditorContext,
+  ShopifyMarketCatalogCreateResult,
   ShopifyMarketListFilters,
+  ShopifyMarketLocalizationOverview,
   ShopifyMarketLocalizationResource,
   ShopifyMarketResolution,
   ShopifyMarketsResponse,
@@ -43,6 +45,7 @@ export const useMarketStore = defineStore("market", () => {
   const isManaging = ref(false);
   const managerError = ref<string | null>(null);
   const localization = ref<ShopifyMarketLocalizationResource | null>(null);
+  const localizationOverview = ref<ShopifyMarketLocalizationOverview | null>(null);
   let scopeVersion = 0;
   let filterVersion = 0;
   let activeFilters: ShopifyMarketListFilters | null = null;
@@ -258,6 +261,74 @@ export const useMarketStore = defineStore("market", () => {
     return market;
   }
 
+  async function deleteMarket(storeId: string, token: string, id: string) {
+    const result = await requestManagement<{ id: string }>(
+      storeId,
+      token,
+      "/api/market/delete",
+      { id },
+    );
+    if (!result) return false;
+    markets.value = markets.value.filter((market) => market.id !== result.id);
+    if (filteredResults.value) {
+      filteredResults.value = filteredResults.value.filter(
+        (market) => market.id !== result.id,
+      );
+    }
+    if (resolution.value) resolution.value = null;
+    cache.remember(storeId);
+    return true;
+  }
+
+  async function createCatalog(
+    storeId: string,
+    token: string,
+    marketId: string,
+    input: Record<string, unknown>,
+  ) {
+    const result = await requestManagement<ShopifyMarketCatalogCreateResult>(
+      storeId,
+      token,
+      "/api/market/catalog/create",
+      { marketId, input },
+    );
+    if (!result) return null;
+    if (editorContext.value) {
+      editorContext.value = {
+        ...editorContext.value,
+        catalogs: [
+          result.catalog,
+          ...editorContext.value.catalogs.filter(
+            (catalog) => catalog.id !== result.catalog.id,
+          ),
+        ],
+      };
+    }
+    const attachCatalog = (market: ShopifyMarketSummary) =>
+      market.id === marketId
+        ? {
+            ...market,
+            catalogs: [
+              result.catalog,
+              ...market.catalogs.filter((catalog) => catalog.id !== result.catalog.id),
+            ],
+            catalogCount: {
+              count: Math.max(
+                market.catalogCount?.count || 0,
+                market.catalogs.length + 1,
+              ),
+              precision: market.catalogCount?.precision || "EXACT",
+            },
+          }
+        : market;
+    markets.value = markets.value.map(attachCatalog);
+    if (filteredResults.value) {
+      filteredResults.value = filteredResults.value.map(attachCatalog);
+    }
+    cache.remember(storeId);
+    return result;
+  }
+
   async function updateMarket(
     storeId: string,
     token: string,
@@ -388,6 +459,23 @@ export const useMarketStore = defineStore("market", () => {
     return localization.value;
   }
 
+  async function loadLocalizationOverview(
+    storeId: string,
+    token: string,
+    marketId: string,
+    resourceType: string,
+    locale = "",
+  ) {
+    localizationOverview.value =
+      await requestManagement<ShopifyMarketLocalizationOverview>(
+        storeId,
+        token,
+        "/api/market/localization/resources",
+        { marketId, resourceType, locale },
+      );
+    return localizationOverview.value;
+  }
+
   async function saveLocalization(
     storeId: string,
     token: string,
@@ -505,6 +593,7 @@ export const useMarketStore = defineStore("market", () => {
     resolution.value = null;
     editorContext.value = null;
     localization.value = null;
+    localizationOverview.value = null;
     clearFiltered();
     clearTransientState();
   }
@@ -524,6 +613,7 @@ export const useMarketStore = defineStore("market", () => {
 
   function clearLocalization() {
     localization.value = null;
+    localizationOverview.value = null;
   }
 
   return {
@@ -546,6 +636,7 @@ export const useMarketStore = defineStore("market", () => {
     isManaging,
     managerError,
     localization,
+    localizationOverview,
     isStoreActive: cache.isActive,
     hydrate: cache.hydrate,
     evictStore: cache.evict,
@@ -556,11 +647,14 @@ export const useMarketStore = defineStore("market", () => {
     resolveCountry,
     fetchEditorContext,
     createMarket,
+    deleteMarket,
+    createCatalog,
     updateMarket,
     createWebPresence,
     updateWebPresence,
     deleteWebPresence,
     loadLocalization,
+    loadLocalizationOverview,
     saveLocalization,
     clearLocalization,
   };

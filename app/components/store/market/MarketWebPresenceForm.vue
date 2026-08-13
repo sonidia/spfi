@@ -24,13 +24,38 @@ const error = ref("");
 const form = reactive({
   defaultLocale: "",
   alternateLocales: [] as string[],
-  routing: "SUBFOLDER" as "SUBFOLDER" | "PRIMARY_DOMAIN",
+  routing: "SUBFOLDER" as "SUBFOLDER" | "DOMAIN",
   subfolderSuffix: "",
+  domainId: "",
+  customDomainId: "",
 });
 const publishedLocales = computed(() =>
   props.context.locales.filter((locale) => locale.published),
 );
 const canChooseRouting = computed(() => !props.presence);
+const localeOptions = computed(() =>
+  publishedLocales.value.map((locale) => ({
+    label: `${locale.name} · ${locale.locale}`,
+    value: locale.locale,
+  })),
+);
+const routingOptions = computed(() => [
+  { label: t("markets.editor.subfolder"), value: "SUBFOLDER" },
+  { label: t("markets.editor.domainBinding"), value: "DOMAIN" },
+]);
+const domainOptions = computed(() => [
+  ...props.context.domains.map((domain) => ({
+    label: domain.primary
+      ? `${domain.host} · ${t("markets.editor.primaryDomain")}`
+      : domain.host,
+    value: domain.id,
+    description: domain.assigned
+      ? t("markets.editor.domainAlreadyAssigned")
+      : domain.url,
+    disabled: domain.assigned,
+  })),
+  { label: t("markets.editor.customDomainGid"), value: "CUSTOM" },
+]);
 
 watch(
   () => props.presence,
@@ -41,8 +66,10 @@ watch(
       publishedLocales.value[0]?.locale ||
       "en";
     form.alternateLocales = [...(presence?.alternateLocales || [])];
-    form.routing = presence?.domain ? "PRIMARY_DOMAIN" : "SUBFOLDER";
+    form.routing = presence?.domain ? "DOMAIN" : "SUBFOLDER";
     form.subfolderSuffix = presence?.subfolderSuffix || "";
+    form.domainId = presence?.domain?.id || "";
+    form.customDomainId = "";
     error.value = "";
   },
   { immediate: true },
@@ -58,7 +85,8 @@ async function save() {
   error.value = "";
   if (
     !form.defaultLocale ||
-    (form.routing === "SUBFOLDER" && !form.subfolderSuffix.trim())
+    (form.routing === "SUBFOLDER" && !form.subfolderSuffix.trim()) ||
+    (form.routing === "DOMAIN" && !form.domainId && !form.customDomainId.trim())
   ) {
     error.value = t("markets.editor.webPresenceValidation");
     return;
@@ -74,8 +102,10 @@ async function save() {
         : {}
       : {
           domainId:
-            form.routing === "PRIMARY_DOMAIN"
-              ? props.context.primaryDomain?.id
+            form.routing === "DOMAIN"
+              ? form.domainId === "CUSTOM"
+                ? form.customDomainId.trim()
+                : form.domainId
               : undefined,
           subfolderSuffix:
             form.routing === "SUBFOLDER"
@@ -130,24 +160,24 @@ async function save() {
     <div class="market-form-grid">
       <label class="market-field">
         <span>{{ t("markets.editor.defaultLocale") }}</span>
-        <select v-model="form.defaultLocale">
-          <option
-            v-for="locale in publishedLocales"
-            :key="locale.locale"
-            :value="locale.locale"
-          >
-            {{ locale.name }} · {{ locale.locale }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="form.defaultLocale"
+          :options="localeOptions"
+          :aria-label="t('markets.editor.defaultLocale')"
+          @update:model-value="form.defaultLocale = String($event || '')"
+        />
       </label>
       <label class="market-field">
         <span>{{ t("markets.editor.urlStrategy") }}</span>
-        <select v-if="canChooseRouting" v-model="form.routing">
-          <option value="SUBFOLDER">{{ t("markets.editor.subfolder") }}</option>
-          <option value="PRIMARY_DOMAIN" :disabled="!context.primaryDomain">
-            {{ t("markets.editor.primaryDomain") }}
-          </option>
-        </select>
+        <BaseSelect
+          v-if="canChooseRouting"
+          :model-value="form.routing"
+          :options="routingOptions"
+          :aria-label="t('markets.editor.urlStrategy')"
+          @update:model-value="
+            form.routing = $event === 'DOMAIN' ? 'DOMAIN' : 'SUBFOLDER'
+          "
+        />
         <div v-else class="market-readonly-field">
           <strong>
             {{
@@ -155,6 +185,28 @@ async function save() {
             }}
           </strong>
         </div>
+      </label>
+      <label v-if="!presence && form.routing === 'DOMAIN'" class="market-field">
+        <span>{{ t("markets.editor.domain") }}</span>
+        <BaseSelect
+          :model-value="form.domainId"
+          :options="domainOptions"
+          :placeholder="t('markets.editor.selectDomain')"
+          :aria-label="t('markets.editor.domain')"
+          @update:model-value="form.domainId = String($event || '')"
+        />
+        <small>{{ t("markets.editor.domainBindingHint") }}</small>
+      </label>
+      <label
+        v-if="!presence && form.routing === 'DOMAIN' && form.domainId === 'CUSTOM'"
+        class="market-field"
+      >
+        <span>{{ t("markets.editor.customDomainGid") }}</span>
+        <input
+          v-model.trim="form.customDomainId"
+          placeholder="gid://shopify/Domain/123"
+        />
+        <small>{{ t("markets.editor.customDomainGidHint") }}</small>
       </label>
       <label
         v-if="form.routing === 'SUBFOLDER' && (!presence || presence.subfolderSuffix)"
@@ -169,9 +221,9 @@ async function save() {
         />
         <small>{{ t("markets.editor.asciiSuffixHint") }}</small>
       </label>
-      <div v-else-if="!presence" class="market-readonly-field">
-        <span>{{ t("markets.editor.primaryDomain") }}</span>
-        <strong>{{ context.primaryDomain?.host }}</strong>
+      <div v-else-if="presence?.domain" class="market-callout is-info">
+        <strong>{{ t("markets.editor.domainBindingLockedTitle") }}</strong>
+        <span>{{ t("markets.editor.domainBindingLockedDescription") }}</span>
       </div>
     </div>
     <fieldset class="market-fieldset">

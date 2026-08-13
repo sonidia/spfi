@@ -52,6 +52,18 @@ watch(
 );
 
 const manualRateDisabled = computed(() => form.localCurrencies);
+const taxStrategyOptions = computed(() => [
+  { label: t("markets.editor.taxCheckout"), value: "ADD_TAXES_AT_CHECKOUT" },
+  { label: t("markets.editor.taxIncluded"), value: "INCLUDES_TAXES_IN_PRICE" },
+  {
+    label: t("markets.editor.taxCountry"),
+    value: "INCLUDES_TAXES_IN_PRICE_BASED_ON_COUNTRY",
+  },
+]);
+const dutyStrategyOptions = computed(() => [
+  { label: t("markets.editor.dutyCheckout"), value: "ADD_DUTIES_AT_CHECKOUT" },
+  { label: t("markets.editor.dutyIncluded"), value: "INCLUDE_DUTIES_IN_PRICE" },
+]);
 
 async function save() {
   error.value = "";
@@ -164,28 +176,25 @@ async function save() {
         <div class="market-form-grid">
           <label class="market-field">
             <span>{{ t("markets.taxStrategy") }}</span>
-            <select v-model="form.taxStrategy">
-              <option value="ADD_TAXES_AT_CHECKOUT">
-                {{ t("markets.editor.taxCheckout") }}
-              </option>
-              <option value="INCLUDES_TAXES_IN_PRICE">
-                {{ t("markets.editor.taxIncluded") }}
-              </option>
-              <option value="INCLUDES_TAXES_IN_PRICE_BASED_ON_COUNTRY">
-                {{ t("markets.editor.taxCountry") }}
-              </option>
-            </select>
+            <BaseSelect
+              :model-value="form.taxStrategy"
+              :options="taxStrategyOptions"
+              :aria-label="t('markets.taxStrategy')"
+              @update:model-value="
+                form.taxStrategy = String($event) as ShopifyMarketTaxStrategy
+              "
+            />
           </label>
           <label class="market-field">
             <span>{{ t("markets.dutyStrategy") }}</span>
-            <select v-model="form.dutyStrategy">
-              <option value="ADD_DUTIES_AT_CHECKOUT">
-                {{ t("markets.editor.dutyCheckout") }}
-              </option>
-              <option value="INCLUDE_DUTIES_IN_PRICE">
-                {{ t("markets.editor.dutyIncluded") }}
-              </option>
-            </select>
+            <BaseSelect
+              :model-value="form.dutyStrategy"
+              :options="dutyStrategyOptions"
+              :aria-label="t('markets.dutyStrategy')"
+              @update:model-value="
+                form.dutyStrategy = String($event) as ShopifyMarketDutyStrategy
+              "
+            />
           </label>
         </div>
         <BaseCheckbox

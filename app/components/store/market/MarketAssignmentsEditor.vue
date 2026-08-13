@@ -4,7 +4,9 @@ import { computed, ref, watch } from "vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useMarketStore } from "~/stores/market";
 import MarketWebPresenceForm from "./MarketWebPresenceForm.vue";
+import MarketCatalogCreateForm from "./MarketCatalogCreateForm.vue";
 import type {
+  ShopifyMarketCatalogCreateResult,
   ShopifyMarketEditorContext,
   ShopifyMarketSummary,
   ShopifyMarketWebPresenceSummary,
@@ -26,6 +28,7 @@ const presenceEditor = ref<ShopifyMarketWebPresenceSummary | null | undefined>(
   undefined,
 );
 const error = ref("");
+const showCatalogCreator = ref(false);
 const originalCatalogs = computed(() => props.market.catalogs.map((item) => item.id));
 const originalDiscounts = computed(() => props.market.discounts.map((item) => item.id));
 const originalPresences = computed(() =>
@@ -60,6 +63,13 @@ function handlePresenceSaved(presence: ShopifyMarketWebPresenceSummary) {
   presenceEditor.value = undefined;
   if (!selectedPresences.value.includes(presence.id))
     selectedPresences.value.push(presence.id);
+}
+
+function handleCatalogCreated(result: ShopifyMarketCatalogCreateResult) {
+  showCatalogCreator.value = false;
+  if (!selectedCatalogs.value.includes(result.catalog.id)) {
+    selectedCatalogs.value.push(result.catalog.id);
+  }
 }
 
 async function removePresence(presence: ShopifyMarketWebPresenceSummary) {
@@ -144,8 +154,24 @@ async function save() {
     </div>
 
     <fieldset class="market-fieldset">
-      <legend>{{ t("markets.catalogs") }}</legend>
-      <p>{{ t("markets.editor.catalogHint") }}</p>
+      <div class="market-legend-row">
+        <div>
+          <legend>{{ t("markets.catalogs") }}</legend>
+          <p>{{ t("markets.editor.catalogHint") }}</p>
+        </div>
+        <BaseButton
+          :disabled="hasSubdivision"
+          @click="showCatalogCreator = !showCatalogCreator"
+        >
+          <template #icon><Plus /></template>{{ t("markets.editor.createCatalog") }}
+        </BaseButton>
+      </div>
+      <MarketCatalogCreateForm
+        v-if="showCatalogCreator"
+        :market="market"
+        @cancel="showCatalogCreator = false"
+        @created="handleCatalogCreated"
+      />
       <div v-if="hasSubdivision" class="market-callout is-warning">
         <strong>{{ t("markets.editor.subdivisionCatalogTitle") }}</strong>
         <span>{{ t("markets.editor.subdivisionCatalogDescription") }}</span>

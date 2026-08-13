@@ -17,6 +17,11 @@ Official references:
 - [Product Image REST resource](https://shopify.dev/docs/api/admin-rest/2026-07/resources/product-image)
 - [InventoryLevel REST resource](https://shopify.dev/docs/api/admin-rest/2026-07/resources/inventorylevel)
 - [GraphQL product model migration](https://shopify.dev/docs/apps/build/graphql/migrate/new-product-model)
+- [Product query and sort keys](https://shopify.dev/docs/api/admin-graphql/2026-07/queries/products)
+- [Product media](https://shopify.dev/docs/api/admin-graphql/2026-07/interfaces/Media)
+- [`productDuplicate`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/productDuplicate)
+- [`inventorySetQuantities`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/inventorySetQuantities)
+  and [`inventoryAdjustQuantities`](https://shopify.dev/docs/api/admin-graphql/2026-07/mutations/inventoryAdjustQuantities)
 
 ## Access behavior
 
@@ -59,20 +64,42 @@ quantities before making an upstream request.
 | App route                            | Shopify operation                     | Additional input                                  |
 | ------------------------------------ | ------------------------------------- | ------------------------------------------------- |
 | `POST /api/product/page`             | GraphQL `products`, `productsCount`   | cursor, page size, search, and filters in `query` |
-| `POST /api/product/count`            | GraphQL `productsCount`               | optional `query` filters                          |
 | `POST /api/product/bulk-publication` | GraphQL aliased publication mutations | up to 250 product IDs and `publish`               |
+| `POST /api/product/context`          | GraphQL collections and publications  | filter and channel-selection options              |
+| `POST /api/product/advanced/read`    | GraphQL `product`                     | category, SEO, collections, selling-plan context  |
+| `POST /api/product/advanced/update`  | GraphQL `productUpdate`               | lifecycle, taxonomy, SEO, and collection changes  |
+| `POST /api/product/bulk-action`      | `productChangeStatus`/`productDelete` | archive or delete up to 250 selected products     |
+| `POST /api/product/duplicate`        | `productDuplicate`                    | queue an asynchronous product duplicate           |
+| `POST /api/product/media/all`        | GraphQL `product.media`               | images, video, external video, and 3D models      |
+| `POST /api/product/media/create`     | GraphQL `productUpdate(media:)`       | attach media from a public HTTPS source           |
 | `POST /api/product/{id}/option/bulk` | GraphQL `productOptionUpdate` aliases | one to three existing option names                |
 | `GET /api/product/{id}`              | REST `GET /products/{id}.json`        | no Shopify query parameters                       |
 | `POST /api/product/create`           | REST `POST /products.json`            | rich `product` input                              |
 | `PUT /api/product/{id}`              | REST `PUT /products/{id}.json`        | rich partial `product` input                      |
 | `DELETE /api/product/{id}`           | REST `DELETE /products/{id}.json`     | credentials in body                               |
 
-The page and count routes accept Shopify's documented `collection_id`,
+The page route accepts Shopify's documented `collection_id`,
 `created_at_min`, `created_at_max`, `product_type`, `published_at_min`,
 `published_at_max`, `published_status`, `updated_at_min`, `updated_at_max`, and
 `vendor` filters inside `query`. The page route additionally accepts `title`
 free-text search and product `status`. Results use GraphQL cursors and the UI
-loads 50 products at a time instead of downloading the entire catalog.
+loads 50 products at a time instead of downloading the entire catalog. Sorting
+is limited to actual `ProductSortKeys`: created, published, updated, title,
+vendor, product type, inventory total, and ID. Shopify has no product `PRICE`
+sort key, so the UI does not imply unsupported server-side price sorting.
+
+The unused compatibility routes `/api/product/all` and `/api/product/count`
+were removed. The main `/api/product/page` response already returns the filtered
+exact count and cursor state, so retaining separate full-catalog and duplicate
+count paths created dead code and inconsistent failure behavior.
+
+The editor assigns collections, updates Shopify taxonomy `category`, native SEO
+title/description, and `requiresSellingPlan`. Gift-card state is displayed but
+is not presented as an editable field because `giftCard` exists on
+`ProductCreateInput`, not `ProductUpdateInput`. Existing selling-plan groups are
+shown as context; group mutation is intentionally excluded because Shopify only
+allows an app to manage selling plans it owns and requires purchase-option
+scopes.
 
 Product create and update payloads support `status`, publication state,
 `handle`, `template_suffix`, `options`, `variants`, `images`, and `metafields`.
@@ -90,6 +117,8 @@ Bulk publication resolves the Online Store publication once and sends up to 50
 aliased product mutations in each GraphQL request. This replaces the former
 one-REST-PUT-per-product loop. Shopify must execute top-level mutation fields
 serially, and the route returns failed product IDs for partial reporting.
+The UI now loads all accessible publications and can target one or many selected
+sales channels; Online Store is only the default selection when available.
 
 ## Variant routes
 
@@ -124,6 +153,11 @@ Create accepts a remote `src` or base64 `attachment`. The UI supports both URL
 input and direct image-file selection (up to 20 MB). Update supports `alt`,
 `position`, and `variant_ids`, so the same route handles image reordering and
 assigning an image to one or more variants.
+
+The media manager is separate from legacy Product Image CRUD. It reads all four
+GraphQL media types and attaches IMAGE, VIDEO, EXTERNAL_VIDEO, or MODEL_3D from
+a public HTTPS source through `productUpdate(media:)`. Shopify processes video
+and model media asynchronously, so the UI displays media status after refresh.
 
 Example:
 
@@ -183,6 +217,13 @@ Prefer `adjust` for ordinary stock movements. An absolute `set` operation is
 appropriate when this application is the inventory source of truth. Shopify
 rejects writes for untracked inventory items or inventory levels that aren't
 connected to the specified location.
+
+`POST /api/inventory/bulk` updates 1 to 250 tracked variants at one location in
+a single GraphQL operation. Both SET and ADJUST mutations include the required
+2026-07 `@idempotent` key and an audit `referenceDocumentUri`. SET also sends the
+current available quantity as `compareQuantity`, so a concurrent stock change
+fails safely instead of being silently overwritten. The UI reloads levels after
+success and refuses targets that are not connected at the chosen location.
 
 ## Correct GraphQL migration map for `2026-07`
 

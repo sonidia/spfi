@@ -87,6 +87,83 @@ export interface ProductListQuery extends ProductCountQuery {
   since_id?: string | number;
   status?: "active" | "archived" | "draft";
   title?: string;
+  sort_key?: ProductSortKey;
+  reverse?: boolean;
+}
+
+export type ProductSortKey =
+  | "CREATED_AT"
+  | "ID"
+  | "INVENTORY_TOTAL"
+  | "PRODUCT_TYPE"
+  | "PUBLISHED_AT"
+  | "TITLE"
+  | "UPDATED_AT"
+  | "VENDOR";
+
+export interface ProductCollectionOption {
+  id: string;
+  legacyResourceId: ShopifyNumericId;
+  title: string;
+  productsCount: number;
+}
+
+export interface ProductPublicationOption {
+  id: string;
+  name: string;
+  catalogTitle: string | null;
+  autoPublish: boolean;
+  supportsFuturePublishing: boolean;
+  onlineStore: boolean;
+}
+
+export interface ProductManagementContext {
+  collections: ProductCollectionOption[];
+  collectionsTruncated: boolean;
+  publications: ProductPublicationOption[];
+  publicationsTruncated: boolean;
+  warnings: string[];
+}
+
+export interface ProductAdvancedDetails {
+  id: string;
+  category: { id: string; name: string; fullName: string } | null;
+  seo: { title: string | null; description: string | null };
+  isGiftCard: boolean;
+  requiresSellingPlan: boolean;
+  collections: ProductCollectionOption[];
+  collectionsTruncated: boolean;
+  sellingPlanGroups: Array<{ id: string; name: string; merchantCode: string }>;
+  sellingPlanGroupsTruncated: boolean;
+}
+
+export type ProductMediaContentType = "EXTERNAL_VIDEO" | "IMAGE" | "MODEL_3D" | "VIDEO";
+
+export interface ProductMediaSummary {
+  id: string;
+  alt: string | null;
+  type: ProductMediaContentType;
+  status: string;
+  previewUrl: string | null;
+  originalUrl: string | null;
+  host: string | null;
+}
+
+export interface ProductMediaResponse {
+  items: ProductMediaSummary[];
+  truncated: boolean;
+}
+
+export interface BulkProductActionResult {
+  total: number;
+  succeeded: number;
+  failedIds: ShopifyNumericId[];
+}
+
+export interface ProductDuplicateResult {
+  queued: boolean;
+  operationId: string | null;
+  product: { id: ShopifyNumericId; title: string } | null;
 }
 
 export interface ProductCountResponse {

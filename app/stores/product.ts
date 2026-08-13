@@ -8,7 +8,11 @@ import type {
 } from "~~/types/shopify";
 import type {
   ProductListQuery,
+  ProductAdvancedDetails,
+  ProductDuplicateResult,
+  ProductManagementContext,
   ProductPageResponse,
+  BulkProductActionResult,
   ShopifyProductUpdateInput,
 } from "~~/types/shopify-product";
 import { getAppErrorMessage } from "~~/utils/error";
@@ -20,6 +24,7 @@ interface ProductStoreCache {
   nextCursor: string | null;
   filters: ProductListQuery;
   pageSize: number;
+  managementContext: ProductManagementContext | null;
 }
 
 export interface BulkProductPublicationResult {
@@ -38,6 +43,7 @@ export const useProductStore = defineStore("product", () => {
   const isLoading = ref(false);
   const isLoadingMore = ref(false);
   const error = ref<string | null>(null);
+  const managementContext = ref<ProductManagementContext | null>(null);
   let storeScopeVersion = 0;
   const storeCache = usePerStoreCache<ProductStoreCache>({
     capture: () => ({
@@ -47,6 +53,7 @@ export const useProductStore = defineStore("product", () => {
       nextCursor: nextCursor.value,
       filters: { ...filters.value },
       pageSize: pageSize.value,
+      managementContext: managementContext.value,
     }),
     restore: (cached) => {
       products.value = [...cached.products];
@@ -55,6 +62,7 @@ export const useProductStore = defineStore("product", () => {
       nextCursor.value = cached.nextCursor;
       filters.value = { ...cached.filters };
       pageSize.value = cached.pageSize;
+      managementContext.value = cached.managementContext;
       error.value = null;
     },
     reset: resetState,
@@ -102,6 +110,7 @@ export const useProductStore = defineStore("product", () => {
         nextCursor: response.pageInfo.nextCursor,
         filters: nextFilters,
         pageSize: nextPageSize,
+        managementContext: managementContext.value,
       });
       if (isActiveRequest(storeId, requestScope)) {
         products.value = nextProducts;
@@ -217,6 +226,7 @@ export const useProductStore = defineStore("product", () => {
     token: string,
     productIds: ShopifyNumericId[],
     publish: boolean,
+    publicationIds: string[] = [],
   ): Promise<BulkProductPublicationResult> {
     const uniqueIds = Array.from(
       new Map(
@@ -243,7 +253,13 @@ export const useProductStore = defineStore("product", () => {
         "/api/product/bulk-publication",
         {
           method: "POST",
-          body: { storeId, token, productIds: uniqueIds, publish },
+          body: {
+            storeId,
+            token,
+            productIds: uniqueIds,
+            publish,
+            ...(publicationIds.length ? { publicationIds } : {}),
+          },
         },
       );
       Object.assign(result, response);
@@ -284,6 +300,122 @@ export const useProductStore = defineStore("product", () => {
     }
   }
 
+  async function fetchManagementContext(storeId: string, token: string, force = false) {
+    if (!storeId || !token) return null;
+    activateStore(storeId);
+    if (managementContext.value && !force) return managementContext.value;
+    const requestScope = storeScopeVersion;
+    try {
+      const response = await $fetch<ProductManagementContext>("/api/product/context", {
+        method: "POST",
+        body: { storeId, token },
+      });
+      if (!isActiveRequest(storeId, requestScope)) return null;
+      managementContext.value = response;
+      storeCache.remember(storeId);
+      return response;
+    } catch (err) {
+      if (isActiveRequest(storeId, requestScope)) {
+        error.value = getAppErrorMessage(
+          err,
+          "Failed to load product collections and publications.",
+        );
+      }
+      return null;
+    }
+  }
+
+  async function fetchAdvancedDetails(
+    storeId: string,
+    token: string,
+    productId: ShopifyNumericId,
+  ) {
+    if (!storeId || !token || !productId) return null;
+    try {
+      return await $fetch<ProductAdvancedDetails>("/api/product/advanced/read", {
+        method: "POST",
+        body: { storeId, token, productId },
+      });
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Failed to load advanced product fields.");
+      return null;
+    }
+  }
+
+  async function updateAdvancedDetails(
+    storeId: string,
+    token: string,
+    productId: ShopifyNumericId,
+    input: Record<string, unknown>,
+  ) {
+    if (!storeId || !token || !productId) return null;
+    try {
+      return await $fetch<ProductAdvancedDetails>("/api/product/advanced/update", {
+        method: "POST",
+        body: { storeId, token, productId, input },
+      });
+    } catch (err) {
+      error.value = getAppErrorMessage(
+        err,
+        "Failed to update advanced product fields.",
+      );
+      return null;
+    }
+  }
+
+  async function runBulkAction(
+    storeId: string,
+    token: string,
+    productIds: ShopifyNumericId[],
+    action: "ARCHIVE" | "DELETE",
+  ): Promise<BulkProductActionResult> {
+    const fallback: BulkProductActionResult = {
+      total: productIds.length,
+      succeeded: 0,
+      failedIds: [...productIds],
+    };
+    if (!storeId || !token || !productIds.length) return fallback;
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const result = await $fetch<BulkProductActionResult>("/api/product/bulk-action", {
+        method: "POST",
+        body: { storeId, token, productIds, action },
+      });
+      await refreshCurrent(storeId, token);
+      return result;
+    } catch (err) {
+      error.value = getAppErrorMessage(err, `Bulk ${action.toLowerCase()} failed.`);
+      return fallback;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  async function duplicateProduct(
+    storeId: string,
+    token: string,
+    productId: ShopifyNumericId,
+    input: { newTitle: string; newStatus?: string },
+  ) {
+    if (!storeId || !token || !productId) return null;
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const result = await $fetch<ProductDuplicateResult>("/api/product/duplicate", {
+        method: "POST",
+        body: { storeId, token, productId, input },
+      });
+      if (result.product) await refreshCurrent(storeId, token);
+      return result;
+    } catch (err) {
+      error.value = getAppErrorMessage(err, "Product duplication failed.");
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   function $reset() {
     storeScopeVersion += 1;
     resetState();
@@ -296,6 +428,7 @@ export const useProductStore = defineStore("product", () => {
     nextCursor.value = null;
     filters.value = {};
     pageSize.value = 50;
+    managementContext.value = null;
     error.value = null;
     isLoading.value = false;
     isLoadingMore.value = false;
@@ -315,12 +448,18 @@ export const useProductStore = defineStore("product", () => {
     isLoading,
     isLoadingMore,
     error,
+    managementContext,
     isStoreActive: storeCache.isActive,
     fetchAll,
     fetchNext,
     createProduct,
     updateProduct,
     setProductsPublished,
+    fetchManagementContext,
+    fetchAdvancedDetails,
+    updateAdvancedDetails,
+    runBulkAction,
+    duplicateProduct,
     deleteProduct,
     hydrate,
     evictStore,

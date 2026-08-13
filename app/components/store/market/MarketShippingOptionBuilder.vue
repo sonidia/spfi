@@ -33,6 +33,29 @@ const draft = reactive({
 });
 const requiresName = computed(() => draft.type !== "CARRIER_CALCULATED");
 const requiresPrice = computed(() => draft.type !== "CARRIER_CALCULATED");
+const shippingTypeOptions = computed(() => [
+  { label: t("markets.editor.shippingTypeFlatRate"), value: "FLAT_RATE" },
+  { label: t("markets.editor.shippingTypeValueBased"), value: "VALUE_BASED" },
+  { label: t("markets.editor.shippingTypeWeightBased"), value: "WEIGHT_BASED" },
+  {
+    label: t("markets.editor.shippingTypeCarrierCalculated"),
+    value: "CARRIER_CALCULATED",
+  },
+]);
+const weightUnitOptions = [
+  { label: "g", value: "GRAMS" },
+  { label: "kg", value: "KILOGRAMS" },
+  { label: "oz", value: "OUNCES" },
+  { label: "lb", value: "POUNDS" },
+];
+const carrierOptions = computed(() => [
+  { label: t("markets.editor.chooseCarrier"), value: "" },
+  ...props.context.carrierServices.map((carrier) => ({
+    label: carrier.name,
+    value: carrier.id,
+    disabled: !carrier.active,
+  })),
+]);
 
 watch(
   () => props.defaultCurrency,
@@ -92,20 +115,14 @@ function add() {
     <div class="market-form-grid">
       <label class="market-field">
         <span>{{ t("markets.editor.optionType") }}</span>
-        <select v-model="draft.type">
-          <option value="FLAT_RATE">
-            {{ t("markets.editor.shippingTypeFlatRate") }}
-          </option>
-          <option value="VALUE_BASED">
-            {{ t("markets.editor.shippingTypeValueBased") }}
-          </option>
-          <option value="WEIGHT_BASED">
-            {{ t("markets.editor.shippingTypeWeightBased") }}
-          </option>
-          <option value="CARRIER_CALCULATED">
-            {{ t("markets.editor.shippingTypeCarrierCalculated") }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="draft.type"
+          :options="shippingTypeOptions"
+          :aria-label="t('markets.editor.optionType')"
+          @update:model-value="
+            draft.type = String($event) as ShopifyMarketShippingOptionType
+          "
+        />
       </label>
       <label v-if="requiresName" class="market-field">
         <span>{{ t("markets.editor.optionName") }}</span>
@@ -135,26 +152,23 @@ function add() {
       </label>
       <label v-if="draft.type === 'WEIGHT_BASED'" class="market-field">
         <span>{{ t("markets.editor.weightUnit") }}</span>
-        <select v-model="draft.weightUnit">
-          <option value="GRAMS">g</option>
-          <option value="KILOGRAMS">kg</option>
-          <option value="OUNCES">oz</option>
-          <option value="POUNDS">lb</option>
-        </select>
+        <BaseSelect
+          :model-value="draft.weightUnit"
+          :options="weightUnitOptions"
+          :aria-label="t('markets.editor.weightUnit')"
+          @update:model-value="
+            draft.weightUnit = String($event) as typeof draft.weightUnit
+          "
+        />
       </label>
       <label v-if="draft.type === 'CARRIER_CALCULATED'" class="market-field">
         <span>{{ t("markets.editor.carrierService") }}</span>
-        <select v-model="draft.carrierServiceId" required>
-          <option value="">{{ t("markets.editor.chooseCarrier") }}</option>
-          <option
-            v-for="carrier in context.carrierServices"
-            :key="carrier.id"
-            :value="carrier.id"
-            :disabled="!carrier.active"
-          >
-            {{ carrier.name }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="draft.carrierServiceId"
+          :options="carrierOptions"
+          :aria-label="t('markets.editor.carrierService')"
+          @update:model-value="draft.carrierServiceId = String($event || '')"
+        />
       </label>
       <label v-if="draft.type === 'CARRIER_CALCULATED'" class="market-field">
         <span>{{ t("markets.editor.percentageAdjustment") }}</span>

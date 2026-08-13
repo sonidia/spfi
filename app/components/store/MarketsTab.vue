@@ -8,6 +8,7 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Trash2,
   Truck,
 } from "@lucide/vue";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
@@ -39,6 +40,26 @@ const countryCode = ref("");
 const showCreateModal = ref(false);
 const editingMarketId = ref<string | null>(null);
 let filterTimer: ReturnType<typeof setTimeout> | null = null;
+const statusOptions = computed(() => [
+  { label: t("markets.allStatuses"), value: "ALL" },
+  { label: t("markets.active"), value: "ACTIVE" },
+  { label: t("markets.draft"), value: "DRAFT" },
+]);
+const typeOptions = computed(() => [
+  { label: t("markets.allTypes"), value: "ALL" },
+  { label: t("markets.typeRegion"), value: "REGION" },
+  { label: t("markets.typeCompanyLocation"), value: "COMPANY_LOCATION" },
+  { label: t("markets.typeLocation"), value: "LOCATION" },
+  { label: t("markets.typeChannel"), value: "CHANNEL" },
+  { label: t("markets.typeNone"), value: "NONE" },
+]);
+const conditionOptions = computed(() => [
+  { label: t("markets.allConditionTypes"), value: "ALL" },
+  { label: t("markets.typeRegion"), value: "REGION" },
+  { label: t("markets.typeCompanyLocation"), value: "COMPANY_LOCATION" },
+  { label: t("markets.typeLocation"), value: "LOCATION" },
+  { label: t("markets.typeChannel"), value: "CHANNEL" },
+]);
 
 const hasServerFilters = computed(
   () =>
@@ -193,6 +214,27 @@ function openEditor(marketId: string) {
 function handleCreated(marketId: string) {
   showCreateModal.value = false;
   editingMarketId.value = marketId;
+}
+
+async function removeMarket(market: ShopifyMarketSummary) {
+  const confirmed = await requestConfirmation({
+    title: t("markets.deleteTitle"),
+    message: t("markets.deleteConfirm", { name: market.name }),
+    confirmLabel: t("markets.deleteAction"),
+    danger: true,
+  });
+  if (!confirmed) return;
+  const succeeded = await marketStore.deleteMarket(
+    storeId.value,
+    token.value,
+    market.id,
+  );
+  if (succeeded) {
+    if (editingMarketId.value === market.id) editingMarketId.value = null;
+    feedback.success(t("markets.deleteSuccess"));
+  } else {
+    feedback.error(marketStore.managerError, t("markets.deleteFailed"));
+  }
 }
 </script>
 
@@ -351,30 +393,27 @@ function handleCreated(marketId: string) {
           :aria-label="t('markets.searchPlaceholder')"
         />
       </label>
-      <select v-model="statusFilter" :aria-label="t('markets.allStatuses')">
-        <option value="ALL">{{ t("markets.allStatuses") }}</option>
-        <option value="ACTIVE">{{ t("markets.active") }}</option>
-        <option value="DRAFT">{{ t("markets.draft") }}</option>
-      </select>
-      <select v-model="typeFilter" :aria-label="t('markets.allTypes')">
-        <option value="ALL">{{ t("markets.allTypes") }}</option>
-        <option value="REGION">{{ t("markets.typeRegion") }}</option>
-        <option value="COMPANY_LOCATION">
-          {{ t("markets.typeCompanyLocation") }}
-        </option>
-        <option value="LOCATION">{{ t("markets.typeLocation") }}</option>
-        <option value="CHANNEL">{{ t("markets.typeChannel") }}</option>
-        <option value="NONE">{{ t("markets.typeNone") }}</option>
-      </select>
-      <select v-model="conditionFilter" :aria-label="t('markets.allConditionTypes')">
-        <option value="ALL">{{ t("markets.allConditionTypes") }}</option>
-        <option value="REGION">{{ t("markets.typeRegion") }}</option>
-        <option value="COMPANY_LOCATION">
-          {{ t("markets.typeCompanyLocation") }}
-        </option>
-        <option value="LOCATION">{{ t("markets.typeLocation") }}</option>
-        <option value="CHANNEL">{{ t("markets.typeChannel") }}</option>
-      </select>
+      <BaseSelect
+        class-name="market-toolbar-select"
+        :model-value="statusFilter"
+        :options="statusOptions"
+        :aria-label="t('markets.allStatuses')"
+        @update:model-value="statusFilter = $event as StatusFilter"
+      />
+      <BaseSelect
+        class-name="market-toolbar-select"
+        :model-value="typeFilter"
+        :options="typeOptions"
+        :aria-label="t('markets.allTypes')"
+        @update:model-value="typeFilter = $event as TypeFilter"
+      />
+      <BaseSelect
+        class-name="market-toolbar-select"
+        :model-value="conditionFilter"
+        :options="conditionOptions"
+        :aria-label="t('markets.allConditionTypes')"
+        @update:model-value="conditionFilter = $event as ConditionFilter"
+      />
       <span v-if="marketStore.isFiltering" class="markets-filter-progress">
         <IconsSync class="spin" /> {{ t("markets.filtering") }}
       </span>
@@ -439,6 +478,15 @@ function handleCreated(marketId: string) {
                   ? t("markets.makeDraft")
                   : t("markets.makeActive")
               }}
+            </BaseButton>
+            <BaseButton
+              variant="danger-ghost"
+              icon-only
+              :aria-label="t('markets.deleteAction')"
+              :disabled="marketStore.isMutating"
+              @click="removeMarket(market)"
+            >
+              <template #icon><Trash2 /></template>
             </BaseButton>
           </div>
         </header>

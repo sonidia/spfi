@@ -18,7 +18,12 @@ import type {
   ProductImagesResponse,
   ProductVariantsResponse,
 } from "~~/types/shopify-product";
-import type { ShopifyInventoryLevelResponse } from "~~/types/shopify-inventory";
+import type {
+  ShopifyInventoryBulkItemInput,
+  ShopifyInventoryBulkMode,
+  ShopifyInventoryBulkResult,
+  ShopifyInventoryLevelResponse,
+} from "~~/types/shopify-inventory";
 import { getAppErrorMessage } from "~~/utils/error";
 import { forgetStoreResource } from "~~/utils/store-resource-cache";
 
@@ -282,6 +287,28 @@ export function useProductOperations() {
     });
   }
 
+  async function updateInventoryBulk(
+    locationId: ShopifyNumericId,
+    items: ShopifyInventoryBulkItemInput[],
+    mode: ShopifyInventoryBulkMode,
+    amount: number,
+  ) {
+    return run("Failed to update inventory in bulk.", async () => {
+      const response = await $fetch<ShopifyInventoryBulkResult>("/api/inventory/bulk", {
+        method: "POST",
+        body: {
+          ...authBody(),
+          location_id: locationId,
+          items,
+          mode,
+          amount,
+        },
+      });
+      invalidateInventoryCache();
+      return response;
+    });
+  }
+
   function invalidateInventoryCache() {
     const currentStoreId = storeId.value;
     if (!currentStoreId) return;
@@ -321,6 +348,7 @@ export function useProductOperations() {
     deleteMetafield,
     setInventory,
     adjustInventory,
+    updateInventoryBulk,
     replaceInventoryLevel,
   };
 }

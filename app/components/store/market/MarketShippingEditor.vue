@@ -32,6 +32,19 @@ const error = ref("");
 const editingOption = computed(
   () => updateOptions.value.find((item) => item.id === editingOptionId.value) || null,
 );
+const carrierOptions = computed(() =>
+  props.context.carrierServices.map((carrier) => ({
+    label: carrier.name,
+    value: carrier.id,
+    disabled: !carrier.active,
+  })),
+);
+const weightUnitOptions = [
+  { label: "g", value: "GRAMS" },
+  { label: "kg", value: "KILOGRAMS" },
+  { label: "oz", value: "OUNCES" },
+  { label: "lb", value: "POUNDS" },
+];
 
 watch(
   () => props.market,
@@ -326,16 +339,14 @@ async function save() {
               class="market-field"
             >
               <span>{{ t("markets.editor.carrierService") }}</span>
-              <select v-model="editingOption.carrierServiceId">
-                <option
-                  v-for="carrier in context.carrierServices"
-                  :key="carrier.id"
-                  :value="carrier.id"
-                  :disabled="!carrier.active"
-                >
-                  {{ carrier.name }}
-                </option>
-              </select>
+              <BaseSelect
+                :model-value="editingOption.carrierServiceId || null"
+                :options="carrierOptions"
+                :aria-label="t('markets.editor.carrierService')"
+                @update:model-value="
+                  editingOption.carrierServiceId = String($event || '') || undefined
+                "
+              />
             </label>
             <label
               v-if="editingOption.type === 'CARRIER_CALCULATED'"
@@ -378,12 +389,14 @@ async function save() {
                   class="market-field"
                 >
                   <span>{{ t("markets.editor.weightUnit") }}</span>
-                  <select v-model="rate.weightUnit">
-                    <option value="GRAMS">g</option>
-                    <option value="KILOGRAMS">kg</option>
-                    <option value="OUNCES">oz</option>
-                    <option value="POUNDS">lb</option>
-                  </select>
+                  <BaseSelect
+                    :model-value="rate.weightUnit || 'KILOGRAMS'"
+                    :options="weightUnitOptions"
+                    :aria-label="t('markets.editor.weightUnit')"
+                    @update:model-value="
+                      rate.weightUnit = String($event) as typeof rate.weightUnit
+                    "
+                  />
                 </label>
               </div>
             </div>

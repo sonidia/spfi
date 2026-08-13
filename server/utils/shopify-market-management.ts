@@ -1,7 +1,9 @@
 import type { H3Event } from "h3";
 import type {
   ShopifyMarketCatalogSummary,
+  ShopifyMarketCatalogCreateResult,
   ShopifyMarketEditorContext,
+  ShopifyMarketLocalizationOverview,
   ShopifyMarketLocalizationResource,
   ShopifyMarketPricingInput,
   ShopifyMarketRegionInput,
@@ -142,6 +144,35 @@ export async function fetchMarketEditorContext(
 
   return {
     primaryDomain: base.shop.primaryDomain,
+    domains: Array.from(
+      new Map(
+        [
+          {
+            ...base.shop.primaryDomain,
+            primary: true,
+            assigned: Boolean(
+              webPresenceResult.items.some(
+                (presence) => presence.domain?.id === base.shop.primaryDomain.id,
+              ),
+            ),
+          },
+          ...webPresenceResult.items
+            .filter((presence) => presence.domain)
+            .map((presence) => ({
+              id: presence.domain!.id,
+              host: presence.domain!.host,
+              url: presence.domain!.url,
+              primary: presence.domain!.id === base.shop.primaryDomain.id,
+              assigned: true,
+            })),
+        ].map((domain) => [domain.id, domain]),
+      ).values(),
+    ),
+    capabilities: {
+      companyLocationsAvailable: !companyLocationResult.warning,
+      locationsAvailable: !locationResult.warning,
+      channelsAvailable: !channelResult.warning,
+    },
     locales: base.shopLocales,
     catalogs: catalogResult.items.map(normalizeMarketCatalog),
     discounts: discountResult.items.map(normalizeMarketDiscount),
@@ -446,7 +477,11 @@ export async function createShopifyMarket(
     ...(handle ? { handle } : {}),
   };
 
-  const catalogIds = validateGidList(input.catalogIds, "Catalog", "Catalogs");
+  const catalogIds = validateGidList(
+    input.catalogIds,
+    ["Catalog", "MarketCatalog"],
+    "Catalogs",
+  );
   const discountIds = validateGidList(input.discountIds, "DiscountNode", "Discounts");
   const webPresenceIds = validateGidList(
     input.webPresenceIds,
@@ -524,6 +559,159 @@ export async function createShopifyMarket(
     data.marketCreate,
     "Failed to create the market.",
   );
+}
+
+export async function deleteShopifyMarket(
+  context: MarketRequestContext,
+  marketId: unknown,
+) {
+  const id = requireMarketId(marketId);
+  const data = await callShopifyGraphql<{
+    marketDelete: {
+      deletedId: string | null;
+      userErrors: GraphqlUserError[];
+    };
+  }>({
+    ...context,
+    operationName: "DeleteManagedMarket",
+    retryTransport: false,
+    query: `#graphql
+        mutation DeleteManagedMarket($id: ID!) {
+          marketDelete(id: $id) {
+            deletedId
+            userErrors { field message code }
+          }
+        }
+      `,
+    variables: { id },
+  });
+  assertNoGraphqlUserErrors(
+    data.marketDelete.userErrors,
+    "Failed to delete the market.",
+  );
+  if (data.marketDelete.deletedId !== id) {
+    throw badGateway("Shopify did not confirm the deleted market ID.");
+  }
+  return { id };
+}
+
+export async function createMarketCatalog(
+  context: MarketRequestContext,
+  marketId: unknown,
+  rawInput: unknown,
+): Promise<ShopifyMarketCatalogCreateResult> {
+  const id = requireMarketId(marketId);
+  const input = asRecord(rawInput, "Catalog input");
+  const title = String(input.title || "").trim();
+  if (!title || title.length > 255) {
+    throw badRequest("Catalog title is required and must be at most 255 characters.");
+  }
+  const status = String(input.status || "DRAFT").toUpperCase();
+  if (!new Set(["ACTIVE", "DRAFT"]).has(status)) {
+    throw badRequest("Catalog status must be ACTIVE or DRAFT.");
+  }
+  const shouldCreatePriceList = input.createPriceList === true;
+  const priceListName = String(input.priceListName || "").trim();
+  const priceListCurrency = shouldCreatePriceList
+    ? normalizeCurrencyCode(input.currency)
+    : "";
+  const adjustmentValue = Number(input.adjustmentValue ?? 0);
+  if (shouldCreatePriceList && (!priceListName || priceListName.length > 255)) {
+    throw badRequest("Price list name is required and must be at most 255 characters.");
+  }
+  if (
+    shouldCreatePriceList &&
+    (!Number.isFinite(adjustmentValue) || adjustmentValue < -100)
+  ) {
+    throw badRequest(
+      "Price adjustment must be a number greater than or equal to -100.",
+    );
+  }
+
+  const catalogData = await callShopifyGraphql<{
+    catalogCreate: { catalog: RawCatalog | null; userErrors: GraphqlUserError[] };
+  }>({
+    ...context,
+    operationName: "CreateMarketCatalog",
+    retryTransport: false,
+    query: `#graphql
+      mutation CreateMarketCatalog($input: CatalogCreateInput!) {
+        catalogCreate(input: $input) {
+          catalog {
+            id title status publication { id autoPublish }
+            priceList { id name currency }
+          }
+          userErrors { field message code }
+        }
+      }
+    `,
+    variables: {
+      input: { title, status, context: { marketIds: [id] } },
+    },
+  });
+  assertNoGraphqlUserErrors(
+    catalogData.catalogCreate.userErrors,
+    "Failed to create the market catalog.",
+  );
+  const catalog = catalogData.catalogCreate.catalog;
+  if (!catalog) throw badGateway("Shopify did not return the created catalog.");
+
+  const warnings: string[] = [];
+  let priceListCreated = false;
+  if (shouldCreatePriceList) {
+    const adjustmentType =
+      adjustmentValue < 0 ? "PERCENTAGE_DECREASE" : "PERCENTAGE_INCREASE";
+    try {
+      const priceListData = await callShopifyGraphql<{
+        priceListCreate: {
+          priceList: { id: string; name: string; currency: string } | null;
+          userErrors: GraphqlUserError[];
+        };
+      }>({
+        ...context,
+        operationName: "CreateMarketPriceList",
+        retryTransport: false,
+        query: `#graphql
+          mutation CreateMarketPriceList($input: PriceListCreateInput!) {
+            priceListCreate(input: $input) {
+              priceList { id name currency }
+              userErrors { field message code }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            catalogId: catalog.id,
+            name: priceListName,
+            currency: priceListCurrency,
+            parent: {
+              adjustment: {
+                type: adjustmentType,
+                value: Math.abs(adjustmentValue),
+              },
+            },
+          },
+        },
+      });
+      assertNoGraphqlUserErrors(
+        priceListData.priceListCreate.userErrors,
+        "The catalog was created, but its price list could not be created.",
+      );
+      if (!priceListData.priceListCreate.priceList) {
+        throw badGateway("Shopify did not return the created price list.");
+      }
+      catalog.priceList = priceListData.priceListCreate.priceList;
+      priceListCreated = true;
+    } catch {
+      warnings.push("price_list_create_failed");
+    }
+  }
+
+  return {
+    catalog: normalizeMarketCatalog(catalog),
+    priceListCreated,
+    warnings,
+  };
 }
 
 export async function updateMarketIdentity(
@@ -684,12 +872,12 @@ export async function updateMarketAssignments(
   const input = asRecord(rawInput, "Assignment input");
   const catalogsToAdd = validateGidList(
     input.catalogsToAdd,
-    "Catalog",
+    ["Catalog", "MarketCatalog"],
     "Catalogs to add",
   );
   const catalogsToDelete = validateGidList(
     input.catalogsToDelete,
-    "Catalog",
+    ["Catalog", "MarketCatalog"],
     "Catalogs to remove",
   );
   const webPresencesToAdd = validateGidList(
@@ -1026,6 +1214,190 @@ export async function fetchMarketLocalization(
       updatedAt: values.get(item.key)?.updatedAt || null,
     })),
   };
+}
+
+const MARKET_LOCALIZABLE_RESOURCE_TYPES = new Set(["METAFIELD", "METAOBJECT"]);
+const TRANSLATABLE_RESOURCE_TYPES = new Set([
+  "ARTICLE",
+  "ARTICLE_IMAGE",
+  "BLOG",
+  "COLLECTION",
+  "COLLECTION_IMAGE",
+  "DELIVERY_METHOD_DEFINITION",
+  "EMAIL_TEMPLATE",
+  "FILTER",
+  "LINK",
+  "MEDIA_IMAGE",
+  "MENU",
+  "METAFIELD",
+  "METAOBJECT",
+  "ONLINE_STORE_THEME",
+  "ONLINE_STORE_THEME_APP_EMBED",
+  "ONLINE_STORE_THEME_JSON_TEMPLATE",
+  "ONLINE_STORE_THEME_LOCALE_CONTENT",
+  "ONLINE_STORE_THEME_SECTION_GROUP",
+  "ONLINE_STORE_THEME_SETTINGS_CATEGORY",
+  "ONLINE_STORE_THEME_SETTINGS_DATA_SECTIONS",
+  "PACKING_SLIP_TEMPLATE",
+  "PAGE",
+  "PAYMENT_GATEWAY",
+  "PRODUCT",
+  "PRODUCT_OPTION",
+  "PRODUCT_OPTION_VALUE",
+  "SELLING_PLAN",
+  "SELLING_PLAN_GROUP",
+  "SHOP",
+  "SHOP_POLICY",
+]);
+
+export async function fetchMarketLocalizationOverview(
+  context: MarketRequestContext,
+  marketIdValue: unknown,
+  resourceTypeValue: unknown,
+  localeValue: unknown,
+): Promise<ShopifyMarketLocalizationOverview> {
+  const marketId = requireMarketId(marketIdValue);
+  const resourceType = String(resourceTypeValue || "")
+    .trim()
+    .toUpperCase();
+  const locale = String(localeValue || "")
+    .trim()
+    .toLowerCase();
+  if (locale && !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(locale)) {
+    throw badRequest("Locale must be a valid Shopify locale code.");
+  }
+  const allowedTypes = locale
+    ? TRANSLATABLE_RESOURCE_TYPES
+    : MARKET_LOCALIZABLE_RESOURCE_TYPES;
+  if (!allowedTypes.has(resourceType)) {
+    throw badRequest("Resource type is not supported for this localization mode.");
+  }
+
+  const items: ShopifyMarketLocalizationOverview["items"] = [];
+  let cursor: string | null = null;
+  let hasNextPage = true;
+  while (hasNextPage && items.length < 250) {
+    if (locale) {
+      const data: {
+        translatableResources: {
+          nodes: Array<{
+            resourceId: string;
+            translatableContent: Array<{ key: string; value: string | null }>;
+            translations: Array<{
+              key: string;
+              value: string;
+              outdated: boolean;
+            }>;
+          }>;
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        };
+      } = await callShopifyGraphql({
+        ...context,
+        operationName: "MarketTranslationResources",
+        query: `#graphql
+          query MarketTranslationResources(
+            $resourceType: TranslatableResourceType!
+            $locale: String!
+            $marketId: ID!
+            $after: String
+          ) {
+            translatableResources(first: 100, after: $after, resourceType: $resourceType) {
+              nodes {
+                resourceId
+                translatableContent(marketId: $marketId) { key value }
+                translations(locale: $locale, marketId: $marketId) {
+                  key value outdated
+                }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        `,
+        variables: { resourceType, locale, marketId, after: cursor },
+      });
+      items.push(
+        ...data.translatableResources.nodes.map((node) => ({
+          resourceId: node.resourceId,
+          fieldCount: node.translatableContent.length,
+          localizedCount: node.translations.length,
+          outdatedCount: node.translations.filter((item) => item.outdated).length,
+          preview: buildLocalizationPreview(node.translatableContent),
+        })),
+      );
+      hasNextPage = data.translatableResources.pageInfo.hasNextPage;
+      cursor = data.translatableResources.pageInfo.endCursor;
+      if (hasNextPage && !cursor) break;
+      continue;
+    }
+
+    const data: {
+      marketLocalizableResources: {
+        nodes: Array<{
+          resourceId: string;
+          marketLocalizableContent: Array<{ key: string; value: string | null }>;
+          marketLocalizations: Array<{
+            key: string;
+            value: string | null;
+            outdated: boolean;
+          }>;
+        }>;
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      };
+    } = await callShopifyGraphql({
+      ...context,
+      operationName: "MarketLocalizableResources",
+      query: `#graphql
+        query MarketLocalizableResources(
+          $resourceType: MarketLocalizableResourceType!
+          $marketId: ID!
+          $after: String
+        ) {
+          marketLocalizableResources(first: 100, after: $after, resourceType: $resourceType) {
+            nodes {
+              resourceId
+              marketLocalizableContent { key value }
+              marketLocalizations(marketId: $marketId) { key value outdated }
+            }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      `,
+      variables: { resourceType, marketId, after: cursor },
+    });
+    items.push(
+      ...data.marketLocalizableResources.nodes.map((node) => ({
+        resourceId: node.resourceId,
+        fieldCount: node.marketLocalizableContent.length,
+        localizedCount: node.marketLocalizations.length,
+        outdatedCount: node.marketLocalizations.filter((item) => item.outdated).length,
+        preview: buildLocalizationPreview(node.marketLocalizableContent),
+      })),
+    );
+    hasNextPage = data.marketLocalizableResources.pageInfo.hasNextPage;
+    cursor = data.marketLocalizableResources.pageInfo.endCursor;
+    if (hasNextPage && !cursor) break;
+  }
+
+  return {
+    mode: locale ? "TRANSLATION" : "MARKET_LOCALIZATION",
+    resourceType,
+    locale: locale || null,
+    items: items.slice(0, 250),
+    truncated: hasNextPage || items.length > 250,
+  };
+}
+
+function buildLocalizationPreview(
+  content: Array<{ key: string; value: string | null }>,
+) {
+  const values = content
+    .map((item) =>
+      String(item.value || "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter(Boolean);
+  return (values[0] || content.map((item) => item.key).join(", ")).slice(0, 140);
 }
 
 export async function saveMarketLocalization(
@@ -1486,19 +1858,24 @@ export function normalizeWebPresenceInput(value: unknown, create: boolean) {
       "Subfolder suffix must contain only lowercase ASCII letters, numbers, and hyphens.",
     );
   }
+  const normalizedDomainId = domainId
+    ? requireGenericShopifyGid(domainId, "Domain ID")
+    : "";
+  if (normalizedDomainId && !normalizedDomainId.startsWith("gid://shopify/Domain/")) {
+    throw badRequest("Domain ID has the wrong Shopify resource type.");
+  }
   return {
     defaultLocale,
     alternateLocales,
-    ...(domainId
-      ? { domainId: requireGenericShopifyGid(domainId, "Domain ID") }
-      : { subfolderSuffix }),
+    ...(normalizedDomainId ? { domainId: normalizedDomainId } : { subfolderSuffix }),
   };
 }
 
-function validateGidList(value: unknown, resource: string, label: string) {
+function validateGidList(value: unknown, resource: string | string[], label: string) {
+  const resources = Array.isArray(resource) ? resource : [resource];
   return normalizeStringList(value || [], label).map((id) => {
-    if (!id.startsWith(`gid://shopify/${resource}/`)) {
-      throw badRequest(`${label} contains an invalid ${resource} ID.`);
+    if (!resources.some((item) => id.startsWith(`gid://shopify/${item}/`))) {
+      throw badRequest(`${label} contains an unsupported Shopify resource ID.`);
     }
     return id;
   });

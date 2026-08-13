@@ -283,6 +283,7 @@ export interface ShopifyVariant {
   weight_unit?: string;
   inventory_item_id?: ShopifyNumericId;
   inventory_management?: string | null;
+  fulfillment_service?: string;
   inventory_policy?: string;
   inventory_quantity?: number;
   presentment_prices?: Array<{
@@ -355,6 +356,11 @@ export interface ShopifyProduct extends ShopifyProductInput {
   published_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  category?: { id: string; name: string; full_name: string } | null;
+  seo?: { title: string | null; description: string | null };
+  is_gift_card?: boolean;
+  requires_selling_plan?: boolean;
+  media_count?: number;
 }
 
 export interface ShopifyPayoutSummary {
