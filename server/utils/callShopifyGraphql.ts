@@ -28,6 +28,7 @@ import {
   type ShopifyGraphqlExtensions,
 } from "./shopify-throttle";
 import { resolveShopifyGraphqlTransportRetry } from "./shopify-transport-retry";
+import { buildShopifyGid } from "./shopify-gid.ts";
 
 interface ShopifyGraphqlError {
   message: string;
@@ -254,9 +255,7 @@ function forwardGraphqlThrottleHeaders(
 }
 
 export function toShopifyGid(resource: string, id: string | number) {
-  const value = String(id || "").trim();
-  if (value.startsWith("gid://shopify/")) return value;
-  return `gid://shopify/${resource}/${value}`;
+  return buildShopifyGid(resource, id);
 }
 
 export function assertNoGraphqlUserErrors(

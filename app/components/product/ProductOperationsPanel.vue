@@ -15,14 +15,17 @@ import { useProductOperations } from "~/composables/useProductOperations";
 import { useToastStore } from "~/stores/toast";
 import type {
   ShopifyNumericId,
+  ShopifyMetafield,
   ShopifyProduct,
   ShopifyProductImage,
   ShopifyVariant,
 } from "~~/types/shopify";
 import type {
   ShopifyProductImageInput,
+  ShopifyMetafieldInput,
   ShopifyVariantInput,
 } from "~~/types/shopify-product";
+import { isValidProductPrice } from "~~/utils/product-options";
 
 const props = defineProps<{ product: ShopifyProduct }>();
 const emit = defineEmits<{ refreshed: [] }>();
@@ -35,8 +38,12 @@ const { locations, inventoryLevels, fetchLocations, fetchProductInventory } =
 
 const editingVariantId = ref<ShopifyNumericId | null>(null);
 const variantForm = ref<ShopifyVariantInput>(emptyVariantForm());
+const selectedVariantIds = ref<Set<string>>(new Set());
+const variantPriceDrafts = ref<Record<string, string>>({});
+const presentmentCurrencyInput = ref("");
 const imageUrl = ref("");
 const imageAlt = ref("");
+const imageUpload = ref<{ attachment: string; filename: string } | null>(null);
 const imageDrafts = ref<
   Record<
     ShopifyNumericId,
@@ -47,6 +54,18 @@ const inventoryVariantId = ref<ShopifyNumericId | null>(null);
 const inventoryLocationId = ref<ShopifyNumericId | null>(null);
 const inventoryMode = ref<"set" | "adjust">("set");
 const inventoryAmount = ref(0);
+const metafieldForm = ref<ShopifyMetafieldInput>(emptyMetafieldForm());
+const metafieldDrafts = ref<Record<string, { value: string; type: string }>>({});
+const optionNameDrafts = ref<Record<string, string>>({});
+
+const productOptionNames = computed(() => {
+  const names = (props.product.options || [])
+    .slice(0, 3)
+    .map((option) => option.name.trim())
+    .filter(Boolean);
+  return names.length ? names : [t("product.defaultOptionName")];
+});
+const selectedVariantCount = computed(() => selectedVariantIds.value.size);
 
 const inventoryVariants = computed(() =>
   operations.variants.value.filter(
@@ -80,15 +99,30 @@ watch(
   () => props.product.id,
   () => {
     resetVariantForm();
+    selectedVariantIds.value = new Set();
+    variantPriceDrafts.value = {};
     imageUrl.value = "";
     imageAlt.value = "";
+    imageUpload.value = null;
     imageDrafts.value = {};
     inventoryVariantId.value = null;
     inventoryLocationId.value = null;
     inventoryAmount.value = 0;
+    metafieldForm.value = emptyMetafieldForm();
+    metafieldDrafts.value = {};
     void refreshAll();
   },
   { immediate: true },
+);
+
+watch(
+  () => props.product.options,
+  (options) => {
+    optionNameDrafts.value = Object.fromEntries(
+      (options || []).map((option, index) => [String(option.id || index), option.name]),
+    );
+  },
+  { deep: true, immediate: true },
 );
 
 function emptyVariantForm(): ShopifyVariantInput {
@@ -104,9 +138,26 @@ function emptyVariantForm(): ShopifyVariantInput {
   };
 }
 
+function emptyMetafieldForm(): ShopifyMetafieldInput {
+  return {
+    namespace: "custom",
+    key: "",
+    value: "",
+    type: "single_line_text_field",
+  };
+}
+
 async function refreshAll() {
   const productId = props.product.id;
-  await Promise.all([operations.load(productId), fetchLocations()]);
+  const currencies = Array.from(
+    new Set(
+      presentmentCurrencyInput.value
+        .split(",")
+        .map((currency) => currency.trim().toUpperCase())
+        .filter((currency) => /^[A-Z]{3}$/.test(currency)),
+    ),
+  );
+  await Promise.all([operations.load(productId, currencies), fetchLocations()]);
   if (props.product.id !== productId) return;
 
   await fetchProductInventory(
@@ -119,6 +170,17 @@ async function refreshAll() {
 }
 
 function initializeDrafts() {
+  variantPriceDrafts.value = Object.fromEntries(
+    operations.variants.value.map((variant) => [
+      String(variant.id),
+      variant.price || "0.00",
+    ]),
+  );
+  selectedVariantIds.value = new Set(
+    [...selectedVariantIds.value].filter((id) =>
+      operations.variants.value.some((variant) => String(variant.id) === id),
+    ),
+  );
   imageDrafts.value = Object.fromEntries(
     operations.images.value
       .filter((image): image is ShopifyProductImage & { id: ShopifyNumericId } =>
@@ -132,6 +194,12 @@ function initializeDrafts() {
           variantIds: [...(image.variant_ids || [])],
         },
       ]),
+  );
+  metafieldDrafts.value = Object.fromEntries(
+    operations.metafields.value.map((metafield) => [
+      String(metafield.id),
+      { value: metafield.value, type: metafield.type },
+    ]),
   );
   if (
     !inventoryVariantId.value ||
@@ -171,26 +239,143 @@ function resetVariantForm() {
 }
 
 async function saveVariant() {
-  const option1 = String(variantForm.value.option1 || "").trim();
   const price = String(variantForm.value.price || "").trim();
-  if (!option1 || !/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(price)) {
+  const optionValues = [
+    variantForm.value.option1,
+    variantForm.value.option2,
+    variantForm.value.option3,
+  ].slice(0, productOptionNames.value.length);
+  if (
+    optionValues.some((value) => !String(value || "").trim()) ||
+    !isValidProductPrice(price)
+  ) {
     toast.error(t("product.variantRequired"));
     return;
   }
   const input = {
     ...variantForm.value,
-    option1,
+    option1: String(optionValues[0] || "").trim(),
+    option2: optionValues[1] ? String(optionValues[1]).trim() : null,
+    option3: optionValues[2] ? String(optionValues[2]).trim() : null,
     price,
   };
   const response = editingVariantId.value
-    ? await operations.updateVariant(props.product.id, editingVariantId.value, input)
-    : await operations.createVariant(props.product.id, input);
+    ? await operations.updateVariantsBulk(
+        props.product.id,
+        [{ ...input, id: editingVariantId.value }],
+        productOptionNames.value,
+      )
+    : await operations.createVariantsBulk(
+        props.product.id,
+        [input],
+        productOptionNames.value,
+      );
   if (!response) return;
 
   toast.success(
     editingVariantId.value ? t("product.variantUpdated") : t("product.variantCreated"),
   );
   resetVariantForm();
+  await afterMutation();
+}
+
+function getVariantOption(index: number) {
+  const key = `option${index + 1}` as "option1" | "option2" | "option3";
+  return String(variantForm.value[key] || "");
+}
+
+function setVariantOption(index: number, event: Event) {
+  const key = `option${index + 1}` as "option1" | "option2" | "option3";
+  variantForm.value[key] = (event.target as HTMLInputElement).value;
+}
+
+function toggleVariantSelection(variant: ShopifyVariant) {
+  const next = new Set(selectedVariantIds.value);
+  const id = String(variant.id);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  selectedVariantIds.value = next;
+}
+
+function toggleAllVariants() {
+  selectedVariantIds.value =
+    selectedVariantIds.value.size === operations.variants.value.length
+      ? new Set()
+      : new Set(operations.variants.value.map((variant) => String(variant.id)));
+}
+
+async function saveSelectedPrices() {
+  const variants = operations.variants.value
+    .filter((variant) => selectedVariantIds.value.has(String(variant.id)))
+    .map((variant) => ({
+      id: variant.id,
+      price: String(variantPriceDrafts.value[String(variant.id)] || "").trim(),
+    }));
+  if (
+    !variants.length ||
+    variants.some((variant) => !isValidProductPrice(variant.price))
+  ) {
+    toast.error(t("product.validPricesRequired"));
+    return;
+  }
+  if (
+    !(await operations.updateVariantsBulk(
+      props.product.id,
+      variants,
+      productOptionNames.value,
+    ))
+  ) {
+    return;
+  }
+  toast.success(t("product.bulkPricesUpdated", { count: variants.length }));
+  selectedVariantIds.value = new Set();
+  await afterMutation();
+}
+
+async function saveOptionNames() {
+  const options = (props.product.options || []).map((option, index) => ({
+    ...option,
+    name: String(optionNameDrafts.value[String(option.id || index)] || "").trim(),
+    position: index + 1,
+  }));
+  const uniqueNames = new Set(options.map((option) => option.name.toLowerCase()));
+  if (
+    !options.length ||
+    options.some((option) => !option.id || !option.name) ||
+    uniqueNames.size !== options.length
+  ) {
+    toast.error(t("product.optionNamesInvalid"));
+    return;
+  }
+  if (!(await operations.updateOptions(props.product.id, options))) return;
+  toast.success(t("product.optionNamesUpdated"));
+  await afterMutation();
+}
+
+async function removeSelectedVariants() {
+  const variants = operations.variants.value.filter((variant) =>
+    selectedVariantIds.value.has(String(variant.id)),
+  );
+  if (!variants.length) return;
+  if (variants.length >= operations.variants.value.length) {
+    toast.error(t("product.keepOneVariant"));
+    return;
+  }
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("product.deleteVariantsConfirm", { count: variants.length }),
+      confirmLabel: t("common.delete"),
+    })) ||
+    !(await operations.deleteVariantsBulk(
+      props.product.id,
+      variants.map((variant) => variant.id),
+    ))
+  ) {
+    return;
+  }
+  toast.success(t("product.variantsDeleted", { count: variants.length }));
+  selectedVariantIds.value = new Set();
   await afterMutation();
 }
 
@@ -203,7 +388,7 @@ async function removeVariant(variant: ShopifyVariant) {
       }),
       confirmLabel: t("common.delete"),
     })) ||
-    !(await operations.deleteVariant(props.product.id, variant.id))
+    !(await operations.deleteVariantsBulk(props.product.id, [variant.id]))
   ) {
     return;
   }
@@ -213,19 +398,110 @@ async function removeVariant(variant: ShopifyVariant) {
 
 async function addImage() {
   const src = imageUrl.value.trim();
-  if (!/^https?:\/\//i.test(src)) {
+  if (!imageUpload.value && !/^https?:\/\//i.test(src)) {
     toast.error(t("product.validImageUrl"));
     return;
   }
   const image: ShopifyProductImageInput = {
-    src,
+    ...(imageUpload.value || { src }),
     ...(imageAlt.value.trim() ? { alt: imageAlt.value.trim() } : {}),
   };
   if (!(await operations.createImage(props.product.id, image))) return;
 
   imageUrl.value = "";
   imageAlt.value = "";
+  imageUpload.value = null;
   toast.success(t("product.productImageAdded"));
+  await afterMutation();
+}
+
+async function selectImageFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    imageUpload.value = null;
+    return;
+  }
+  if (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024) {
+    input.value = "";
+    imageUpload.value = null;
+    toast.error(t("product.imageFileInvalid"));
+    return;
+  }
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    imageUpload.value = {
+      attachment: dataUrl.slice(dataUrl.indexOf(",") + 1),
+      filename: file.name,
+    };
+  } catch {
+    input.value = "";
+    imageUpload.value = null;
+    toast.error(t("product.imageFileInvalid"));
+  }
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function createMetafield() {
+  const metafield = {
+    ...metafieldForm.value,
+    namespace: metafieldForm.value.namespace.trim(),
+    key: metafieldForm.value.key.trim(),
+    type: metafieldForm.value.type.trim(),
+  };
+  if (!metafield.namespace || !metafield.key || !metafield.type) {
+    toast.error(t("product.metafieldRequired"));
+    return;
+  }
+  if (!(await operations.createMetafield(props.product.id, metafield))) return;
+  metafieldForm.value = emptyMetafieldForm();
+  toast.success(t("product.metafieldCreated"));
+  await afterMutation();
+}
+
+async function saveMetafield(metafield: ShopifyMetafield) {
+  const draft = metafieldDrafts.value[String(metafield.id)];
+  if (!draft?.type.trim()) {
+    toast.error(t("product.metafieldRequired"));
+    return;
+  }
+  if (
+    !(await operations.updateMetafield(props.product.id, {
+      id: metafield.id,
+      namespace: metafield.namespace,
+      key: metafield.key,
+      value: draft.value,
+      type: draft.type.trim(),
+    }))
+  ) {
+    return;
+  }
+  toast.success(t("product.metafieldSaved"));
+  await afterMutation();
+}
+
+async function removeMetafield(metafield: ShopifyMetafield) {
+  if (
+    !(await requestConfirmation({
+      title: t("confirm.deleteTitle"),
+      message: t("product.deleteMetafieldConfirm", {
+        key: `${metafield.namespace}.${metafield.key}`,
+      }),
+      confirmLabel: t("common.delete"),
+    })) ||
+    !(await operations.deleteMetafield(props.product.id, metafield.id))
+  ) {
+    return;
+  }
+  toast.success(t("product.metafieldDeleted"));
   await afterMutation();
 }
 
@@ -326,6 +602,36 @@ async function afterMutation() {
       {{ operations.error.value }}
     </div>
 
+    <div v-if="product.options?.length" class="operation-section">
+      <div class="section-title">
+        <div>
+          <Boxes /><strong>{{ t("product.optionDefinitions") }}</strong>
+        </div>
+        <span>{{ t("product.optionValuesManagedByVariants") }}</span>
+      </div>
+      <div class="option-name-list">
+        <label
+          v-for="(option, index) in product.options"
+          :key="String(option.id || index)"
+          class="option-name-row"
+        >
+          <input
+            v-model="optionNameDrafts[String(option.id || index)]"
+            :aria-label="t('product.optionName')"
+          />
+          <span>{{ option.values.join(", ") }}</span>
+        </label>
+        <BaseButton
+          variant="primary"
+          :loading="operations.isLoading.value"
+          @click="saveOptionNames"
+        >
+          <template #icon><Save /></template>
+          {{ t("product.saveOptionNames") }}
+        </BaseButton>
+      </div>
+    </div>
+
     <div class="operation-section">
       <div class="section-title">
         <div>
@@ -336,12 +642,29 @@ async function afterMutation() {
         }}</span>
       </div>
 
+      <div class="presentment-controls">
+        <label>
+          <span>{{ t("product.presentmentCurrencies") }}</span>
+          <input
+            v-model="presentmentCurrencyInput"
+            :placeholder="t('product.presentmentCurrenciesPlaceholder')"
+          />
+        </label>
+        <BaseButton :loading="operations.isLoading.value" @click="refreshAll">
+          <template #icon><RefreshCw /></template>
+          {{ t("product.loadMarketPrices") }}
+        </BaseButton>
+      </div>
+
       <div class="variant-form form-grid">
         <label
-          ><span>{{ t("product.variantTitle") }} *</span
+          v-for="(optionName, optionIndex) in productOptionNames"
+          :key="`${optionName}-${optionIndex}`"
+          ><span>{{ optionName }} *</span
           ><input
-            v-model="variantForm.option1"
+            :value="getVariantOption(optionIndex)"
             :placeholder="t('product.defaultTitle')"
+            @input="setVariantOption(optionIndex, $event)"
         /></label>
         <label
           ><span>{{ t("product.price") }} *</span
@@ -401,15 +724,71 @@ async function afterMutation() {
         </div>
       </div>
 
+      <div v-if="operations.variants.value.length" class="variant-bulk-toolbar">
+        <label class="check">
+          <input
+            type="checkbox"
+            :checked="selectedVariantCount === operations.variants.value.length"
+            @change="toggleAllVariants"
+          />
+          <span>{{ t("product.selectAllVariants") }}</span>
+        </label>
+        <span>{{ t("product.bulkSelected", { count: selectedVariantCount }) }}</span>
+        <div class="row-actions">
+          <BaseButton
+            :disabled="!selectedVariantCount"
+            :loading="operations.isLoading.value"
+            @click="saveSelectedPrices"
+          >
+            <template #icon><Save /></template>
+            {{ t("product.saveSelectedPrices") }}
+          </BaseButton>
+          <BaseButton
+            variant="danger-ghost"
+            :disabled="!selectedVariantCount"
+            :loading="operations.isLoading.value"
+            @click="removeSelectedVariants"
+          >
+            <template #icon><Trash2 /></template>
+            {{ t("product.deleteSelectedVariants") }}
+          </BaseButton>
+        </div>
+      </div>
+
       <div class="compact-list">
         <article v-for="variant in operations.variants.value" :key="variant.id">
+          <input
+            class="variant-select"
+            type="checkbox"
+            :checked="selectedVariantIds.has(String(variant.id))"
+            :aria-label="
+              t('product.selectVariant', { title: variant.title || variant.id })
+            "
+            @change="toggleVariantSelection(variant)"
+          />
           <div>
             <strong>{{ variant.title || t("product.defaultVariant") }}</strong>
             <span class="variant-summary"
-              >{{ variant.sku || t("product.noSku") }} - {{ variant.price || "0.00" }} -
+              >{{ variant.sku || t("product.noSku") }} -
               {{ formatVariantInventory(variant) }}</span
             >
+            <span
+              v-for="presentment in variant.presentment_prices || []"
+              :key="presentment.price.currency_code"
+              class="presentment-price"
+            >
+              {{ presentment.price.amount }} {{ presentment.price.currency_code }}
+            </span>
           </div>
+          <label class="inline-price" @click.stop>
+            <span>{{ t("product.price") }}</span>
+            <input
+              v-model="variantPriceDrafts[String(variant.id)]"
+              type="number"
+              min="0"
+              step="0.01"
+            />
+          </label>
           <div class="row-actions">
             <BaseButton
               icon-only
@@ -446,6 +825,11 @@ async function afterMutation() {
           :placeholder="t('product.imageUrlPlaceholder')"
         />
         <input v-model="imageAlt" :placeholder="t('product.altText')" />
+        <label class="file-input">
+          <span>{{ t("product.uploadImage") }}</span>
+          <input type="file" accept="image/*" @change="selectImageFile" />
+          <small v-if="imageUpload">{{ imageUpload.filename }}</small>
+        </label>
         <BaseButton
           variant="primary"
           :loading="operations.isLoading.value"
@@ -500,6 +884,70 @@ async function afterMutation() {
                 {{ t("common.save") }}
               </BaseButton>
             </div>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class="operation-section">
+      <div class="section-title">
+        <div>
+          <Boxes /><strong>{{ t("product.metafields") }}</strong>
+        </div>
+        <span>{{
+          t("product.totalCount", { count: operations.metafields.value.length })
+        }}</span>
+      </div>
+      <div class="metafield-create form-grid">
+        <label>
+          <span>{{ t("product.metafieldNamespace") }}</span>
+          <input v-model="metafieldForm.namespace" placeholder="custom" />
+        </label>
+        <label>
+          <span>{{ t("product.metafieldKey") }}</span>
+          <input v-model="metafieldForm.key" placeholder="material" />
+        </label>
+        <label>
+          <span>{{ t("product.metafieldType") }}</span>
+          <input v-model="metafieldForm.type" placeholder="single_line_text_field" />
+        </label>
+        <label>
+          <span>{{ t("product.metafieldValue") }}</span>
+          <input v-model="metafieldForm.value" />
+        </label>
+        <div class="form-actions">
+          <BaseButton
+            variant="primary"
+            :loading="operations.isLoading.value"
+            @click="createMetafield"
+          >
+            <template #icon><Plus /></template>
+            {{ t("product.addMetafield") }}
+          </BaseButton>
+        </div>
+      </div>
+      <div class="compact-list metafield-list">
+        <article v-for="metafield in operations.metafields.value" :key="metafield.id">
+          <div>
+            <strong>{{ metafield.namespace }}.{{ metafield.key }}</strong>
+            <span>{{ metafield.type }}</span>
+          </div>
+          <input
+            v-if="metafieldDrafts[String(metafield.id)]"
+            v-model="metafieldDrafts[String(metafield.id)]!.value"
+            :aria-label="t('product.metafieldValue')"
+          />
+          <div class="row-actions">
+            <BaseButton icon-only variant="ghost" @click="saveMetafield(metafield)">
+              <template #icon><Save /></template>
+            </BaseButton>
+            <BaseButton
+              icon-only
+              variant="danger-ghost"
+              @click="removeMetafield(metafield)"
+            >
+              <template #icon><Trash2 /></template>
+            </BaseButton>
           </div>
         </article>
       </div>
@@ -627,6 +1075,44 @@ header span,
   gap: 8px;
   margin-top: 10px;
 }
+.presentment-controls,
+.variant-bulk-toolbar {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.option-name-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.option-name-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.option-name-list > :last-child {
+  align-self: end;
+  justify-self: end;
+}
+.presentment-controls label {
+  flex: 1;
+}
+.variant-bulk-toolbar {
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: var(--surface-soft);
+}
+.variant-bulk-toolbar > span {
+  margin-right: auto;
+  color: var(--text-sub);
+  font-size: 11px;
+}
 label {
   display: grid;
   gap: 4px;
@@ -672,9 +1158,10 @@ select {
   border-radius: 6px;
   padding: 8px 10px;
 }
-.compact-list article > div:first-child {
+.compact-list article > div:not(.row-actions) {
   display: grid;
   min-width: 0;
+  flex: 1;
 }
 .compact-list strong {
   overflow: hidden;
@@ -687,11 +1174,34 @@ select {
   display: flex;
   gap: 4px;
 }
+.variant-select {
+  width: 15px;
+  min-height: 15px;
+  flex: 0 0 auto;
+}
+.inline-price {
+  width: 110px;
+  flex: 0 0 auto;
+}
+.presentment-price {
+  color: var(--green) !important;
+}
 .image-create {
   display: grid;
-  grid-template-columns: 2fr 1fr auto;
+  grid-template-columns: 2fr 1fr 1fr auto;
   gap: 7px;
   margin-top: 10px;
+}
+.file-input small {
+  overflow: hidden;
+  color: var(--text-sub);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metafield-list article > input {
+  min-width: 160px;
+  flex: 1;
 }
 .image-grid {
   display: grid;
@@ -743,6 +1253,15 @@ select {
   .inventory-form,
   .image-create {
     grid-template-columns: 1fr;
+  }
+  .presentment-controls,
+  .variant-bulk-toolbar,
+  .compact-list article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .inline-price {
+    width: 100%;
   }
   .form-actions {
     grid-column: auto;

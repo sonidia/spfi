@@ -83,8 +83,20 @@ describe("product store", () => {
 
   it("bulk publishes exact product IDs and refreshes the list once", async () => {
     const request = vi.fn().mockImplementation((url: string) => {
-      if (url === "/api/product/all") {
-        return Promise.resolve({ data: { products: [] } });
+      if (url === "/api/product/bulk-publication") {
+        return Promise.resolve({ total: 2, succeeded: 2, failedIds: [] });
+      }
+      if (url === "/api/product/page") {
+        return Promise.resolve({
+          products: [],
+          count: 0,
+          pageInfo: {
+            nextCursor: null,
+            previousCursor: null,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        });
       }
       return Promise.resolve({});
     });
@@ -99,10 +111,15 @@ describe("product store", () => {
     );
 
     expect(result).toEqual({ total: 2, succeeded: 2, failedIds: [] });
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(request.mock.calls[0]?.[0]).toBe("/api/product/9007199254740993");
-    expect(request.mock.calls[1]?.[0]).toBe("/api/product/42");
-    expect(request.mock.calls[2]?.[0]).toBe("/api/product/all");
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls[0]?.[0]).toBe("/api/product/bulk-publication");
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
+      body: {
+        productIds: ["9007199254740993", 42],
+        publish: true,
+      },
+    });
+    expect(request.mock.calls[1]?.[0]).toBe("/api/product/page");
   });
 });
 

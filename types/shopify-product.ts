@@ -2,8 +2,18 @@ import type {
   ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductImage,
+  ShopifyProductOption,
   ShopifyVariant,
 } from "./shopify";
+
+export interface ShopifyMetafieldInput {
+  id?: ShopifyNumericId;
+  namespace: string;
+  key: string;
+  value: string;
+  type: string;
+  description?: string | null;
+}
 
 export interface ShopifyProductUpdateInput {
   title?: string;
@@ -16,6 +26,10 @@ export interface ShopifyProductUpdateInput {
   handle?: string;
   template_suffix?: string | null;
   published_scope?: "global" | "web";
+  options?: ShopifyProductOption[];
+  variants?: ShopifyVariantInput[];
+  images?: ShopifyProductImageInput[];
+  metafields?: ShopifyMetafieldInput[];
 }
 
 export interface ShopifyVariantInput {
@@ -63,6 +77,18 @@ export interface ProductCountQuery {
   vendor?: string;
 }
 
+export interface ProductListQuery extends ProductCountQuery {
+  fields?: string;
+  handle?: string;
+  ids?: string;
+  limit?: number;
+  page_info?: string;
+  presentment_currencies?: string;
+  since_id?: string | number;
+  status?: "active" | "archived" | "draft";
+  title?: string;
+}
+
 export interface ProductCountResponse {
   count: number;
 }
@@ -79,4 +105,24 @@ export interface ProductImagesResponse {
 
 export interface ProductResponse {
   product?: ShopifyProduct;
+}
+
+export interface ProductPageResponse {
+  products: ShopifyProduct[];
+  count: number;
+  pageInfo: {
+    nextCursor: string | null;
+    previousCursor: string | null;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+export interface ProductVariantBulkResult {
+  variants?: ShopifyVariant[];
+  deletedIds?: ShopifyNumericId[];
+}
+
+export interface ProductOptionsUpdateResult {
+  options: ShopifyProductOption[];
 }

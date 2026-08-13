@@ -2,9 +2,9 @@ import { defineEventHandler, getQuery } from "h3";
 import { callShopifyApi } from "~~/server/utils/callShopifyApi";
 import {
   getShopifyQueryCredentials,
-  pickPrimitiveQueryParams,
   requireShopifyResourceId,
 } from "~~/server/utils/shopify-admin-request";
+import { pickPrimitiveQueryParams } from "~~/server/utils/shopify-query-params";
 import type { ProductImagesResponse } from "~~/types/shopify-product";
 
 export default defineEventHandler(async (event) => {

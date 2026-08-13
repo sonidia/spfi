@@ -1,10 +1,14 @@
 # Shopify Product and Inventory API
 
-These server routes proxy Shopify Admin REST API `2026-07` through the store's
-configured SOCKS5H proxy. Shopify classifies the REST Admin API as legacy.
-Product Variant REST operations have also been deprecated since API `2024-04`,
-so new catalog pipelines should prefer the GraphQL Admin API. The REST routes
-below remain available for compatibility with the current application.
+These server routes use a hybrid Shopify Admin API `2026-07` product stack
+through the store's configured SOCKS5H proxy. Product list, exact count, bulk
+publication, and variant writes use GraphQL. Single-product CRUD, compatibility
+variant routes, product images, and metafields remain on REST for backward
+compatibility while the migration plan below is completed.
+
+Shopify classifies REST Admin as a legacy API. Product, Product Variant, and
+Product Image REST mutations are deprecated, so no new product capability
+should be added only to a REST route.
 
 Official references:
 
@@ -22,8 +26,9 @@ Shopify requires product and inventory permissions for these operations:
   reads and mutations.
 - `read_inventory` and `write_inventory` for inventory level reads and
   mutations.
-- GraphQL publication and Files operations can additionally require
-  `write_publications` and `write_files`.
+- GraphQL publication operations require `read_publications` and
+  `write_publications`. Files operations can additionally require
+  `read_files` and `write_files`.
 
 These are Shopify requirements, not a local preflight gate. The routes do not
 reject a request by inspecting the token's returned scope string. Shopify
@@ -51,23 +56,40 @@ quantities before making an upstream request.
 
 ## Product routes
 
-| App route                  | Shopify REST request         | Additional input         |
-| -------------------------- | ---------------------------- | ------------------------ |
-| `GET /api/product/{id}`    | `GET /products/{id}.json`    | optional `fields` query  |
-| `POST /api/product/count`  | `GET /products/count.json`   | optional `query` filters |
-| `POST /api/product/create` | `POST /products.json`        | `product`                |
-| `PUT /api/product/{id}`    | `PUT /products/{id}.json`    | partial `product`        |
-| `DELETE /api/product/{id}` | `DELETE /products/{id}.json` | credentials in body      |
+| App route                            | Shopify operation                     | Additional input                                  |
+| ------------------------------------ | ------------------------------------- | ------------------------------------------------- |
+| `POST /api/product/page`             | GraphQL `products`, `productsCount`   | cursor, page size, search, and filters in `query` |
+| `POST /api/product/count`            | GraphQL `productsCount`               | optional `query` filters                          |
+| `POST /api/product/bulk-publication` | GraphQL aliased publication mutations | up to 250 product IDs and `publish`               |
+| `POST /api/product/{id}/option/bulk` | GraphQL `productOptionUpdate` aliases | one to three existing option names                |
+| `GET /api/product/{id}`              | REST `GET /products/{id}.json`        | no Shopify query parameters                       |
+| `POST /api/product/create`           | REST `POST /products.json`            | rich `product` input                              |
+| `PUT /api/product/{id}`              | REST `PUT /products/{id}.json`        | rich partial `product` input                      |
+| `DELETE /api/product/{id}`           | REST `DELETE /products/{id}.json`     | credentials in body                               |
 
-The count route accepts Shopify's documented `collection_id`,
+The page and count routes accept Shopify's documented `collection_id`,
 `created_at_min`, `created_at_max`, `product_type`, `published_at_min`,
 `published_at_max`, `published_status`, `updated_at_min`, `updated_at_max`, and
-`vendor` filters inside `query`.
+`vendor` filters inside `query`. The page route additionally accepts `title`
+free-text search and product `status`. Results use GraphQL cursors and the UI
+loads 50 products at a time instead of downloading the entire catalog.
 
-Product create and update payloads support `status` values `active`, `draft`,
-and `archived`. They also support the REST `published` boolean. The product UI
-exposes both controls; a draft or archived product is always submitted with
-`published: false`.
+Product create and update payloads support `status`, publication state,
+`handle`, `template_suffix`, `options`, `variants`, `images`, and `metafields`.
+The create UI can define up to three options, expands their values into variant
+combinations, sets an initial price, adds a remote image, and writes SEO
+metafields. The compatibility create workflow rejects more than 100 generated
+variants because the REST product model can't support Shopify's extended
+variant limit.
+
+The detail panel can rename existing product options with targeted
+`productOptionUpdate` mutations. Option values remain managed through variant
+creation, update, and deletion so every value stays attached to a valid variant.
+
+Bulk publication resolves the Online Store publication once and sends up to 50
+aliased product mutations in each GraphQL request. This replaces the former
+one-REST-PUT-per-product loop. Shopify must execute top-level mutation fields
+serially, and the route returns failed product IDs for partial reporting.
 
 ## Variant routes
 
@@ -77,10 +99,16 @@ exposes both controls; a draft or archived product is always submitted with
 | `POST /api/product/{id}/variant/create`        | `POST /products/{id}/variants.json`               | `variant`                                                                           |
 | `PUT /api/product/{id}/variant/{variantId}`    | `PUT /variants/{variantId}.json`                  | partial `variant`                                                                   |
 | `DELETE /api/product/{id}/variant/{variantId}` | `DELETE /products/{id}/variants/{variantId}.json` | credentials in body                                                                 |
+| `POST /api/product/{id}/variant/bulk`          | GraphQL bulk variant mutation                     | `create`, `update`, or `delete` action                                              |
 
 Variant update inserts the path `variantId` into the upstream payload. Inventory
 quantity changes don't belong in the variant payload; use the inventory routes
 with the variant's `inventory_item_id`.
+
+The bulk route uses `productVariantsBulkCreate`,
+`productVariantsBulkUpdate`, or `productVariantsBulkDelete`. All variant writes
+from the product UI use this route; selected prices and selected deletions are
+sent together, and the UI prevents deletion of every variant.
 
 ## Product image routes
 
@@ -92,7 +120,8 @@ with the variant's `inventory_item_id`.
 | `PUT /api/product/{id}/image/{imageId}`    | `PUT /products/{id}/images/{imageId}.json`    | partial `image`                                           |
 | `DELETE /api/product/{id}/image/{imageId}` | `DELETE /products/{id}/images/{imageId}.json` | credentials in body                                       |
 
-Create accepts a remote `src` or base64 `attachment`. Update supports `alt`,
+Create accepts a remote `src` or base64 `attachment`. The UI supports both URL
+input and direct image-file selection (up to 20 MB). Update supports `alt`,
 `position`, and `variant_ids`, so the same route handles image reordering and
 assigning an image to one or more variants.
 
@@ -109,6 +138,19 @@ Example:
   }
 }
 ```
+
+## Product metafield routes
+
+| App route                                                 | Shopify REST request       |
+| --------------------------------------------------------- | -------------------------- |
+| `GET /api/metafield/product/{productId}`                  | list product metafields    |
+| `POST /api/metafield/product/{productId}/create`          | create a product metafield |
+| `PUT /api/metafield/product/{productId}`                  | update a product metafield |
+| `DELETE /api/metafield/product/{productId}/{metafieldId}` | delete a product metafield |
+
+The product operations panel exposes the complete CRUD workflow. GET routes
+accept the token only in the `X-Shopify-Access-Token` header; tokens in query
+strings are rejected.
 
 ## Inventory write routes
 
@@ -166,3 +208,23 @@ GraphQL inventory quantity mutations require an `@idempotent` key as of API
 `2026-04`. `inventorySetQuantities` also supports compare-and-set semantics and
 should normally include the expected current quantity to avoid overwriting a
 concurrent stock change.
+
+## Migration roadmap
+
+1. **Completed foundation:** GraphQL product connection pagination and exact
+   filtered count; bulk variant create/update/delete; aliased bulk Online Store
+   publication; REST-to-app response mapping; rich REST compatibility inputs.
+2. **Product writes:** move create to `productSet` (or `productCreate` followed
+   by `productVariantsBulkCreate`) and move scalar/SEO/metafield updates to
+   `productUpdate`. Use product option mutations for targeted option changes so
+   omitted variants are never accidentally deleted by `productSet` list
+   semantics.
+3. **Media:** replace REST Product Image routes with staged uploads plus Files
+   and product media mutations. Preserve attachment upload support during the
+   transition behind the same app contract.
+4. **Market pricing:** replace REST `presentment_currencies` compatibility reads
+   with GraphQL `contextualPricing(context:)` keyed by market country, and use
+   catalog price lists for market-specific fixed-price edits.
+5. **Retirement:** add contract parity tests and per-store rollout telemetry,
+   then remove REST Product, Variant, Image, and Metafield calls only after all
+   connected stores pass the GraphQL capability checks.

@@ -15,6 +15,11 @@ import {
   buildOrderRefundListParams,
 } from "../server/utils/shopify-order-query.ts";
 import {
+  buildProductListParams,
+  buildProductSearchQuery,
+  normalizeProductPageSize,
+} from "../server/utils/shopify-product-query.ts";
+import {
   buildShopifyCursorPageParams,
   getShopifyPageInfo,
 } from "../server/utils/shopify-pagination.ts";
@@ -70,6 +75,42 @@ test("order list cursor requests discard incompatible filters", () => {
       fields: "id,name",
     }),
     { page_info: "opaque-cursor==", limit: 20, fields: "id,name" },
+  );
+});
+
+test("product list queries clamp pages and never resend cursor-incompatible filters", () => {
+  assert.deepEqual(
+    buildProductListParams({
+      limit: 999,
+      title: "Snowboard",
+      status: "active",
+      vendor: "Burton",
+    }),
+    { limit: 100, title: "Snowboard", status: "active", vendor: "Burton" },
+  );
+  assert.deepEqual(
+    buildProductListParams({
+      page_info: "opaque==",
+      limit: 20,
+      fields: "id,title",
+      vendor: "must-not-be-resent",
+    }),
+    { page_info: "opaque==", limit: 20, fields: "id,title" },
+  );
+  assert.equal(normalizeProductPageSize(0), 1);
+});
+
+test("product GraphQL counts use escaped search terms for all visible filters", () => {
+  assert.equal(
+    buildProductSearchQuery({
+      title: 'A "quoted" product',
+      status: "draft",
+      product_type: "Board",
+      vendor: "Acme",
+      published_status: "unpublished",
+      created_at_min: "2026-01-01",
+    }),
+    'product_type:"Board" AND published_status:"unpublished" AND status:"draft" AND "A \\"quoted\\" product" AND vendor:"Acme" AND created_at:>="2026-01-01"',
   );
 });
 

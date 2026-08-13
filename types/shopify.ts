@@ -285,7 +285,25 @@ export interface ShopifyVariant {
   inventory_management?: string | null;
   inventory_policy?: string;
   inventory_quantity?: number;
+  presentment_prices?: Array<{
+    price: {
+      amount: string;
+      currency_code: string;
+    };
+    compare_at_price?: {
+      amount: string;
+      currency_code: string;
+    } | null;
+  }>;
   admin_graphql_api_id?: string;
+}
+
+export interface ShopifyProductOption {
+  id?: ShopifyNumericId;
+  product_id?: ShopifyNumericId;
+  name: string;
+  position?: number;
+  values: string[];
 }
 
 export interface ShopifyProductImage {
@@ -310,15 +328,32 @@ export interface ShopifyProductInput {
   tags?: string;
   status?: ShopifyProductStatus;
   published?: boolean;
+  handle?: string;
+  template_suffix?: string | null;
+  options?: ShopifyProductOption[];
+  variants?: Array<Partial<ShopifyVariant>>;
+  images?: ShopifyProductImage[];
+  metafields?: Array<Partial<ShopifyMetafield> & Record<string, unknown>>;
 }
 
 export interface ShopifyProduct extends ShopifyProductInput {
   id: ShopifyNumericId;
+  admin_graphql_api_id?: string;
   status: ShopifyProductStatus;
   variants: ShopifyVariant[];
+  variants_count?: number;
+  total_inventory?: number;
+  min_price?: string;
+  max_price?: string;
+  price_currency?: string;
+  options?: ShopifyProductOption[];
   image?: ShopifyProductImage | null;
   images?: ShopifyProductImage[];
+  handle?: string;
+  template_suffix?: string | null;
+  published_scope?: "global" | "web";
   published_at?: string | null;
+  created_at?: string;
   updated_at?: string;
 }
 

@@ -13,7 +13,12 @@
       <div v-else>
         <div class="page-meta-header">
           <div class="page-meta">
-            {{ t("product.productCount", { count: products.length }) }}
+            {{
+              t("product.showingProductCount", {
+                shown: products.length,
+                total: productStore.totalCount,
+              })
+            }}
           </div>
           <div class="page-meta-actions">
             <CsvExportButton resource="products" />
@@ -23,6 +28,41 @@
             </button>
           </div>
         </div>
+
+        <form class="product-filters" @submit.prevent="applyProductFilters">
+          <input
+            v-model="filterForm.title"
+            class="inp"
+            :placeholder="t('product.searchPlaceholder')"
+          />
+          <select v-model="filterForm.status" class="inp">
+            <option value="">{{ t("product.filterStatusAny") }}</option>
+            <option value="active">{{ t("product.statusActive") }}</option>
+            <option value="draft">{{ t("product.statusDraft") }}</option>
+            <option value="archived">{{ t("product.statusArchived") }}</option>
+          </select>
+          <select v-model="filterForm.published_status" class="inp">
+            <option value="">{{ t("product.filterPublishedAny") }}</option>
+            <option value="published">{{ t("product.filterPublished") }}</option>
+            <option value="unpublished">{{ t("product.filterUnpublished") }}</option>
+          </select>
+          <input
+            v-model="filterForm.vendor"
+            class="inp"
+            :placeholder="t('product.filterVendorPlaceholder')"
+          />
+          <input
+            v-model="filterForm.product_type"
+            class="inp"
+            :placeholder="t('product.filterTypePlaceholder')"
+          />
+          <button class="btn-primary-sm" type="submit">
+            {{ t("product.search") }}
+          </button>
+          <button class="btn-outline filter-reset" type="button" @click="resetFilters">
+            {{ t("product.resetFilters") }}
+          </button>
+        </form>
 
         <div
           v-if="selectedProductCount"
@@ -89,13 +129,14 @@
                   <th>{{ t("product.columnProduct") }}</th>
                   <th>{{ t("product.columnStatus") }}</th>
                   <th>{{ t("product.columnVariants") }}</th>
+                  <th>{{ t("product.price") }}</th>
                   <th>{{ t("product.columnUpdated") }}</th>
                   <th style="text-align: right">{{ t("product.columnActions") }}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="productPaddingTop" class="virtual-spacer" aria-hidden="true">
-                  <td :style="{ height: `${productPaddingTop}px` }" colspan="6" />
+                  <td :style="{ height: `${productPaddingTop}px` }" colspan="7" />
                 </tr>
                 <tr
                   v-for="{ item: prod, index } in visibleProducts"
@@ -167,8 +208,9 @@
                     </div>
                   </td>
                   <td>
-                    {{ prod.variants?.length || 0 }}
+                    {{ prod.variants_count ?? prod.variants?.length ?? 0 }}
                   </td>
+                  <td>{{ formatProductPrice(prod) }}</td>
                   <td>
                     {{ formatProductDate(prod.updated_at) }}
                   </td>
@@ -254,13 +296,23 @@
                   class="virtual-spacer"
                   aria-hidden="true"
                 >
-                  <td :style="{ height: `${productPaddingBottom}px` }" colspan="6" />
+                  <td :style="{ height: `${productPaddingBottom}px` }" colspan="7" />
                 </tr>
               </tbody>
             </table>
             <div v-if="products.length === 0" class="empty-state">
               {{ t("product.empty") }}
             </div>
+          </div>
+          <div v-if="productStore.nextCursor" class="load-more-row">
+            <button
+              class="btn-outline"
+              type="button"
+              :disabled="productStore.isLoadingMore"
+              @click="loadMoreProducts"
+            >
+              {{ t("product.loadMore") }}
+            </button>
           </div>
         </div>
       </div>
@@ -270,7 +322,7 @@
       v-if="detailProduct"
       :product="detailProduct"
       @close="detailProductId = null"
-      @refreshed="refreshProducts"
+      @refreshed="refreshProductDetail"
     />
 
     <!-- Create Modal -->
@@ -304,6 +356,16 @@
               class="inp"
               :placeholder="t('product.titlePlaceholder')"
             />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">{{ t("product.handle") }}</label>
+              <input v-model="newProduct.handle" type="text" class="inp" />
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.templateSuffix") }}</label>
+              <input v-model="newProduct.template_suffix" type="text" class="inp" />
+            </div>
           </div>
           <div class="field-row">
             <div class="field">
@@ -360,6 +422,69 @@
               rows="4"
               :placeholder="t('product.descriptionPlaceholder')"
             ></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">{{ t("product.defaultPrice") }}</label>
+              <input
+                v-model="newProductDefaultPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                class="inp"
+              />
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.initialImageUrl") }}</label>
+              <input v-model="newProductImageUrl" type="url" class="inp" />
+            </div>
+          </div>
+          <div class="field option-editor">
+            <div class="option-editor-head">
+              <label class="field-label">{{ t("product.optionDefinitions") }}</label>
+              <button
+                class="btn-ghost-sm"
+                type="button"
+                :disabled="newProductOptions.length >= 3"
+                @click="addProductOption"
+              >
+                <Plus aria-hidden="true" />{{ t("product.addOption") }}
+              </button>
+            </div>
+            <div
+              v-for="(option, index) in newProductOptions"
+              :key="index"
+              class="option-row"
+            >
+              <input
+                v-model="option.name"
+                class="inp"
+                :placeholder="t('product.optionName')"
+              />
+              <input
+                v-model="option.values"
+                class="inp"
+                :placeholder="t('product.optionValues')"
+              />
+              <button
+                class="btn-ghost-sm text-danger"
+                type="button"
+                :aria-label="t('product.removeOption')"
+                @click="removeProductOption(index)"
+              >
+                <Trash2 aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">{{ t("product.seoTitle") }}</label>
+              <input v-model="newProductSeo.title" class="inp" />
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.seoDescription") }}</label>
+              <input v-model="newProductSeo.description" class="inp" />
+            </div>
           </div>
         </div>
         <div class="modal-actions">
@@ -427,6 +552,16 @@
           </div>
           <div class="field-row">
             <div class="field">
+              <label class="field-label">{{ t("product.handle") }}</label>
+              <input v-model="editProduct.handle" type="text" class="inp" />
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.templateSuffix") }}</label>
+              <input v-model="editProduct.template_suffix" type="text" class="inp" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
               <label class="field-label">{{ t("product.vendor") }}</label>
               <input v-model="editProduct.vendor" type="text" class="inp" />
             </div>
@@ -442,6 +577,16 @@
           <div class="field">
             <label class="field-label">{{ t("product.descriptionHtml") }}</label>
             <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">{{ t("product.seoTitle") }}</label>
+              <input v-model="editProduct.seo_title" class="inp" />
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.seoDescription") }}</label>
+              <input v-model="editProduct.seo_description" class="inp" />
+            </div>
           </div>
         </div>
         <div class="modal-actions">
@@ -473,11 +618,19 @@ import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useFormStore } from "~/stores/form";
 import { useProductStore } from "~/stores/product";
 import type {
+  MetafieldsResponse,
   ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductInput,
   ShopifyProductStatus,
 } from "~~/types/shopify";
+import type { ProductListQuery } from "~~/types/shopify-product";
+import {
+  buildVariantsFromOptions,
+  isValidProductPrice,
+  normalizeProductOptions,
+  type ProductOptionDraft,
+} from "~~/utils/product-options";
 
 const productStore = useProductStore();
 const formStore = useFormStore();
@@ -514,14 +667,22 @@ const selectedProduct = computed(() => {
   );
 });
 const detailProductId = ref<ShopifyNumericId | null>(null);
-const detailProduct = computed(() => {
-  return products.value.find((product) => product.id === detailProductId.value) || null;
-});
+const detailProductRecord = ref<ShopifyProduct | null>(null);
+const detailProduct = computed(() =>
+  detailProductId.value ? detailProductRecord.value : null,
+);
 
 // ── Local state for modals ──
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const publishingProductId = ref<ShopifyNumericId | null>(null);
+const filterForm = ref({
+  title: "",
+  status: "" as "" | ShopifyProductStatus,
+  published_status: "" as "" | "published" | "unpublished",
+  vendor: "",
+  product_type: "",
+});
 
 const newProduct = ref<ShopifyProductInput>({
   title: "",
@@ -531,7 +692,13 @@ const newProduct = ref<ShopifyProductInput>({
   tags: "",
   status: "active",
   published: true,
+  handle: "",
+  template_suffix: null,
 });
+const newProductOptions = ref<ProductOptionDraft[]>([{ name: "", values: "" }]);
+const newProductDefaultPrice = ref("0.00");
+const newProductImageUrl = ref("");
+const newProductSeo = ref({ title: "", description: "" });
 
 const editProduct = ref({
   id: null as ShopifyNumericId | null,
@@ -543,6 +710,12 @@ const editProduct = ref({
   status: "active" as ShopifyProductStatus,
   published: true,
   published_at: null as string | null,
+  handle: "",
+  template_suffix: "" as string | null,
+  seo_title: "",
+  seo_description: "",
+  seo_title_id: null as ShopifyNumericId | null,
+  seo_description_id: null as ShopifyNumericId | null,
 });
 
 // ── Actions ──
@@ -638,9 +811,11 @@ function isProductPublished(prod: ShopifyProduct) {
   return prod.status === "active" && Boolean(prod.published_at);
 }
 
-function openDetailModal(prod: ShopifyProduct) {
+async function openDetailModal(prod: ShopifyProduct) {
   selectProduct(prod);
   detailProductId.value = prod.id;
+  detailProductRecord.value = prod;
+  await loadProductDetail(prod.id);
 }
 
 function formatProductStatus(status?: ShopifyProductStatus) {
@@ -655,6 +830,90 @@ function formatProductDate(value?: string) {
   return new Date(value).toLocaleDateString(locale.value);
 }
 
+function formatProductPrice(product: ShopifyProduct) {
+  if (product.min_price !== undefined && product.max_price !== undefined) {
+    const range =
+      product.min_price === product.max_price
+        ? product.min_price
+        : `${product.min_price} - ${product.max_price}`;
+    return product.price_currency ? `${range} ${product.price_currency}` : range;
+  }
+  const prices = (product.variants || [])
+    .map((variant) => Number(variant.price))
+    .filter(Number.isFinite);
+  if (!prices.length) return "-";
+  const minimum = Math.min(...prices).toFixed(2);
+  const maximum = Math.max(...prices).toFixed(2);
+  return minimum === maximum ? minimum : `${minimum} - ${maximum}`;
+}
+
+async function loadProductDetail(productId: ShopifyNumericId) {
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  if (!sid || !token) return;
+  try {
+    const response = await $fetch<{ product?: ShopifyProduct }>(
+      `/api/product/${productId}`,
+      {
+        query: { storeId: sid },
+        headers: { "X-Shopify-Access-Token": token },
+      },
+    );
+    if (detailProductId.value === productId && response.product) {
+      detailProductRecord.value = response.product;
+    }
+  } catch {
+    // Keep the list summary visible if the dedicated detail request fails.
+  }
+}
+
+async function refreshProductDetail() {
+  await refreshProducts();
+  if (detailProductId.value) await loadProductDetail(detailProductId.value);
+}
+
+function addProductOption() {
+  if (newProductOptions.value.length < 3) {
+    newProductOptions.value.push({ name: "", values: "" });
+  }
+}
+
+function removeProductOption(index: number) {
+  newProductOptions.value.splice(index, 1);
+}
+
+async function applyProductFilters() {
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  if (!sid || !token) return;
+  clearBulkSelection();
+  await productStore.fetchAll(sid, token, 50, toProductFilters());
+}
+
+async function resetFilters() {
+  filterForm.value = {
+    title: "",
+    status: "",
+    published_status: "",
+    vendor: "",
+    product_type: "",
+  };
+  await applyProductFilters();
+}
+
+function toProductFilters(): ProductListQuery {
+  return Object.fromEntries(
+    Object.entries(filterForm.value).filter(([, value]) => value.trim()),
+  );
+}
+
+async function loadMoreProducts() {
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  if (!sid || !token) return;
+  await productStore.fetchNext(sid, token);
+}
+
 async function createProduct() {
   const sid = formStore.storeId;
   const token = activeToken.value;
@@ -664,9 +923,50 @@ async function createProduct() {
     return;
   }
 
+  let options;
+  let variants;
+  const imageUrl = newProductImageUrl.value.trim();
+  try {
+    if (!isValidProductPrice(newProductDefaultPrice.value)) throw new Error("price");
+    options = normalizeProductOptions(newProductOptions.value);
+    variants = buildVariantsFromOptions(options, {
+      price: newProductDefaultPrice.value.trim(),
+    });
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) throw new Error("image");
+  } catch {
+    feedback.error(t("product.productOptionsInvalid"));
+    return;
+  }
+  const metafields = [
+    ...(newProductSeo.value.title.trim()
+      ? [
+          {
+            namespace: "global",
+            key: "title_tag",
+            value: newProductSeo.value.title.trim(),
+            type: "single_line_text_field",
+          },
+        ]
+      : []),
+    ...(newProductSeo.value.description.trim()
+      ? [
+          {
+            namespace: "global",
+            key: "description_tag",
+            value: newProductSeo.value.description.trim(),
+            type: "single_line_text_field",
+          },
+        ]
+      : []),
+  ];
   const success = await productStore.createProduct(sid, token, {
     ...newProduct.value,
+    template_suffix: newProduct.value.template_suffix || null,
     published: newProduct.value.status === "active" && newProduct.value.published,
+    ...(options.length ? { options } : {}),
+    variants,
+    ...(imageUrl ? { images: [{ src: imageUrl }] } : {}),
+    ...(metafields.length ? { metafields } : {}),
   });
   if (success) {
     showCreateModal.value = false;
@@ -678,14 +978,20 @@ async function createProduct() {
       tags: "",
       status: "active",
       published: true,
+      handle: "",
+      template_suffix: null,
     };
+    newProductOptions.value = [{ name: "", values: "" }];
+    newProductDefaultPrice.value = "0.00";
+    newProductImageUrl.value = "";
+    newProductSeo.value = { title: "", description: "" };
     feedback.success(t("product.created"));
   } else {
     feedback.error(productStore.error, t("product.createFailed"));
   }
 }
 
-function openEditModal(prod: ShopifyProduct) {
+async function openEditModal(prod: ShopifyProduct) {
   editProduct.value = {
     id: prod.id,
     title: prod.title || "",
@@ -696,8 +1002,40 @@ function openEditModal(prod: ShopifyProduct) {
     status: prod.status || "draft",
     published: isProductPublished(prod),
     published_at: prod.published_at || null,
+    handle: prod.handle || "",
+    template_suffix: prod.template_suffix || "",
+    seo_title: "",
+    seo_description: "",
+    seo_title_id: null,
+    seo_description_id: null,
   };
   showEditModal.value = true;
+
+  const sid = formStore.storeId;
+  const token = activeToken.value;
+  if (!sid || !token) return;
+  try {
+    const response = await $fetch<MetafieldsResponse>(
+      `/api/metafield/product/${prod.id}`,
+      {
+        query: { storeId: sid, namespace: "global" },
+        headers: { "X-Shopify-Access-Token": token },
+      },
+    );
+    if (editProduct.value.id !== prod.id) return;
+    const titleMetafield = response.metafields?.find(
+      (metafield) => metafield.key === "title_tag",
+    );
+    const descriptionMetafield = response.metafields?.find(
+      (metafield) => metafield.key === "description_tag",
+    );
+    editProduct.value.seo_title = titleMetafield?.value || "";
+    editProduct.value.seo_description = descriptionMetafield?.value || "";
+    editProduct.value.seo_title_id = titleMetafield?.id || null;
+    editProduct.value.seo_description_id = descriptionMetafield?.id || null;
+  } catch {
+    // Product fields remain editable even when optional SEO metafields cannot load.
+  }
 }
 
 async function saveEditProduct() {
@@ -712,6 +1050,34 @@ async function saveEditProduct() {
   const shouldPublish =
     editProduct.value.status === "active" && editProduct.value.published;
 
+  const metafields = [
+    ...(editProduct.value.seo_title || editProduct.value.seo_title_id
+      ? [
+          {
+            ...(editProduct.value.seo_title_id
+              ? { id: editProduct.value.seo_title_id }
+              : {}),
+            namespace: "global",
+            key: "title_tag",
+            value: editProduct.value.seo_title,
+            type: "single_line_text_field",
+          },
+        ]
+      : []),
+    ...(editProduct.value.seo_description || editProduct.value.seo_description_id
+      ? [
+          {
+            ...(editProduct.value.seo_description_id
+              ? { id: editProduct.value.seo_description_id }
+              : {}),
+            namespace: "global",
+            key: "description_tag",
+            value: editProduct.value.seo_description,
+            type: "single_line_text_field",
+          },
+        ]
+      : []),
+  ];
   const success = await productStore.updateProduct(sid, token, editProduct.value.id, {
     title: editProduct.value.title,
     body_html: editProduct.value.body_html,
@@ -719,6 +1085,9 @@ async function saveEditProduct() {
     product_type: editProduct.value.product_type,
     tags: editProduct.value.tags,
     status: editProduct.value.status,
+    handle: editProduct.value.handle.trim(),
+    template_suffix: editProduct.value.template_suffix?.trim() || null,
+    ...(metafields.length ? { metafields } : {}),
     published_at: shouldPublish
       ? editProduct.value.published_at || new Date().toISOString()
       : null,
@@ -797,7 +1166,7 @@ async function refreshProducts() {
   const sid = formStore.storeId;
   const token = activeToken.value;
   if (!sid || !token) return;
-  await productStore.fetchAll(sid, token, 250);
+  await productStore.fetchAll(sid, token, productStore.pageSize, productStore.filters);
 }
 </script>
 
@@ -811,6 +1180,19 @@ async function refreshProducts() {
 .page-meta {
   font-size: 13px;
   color: var(--text-sub);
+}
+.product-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(120px, 1fr)) auto auto;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.product-filters .inp {
+  padding: 7px 9px;
+  font-size: 12px;
+}
+.filter-reset {
+  padding: 6px 12px;
 }
 
 .bulk-toolbar {
@@ -854,6 +1236,11 @@ async function refreshProducts() {
   display: block;
   min-width: 0;
 }
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 0;
+}
 
 .products-table {
   width: 100%;
@@ -889,20 +1276,24 @@ async function refreshProducts() {
 }
 
 .products-table th:nth-child(2) {
-  width: 46%;
+  width: 38%;
 }
 
 .products-table th:nth-child(3) {
-  width: 18%;
+  width: 14%;
 }
 
-.products-table th:nth-child(4),
-.products-table th:nth-child(5) {
-  width: 12%;
+.products-table th:nth-child(4) {
+  width: 9%;
 }
 
+.products-table th:nth-child(5),
 .products-table th:nth-child(6) {
   width: 12%;
+}
+
+.products-table th:nth-child(7) {
+  width: 10%;
 }
 
 .product-row:hover {
@@ -1127,12 +1518,24 @@ async function refreshProducts() {
 .modal-card {
   background: var(--surface);
   width: 100%;
-  max-width: 540px;
+  max-width: 680px;
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   max-height: 90vh;
+}
+.option-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.option-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(220px, 2fr) auto;
+  gap: 8px;
+  margin-top: 8px;
 }
 .modal-head {
   padding: 16px 20px;
@@ -1268,6 +1671,11 @@ async function refreshProducts() {
 
   .field-row {
     flex-direction: column;
+  }
+
+  .product-filters,
+  .option-row {
+    grid-template-columns: 1fr;
   }
 
   .checkbox-field {
