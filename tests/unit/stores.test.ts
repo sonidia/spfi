@@ -81,6 +81,43 @@ describe("order store", () => {
 describe("product store", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
+  it("tracks loaded cursor pages independently from the product count", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({
+        products: [{ id: 1, title: "First" }],
+        count: 75,
+        pageInfo: {
+          nextCursor: "page-2",
+          previousCursor: null,
+          hasNextPage: true,
+          hasPreviousPage: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        products: [{ id: 2, title: "Second" }],
+        count: 75,
+        pageInfo: {
+          nextCursor: null,
+          previousCursor: "page-1",
+          hasNextPage: false,
+          hasPreviousPage: true,
+        },
+      });
+    vi.stubGlobal("$fetch", request);
+
+    const store = useProductStore();
+    await store.fetchAll("shop-a", "token", 50);
+    await store.fetchNext("shop-a", "token");
+
+    expect(store.loadedPageCount).toBe(2);
+    expect(store.products.map((product) => product.id)).toEqual([1, 2]);
+    expect(store.hydrate("shop-b")).toBe(false);
+    expect(store.loadedPageCount).toBe(0);
+    expect(store.hydrate("shop-a")).toBe(true);
+    expect(store.loadedPageCount).toBe(2);
+  });
+
   it("bulk publishes exact product IDs and refreshes the list once", async () => {
     const request = vi.fn().mockImplementation((url: string) => {
       if (url === "/api/product/bulk-publication") {

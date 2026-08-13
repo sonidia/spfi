@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { usePerStoreCache } from "~/composables/usePerStoreCache";
+import { useLocalizationStore } from "~/stores/localization";
 import type {
   ShopifyNumericId,
   ShopifyProduct,
@@ -24,6 +25,7 @@ interface ProductStoreCache {
   nextCursor: string | null;
   filters: ProductListQuery;
   pageSize: number;
+  loadedPageCount: number;
   managementContext: ProductManagementContext | null;
 }
 
@@ -34,12 +36,14 @@ export interface BulkProductPublicationResult {
 }
 
 export const useProductStore = defineStore("product", () => {
+  const localization = useLocalizationStore();
   const products = ref<ShopifyProduct[]>([]);
   const hasFetchedAll = ref(false);
   const totalCount = ref(0);
   const nextCursor = ref<string | null>(null);
   const filters = ref<ProductListQuery>({});
   const pageSize = ref(50);
+  const loadedPageCount = ref(0);
   const isLoading = ref(false);
   const isLoadingMore = ref(false);
   const error = ref<string | null>(null);
@@ -53,6 +57,7 @@ export const useProductStore = defineStore("product", () => {
       nextCursor: nextCursor.value,
       filters: { ...filters.value },
       pageSize: pageSize.value,
+      loadedPageCount: loadedPageCount.value,
       managementContext: managementContext.value,
     }),
     restore: (cached) => {
@@ -62,6 +67,7 @@ export const useProductStore = defineStore("product", () => {
       nextCursor.value = cached.nextCursor;
       filters.value = { ...cached.filters };
       pageSize.value = cached.pageSize;
+      loadedPageCount.value = cached.loadedPageCount;
       managementContext.value = cached.managementContext;
       error.value = null;
     },
@@ -81,7 +87,7 @@ export const useProductStore = defineStore("product", () => {
     query: ProductListQuery = {},
   ) {
     if (!storeId || !token) {
-      error.value = "Store ID and Access Token are required.";
+      error.value = localization.t("product.credentialsMissing");
       return;
     }
 
@@ -110,6 +116,7 @@ export const useProductStore = defineStore("product", () => {
         nextCursor: response.pageInfo.nextCursor,
         filters: nextFilters,
         pageSize: nextPageSize,
+        loadedPageCount: 1,
         managementContext: managementContext.value,
       });
       if (isActiveRequest(storeId, requestScope)) {
@@ -119,10 +126,11 @@ export const useProductStore = defineStore("product", () => {
         nextCursor.value = response.pageInfo.nextCursor;
         filters.value = nextFilters;
         pageSize.value = nextPageSize;
+        loadedPageCount.value = 1;
       }
     } catch (err) {
       if (isActiveRequest(storeId, requestScope)) {
-        error.value = getAppErrorMessage(err, "Failed to fetch product data.");
+        error.value = getAppErrorMessage(err, localization.t("product.fetchFailed"));
       }
     } finally {
       if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
@@ -161,11 +169,12 @@ export const useProductStore = defineStore("product", () => {
       ];
       totalCount.value = response.count;
       nextCursor.value = response.pageInfo.nextCursor;
+      loadedPageCount.value += 1;
       storeCache.remember(storeId);
       return true;
     } catch (err) {
       if (isActiveRequest(storeId, requestScope)) {
-        error.value = getAppErrorMessage(err, "Failed to fetch the next product page.");
+        error.value = getAppErrorMessage(err, localization.t("product.nextPageFailed"));
       }
       return false;
     } finally {
@@ -193,7 +202,7 @@ export const useProductStore = defineStore("product", () => {
       await refreshCurrent(storeId, token);
       return true;
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Create failed");
+      error.value = getAppErrorMessage(err, localization.t("product.createFailed"));
       return false;
     } finally {
       isLoading.value = false;
@@ -214,7 +223,7 @@ export const useProductStore = defineStore("product", () => {
       await refreshCurrent(storeId, token);
       return true;
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Update failed");
+      error.value = getAppErrorMessage(err, localization.t("product.updateFailed"));
       return false;
     } finally {
       isLoading.value = false;
@@ -268,7 +277,9 @@ export const useProductStore = defineStore("product", () => {
       if (isActiveRequest(storeId, requestScope)) {
         error.value = getAppErrorMessage(
           err,
-          publish ? "Bulk publish failed." : "Bulk unpublish failed.",
+          localization.t(
+            publish ? "product.bulkPublishFailed" : "product.bulkUnpublishFailed",
+          ),
         );
       }
     }
@@ -293,7 +304,7 @@ export const useProductStore = defineStore("product", () => {
       await refreshCurrent(storeId, token);
       return true;
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Delete failed");
+      error.value = getAppErrorMessage(err, localization.t("product.deleteFailed"));
       return false;
     } finally {
       isLoading.value = false;
@@ -318,7 +329,7 @@ export const useProductStore = defineStore("product", () => {
       if (isActiveRequest(storeId, requestScope)) {
         error.value = getAppErrorMessage(
           err,
-          "Failed to load product collections and publications.",
+          localization.t("product.managementContextFailed"),
         );
       }
       return null;
@@ -337,7 +348,10 @@ export const useProductStore = defineStore("product", () => {
         body: { storeId, token, productId },
       });
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Failed to load advanced product fields.");
+      error.value = getAppErrorMessage(
+        err,
+        localization.t("product.advancedFieldsLoadFailed"),
+      );
       return null;
     }
   }
@@ -357,7 +371,7 @@ export const useProductStore = defineStore("product", () => {
     } catch (err) {
       error.value = getAppErrorMessage(
         err,
-        "Failed to update advanced product fields.",
+        localization.t("product.advancedFieldsUpdateFailed"),
       );
       return null;
     }
@@ -385,7 +399,14 @@ export const useProductStore = defineStore("product", () => {
       await refreshCurrent(storeId, token);
       return result;
     } catch (err) {
-      error.value = getAppErrorMessage(err, `Bulk ${action.toLowerCase()} failed.`);
+      error.value = getAppErrorMessage(
+        err,
+        localization.t(
+          action === "DELETE"
+            ? "product.bulkDeleteFailed"
+            : "product.bulkArchiveFailed",
+        ),
+      );
       return fallback;
     } finally {
       isLoading.value = false;
@@ -409,7 +430,7 @@ export const useProductStore = defineStore("product", () => {
       if (result.product) await refreshCurrent(storeId, token);
       return result;
     } catch (err) {
-      error.value = getAppErrorMessage(err, "Product duplication failed.");
+      error.value = getAppErrorMessage(err, localization.t("product.duplicateFailed"));
       return null;
     } finally {
       isLoading.value = false;
@@ -428,6 +449,7 @@ export const useProductStore = defineStore("product", () => {
     nextCursor.value = null;
     filters.value = {};
     pageSize.value = 50;
+    loadedPageCount.value = 0;
     managementContext.value = null;
     error.value = null;
     isLoading.value = false;
@@ -445,6 +467,7 @@ export const useProductStore = defineStore("product", () => {
     nextCursor,
     filters,
     pageSize,
+    loadedPageCount,
     isLoading,
     isLoadingMore,
     error,

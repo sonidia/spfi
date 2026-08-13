@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   CircleDollarSign,
   Globe2,
+  LoaderCircle,
   MapPinned,
   Plus,
   Search,
@@ -203,6 +204,25 @@ function formatEnum(value: string) {
     .join(" ");
 }
 
+function formatPricingStrategy(value: string) {
+  if (value === "ADD_TAXES_AT_CHECKOUT") {
+    return t("markets.editor.taxCheckout");
+  }
+  if (value === "INCLUDES_TAXES_IN_PRICE") {
+    return t("markets.editor.taxIncluded");
+  }
+  if (value === "INCLUDES_TAXES_IN_PRICE_BASED_ON_COUNTRY") {
+    return t("markets.editor.taxCountry");
+  }
+  if (value === "ADD_DUTIES_AT_CHECKOUT") {
+    return t("markets.editor.dutyCheckout");
+  }
+  if (value === "INCLUDE_DUTIES_IN_PRICE") {
+    return t("markets.editor.dutyIncluded");
+  }
+  return formatEnum(value);
+}
+
 function safeExternalUrl(value: string) {
   return getSafeExternalUrl(value);
 }
@@ -292,6 +312,7 @@ async function removeMarket(market: ShopifyMarketSummary) {
       <div>
         <h2 id="buyer-preview-title">{{ t("markets.buyerPreviewTitle") }}</h2>
         <p>{{ t("markets.buyerPreviewDescription") }}</p>
+        <small class="buyer-preview-hint">{{ t("markets.previewOnlyHint") }}</small>
       </div>
       <form class="buyer-preview-form" @submit.prevent="resolveBuyerExperience">
         <input
@@ -415,7 +436,7 @@ async function removeMarket(market: ShopifyMarketSummary) {
         @update:model-value="conditionFilter = $event as ConditionFilter"
       />
       <span v-if="marketStore.isFiltering" class="markets-filter-progress">
-        <IconsSync class="spin" /> {{ t("markets.filtering") }}
+        <LoaderCircle class="spin" /> {{ t("markets.filtering") }}
       </span>
     </div>
 
@@ -431,7 +452,7 @@ async function removeMarket(market: ShopifyMarketSummary) {
       class="markets-empty"
       aria-live="polite"
     >
-      <IconsSync class="spin" />
+      <LoaderCircle class="spin" />
       {{ t("common.loading") }}
     </div>
     <div
@@ -603,7 +624,7 @@ async function removeMarket(market: ShopifyMarketSummary) {
                   </dd>
                 </div>
                 <div>
-                  <dt>Rounding</dt>
+                  <dt>{{ t("markets.rounding") }}</dt>
                   <dd>
                     {{
                       market.currencySettings.roundingEnabled
@@ -616,11 +637,15 @@ async function removeMarket(market: ShopifyMarketSummary) {
               <dl v-if="market.priceInclusions">
                 <div>
                   <dt>{{ t("markets.taxStrategy") }}</dt>
-                  <dd>{{ formatEnum(market.priceInclusions.taxesStrategy) }}</dd>
+                  <dd>
+                    {{ formatPricingStrategy(market.priceInclusions.taxesStrategy) }}
+                  </dd>
                 </div>
                 <div>
                   <dt>{{ t("markets.dutyStrategy") }}</dt>
-                  <dd>{{ formatEnum(market.priceInclusions.dutiesStrategy) }}</dd>
+                  <dd>
+                    {{ formatPricingStrategy(market.priceInclusions.dutiesStrategy) }}
+                  </dd>
                 </div>
               </dl>
             </section>

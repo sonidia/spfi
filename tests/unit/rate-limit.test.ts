@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import RateLimitQuota from "~/components/shop/RateLimitQuota.vue";
+import { useFormStore } from "~/stores/form";
 import { useRateLimitStore } from "~/stores/rateLimit";
 
 describe("rate limit store", () => {
@@ -55,11 +56,38 @@ describe("rate limit store", () => {
     expect(store.isKnown).toBe(false);
   });
 
+  it("tracks GraphQL cost per store and rejects an older concurrent response", () => {
+    const store = useRateLimitStore();
+
+    store.updateFromHeaders(graphqlHeaders(1_000, 650, 50, 20), 2_000, "shop-a", 2);
+    store.updateFromHeaders(graphqlHeaders(1_000, 900, 50, 10), 1_000, "shop-a", 1);
+    store.updateFromHeaders(graphqlHeaders(2_000, 1_800, 100, 30), 3_000, "shop-b", 3);
+
+    expect(store.graphqlCosts["shop-a"]).toMatchObject({
+      limit: 1_000,
+      remaining: 650,
+      restoreRate: 50,
+      actualCost: 20,
+      requestSequence: 2,
+    });
+    expect(store.graphqlCosts["shop-b"]).toMatchObject({
+      limit: 2_000,
+      remaining: 1_800,
+    });
+  });
+
   it("renders a horizontal meter when expanded and a circumference ring when collapsed", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = useRateLimitStore();
+    useFormStore().setActiveStore("shop-a");
     store.updateFromHeaders(rateHeaders(600, 300, futureReset()), 1_000);
+    store.updateFromHeaders(
+      graphqlHeaders(1_000, 500, 50, 25),
+      Date.now() + 1_000,
+      "shop-a",
+      1,
+    );
 
     const wrapper = mount(RateLimitQuota, {
       props: { collapsed: false },
@@ -71,6 +99,9 @@ describe("rate limit store", () => {
     expect(wrapper.get(".quota-progress span").attributes("style")).toContain(
       "width: 50%",
     );
+    expect(wrapper.text()).toContain("GraphQL cost");
+    expect(wrapper.text()).toContain("500 / 1,000 points");
+    expect(wrapper.findAll(".quota-progress")).toHaveLength(2);
 
     await wrapper.setProps({ collapsed: true });
 
@@ -88,6 +119,21 @@ function rateHeaders(limit: number, remaining: number, reset: number) {
     "x-ratelimit-api-limit": String(limit),
     "x-ratelimit-api-remaining": String(remaining),
     "x-ratelimit-api-reset": String(reset),
+  });
+}
+
+function graphqlHeaders(
+  limit: number,
+  remaining: number,
+  restoreRate: number,
+  actualCost: number,
+) {
+  return new Headers({
+    "x-shopify-graphql-maximum-available": String(limit),
+    "x-shopify-graphql-currently-available": String(remaining),
+    "x-shopify-graphql-restore-rate": String(restoreRate),
+    "x-shopify-graphql-requested-cost": String(actualCost + 5),
+    "x-shopify-graphql-actual-cost": String(actualCost),
   });
 }
 

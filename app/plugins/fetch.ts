@@ -3,6 +3,15 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useRateLimitStore } from "~/stores/rateLimit";
 
+const RATE_LIMIT_REQUEST = Symbol("rate-limit-request");
+
+interface TrackedFetchOptions {
+  [RATE_LIMIT_REQUEST]?: {
+    storeId: string | null;
+    sequence: number;
+  };
+}
+
 function readStoreId(source: unknown): string | null {
   if (!source || typeof source !== "object" || !("storeId" in source)) {
     return null;
@@ -16,6 +25,7 @@ export default defineNuxtPlugin(() => {
   const credentialVault = useCredentialVaultStore();
   const formStore = useFormStore();
   const rateLimit = useRateLimitStore();
+  let requestSequence = 0;
   const customFetch = $fetch.create({
     onRequest({ request, options }) {
       if (typeof window === "undefined") return;
@@ -30,6 +40,11 @@ export default defineNuxtPlugin(() => {
       if (!storeId) {
         storeId = formStore.storeId || null;
       }
+
+      (options as unknown as TrackedFetchOptions)[RATE_LIMIT_REQUEST] = {
+        storeId,
+        sequence: ++requestSequence,
+      };
 
       if (storeId) {
         const storeData = credentialVault.getStoreData(storeId);
@@ -48,14 +63,14 @@ export default defineNuxtPlugin(() => {
         }
       }
     },
-    onResponse({ request, response }) {
+    onResponse({ request, response, options }) {
       if (isInternalApiRequest(request)) {
-        rateLimit.updateFromHeaders(response.headers);
+        updateRateLimitFromResponse(rateLimit, response.headers, options);
       }
     },
-    onResponseError({ request, response }) {
+    onResponseError({ request, response, options }) {
       if (isInternalApiRequest(request)) {
-        rateLimit.updateFromHeaders(response.headers);
+        updateRateLimitFromResponse(rateLimit, response.headers, options);
       }
     },
   });
@@ -68,6 +83,20 @@ export default defineNuxtPlugin(() => {
     },
   };
 });
+
+function updateRateLimitFromResponse(
+  rateLimit: ReturnType<typeof useRateLimitStore>,
+  headers: Headers,
+  options: unknown,
+) {
+  const request = (options as unknown as TrackedFetchOptions)[RATE_LIMIT_REQUEST];
+  rateLimit.updateFromHeaders(
+    headers,
+    Date.now(),
+    request?.storeId || "",
+    request?.sequence ?? Date.now(),
+  );
+}
 
 function isInternalApiRequest(request: unknown) {
   if (typeof window === "undefined") return false;

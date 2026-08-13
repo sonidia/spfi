@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { usePerStoreCache } from "~/composables/usePerStoreCache";
+import { useLocalizationStore } from "~/stores/localization";
 import type {
   ShopifyMarketEditorContext,
   ShopifyMarketCatalogCreateResult,
@@ -26,6 +27,7 @@ interface MarketStoreCache {
 }
 
 export const useMarketStore = defineStore("market", () => {
+  const localizationStore = useLocalizationStore();
   const markets = ref<ShopifyMarketSummary[]>([]);
   const hasFetchedAll = ref(false);
   const listTruncated = ref(false);
@@ -61,7 +63,7 @@ export const useMarketStore = defineStore("market", () => {
 
   async function fetchAll(storeId: string, token: string, force = false) {
     if (!storeId || !token) {
-      error.value = "Store ID and Access Token are required.";
+      error.value = localizationStore.t("markets.errorCredentialsRequired");
       return false;
     }
 
@@ -86,7 +88,10 @@ export const useMarketStore = defineStore("market", () => {
       return true;
     } catch (requestError) {
       if (isActive(storeId, requestVersion)) {
-        error.value = getAppErrorMessage(requestError, "Failed to fetch markets.");
+        error.value = getAppErrorMessage(
+          requestError,
+          localizationStore.t("markets.errorFetch"),
+        );
       }
       return false;
     } finally {
@@ -124,7 +129,7 @@ export const useMarketStore = defineStore("market", () => {
       if (isActive(storeId, requestVersion) && requestFilterVersion === filterVersion) {
         filterError.value = getAppErrorMessage(
           requestError,
-          "Failed to filter markets.",
+          localizationStore.t("markets.errorFilter"),
         );
       }
       return false;
@@ -178,7 +183,7 @@ export const useMarketStore = defineStore("market", () => {
       if (isActive(storeId, requestVersion)) {
         mutationError.value = getAppErrorMessage(
           requestError,
-          "Failed to update the market status.",
+          localizationStore.t("markets.errorStatusUpdate"),
         );
       }
       return false;
@@ -207,7 +212,7 @@ export const useMarketStore = defineStore("market", () => {
       if (isActive(storeId, requestVersion)) {
         resolutionError.value = getAppErrorMessage(
           requestError,
-          "Failed to resolve the buyer experience.",
+          localizationStore.t("markets.errorResolve"),
         );
       }
       return null;
@@ -236,7 +241,7 @@ export const useMarketStore = defineStore("market", () => {
       if (isActive(storeId, requestVersion)) {
         managerError.value = getAppErrorMessage(
           requestError,
-          "Failed to load the Markets editor.",
+          localizationStore.t("markets.errorEditorLoad"),
         );
       }
       return null;
@@ -529,7 +534,7 @@ export const useMarketStore = defineStore("market", () => {
       if (isActive(storeId, requestVersion)) {
         managerError.value = getAppErrorMessage(
           requestError,
-          "Shopify rejected the Markets update.",
+          localizationStore.t("markets.editor.saveFailed"),
         );
         mutationError.value = managerError.value;
       }

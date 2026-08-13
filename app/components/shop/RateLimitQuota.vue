@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useLocalization } from "~/composables/useLocalization";
+import { useFormStore } from "~/stores/form";
 import { useRateLimitStore } from "~/stores/rateLimit";
 
 defineProps<{
@@ -11,6 +12,7 @@ const CIRCLE_RADIUS = 17;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
 const rateLimit = useRateLimitStore();
+const formStore = useFormStore();
 const { locale, t } = useLocalization();
 const now = ref(Date.now());
 let clock: ReturnType<typeof setInterval> | null = null;
@@ -40,10 +42,34 @@ const percentage = computed(() => Math.round(exactPercentage.value));
 const ringOffset = computed(
   () => CIRCLE_CIRCUMFERENCE * (1 - exactPercentage.value / 100),
 );
-const tone = computed(() => {
+const requestTone = computed(() => {
   if (!rateLimit.isKnown) return "is-unknown";
   if (exactPercentage.value <= 20) return "is-critical";
   if (exactPercentage.value <= 50) return "is-warning";
+  return "is-healthy";
+});
+const graphqlCost = computed(() => rateLimit.graphqlCosts[formStore.storeId] || null);
+const effectiveGraphqlRemaining = computed(() => {
+  const snapshot = graphqlCost.value;
+  if (!snapshot) return null;
+
+  const restored =
+    (Math.max(0, now.value - snapshot.observedAt) / 1_000) * snapshot.restoreRate;
+  return Math.min(snapshot.limit, snapshot.remaining + restored);
+});
+const exactGraphqlPercentage = computed(() => {
+  const snapshot = graphqlCost.value;
+  if (!snapshot || effectiveGraphqlRemaining.value === null) return 0;
+  return Math.max(
+    0,
+    Math.min(100, (effectiveGraphqlRemaining.value / snapshot.limit) * 100),
+  );
+});
+const graphqlPercentage = computed(() => Math.round(exactGraphqlPercentage.value));
+const graphqlTone = computed(() => {
+  if (!graphqlCost.value) return "is-unknown";
+  if (exactGraphqlPercentage.value <= 20) return "is-critical";
+  if (exactGraphqlPercentage.value <= 50) return "is-warning";
   return "is-healthy";
 });
 const resetText = computed(() => {
@@ -66,21 +92,41 @@ const accessibleLabel = computed(() => {
     percent: percentage.value,
   });
 });
+const graphqlAccessibleLabel = computed(() => {
+  const snapshot = graphqlCost.value;
+  if (!snapshot || effectiveGraphqlRemaining.value === null) {
+    return t("quota.graphqlAccessibleWaiting");
+  }
+
+  return t("quota.graphqlAccessibleRemaining", {
+    remaining: formatCost(effectiveGraphqlRemaining.value),
+    limit: formatCost(snapshot.limit),
+    percent: graphqlPercentage.value,
+    rate: formatCost(snapshot.restoreRate),
+  });
+});
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat(locale.value).format(value);
+}
+
+function formatCost(value: number) {
+  return new Intl.NumberFormat(locale.value, {
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 </script>
 
 <template>
   <section
     class="rate-limit-quota"
-    :class="[tone, { 'is-collapsed': collapsed }]"
+    :class="{ 'is-collapsed': collapsed }"
     :aria-label="accessibleLabel"
   >
     <template v-if="collapsed">
       <div
         class="quota-ring"
+        :class="requestTone"
         role="meter"
         :aria-label="t('quota.remaining')"
         aria-valuemin="0"
@@ -104,36 +150,82 @@ function formatNumber(value: number) {
     </template>
 
     <template v-else>
-      <div class="quota-heading">
-        <span class="quota-title">
-          <span class="quota-status-dot" aria-hidden="true" />
-          {{ t("quota.title") }}
-        </span>
-        <strong>{{ rateLimit.isKnown ? `${percentage}%` : "—" }}</strong>
+      <div class="quota-meter" :class="requestTone">
+        <div class="quota-heading">
+          <span class="quota-title">
+            <span class="quota-status-dot" aria-hidden="true" />
+            {{ t("quota.title") }}
+          </span>
+          <strong>{{ rateLimit.isKnown ? `${percentage}%` : "—" }}</strong>
+        </div>
+
+        <div
+          class="quota-progress"
+          role="meter"
+          :aria-label="t('quota.remaining')"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-valuenow="rateLimit.isKnown ? percentage : undefined"
+        >
+          <span :style="{ width: `${exactPercentage}%` }" />
+        </div>
+
+        <div class="quota-meta">
+          <span v-if="rateLimit.isKnown && effectiveRemaining !== null">
+            {{
+              t("quota.inlineRemaining", {
+                remaining: formatNumber(effectiveRemaining),
+                limit: formatNumber(rateLimit.limit || 0),
+              })
+            }}
+          </span>
+          <span v-else>{{ t("quota.noData") }}</span>
+          <span>{{ resetText }}</span>
+        </div>
       </div>
 
       <div
-        class="quota-progress"
-        role="meter"
-        :aria-label="t('quota.remaining')"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        :aria-valuenow="rateLimit.isKnown ? percentage : undefined"
+        class="quota-meter graphql-cost-meter"
+        :class="graphqlTone"
+        :aria-label="graphqlAccessibleLabel"
       >
-        <span :style="{ width: `${exactPercentage}%` }" />
-      </div>
+        <div class="quota-heading">
+          <span class="quota-title">
+            <span class="quota-status-dot" aria-hidden="true" />
+            {{ t("quota.graphqlTitle") }}
+          </span>
+          <strong>{{ graphqlCost ? `${graphqlPercentage}%` : "—" }}</strong>
+        </div>
 
-      <div class="quota-meta">
-        <span v-if="rateLimit.isKnown && effectiveRemaining !== null">
-          {{
-            t("quota.inlineRemaining", {
-              remaining: formatNumber(effectiveRemaining),
-              limit: formatNumber(rateLimit.limit || 0),
-            })
-          }}
-        </span>
-        <span v-else>{{ t("quota.noData") }}</span>
-        <span>{{ resetText }}</span>
+        <div
+          class="quota-progress"
+          role="meter"
+          :aria-label="t('quota.graphqlRemaining')"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-valuenow="graphqlCost ? graphqlPercentage : undefined"
+        >
+          <span :style="{ width: `${exactGraphqlPercentage}%` }" />
+        </div>
+
+        <div class="quota-meta">
+          <span v-if="graphqlCost && effectiveGraphqlRemaining !== null">
+            {{
+              t("quota.graphqlInlineRemaining", {
+                remaining: formatCost(effectiveGraphqlRemaining),
+                limit: formatCost(graphqlCost.limit),
+              })
+            }}
+          </span>
+          <span v-else>{{ t("quota.graphqlNoData") }}</span>
+          <span v-if="graphqlCost">
+            {{
+              t("quota.graphqlRestoreRate", {
+                rate: formatCost(graphqlCost.restoreRate),
+              })
+            }}
+          </span>
+        </div>
       </div>
     </template>
   </section>
@@ -141,7 +233,6 @@ function formatNumber(value: number) {
 
 <style scoped>
 .rate-limit-quota {
-  --quota-color: var(--green);
   flex: 0 0 auto;
   margin: 0 8px 8px;
   padding: 11px 12px 10px;
@@ -150,16 +241,30 @@ function formatNumber(value: number) {
   background: var(--surface-low);
 }
 
-.rate-limit-quota.is-warning {
+.quota-meter,
+.quota-ring {
+  --quota-color: var(--green);
+}
+
+.quota-meter.is-warning,
+.quota-ring.is-warning {
   --quota-color: var(--amber);
 }
 
-.rate-limit-quota.is-critical {
+.quota-meter.is-critical,
+.quota-ring.is-critical {
   --quota-color: var(--red);
 }
 
-.rate-limit-quota.is-unknown {
+.quota-meter.is-unknown,
+.quota-ring.is-unknown {
   --quota-color: var(--text-muted);
+}
+
+.graphql-cost-meter {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 .quota-heading,

@@ -3,6 +3,7 @@
     <div class="products-manager">
       <!-- Loading state -->
       <div v-if="productStore.isLoading && !products.length" id="loading">
+        <LoaderCircle class="loading-icon" aria-hidden="true" />
         {{ t("product.loadingProducts") }}
       </div>
       <div v-else-if="productStore.error" id="loading" class="error-state" role="alert">
@@ -309,6 +310,13 @@
                         <div class="product-id-sub">
                           {{ t("product.productId", { id: prod.id }) }}
                         </div>
+                        <div class="product-mobile-facts">
+                          <span>
+                            {{ t("product.columnVariants") }}:
+                            {{ prod.variants_count ?? prod.variants?.length ?? 0 }}
+                          </span>
+                          <span>{{ formatProductPrice(prod) }}</span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -448,15 +456,22 @@
               {{ t("product.empty") }}
             </div>
           </div>
-          <div v-if="productStore.nextCursor" class="load-more-row">
-            <button
-              class="btn-outline"
-              type="button"
-              :disabled="productStore.isLoadingMore"
+          <div v-if="products.length" class="load-more-row" aria-live="polite">
+            <span>
+              {{
+                t("product.loadedPages", {
+                  current: productStore.loadedPageCount,
+                  total: totalPageCount,
+                })
+              }}
+            </span>
+            <BaseButton
+              v-if="productStore.nextCursor"
+              :loading="productStore.isLoadingMore"
               @click="loadMoreProducts"
             >
               {{ t("product.loadMore") }}
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -892,6 +907,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  LoaderCircle,
   Pencil,
   Plus,
   RadioTower,
@@ -937,7 +953,16 @@ const {
   itemHeight: 65,
   overscan: 6,
   defaultViewportHeight: 600,
+  getItemKey: (product) => String(product.id),
 });
+const totalPageCount = computed(() =>
+  Math.max(
+    productStore.loadedPageCount,
+    productStore.totalCount
+      ? Math.ceil(productStore.totalCount / productStore.pageSize)
+      : 0,
+  ),
+);
 const selectedProductId = ref<ShopifyNumericId | null>(null);
 const selectedProductIds = ref<Set<string>>(new Set());
 const selectAllCheckbox = ref<HTMLInputElement | null>(null);
@@ -1835,8 +1860,13 @@ async function refreshProducts() {
 }
 .load-more-row {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 14px 0 0;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .products-table {
@@ -1952,6 +1982,10 @@ async function refreshProducts() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.product-mobile-facts {
+  display: none;
 }
 
 .badge {
@@ -2097,9 +2131,25 @@ async function refreshProducts() {
   color: var(--text-sub);
 }
 #loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   text-align: center;
   padding: 60px 20px;
   color: var(--text-sub);
+}
+
+.loading-icon {
+  width: 17px;
+  height: 17px;
+  animation: product-loading-spin 0.8s linear infinite;
+}
+
+@keyframes product-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Modals */
@@ -2395,6 +2445,90 @@ async function refreshProducts() {
 
   .checkbox-field {
     padding-top: 0;
+  }
+
+  .table-card {
+    max-height: calc(100dvh - 190px);
+  }
+
+  .products-table {
+    min-width: 0;
+  }
+
+  .products-table th,
+  .products-table td {
+    padding: 12px 8px;
+  }
+
+  .products-table .selection-column {
+    width: 38px;
+    padding-inline: 10px 2px;
+  }
+
+  .products-table th:nth-child(2) {
+    width: auto;
+  }
+
+  .products-table th:nth-child(3) {
+    width: 96px;
+  }
+
+  .products-table th:nth-child(4),
+  .products-table th:nth-child(5),
+  .products-table th:nth-child(6),
+  .products-table td:nth-child(4),
+  .products-table td:nth-child(5),
+  .products-table td:nth-child(6) {
+    display: none;
+  }
+
+  .products-table th:nth-child(7) {
+    width: 44px;
+  }
+
+  .product-info-cell {
+    gap: 8px;
+  }
+
+  .product-thumb {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  .product-id-sub {
+    display: none;
+  }
+
+  .product-mobile-facts {
+    min-width: 0;
+    display: flex;
+    gap: 5px;
+    color: var(--text-muted);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-mobile-facts span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-status-cell {
+    min-width: 0;
+  }
+
+  .publication-state {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .load-more-row {
+    flex-wrap: wrap;
   }
 }
 </style>
