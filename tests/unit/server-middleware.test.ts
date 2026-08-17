@@ -88,6 +88,17 @@ describe("security middleware", () => {
     );
     expect(event.responseHeaders["access-control-allow-methods"]).toContain("POST");
   });
+
+  it("allows the dedicated HMAC-authenticated Shopify webhook without Origin", () => {
+    const event = createEvent({
+      url: "https://app.example/api/webhooks/shopify",
+      method: "POST",
+      headers: {},
+    });
+
+    expect(() => securityHandler(event as never)).not.toThrow();
+    expect(event.responseHeaders["cache-control"]).toBe("no-store");
+  });
 });
 
 describe("rate-limit middleware", () => {

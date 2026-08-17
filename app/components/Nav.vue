@@ -47,6 +47,7 @@ onBeforeUnmount(() => {
         <NuxtLink to="/settings">{{ t("nav.settings") }}</NuxtLink>
       </div>
       <div class="topbar-controls">
+        <NotificationCenter />
         <LocaleSwitcher />
         <ThemeToggle />
       </div>

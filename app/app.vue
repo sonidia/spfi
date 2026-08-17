@@ -2,13 +2,18 @@
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
 import { useCredentialVaultStore } from "./stores/credentialVault";
+import { useNotificationStore } from "./stores/notifications";
 
 const { loading } = useLoading();
 const credentialVault = useCredentialVaultStore();
+const notificationStore = useNotificationStore();
 const { t } = useLocalization();
 const confirmDialog = useConfirmDialog();
 
-onMounted(() => credentialVault.initialize());
+onMounted(() => {
+  credentialVault.initialize();
+  notificationStore.initialize();
+});
 useTokenRotation();
 </script>
 

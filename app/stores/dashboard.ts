@@ -23,6 +23,7 @@ export const useDashboardStore = defineStore("dashboard", () => {
   const hasLoaded = ref(false);
   let refreshSequence = 0;
   let activeRequest: Promise<void> | null = null;
+  let webhookRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   const progress = computed(() =>
     totalStores.value
@@ -127,6 +128,18 @@ export const useDashboardStore = defineStore("dashboard", () => {
     loadedFingerprint.value = "";
   }
 
+  function refreshFromWebhook() {
+    invalidate();
+    if (!hasLoaded.value) return;
+
+    if (webhookRefreshTimer) clearTimeout(webhookRefreshTimer);
+    webhookRefreshTimer = setTimeout(async () => {
+      webhookRefreshTimer = null;
+      if (activeRequest) await activeRequest;
+      await load(true);
+    }, 500);
+  }
+
   function $reset() {
     refreshSequence += 1;
     stores.value = [];
@@ -138,6 +151,8 @@ export const useDashboardStore = defineStore("dashboard", () => {
     loadedFingerprint.value = "";
     hasLoaded.value = false;
     activeRequest = null;
+    if (webhookRefreshTimer) clearTimeout(webhookRefreshTimer);
+    webhookRefreshTimer = null;
   }
 
   function buildStoreFingerprint() {
@@ -166,6 +181,7 @@ export const useDashboardStore = defineStore("dashboard", () => {
     progress,
     load,
     invalidate,
+    refreshFromWebhook,
     $reset,
   };
 });

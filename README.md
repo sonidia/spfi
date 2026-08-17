@@ -110,6 +110,37 @@ from a hard-coded store plan. REST requests honor `Retry-After` and share the
 upstream bucket state per app/store; GraphQL retries use
 `extensions.cost.throttleStatus.currentlyAvailable` and `restoreRate`.
 
+### Real-time order and fulfillment webhooks
+
+For each connected store, the app registers shop-scoped GraphQL webhook
+subscriptions for `ORDERS_CREATE`, `ORDERS_UPDATED`, `FULFILLMENTS_CREATE`, and
+`FULFILLMENTS_UPDATE`. Shopify deliveries are accepted at
+`POST /api/webhooks/shopify`, verified against the exact raw request body with
+the store's client secret, deduplicated by `X-Shopify-Webhook-Id`, persisted,
+and streamed to signed-in browser sessions over server-sent events. A received
+event updates the notification menu and triggers one debounced dashboard refresh.
+
+The receiver must be reachable by Shopify over public HTTPS. Set an explicit
+origin when the browser-facing origin is not the callback origin (for example,
+when using a tunnel):
+
+```text
+NUXT_WEBHOOK_PUBLIC_URL=https://ops.example.com
+```
+
+Set a stable encryption key in production so per-store HMAC secrets can be
+reloaded safely after a server restart:
+
+```text
+NUXT_WEBHOOK_ENCRYPTION_KEY=replace-with-a-long-random-deployment-secret
+```
+
+Without that key, secrets stay in process memory only and are rehydrated when a
+browser with saved store credentials reconnects. Recent notifications and the
+delivery deduplication window use Nitro storage at
+`NITRO_WEBHOOK_STORAGE_PATH` (default `.data/webhooks`). Docker Compose mounts
+this path on the `webhook-data` volume.
+
 Expiring Shopify client-credential tokens rotate automatically in the browser.
 The scheduler derives each deadline from the saved `expiresTime`, refreshes
 before expiry with deterministic jitter, rechecks when the tab becomes visible,
