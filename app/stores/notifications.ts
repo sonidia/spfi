@@ -11,11 +11,13 @@ import type {
 } from "~~/types/webhook";
 import { SHOPIFY_WEBHOOK_TOPICS } from "~~/types/webhook";
 import { getAppErrorMessage } from "~~/utils/error";
+import { mapSettledWithConcurrency } from "~~/utils/promise-concurrency";
 import { getStoreTokenState, resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { extractServerSentEvents } from "~~/utils/sse";
 
 const NOTIFICATION_STORAGE_KEY = "spf_webhook_notifications";
 const MAX_CLIENT_NOTIFICATIONS = 100;
+const WEBHOOK_REGISTRATION_CONCURRENCY = 3;
 
 type ConnectionState = "idle" | "registering" | "connecting" | "connected" | "error";
 
@@ -36,9 +38,14 @@ export const useNotificationStore = defineStore("notifications", () => {
   let streamController: AbortController | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let synchronizeTimer: ReturnType<typeof setTimeout> | null = null;
+  let registrationSequence = 0;
   let synchronizationSequence = 0;
   let reconnectAttempt = 0;
   let streamCredentials: WebhookStreamCredential[] = [];
+  const registrationsByStore = new Map<
+    string,
+    { fingerprint: string; registration: WebhookRegistrationResponse }
+  >();
 
   function initialize() {
     if (typeof window === "undefined" || isInitialized.value) return;
@@ -61,52 +68,90 @@ export const useNotificationStore = defineStore("notifications", () => {
 
   async function synchronize() {
     if (typeof window === "undefined") return;
-    const sequence = ++synchronizationSequence;
-    stopStream();
+    const requestSequence = ++registrationSequence;
+    const stateBeforeRegistration = connectionState.value;
     connectionError.value = "";
-    registrationWarnings.value = [];
-    connectedStores.value = 0;
+    const knownStores = new Set(formStore.knownStores);
+    for (const storeId of registrationsByStore.keys()) {
+      if (!knownStores.has(storeId)) registrationsByStore.delete(storeId);
+    }
 
     const candidates = formStore.knownStores.flatMap((storeId) => {
       const data = credentialVault.getStoreData(storeId);
       const token = resolveStoreAccessToken(data);
       const clientSecret = String(data.clientSecret || "").trim();
+      const fingerprint = getRegistrationFingerprint(
+        storeId,
+        data.domain,
+        clientSecret,
+      );
+      const cached = registrationsByStore.get(storeId);
+      if (
+        cached?.fingerprint === fingerprint &&
+        !cached.registration.synchronizationError
+      ) {
+        return [];
+      }
+      if (cached && cached.fingerprint !== fingerprint) {
+        registrationsByStore.delete(storeId);
+      }
       return getStoreTokenState(data) === "valid" && token && clientSecret
-        ? [{ storeId, token, clientSecret }]
+        ? [{ storeId, token, clientSecret, fingerprint }]
         : [];
     });
-    if (!candidates.length) {
-      connectionState.value = "idle";
-      return;
-    }
-
-    connectionState.value = "registering";
-    const results = await Promise.allSettled(
-      candidates.map(({ storeId, token, clientSecret }) =>
+    if (candidates.length) connectionState.value = "registering";
+    const results = await mapSettledWithConcurrency(
+      candidates,
+      WEBHOOK_REGISTRATION_CONCURRENCY,
+      ({ storeId, token, clientSecret, fingerprint }) =>
         $fetch<WebhookRegistrationResponse>("/api/webhooks/register", {
           method: "POST",
           body: { storeId, token, clientSecret },
-        }),
-      ),
+        }).then((registration) => ({ fingerprint, registration })),
     );
-    if (sequence !== synchronizationSequence) return;
+    if (requestSequence !== registrationSequence) return;
 
-    const registrations = results.flatMap((result) =>
-      result.status === "fulfilled" ? [result.value] : [],
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      registrationsByStore.set(result.value.registration.storeId, result.value);
+    }
+    const registrations = [...registrationsByStore.values()].map(
+      ({ registration }) => registration,
     );
-    registrationWarnings.value = registrations.flatMap((result) => result.warnings);
+    registrationWarnings.value = [
+      ...registrations.flatMap((result) => result.warnings),
+      ...results.flatMap((result) =>
+        result.status === "rejected"
+          ? [getAppErrorMessage(result.reason, "Webhook registration unavailable.")]
+          : [],
+      ),
+    ];
     if (!registrations.length) {
-      connectionState.value = "error";
-      connectionError.value = getRegistrationError(results);
+      stopStream();
+      streamCredentials = [];
+      connectedStores.value = 0;
+      synchronizationSequence += 1;
+      connectionState.value = results.length ? "error" : "idle";
+      connectionError.value = results.length ? getRegistrationError(results) : "";
       return;
     }
 
-    streamCredentials = registrations.map((registration) => ({
-      storeId: registration.storeId,
-      token: registration.streamToken,
-    }));
+    const nextCredentials = registrations
+      .map((registration) => ({
+        storeId: registration.storeId,
+        token: registration.streamToken,
+      }))
+      .sort((left, right) => left.storeId.localeCompare(right.storeId));
     connectedStores.value = registrations.length;
+    if (sameStreamCredentials(streamCredentials, nextCredentials) && streamController) {
+      connectionState.value = stateBeforeRegistration;
+      return;
+    }
+
+    stopStream();
+    streamCredentials = nextCredentials;
     reconnectAttempt = 0;
+    const sequence = ++synchronizationSequence;
     void connectStream(sequence);
   }
 
@@ -125,6 +170,7 @@ export const useNotificationStore = defineStore("notifications", () => {
       });
       if (!response.ok || !response.body) {
         if (response.status === 401) {
+          registrationsByStore.clear();
           scheduleSynchronization();
           return;
         }
@@ -271,6 +317,34 @@ function getRegistrationError(results: PromiseSettledResult<unknown>[]) {
   if (!rejected) return "Webhook registration unavailable.";
 
   return getAppErrorMessage(rejected.reason, "Webhook registration unavailable.");
+}
+
+function getRegistrationFingerprint(
+  storeId: string,
+  domain: string | undefined,
+  clientSecret: string,
+) {
+  return [
+    storeId,
+    String(domain || "")
+      .trim()
+      .toLowerCase(),
+    clientSecret,
+  ].join("\u0000");
+}
+
+function sameStreamCredentials(
+  current: WebhookStreamCredential[],
+  next: WebhookStreamCredential[],
+) {
+  return (
+    current.length === next.length &&
+    current.every(
+      (credential, index) =>
+        credential.storeId === next[index]?.storeId &&
+        credential.token === next[index]?.token,
+    )
+  );
 }
 
 function isAbortError(error: unknown) {

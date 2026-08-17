@@ -358,6 +358,8 @@ function restoreDeploymentSheetSettings() {
           </div>
         </section>
 
+        <SettingsWebhookSettingsPanel />
+
         <section class="settings-card retention-card">
           <div class="card-heading retention-heading">
             <div class="card-icon"><Database /></div>

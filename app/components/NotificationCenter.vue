@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import {
   Bell,
+  Boxes,
   CheckCheck,
+  CircleDollarSign,
   PackageCheck,
+  PackageOpen,
   ShoppingBag,
   Trash2,
+  UserRound,
   Wifi,
   WifiOff,
 } from "@lucide/vue";
@@ -12,6 +16,7 @@ import { storeToRefs } from "pinia";
 import { nextTick, onBeforeUnmount, onMounted, ref, useId } from "vue";
 import { useNotificationStore } from "~/stores/notifications";
 import type { ClientWebhookNotification } from "~~/types/webhook";
+import type { MessageKey } from "~/locales/messages";
 
 const { locale, t } = useLocalization();
 const notificationStore = useNotificationStore();
@@ -53,11 +58,14 @@ function notificationTitle(notification: ClientWebhookNotification) {
     ORDERS_UPDATED: "notification.orderUpdated",
     FULFILLMENTS_CREATE: "notification.fulfillmentCreated",
     FULFILLMENTS_UPDATE: "notification.fulfillmentUpdated",
-  }[notification.topic] as
-    | "notification.orderCreated"
-    | "notification.orderUpdated"
-    | "notification.fulfillmentCreated"
-    | "notification.fulfillmentUpdated";
+    REFUNDS_CREATE: "notification.refundCreated",
+    DISPUTES_CREATE: "notification.disputeCreated",
+    DISPUTES_UPDATE: "notification.disputeUpdated",
+    PRODUCTS_CREATE: "notification.productCreated",
+    PRODUCTS_UPDATE: "notification.productUpdated",
+    INVENTORY_LEVELS_UPDATE: "notification.inventoryUpdated",
+    CUSTOMERS_CREATE: "notification.customerCreated",
+  }[notification.topic] as MessageKey;
   return t(key, { name: notification.orderName });
 }
 
@@ -75,9 +83,18 @@ function humanizeStatus(value: string) {
 }
 
 function notificationLink(notification: ClientWebhookNotification) {
-  return notification.orderId
-    ? { path: `/order/${notification.orderId}`, query: { shop: notification.storeId } }
-    : { path: "/dashboard" };
+  if (notification.orderId) {
+    return {
+      path: `/order/${notification.orderId}`,
+      query: { shop: notification.storeId },
+    };
+  }
+  if (notification.kind === "dispute") return { path: "/payment" };
+  if (["product", "inventory"].includes(notification.kind)) {
+    return { path: "/product" };
+  }
+  if (notification.kind === "customer") return { path: "/customer" };
+  return { path: "/dashboard" };
 }
 
 function selectNotification(notification: ClientWebhookNotification) {
@@ -191,6 +208,12 @@ onBeforeUnmount(() => {
           >
             <span class="notification-icon" :class="notification.kind">
               <PackageCheck v-if="notification.kind === 'fulfillment'" />
+              <CircleDollarSign
+                v-else-if="['refund', 'dispute'].includes(notification.kind)"
+              />
+              <Boxes v-else-if="notification.kind === 'inventory'" />
+              <PackageOpen v-else-if="notification.kind === 'product'" />
+              <UserRound v-else-if="notification.kind === 'customer'" />
               <ShoppingBag v-else />
             </span>
             <span class="notification-copy">
@@ -389,6 +412,23 @@ onBeforeUnmount(() => {
 }
 
 .notification-icon.fulfillment {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.notification-icon.refund,
+.notification-icon.dispute {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.notification-icon.product,
+.notification-icon.inventory {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+.notification-icon.customer {
   background: var(--green-soft);
   color: var(--green);
 }

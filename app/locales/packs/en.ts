@@ -1821,6 +1821,53 @@ const messages = {
   "product.notRequired": "Not required",
   "product.compareAtPrice": "Compare-at price",
   "product.none": "None",
+  "webhook.title": "Shopify webhooks",
+  "webhook.description":
+    "Inspect subscriptions, callback health, and the notification delivery pipeline for every connected store.",
+  "webhook.storeCount": "{count} stores",
+  "webhook.callbackUrl": "Current callback URL",
+  "webhook.publicUrlWarning":
+    "This non-local deployment is deriving its callback from the browser request. Set NUXT_WEBHOOK_PUBLIC_URL explicitly to prevent proxy or tunnel URL drift.",
+  "webhook.encryptionMismatch":
+    "The current NUXT_WEBHOOK_ENCRYPTION_KEY cannot decrypt {count} stored shop records. Restore the previous key or re-register every affected store before relying on webhook delivery.",
+  "webhook.encryptionMissing":
+    "NUXT_WEBHOOK_ENCRYPTION_KEY is not set. Signing secrets exist only in this process and must be rehydrated after every restart.",
+  "webhook.sharedStorage":
+    "Shared Redis storage is enabled for multi-instance fan-out.",
+  "webhook.singleInstanceStorage":
+    "Filesystem storage is active. Use shared Redis before running multiple app instances.",
+  "webhook.refresh": "Refresh status",
+  "webhook.synchronize": "Synchronize",
+  "webhook.emptyTitle": "No webhook-ready stores",
+  "webhook.emptyDescription":
+    "A store needs a valid access token and client secret before subscriptions can be inspected.",
+  "webhook.loading": "Loading webhook status…",
+  "webhook.test": "Test webhook",
+  "webhook.noDelivery": "No Shopify delivery observed",
+  "webhook.delivery.processing": "Delivery is being processed",
+  "webhook.delivery.succeeded": "Last delivery succeeded",
+  "webhook.delivery.failed": "Last delivery failed",
+  "webhook.lastAttempt": "Last attempt: {date}",
+  "webhook.updatedAt": "Updated: {date}",
+  "webhook.never": "Never",
+  "webhook.currentCallback": "Current callback",
+  "webhook.staleCallback": "Different callback",
+  "webhook.remove": "Remove",
+  "webhook.syncSuccess": "Webhook subscriptions synchronized.",
+  "webhook.syncFailed": "Webhook synchronization failed.",
+  "webhook.testSuccess": "Webhook pipeline test delivered.",
+  "webhook.testFailed": "Webhook pipeline test failed.",
+  "webhook.removeTitle": "Remove webhook subscription?",
+  "webhook.removeMessage": "{topic} will stop sending events to {url}.",
+  "webhook.removeSuccess": "Webhook subscription removed.",
+  "webhook.removeFailed": "Could not remove the webhook.",
+  "notification.refundCreated": "Refund created for {name}",
+  "notification.disputeCreated": "New dispute for {name}",
+  "notification.disputeUpdated": "Dispute updated for {name}",
+  "notification.productCreated": "Product created: {name}",
+  "notification.productUpdated": "Product updated: {name}",
+  "notification.inventoryUpdated": "Inventory updated: {name}",
+  "notification.customerCreated": "New customer: {name}",
 } as const;
 
 export default messages;

@@ -4,8 +4,8 @@ import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import { resolveStoreAdminDomain } from "~~/server/utils/callShopifyApi";
 import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
 import {
-  ensureShopifyWebhookSubscriptions,
-  resolveWebhookCallbackUrl,
+  inspectWebhookCallbackConfiguration,
+  synchronizeShopifyWebhookSubscriptions,
 } from "~~/server/utils/shopify-webhook-subscriptions";
 import { upsertWebhookShop } from "~~/server/utils/webhook-registry";
 import { normalizeShopifyShopDomain } from "~~/server/utils/webhook-verification";
@@ -35,14 +35,32 @@ export default defineEventHandler(
       throw createApiErrorFromMessage("A valid Shopify store ID is required.", 400);
     }
 
-    const callbackUrl = resolveWebhookCallbackUrl(event, config.webhookPublicUrl);
     const shop = await upsertWebhookShop({
       storeId,
       shopDomain,
       clientSecret,
       encryptionKey: String(config.webhookEncryptionKey || "").trim() || undefined,
     });
-    const result = await ensureShopifyWebhookSubscriptions({
+    const callbackInspection = inspectWebhookCallbackConfiguration(
+      event,
+      config.webhookPublicUrl,
+    );
+    const callbackUrl = callbackInspection.configuration?.callbackUrl || null;
+    if (!callbackUrl) {
+      const synchronizationError =
+        callbackInspection.error || "Webhook callback URL is invalid.";
+      return {
+        storeId,
+        shopDomain,
+        streamToken: shop.streamToken,
+        webhookUrl: null,
+        registeredTopics: [],
+        warnings: [synchronizationError],
+        synchronizationError,
+      };
+    }
+
+    const result = await synchronizeShopifyWebhookSubscriptions({
       event,
       storeId,
       token,
@@ -55,7 +73,8 @@ export default defineEventHandler(
       streamToken: shop.streamToken,
       webhookUrl: callbackUrl,
       registeredTopics: result.registeredTopics,
-      warnings: result.warnings,
+      warnings: result.error ? [result.error, ...result.warnings] : result.warnings,
+      synchronizationError: result.error,
     };
   },
 );

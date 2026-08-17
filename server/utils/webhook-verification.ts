@@ -6,6 +6,13 @@ const HEADER_TOPIC_MAP: Record<string, ShopifyWebhookTopic> = {
   "orders/updated": "ORDERS_UPDATED",
   "fulfillments/create": "FULFILLMENTS_CREATE",
   "fulfillments/update": "FULFILLMENTS_UPDATE",
+  "refunds/create": "REFUNDS_CREATE",
+  "disputes/create": "DISPUTES_CREATE",
+  "disputes/update": "DISPUTES_UPDATE",
+  "products/create": "PRODUCTS_CREATE",
+  "products/update": "PRODUCTS_UPDATE",
+  "inventory_levels/update": "INVENTORY_LEVELS_UPDATE",
+  "customers/create": "CUSTOMERS_CREATE",
 };
 
 interface NotificationInput {
@@ -58,17 +65,11 @@ export function buildWebhookNotification({
   payload,
   now = new Date(),
 }: NotificationInput): WebhookNotification {
-  const isFulfillment = topic.startsWith("FULFILLMENTS_");
-  const resourceId = readScalar(payload.id);
-  const orderId = isFulfillment
-    ? readScalar(payload.order_id) || null
-    : resourceId || null;
-  const orderName =
-    readScalar(payload.name) ||
-    (orderId ? `#${orderId}` : isFulfillment ? "Fulfillment" : "Order");
-  const status = isFulfillment
-    ? readScalar(payload.shipment_status) || readScalar(payload.status)
-    : readScalar(payload.fulfillment_status) || readScalar(payload.financial_status);
+  const kind = resolveNotificationKind(topic);
+  const resourceId = resolveResourceId(kind, payload) || webhookId;
+  const orderId = resolveOrderId(kind, payload, resourceId);
+  const orderName = resolveNotificationName(kind, payload, resourceId, orderId);
+  const status = resolveNotificationStatus(kind, payload);
 
   return {
     id: webhookId,
@@ -77,8 +78,8 @@ export function buildWebhookNotification({
     storeId,
     shopDomain,
     topic,
-    kind: isFulfillment ? "fulfillment" : "order",
-    resourceId: resourceId || orderId || webhookId,
+    kind,
+    resourceId,
     orderId,
     orderName,
     status: status || "updated",
@@ -90,6 +91,88 @@ export function buildWebhookNotification({
       ) || now.toISOString(),
     receivedAt: now.toISOString(),
   };
+}
+
+function resolveNotificationKind(
+  topic: ShopifyWebhookTopic,
+): WebhookNotification["kind"] {
+  if (topic.startsWith("FULFILLMENTS_")) return "fulfillment";
+  if (topic === "REFUNDS_CREATE") return "refund";
+  if (topic.startsWith("DISPUTES_")) return "dispute";
+  if (topic.startsWith("PRODUCTS_")) return "product";
+  if (topic === "INVENTORY_LEVELS_UPDATE") return "inventory";
+  if (topic === "CUSTOMERS_CREATE") return "customer";
+  return "order";
+}
+
+function resolveResourceId(
+  kind: WebhookNotification["kind"],
+  payload: Record<string, unknown>,
+) {
+  if (kind === "inventory") {
+    return readScalar(payload.inventory_item_id) || readScalar(payload.id);
+  }
+  return readScalar(payload.id);
+}
+
+function resolveOrderId(
+  kind: WebhookNotification["kind"],
+  payload: Record<string, unknown>,
+  resourceId: string,
+) {
+  if (["fulfillment", "refund", "dispute"].includes(kind)) {
+    return readScalar(payload.order_id) || null;
+  }
+  return kind === "order" ? resourceId || null : null;
+}
+
+function resolveNotificationName(
+  kind: WebhookNotification["kind"],
+  payload: Record<string, unknown>,
+  resourceId: string,
+  orderId: string | null,
+) {
+  const fullName = [readScalar(payload.first_name), readScalar(payload.last_name)]
+    .filter(Boolean)
+    .join(" ");
+  const labels: Record<WebhookNotification["kind"], string> = {
+    order: orderId ? `#${orderId}` : "Order",
+    fulfillment: orderId ? `#${orderId}` : "Fulfillment",
+    refund: orderId ? `#${orderId}` : `Refund ${resourceId}`,
+    dispute: orderId ? `#${orderId}` : `Dispute ${resourceId}`,
+    product: `Product ${resourceId}`,
+    inventory: `Inventory item ${resourceId}`,
+    customer: fullName || readScalar(payload.email) || `Customer ${resourceId}`,
+  };
+
+  return (
+    readScalar(payload.name) ||
+    readScalar(payload.title) ||
+    readScalar(payload.order_name) ||
+    labels[kind]
+  );
+}
+
+function resolveNotificationStatus(
+  kind: WebhookNotification["kind"],
+  payload: Record<string, unknown>,
+) {
+  if (kind === "fulfillment") {
+    return readScalar(payload.shipment_status) || readScalar(payload.status);
+  }
+  if (kind === "order") {
+    return (
+      readScalar(payload.fulfillment_status) || readScalar(payload.financial_status)
+    );
+  }
+  if (kind === "inventory") {
+    const available = readScalar(payload.available);
+    return available ? `${available} available` : "inventory updated";
+  }
+  if (kind === "refund") {
+    return readScalar(payload.note) || "refund created";
+  }
+  return readScalar(payload.status) || `${kind} updated`;
 }
 
 function decodeSignature(value: string) {

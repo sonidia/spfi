@@ -12,6 +12,7 @@ import {
   completeWebhookDelivery,
   getWebhookShop,
   publishWebhookNotification,
+  recordWebhookDeliveryHealth,
   releaseWebhookDelivery,
   saveWebhookNotification,
   withWebhookShopLock,
@@ -56,9 +57,22 @@ export default defineEventHandler(async (event) => {
   }
 
   const notification = await withWebhookShopLock(shopDomain, async () => {
-    if (!(await claimWebhookDelivery(shopDomain, webhookId))) return null;
+    const claim = await claimWebhookDelivery(shopDomain, webhookId);
+    if (claim === "duplicate") return null;
+    if (claim === "busy") {
+      throw createError({
+        statusCode: 503,
+        statusMessage: "Webhook delivery is already being processed",
+      });
+    }
 
     try {
+      await recordWebhookDeliveryHealth({
+        shopDomain,
+        webhookId,
+        topic,
+        status: "processing",
+      });
       const payload = parseWebhookPayload(rawBody);
       const nextNotification = buildWebhookNotification({
         webhookId,
@@ -72,9 +86,24 @@ export default defineEventHandler(async (event) => {
 
       await saveWebhookNotification(nextNotification);
       await completeWebhookDelivery(shopDomain, webhookId);
+      await recordWebhookDeliveryHealth({
+        shopDomain,
+        webhookId,
+        topic,
+        status: "succeeded",
+      });
       return nextNotification;
     } catch (error) {
-      releaseWebhookDelivery(shopDomain, webhookId);
+      await Promise.allSettled([
+        releaseWebhookDelivery(shopDomain, webhookId),
+        recordWebhookDeliveryHealth({
+          shopDomain,
+          webhookId,
+          topic,
+          status: "failed",
+          error: getWebhookErrorMessage(error),
+        }),
+      ]);
       throw error;
     }
   });
@@ -88,6 +117,14 @@ export default defineEventHandler(async (event) => {
   setResponseStatus(event, 200);
   return { accepted: true, duplicate: false };
 });
+
+function getWebhookErrorMessage(error: unknown) {
+  if (error && typeof error === "object") {
+    const candidate = error as { statusMessage?: unknown; message?: unknown };
+    return String(candidate.statusMessage || candidate.message || "").trim();
+  }
+  return String(error || "").trim();
+}
 
 function parseWebhookPayload(rawBody: Buffer) {
   try {

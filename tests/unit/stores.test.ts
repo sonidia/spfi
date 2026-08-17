@@ -4,6 +4,7 @@ import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDashboardStore } from "~/stores/dashboard";
 import { useFormStore } from "~/stores/form";
 import { useMarketStore } from "~/stores/market";
+import { useNotificationStore } from "~/stores/notifications";
 import { useOrderStore } from "~/stores/order";
 import { useProductStore } from "~/stores/product";
 import { KNOWN_STORES_STORAGE_KEY } from "~~/utils/known-stores";
@@ -53,6 +54,59 @@ describe("credential vault store", () => {
 
     await vault.saveTrackingSettings({ apiKey: "key", carrier: "ups" });
     expect(vault.trackingSettings).toEqual({ apiKey: "key", carrier: "ups" });
+  });
+});
+
+describe("notification store", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+  });
+
+  it("keeps the live stream when token rotation does not change webhook configuration", async () => {
+    const form = useFormStore();
+    const vault = useCredentialVaultStore();
+    form.knownStores = ["shop-a"];
+    await vault.saveStoreData("shop-a", {
+      domain: "shop-a.myshopify.com",
+      clientSecret: "client-secret",
+      accessToken: "token-before-rotation",
+      expiresTime: Date.now() + 60_000,
+    });
+    const register = vi.fn().mockResolvedValue({
+      storeId: "shop-a",
+      shopDomain: "shop-a.myshopify.com",
+      streamToken: "stream-token",
+      webhookUrl: "https://ops.example/api/webhooks/shopify",
+      registeredTopics: [],
+      warnings: [],
+      synchronizationError: null,
+    });
+    vi.stubGlobal("$fetch", register);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode('event: connected\ndata: {"stores":1}\n\n'),
+            );
+          },
+        }),
+      }),
+    );
+
+    const notifications = useNotificationStore();
+    await notifications.synchronize();
+    await vault.patchStoreData("shop-a", {
+      accessToken: "token-after-rotation",
+      expiresTime: Date.now() + 120_000,
+    });
+    await notifications.synchronize();
+
+    expect(register).toHaveBeenCalledTimes(1);
   });
 });
 

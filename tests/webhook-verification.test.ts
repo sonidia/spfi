@@ -30,7 +30,8 @@ test("Shopify webhook metadata is normalized through strict allowlists", () => {
     resolveShopifyWebhookTopic("fulfillments/update"),
     "FULFILLMENTS_UPDATE",
   );
-  assert.equal(resolveShopifyWebhookTopic("products/update"), null);
+  assert.equal(resolveShopifyWebhookTopic("products/update"), "PRODUCTS_UPDATE");
+  assert.equal(resolveShopifyWebhookTopic("payouts/paid"), null);
   assert.equal(
     normalizeShopifyShopDomain("Example-Store.myshopify.com"),
     "example-store.myshopify.com",

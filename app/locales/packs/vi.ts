@@ -1821,6 +1821,52 @@ const messages: Record<MessageKey, string> = {
   "product.notRequired": "Không bắt buộc",
   "product.compareAtPrice": "Giá so sánh",
   "product.none": "Không có",
+  "webhook.title": "Webhook Shopify",
+  "webhook.description":
+    "Kiểm tra subscription, callback và luồng delivery notification của từng store đã kết nối.",
+  "webhook.storeCount": "{count} store",
+  "webhook.callbackUrl": "Callback URL hiện tại",
+  "webhook.publicUrlWarning":
+    "Deployment không phải local đang suy ra callback từ request của trình duyệt. Hãy đặt NUXT_WEBHOOK_PUBLIC_URL để URL không lệch khi đổi proxy hoặc tunnel.",
+  "webhook.encryptionMismatch":
+    "NUXT_WEBHOOK_ENCRYPTION_KEY hiện tại không giải mã được {count} bản ghi store. Hãy khôi phục key cũ hoặc đăng ký lại toàn bộ store bị ảnh hưởng trước khi dựa vào webhook.",
+  "webhook.encryptionMissing":
+    "Chưa đặt NUXT_WEBHOOK_ENCRYPTION_KEY. Signing secret chỉ tồn tại trong process và phải nạp lại sau mỗi lần restart.",
+  "webhook.sharedStorage": "Đã bật Redis dùng chung để fan-out nhiều instance.",
+  "webhook.singleInstanceStorage":
+    "Đang dùng filesystem storage. Hãy dùng Redis chung trước khi chạy nhiều app instance.",
+  "webhook.refresh": "Làm mới trạng thái",
+  "webhook.synchronize": "Đồng bộ",
+  "webhook.emptyTitle": "Chưa có store sẵn sàng cho webhook",
+  "webhook.emptyDescription":
+    "Store cần access token và client secret hợp lệ để kiểm tra subscription.",
+  "webhook.loading": "Đang tải trạng thái webhook…",
+  "webhook.test": "Test webhook",
+  "webhook.noDelivery": "Chưa ghi nhận delivery từ Shopify",
+  "webhook.delivery.processing": "Đang xử lý delivery",
+  "webhook.delivery.succeeded": "Delivery gần nhất thành công",
+  "webhook.delivery.failed": "Delivery gần nhất thất bại",
+  "webhook.lastAttempt": "Lần thử gần nhất: {date}",
+  "webhook.updatedAt": "Cập nhật: {date}",
+  "webhook.never": "Chưa có",
+  "webhook.currentCallback": "Callback hiện tại",
+  "webhook.staleCallback": "Callback khác",
+  "webhook.remove": "Gỡ đăng ký",
+  "webhook.syncSuccess": "Đã đồng bộ subscription webhook.",
+  "webhook.syncFailed": "Không thể đồng bộ webhook.",
+  "webhook.testSuccess": "Đã gửi test qua pipeline webhook.",
+  "webhook.testFailed": "Test pipeline webhook thất bại.",
+  "webhook.removeTitle": "Gỡ subscription webhook?",
+  "webhook.removeMessage": "{topic} sẽ ngừng gửi event đến {url}.",
+  "webhook.removeSuccess": "Đã gỡ subscription webhook.",
+  "webhook.removeFailed": "Không thể gỡ subscription webhook.",
+  "notification.refundCreated": "Đã tạo refund cho {name}",
+  "notification.disputeCreated": "Dispute mới cho {name}",
+  "notification.disputeUpdated": "Dispute của {name} vừa cập nhật",
+  "notification.productCreated": "Đã tạo sản phẩm: {name}",
+  "notification.productUpdated": "Sản phẩm vừa cập nhật: {name}",
+  "notification.inventoryUpdated": "Tồn kho vừa cập nhật: {name}",
+  "notification.customerCreated": "Khách hàng mới: {name}",
 };
 
 export default messages;
