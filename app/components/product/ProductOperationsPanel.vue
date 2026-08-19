@@ -18,6 +18,7 @@ import type {
   ShopifyMetafield,
   ShopifyProduct,
   ShopifyProductImage,
+  ShopifyInventoryQuantityStateName,
   ShopifyVariant,
 } from "~~/types/shopify";
 import type {
@@ -25,7 +26,7 @@ import type {
   ShopifyMetafieldInput,
   ShopifyVariantInput,
 } from "~~/types/shopify-product";
-import { isValidProductPrice } from "~~/utils/product-options";
+import { isProductPriceChanged, isValidProductPrice } from "~~/utils/product-options";
 
 const props = defineProps<{ product: ShopifyProduct }>();
 const emit = defineEmits<{ refreshed: [] }>();
@@ -53,7 +54,9 @@ const imageDrafts = ref<
 >({});
 const inventoryVariantId = ref<ShopifyNumericId | null>(null);
 const inventoryLocationId = ref<ShopifyNumericId | null>(null);
-const inventoryMode = ref<"set" | "adjust">("set");
+const inventoryMode = ref<"set" | "adjust" | "reserve" | "release">("set");
+const inventoryQuantityName = ref<"available" | "on_hand">("available");
+const inventoryReason = ref("correction");
 const inventoryTargetMode = ref<"single" | "selected">("single");
 const inventoryAmount = ref(0);
 const metafieldForm = ref<ShopifyMetafieldInput>(emptyMetafieldForm());
@@ -68,27 +71,45 @@ const productOptionNames = computed(() => {
   return names.length ? names : [t("product.defaultOptionName")];
 });
 const selectedVariantCount = computed(() => selectedVariantIds.value.size);
+const dirtyPriceVariantIds = computed(
+  () =>
+    new Set(
+      operations.variants.value
+        .filter(isVariantPriceDirty)
+        .map((variant) => String(variant.id)),
+    ),
+);
+const dirtyPriceCount = computed(() => dirtyPriceVariantIds.value.size);
 
 const inventoryVariants = computed(() =>
-  operations.variants.value.filter(
-    (variant) => variant.inventory_item_id !== undefined,
+  operations.variants.value.filter((variant) =>
+    /^\d+$/.test(String(variant.inventory_item_id ?? "")),
   ),
 );
 const selectedInventoryVariant = computed(() =>
-  inventoryVariants.value.find((variant) => variant.id === inventoryVariantId.value),
+  inventoryVariants.value.find(
+    (variant) => String(variant.id) === String(inventoryVariantId.value),
+  ),
 );
 const selectedInventoryVariants = computed(() =>
   inventoryVariants.value.filter((variant) =>
     selectedVariantIds.value.has(String(variant.id)),
   ),
 );
+const inventoryTargets = computed(() =>
+  inventoryTargetMode.value === "selected"
+    ? selectedInventoryVariants.value
+    : selectedInventoryVariant.value
+      ? [selectedInventoryVariant.value]
+      : [],
+);
 const selectedInventoryLevel = computed(() => {
   const itemId = selectedInventoryVariant.value?.inventory_item_id;
   if (!itemId || !inventoryLocationId.value) return null;
   return inventoryLevels.value.find(
     (level) =>
-      level.inventory_item_id === itemId &&
-      level.location_id === inventoryLocationId.value,
+      String(level.inventory_item_id) === String(itemId) &&
+      String(level.location_id) === String(inventoryLocationId.value),
   );
 });
 const variantImageOptions = computed(() => [
@@ -110,16 +131,60 @@ const inventoryVariantOptions = computed(() =>
   })),
 );
 const inventoryLocationOptions = computed(() =>
-  locations.value.map((location) => ({
-    label: location.name || String(location.id),
-    value: location.id,
-    description: [location.city, location.country_code].filter(Boolean).join(", "),
-  })),
+  locations.value.map((location) => {
+    const connected = inventoryTargets.value.every((variant) =>
+      hasActiveInventoryLevel(variant, location.id),
+    );
+    const unavailable = location.active === false || !connected;
+    return {
+      label: location.name || String(location.id),
+      value: location.id,
+      description: [
+        [location.city, location.country_code].filter(Boolean).join(", "),
+        unavailable ? t("product.inventoryLocationUnavailable") : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      disabled: unavailable,
+    };
+  }),
 );
 const inventoryModeOptions = computed(() => [
   { label: t("product.setQuantity"), value: "set" },
   { label: t("product.adjustQuantity"), value: "adjust" },
+  { label: t("product.reserveQuantity"), value: "reserve" },
+  { label: t("product.releaseQuantity"), value: "release" },
 ]);
+const inventoryQuantityOptions = computed(() => [
+  { label: t("product.available"), value: "available" },
+  { label: t("product.onHand"), value: "on_hand" },
+]);
+const activeInventoryQuantityName = computed<ShopifyInventoryQuantityStateName>(() =>
+  inventoryMode.value === "reserve"
+    ? "available"
+    : inventoryMode.value === "release"
+      ? "reserved"
+      : inventoryQuantityName.value,
+);
+const inventoryTargetsConnected = computed(
+  () =>
+    Boolean(inventoryLocationId.value) &&
+    inventoryTargets.value.length > 0 &&
+    inventoryTargets.value.every((variant) =>
+      hasActiveInventoryLevel(variant, inventoryLocationId.value!),
+    ),
+);
+const inventoryAmountIsValid = computed(() => {
+  const amount = Number(inventoryAmount.value);
+  return (
+    Number.isSafeInteger(amount) &&
+    (!isReservationMode() || amount > 0) &&
+    /^[a-z][a-z0-9_]{0,63}$/.test(inventoryReason.value)
+  );
+});
+const canUpdateInventory = computed(
+  () => inventoryTargetsConnected.value && inventoryAmountIsValid.value,
+);
 const inventoryTargetOptions = computed(() => [
   { label: t("product.oneVariant"), value: "single" },
   {
@@ -153,6 +218,50 @@ function formatVariantFulfillment(variant: ShopifyVariant) {
   });
 }
 
+function isVariantPriceDirty(variant: ShopifyVariant) {
+  const id = String(variant.id);
+  return (
+    isProductPriceChanged(variantPriceDrafts.value[id], variant.price) ||
+    isProductPriceChanged(variantCompareAtDrafts.value[id], variant.compare_at_price)
+  );
+}
+
+function isReservationMode() {
+  return inventoryMode.value === "reserve" || inventoryMode.value === "release";
+}
+
+function findInventoryLevel(variant: ShopifyVariant, locationId: ShopifyNumericId) {
+  return inventoryLevels.value.find(
+    (level) =>
+      String(level.inventory_item_id) === String(variant.inventory_item_id) &&
+      String(level.location_id) === String(locationId),
+  );
+}
+
+function hasActiveInventoryLevel(
+  variant: ShopifyVariant,
+  locationId: ShopifyNumericId,
+) {
+  if (!/^\d+$/.test(String(variant.inventory_item_id ?? ""))) return false;
+  const level = findInventoryLevel(variant, locationId);
+  const requiredNames: ShopifyInventoryQuantityStateName[] = isReservationMode()
+    ? ["available", "reserved"]
+    : [inventoryQuantityName.value];
+  return requiredNames.every(
+    (name) => typeof getInventoryQuantity(level, name) === "number",
+  );
+}
+
+function selectFirstAvailableInventoryLocation() {
+  const current = inventoryLocationOptions.value.find(
+    (option) =>
+      String(option.value) === String(inventoryLocationId.value) && !option.disabled,
+  );
+  if (current) return;
+  inventoryLocationId.value =
+    inventoryLocationOptions.value.find((option) => !option.disabled)?.value || null;
+}
+
 watch(
   () => props.product.id,
   () => {
@@ -167,6 +276,8 @@ watch(
     inventoryVariantId.value = null;
     inventoryLocationId.value = null;
     inventoryTargetMode.value = "single";
+    inventoryQuantityName.value = "available";
+    inventoryReason.value = "correction";
     inventoryAmount.value = 0;
     metafieldForm.value = emptyMetafieldForm();
     metafieldDrafts.value = {};
@@ -183,6 +294,12 @@ watch(
     );
   },
   { deep: true, immediate: true },
+);
+
+watch(
+  [inventoryTargets, activeInventoryQuantityName, inventoryLocationOptions],
+  selectFirstAvailableInventoryLocation,
+  { immediate: true },
 );
 
 function emptyVariantForm(): ShopifyVariantInput {
@@ -269,16 +386,13 @@ function initializeDrafts() {
   );
   if (
     !inventoryVariantId.value ||
-    !inventoryVariants.value.some((variant) => variant.id === inventoryVariantId.value)
+    !inventoryVariants.value.some(
+      (variant) => String(variant.id) === String(inventoryVariantId.value),
+    )
   ) {
     inventoryVariantId.value = inventoryVariants.value[0]?.id || null;
   }
-  if (
-    !inventoryLocationId.value ||
-    !locations.value.some((location) => location.id === inventoryLocationId.value)
-  ) {
-    inventoryLocationId.value = locations.value[0]?.id || null;
-  }
+  selectFirstAvailableInventoryLocation();
 }
 
 function editVariant(variant: ShopifyVariant) {
@@ -370,15 +484,17 @@ function toggleAllVariants() {
       : new Set(operations.variants.value.map((variant) => String(variant.id)));
 }
 
-async function saveSelectedPrices() {
-  const variants = operations.variants.value
-    .filter((variant) => selectedVariantIds.value.has(String(variant.id)))
-    .map((variant) => ({
-      id: variant.id,
-      price: String(variantPriceDrafts.value[String(variant.id)] || "").trim(),
-      compare_at_price:
-        String(variantCompareAtDrafts.value[String(variant.id)] || "").trim() || null,
-    }));
+function buildPriceUpdates(variants: ShopifyVariant[]) {
+  return variants.map((variant) => ({
+    id: variant.id,
+    price: String(variantPriceDrafts.value[String(variant.id)] || "").trim(),
+    compare_at_price:
+      String(variantCompareAtDrafts.value[String(variant.id)] || "").trim() || null,
+  }));
+}
+
+async function savePriceVariants(targets: ShopifyVariant[]) {
+  const variants = buildPriceUpdates(targets);
   if (
     !variants.length ||
     variants.some(
@@ -392,18 +508,44 @@ async function saveSelectedPrices() {
     toast.error(t("product.validPricesRequired"));
     return;
   }
-  if (
-    !(await operations.updateVariantsBulk(
-      props.product.id,
-      variants,
-      productOptionNames.value,
-    ))
-  ) {
-    return;
+
+  let updatedCount = 0;
+  for (let offset = 0; offset < variants.length; offset += 250) {
+    const batch = variants.slice(offset, offset + 250);
+    if (
+      !(await operations.updateVariantsBulk(
+        props.product.id,
+        batch,
+        productOptionNames.value,
+      ))
+    ) {
+      if (updatedCount) {
+        toast.warning(
+          t("product.priceUpdatePartial", {
+            updated: updatedCount,
+            total: variants.length,
+          }),
+        );
+      }
+      return;
+    }
+    updatedCount += batch.length;
   }
-  toast.success(t("product.bulkPricesUpdated", { count: variants.length }));
-  selectedVariantIds.value = new Set();
+  toast.success(t("product.bulkPricesUpdated", { count: updatedCount }));
   await afterMutation();
+}
+
+async function saveChangedPrices() {
+  await savePriceVariants(
+    operations.variants.value.filter((variant) =>
+      dirtyPriceVariantIds.value.has(String(variant.id)),
+    ),
+  );
+}
+
+async function saveVariantPrice(variant: ShopifyVariant) {
+  if (!isVariantPriceDirty(variant)) return;
+  await savePriceVariants([variant]);
 }
 
 async function saveOptionNames() {
@@ -628,47 +770,89 @@ function toggleImageVariant(imageId: ShopifyNumericId, variantId: ShopifyNumeric
 async function updateInventory() {
   const locationId = inventoryLocationId.value;
   const amount = Number(inventoryAmount.value);
-  const targets =
-    inventoryTargetMode.value === "selected"
-      ? selectedInventoryVariants.value
-      : selectedInventoryVariant.value
-        ? [selectedInventoryVariant.value]
-        : [];
+  const targets = inventoryTargets.value;
   if (!targets.length || !locationId || !Number.isSafeInteger(amount)) {
     toast.error(t("product.selectVariantLocationWhole"));
     return;
   }
-  const items = targets.map((variant) => {
-    const level = inventoryLevels.value.find(
-      (candidate) =>
-        String(candidate.inventory_item_id) === String(variant.inventory_item_id) &&
-        String(candidate.location_id) === String(locationId),
-    );
-    return { variant, level };
-  });
+  if (!/^[a-z][a-z0-9_]{0,63}$/.test(inventoryReason.value)) {
+    toast.error(t("product.inventoryReasonInvalid"));
+    return;
+  }
+  const isReservationMove = isReservationMode();
+  if (isReservationMove && amount <= 0) {
+    toast.error(t("product.reservationPositiveQuantity"));
+    return;
+  }
+  const items = targets.map((variant) => ({
+    variant,
+    level: findInventoryLevel(variant, locationId),
+  }));
   if (
     items.some(
       ({ variant, level }) =>
-        !variant.inventory_item_id || typeof level?.available !== "number",
+        !variant.inventory_item_id ||
+        typeof getInventoryQuantity(level, activeInventoryQuantityName.value) !==
+          "number" ||
+        (isReservationMove &&
+          typeof getInventoryQuantity(level, "reserved") !== "number"),
     )
   ) {
     toast.error(t("product.inventoryTargetsNotConnected"));
+    return;
+  }
+  if (isReservationMove) {
+    const response = await operations.moveInventoryReservations(
+      locationId,
+      items.map(({ variant, level }) => ({
+        inventory_item_id: variant.inventory_item_id!,
+        current_available: getInventoryQuantity(level!, "available")!,
+        current_reserved: getInventoryQuantity(level!, "reserved")!,
+      })),
+      inventoryMode.value === "reserve" ? "RESERVE" : "RELEASE",
+      amount,
+      inventoryReason.value,
+    );
+    if (!response) return;
+    toast.success(
+      t("product.inventoryReservationsUpdated", {
+        count: response.updatedCount,
+      }),
+    );
+    inventoryAmount.value = 0;
+    emit("refreshed");
+    await refreshAll();
     return;
   }
   const response = await operations.updateInventoryBulk(
     locationId,
     items.map(({ variant, level }) => ({
       inventory_item_id: variant.inventory_item_id!,
-      ...(inventoryMode.value === "set" ? { compare_quantity: level!.available! } : {}),
+      change_from_quantity: getInventoryQuantity(level!, inventoryQuantityName.value)!,
     })),
     inventoryMode.value === "set" ? "SET" : "ADJUST",
     amount,
+    {
+      quantityName: inventoryQuantityName.value,
+      reason: inventoryReason.value,
+    },
   );
   if (!response) return;
   toast.success(t("product.inventoryBulkUpdated", { count: response.updatedCount }));
   inventoryAmount.value = 0;
   emit("refreshed");
   await refreshAll();
+}
+
+function getInventoryQuantity(
+  level: (typeof inventoryLevels.value)[number] | null | undefined,
+  name: ShopifyInventoryQuantityStateName,
+) {
+  if (!level) return undefined;
+  if (name === "available" && typeof level.available === "number") {
+    return level.available;
+  }
+  return level.quantities?.[name];
 }
 
 async function afterMutation() {
@@ -834,12 +1018,13 @@ async function afterMutation() {
         <span>{{ t("product.bulkSelected", { count: selectedVariantCount }) }}</span>
         <div class="row-actions">
           <BaseButton
-            :disabled="!selectedVariantCount"
+            variant="primary"
+            :disabled="!dirtyPriceCount"
             :loading="operations.isLoading.value"
-            @click="saveSelectedPrices"
+            @click="saveChangedPrices"
           >
             <template #icon><Save /></template>
-            {{ t("product.saveSelectedPrices") }}
+            {{ t("product.savePriceChanges", { count: dirtyPriceCount }) }}
           </BaseButton>
           <BaseButton
             variant="danger-ghost"
@@ -854,7 +1039,11 @@ async function afterMutation() {
       </div>
 
       <div class="compact-list">
-        <article v-for="variant in operations.variants.value" :key="variant.id">
+        <article
+          v-for="variant in operations.variants.value"
+          :key="variant.id"
+          :class="{ 'has-price-change': isVariantPriceDirty(variant) }"
+        >
           <input
             class="variant-select"
             type="checkbox"
@@ -887,6 +1076,7 @@ async function afterMutation() {
                 type="number"
                 min="0"
                 step="0.01"
+                @keydown.enter.prevent="saveVariantPrice(variant)"
               />
             </label>
             <label class="inline-price">
@@ -897,8 +1087,19 @@ async function afterMutation() {
                 min="0"
                 step="0.01"
                 :placeholder="t('product.none')"
+                @keydown.enter.prevent="saveVariantPrice(variant)"
               />
             </label>
+            <BaseButton
+              class="price-save-action"
+              variant="primary"
+              :disabled="!isVariantPriceDirty(variant)"
+              :loading="operations.isLoading.value && isVariantPriceDirty(variant)"
+              @click="saveVariantPrice(variant)"
+            >
+              <template #icon><Save /></template>
+              {{ t("product.savePrice") }}
+            </BaseButton>
           </div>
           <div class="row-actions">
             <BaseButton
@@ -1108,12 +1309,34 @@ async function afterMutation() {
             :model-value="inventoryMode"
             :options="inventoryModeOptions"
             :aria-label="t('product.operation')"
-            @update:model-value="inventoryMode = String($event) as 'set' | 'adjust'"
+            @update:model-value="
+              inventoryMode = String($event) as 'set' | 'adjust' | 'reserve' | 'release'
+            "
           />
         </label>
         <label>
+          <span>{{ t("product.quantityState") }}</span>
+          <BaseSelect
+            :model-value="inventoryQuantityName"
+            :options="inventoryQuantityOptions"
+            :aria-label="t('product.quantityState')"
+            :disabled="['reserve', 'release'].includes(inventoryMode)"
+            @update:model-value="
+              inventoryQuantityName = String($event) as 'available' | 'on_hand'
+            "
+          />
+        </label>
+        <label>
+          <span>{{ t("product.inventoryReason") }}</span>
+          <input v-model.trim="inventoryReason" type="text" maxlength="64" />
+        </label>
+        <label>
           <span>{{
-            inventoryMode === "set" ? t("product.available") : t("product.adjustment")
+            inventoryMode === "set"
+              ? t("product.available")
+              : inventoryMode === "adjust"
+                ? t("product.adjustment")
+                : t("product.quantity")
           }}</span>
           <input v-model.number="inventoryAmount" type="number" step="1" />
         </label>
@@ -1128,18 +1351,33 @@ async function afterMutation() {
           <strong>{{
             inventoryTargetMode === "selected"
               ? selectedInventoryVariants.length
-              : (selectedInventoryLevel?.available ?? t("product.notConnected"))
+              : (getInventoryQuantity(
+                  selectedInventoryLevel,
+                  activeInventoryQuantityName,
+                ) ?? t("product.notConnected"))
           }}</strong>
         </div>
         <BaseButton
           variant="primary"
+          :disabled="!canUpdateInventory"
           :loading="operations.isLoading.value"
           @click="updateInventory"
         >
           <template #icon><Save /></template>
-          {{ t("product.apply") }}
+          {{ t("product.updateInventory") }}
         </BaseButton>
+        <div
+          v-if="inventoryTargets.length && !inventoryTargetsConnected"
+          class="inventory-warning"
+          role="status"
+        >
+          {{ t("product.inventoryTargetsNotConnected") }}
+        </div>
       </div>
+      <InventoryItemEditor
+        :inventory-item-id="selectedInventoryVariant?.inventory_item_id || null"
+        @saved="afterMutation"
+      />
     </div>
   </section>
 </template>
@@ -1230,6 +1468,7 @@ header span,
 .variant-bulk-toolbar {
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 7px 8px;
@@ -1285,6 +1524,10 @@ select {
   border-radius: 6px;
   padding: 8px 10px;
 }
+.compact-list article.has-price-change {
+  border-color: color-mix(in srgb, var(--green) 52%, var(--border));
+  background: color-mix(in srgb, var(--green) 4%, var(--surface));
+}
 .compact-list article > div:not(.row-actions) {
   display: grid;
   min-width: 0;
@@ -1310,9 +1553,15 @@ select {
   width: 110px;
   flex: 0 0 auto;
 }
-.variant-price-fields {
-  display: flex;
+.compact-list article > .variant-price-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(90px, 110px)) auto;
   gap: 7px;
+  align-items: end;
+  flex: 0 1 auto;
+}
+.price-save-action {
+  max-width: 120px;
 }
 .presentment-price {
   color: var(--green) !important;
@@ -1379,6 +1628,16 @@ select {
   color: var(--text-sub);
   font-size: 11px;
 }
+.inventory-warning {
+  grid-column: 1 / -1;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--red) 28%, var(--border));
+  border-radius: 6px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 720px) {
   .form-grid,
   .inventory-form,
@@ -1394,9 +1653,13 @@ select {
   .inline-price {
     width: 100%;
   }
-  .variant-price-fields {
+  .compact-list article > .variant-price-fields {
     width: 100%;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+  .price-save-action {
+    width: 100%;
+    max-width: none;
   }
   .form-actions {
     grid-column: auto;

@@ -76,6 +76,22 @@ describe("rate limit store", () => {
     });
   });
 
+  it("bounds GraphQL cost snapshots across many stores", () => {
+    const store = useRateLimitStore();
+    for (let index = 0; index < 20; index += 1) {
+      store.updateFromHeaders(
+        graphqlHeaders(1_000, 900, 50, 10),
+        index + 1,
+        `shop-${index}`,
+        index + 1,
+      );
+    }
+
+    expect(Object.keys(store.graphqlCosts)).toHaveLength(12);
+    expect(store.graphqlCosts["shop-0"]).toBeUndefined();
+    expect(store.graphqlCosts["shop-19"]).toBeDefined();
+  });
+
   it("renders a horizontal meter when expanded and a circumference ring when collapsed", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);

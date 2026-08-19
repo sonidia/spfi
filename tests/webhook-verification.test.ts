@@ -31,12 +31,28 @@ test("Shopify webhook metadata is normalized through strict allowlists", () => {
     "FULFILLMENTS_UPDATE",
   );
   assert.equal(resolveShopifyWebhookTopic("products/update"), "PRODUCTS_UPDATE");
+  assert.equal(resolveShopifyWebhookTopic("app/uninstalled"), "APP_UNINSTALLED");
+  assert.equal(resolveShopifyWebhookTopic("orders/delete"), "ORDERS_DELETE");
   assert.equal(resolveShopifyWebhookTopic("payouts/paid"), null);
   assert.equal(
     normalizeShopifyShopDomain("Example-Store.myshopify.com"),
     "example-store.myshopify.com",
   );
   assert.equal(normalizeShopifyShopDomain("example.com"), "");
+});
+
+test("resource-deletion webhooks are represented explicitly", () => {
+  const notification = buildWebhookNotification({
+    webhookId: "deletion-1",
+    storeId: "example-store",
+    shopDomain: "example-store.myshopify.com",
+    topic: "PRODUCTS_DELETE",
+    payload: { id: "9007199254740993123" },
+  });
+
+  assert.equal(notification.kind, "product");
+  assert.equal(notification.status, "deleted");
+  assert.equal(notification.resourceId, "9007199254740993123");
 });
 
 test("webhook notifications retain order routing and operational status", () => {

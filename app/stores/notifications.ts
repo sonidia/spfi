@@ -232,12 +232,28 @@ export const useNotificationStore = defineStore("notifications", () => {
       return;
     }
 
+    if (notification.topic === "APP_UNINSTALLED") {
+      credentialVault.removeStoreData(notification.storeId);
+      formStore.removeKnownStore(notification.storeId);
+      registrationsByStore.delete(notification.storeId);
+      notifications.value = notifications.value.filter(
+        (item) => item.storeId !== notification.storeId,
+      );
+      scheduleSynchronization();
+    }
+
     notifications.value = [
       { ...notification, read: false },
       ...notifications.value,
     ].slice(0, MAX_CLIENT_NOTIFICATIONS);
     persistNotifications();
-    dashboardStore.refreshFromWebhook();
+    if (notification.topic !== "APP_UNINSTALLED") {
+      dashboardStore.refreshFromWebhook();
+    }
+  }
+
+  function invalidateRegistration(storeId: string) {
+    registrationsByStore.delete(storeId);
   }
 
   function markRead(id: string) {
@@ -303,6 +319,7 @@ export const useNotificationStore = defineStore("notifications", () => {
     registrationWarnings,
     isInitialized,
     initialize,
+    invalidateRegistration,
     synchronize,
     markRead,
     markAllRead,

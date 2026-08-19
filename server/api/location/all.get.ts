@@ -7,6 +7,7 @@ import {
   normalizeLocationLimit,
 } from "~~/server/utils/shopify-location-query";
 import type { InventoryLevelsResponse, LocationsResponse } from "~~/types/shopify";
+import { enrichShopifyInventoryQuantities } from "~~/server/utils/shopify-inventory-quantities";
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -49,8 +50,12 @@ export default defineEventHandler(async (event) => {
     ),
   ]);
 
+  const inventoryLevels = inventoryLevelPages.flat();
   return {
     locations,
-    inventory_levels: inventoryLevelPages.flat(),
+    inventory_levels: await enrichShopifyInventoryQuantities(
+      { event, storeId, token },
+      inventoryLevels,
+    ),
   };
 });

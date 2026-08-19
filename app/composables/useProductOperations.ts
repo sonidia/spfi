@@ -23,6 +23,8 @@ import type {
   ShopifyInventoryBulkMode,
   ShopifyInventoryBulkResult,
   ShopifyInventoryLevelResponse,
+  ShopifyInventoryReservationItemInput,
+  ShopifyInventoryReservationResult,
 } from "~~/types/shopify-inventory";
 import { getAppErrorMessage } from "~~/utils/error";
 import { forgetStoreResource } from "~~/utils/store-resource-cache";
@@ -292,6 +294,7 @@ export function useProductOperations() {
     items: ShopifyInventoryBulkItemInput[],
     mode: ShopifyInventoryBulkMode,
     amount: number,
+    options: { quantityName?: "available" | "on_hand"; reason?: string } = {},
   ) {
     return run("Failed to update inventory in bulk.", async () => {
       const response = await $fetch<ShopifyInventoryBulkResult>("/api/inventory/bulk", {
@@ -302,8 +305,37 @@ export function useProductOperations() {
           items,
           mode,
           amount,
+          quantity_name: options.quantityName || "available",
+          reason: options.reason || "correction",
         },
       });
+      invalidateInventoryCache();
+      return response;
+    });
+  }
+
+  async function moveInventoryReservations(
+    locationId: ShopifyNumericId,
+    items: ShopifyInventoryReservationItemInput[],
+    direction: "RESERVE" | "RELEASE",
+    quantity: number,
+    reason = "correction",
+  ) {
+    return run("Failed to move reserved inventory.", async () => {
+      const response = await $fetch<ShopifyInventoryReservationResult>(
+        "/api/inventory/reservations",
+        {
+          method: "POST",
+          body: {
+            ...authBody(),
+            location_id: locationId,
+            items,
+            direction,
+            quantity,
+            reason,
+          },
+        },
+      );
       invalidateInventoryCache();
       return response;
     });
@@ -349,6 +381,7 @@ export function useProductOperations() {
     setInventory,
     adjustInventory,
     updateInventoryBulk,
+    moveInventoryReservations,
     replaceInventoryLevel,
   };
 }

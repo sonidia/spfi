@@ -9,7 +9,10 @@ import {
   inspectWebhookCallbackConfiguration,
   inspectShopifyWebhookSubscriptions,
 } from "~~/server/utils/shopify-webhook-subscriptions";
-import { getWebhookDeliveryHealth } from "~~/server/utils/webhook-registry";
+import {
+  getWebhookDeliveryHealth,
+  getWebhookShop,
+} from "~~/server/utils/webhook-registry";
 import { normalizeShopifyShopDomain } from "~~/server/utils/webhook-verification";
 import type { WebhookStoreStatusResponse } from "~~/types/webhook";
 
@@ -30,6 +33,14 @@ export default defineEventHandler(
       event,
       useRuntimeConfig(event).webhookPublicUrl,
     );
+    const encryptionKey =
+      String(useRuntimeConfig(event).webhookEncryptionKey || "").trim() || undefined;
+    const registeredShop = await getWebhookShop(shopDomain, encryptionKey);
+    const streamMetadata = {
+      streamTokenVersion: registeredShop?.streamTokenVersion || null,
+      streamTokenIssuedAt: registeredShop?.streamTokenIssuedAt || null,
+      streamTokenRotatedAt: registeredShop?.streamTokenRotatedAt || null,
+    };
     const webhookUrl = callbackInspection.configuration?.callbackUrl || null;
     if (!webhookUrl) {
       const delivery = await getWebhookDeliveryHealth(shopDomain);
@@ -39,6 +50,7 @@ export default defineEventHandler(
         webhookUrl,
         subscriptions: [],
         delivery,
+        ...streamMetadata,
         error: callbackInspection.error || "Webhook callback URL is invalid.",
       };
     }
@@ -59,6 +71,7 @@ export default defineEventHandler(
       webhookUrl,
       subscriptions: inspection.subscriptions,
       delivery,
+      ...streamMetadata,
       error: inspection.error,
     };
   },

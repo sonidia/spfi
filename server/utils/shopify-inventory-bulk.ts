@@ -4,6 +4,7 @@ import { assertNoGraphqlUserErrors, callShopifyGraphql } from "./callShopifyGrap
 import { buildShopifyGid } from "./shopify-gid";
 import type {
   ShopifyInventoryBulkMode,
+  ShopifyInventoryQuantityName,
   ShopifyInventoryBulkResult,
 } from "~~/types/shopify-inventory";
 import type { ShopifyNumericId } from "~~/types/shopify";
@@ -16,7 +17,7 @@ interface InventoryBulkContext {
 
 interface InventoryBulkItem {
   inventoryItemId: ShopifyNumericId;
-  compareQuantity?: number;
+  changeFromQuantity: number | null;
 }
 
 interface GraphqlUserError {
@@ -31,6 +32,8 @@ export async function updateShopifyInventoryBulk(
     items: InventoryBulkItem[];
     mode: ShopifyInventoryBulkMode;
     amount: number;
+    quantityName: ShopifyInventoryQuantityName;
+    reason: string;
   },
 ): Promise<ShopifyInventoryBulkResult> {
   const locationId = buildShopifyGid("Location", options.locationId);
@@ -60,14 +63,14 @@ export async function updateShopifyInventoryBulk(
       variables: {
         idempotencyKey,
         input: {
-          name: "available",
-          reason: "correction",
+          name: options.quantityName,
+          reason: options.reason,
           referenceDocumentUri: `spf://inventory/bulk-set/${idempotencyKey}`,
           quantities: options.items.map((item) => ({
             inventoryItemId: buildShopifyGid("InventoryItem", item.inventoryItemId),
             locationId,
             quantity: options.amount,
-            compareQuantity: item.compareQuantity,
+            changeFromQuantity: item.changeFromQuantity,
           })),
         },
       },
@@ -76,7 +79,12 @@ export async function updateShopifyInventoryBulk(
       data.inventorySetQuantities.userErrors,
       "Failed to set inventory quantities.",
     );
-    return { mode: options.mode, updatedCount: options.items.length };
+    return {
+      mode: options.mode,
+      updatedCount: options.items.length,
+      quantityName: options.quantityName,
+      reason: options.reason,
+    };
   }
 
   const data = await callShopifyGraphql<{
@@ -102,13 +110,19 @@ export async function updateShopifyInventoryBulk(
     variables: {
       idempotencyKey,
       input: {
-        name: "available",
-        reason: "correction",
+        name: options.quantityName,
+        reason: options.reason,
         referenceDocumentUri: `spf://inventory/bulk-adjust/${idempotencyKey}`,
         changes: options.items.map((item) => ({
           inventoryItemId: buildShopifyGid("InventoryItem", item.inventoryItemId),
           locationId,
           delta: options.amount,
+          changeFromQuantity: item.changeFromQuantity,
+          ...(options.quantityName === "available"
+            ? {}
+            : {
+                ledgerDocumentUri: `spf://inventory/ledger/${idempotencyKey}/${item.inventoryItemId}`,
+              }),
         })),
       },
     },
@@ -117,5 +131,10 @@ export async function updateShopifyInventoryBulk(
     data.inventoryAdjustQuantities.userErrors,
     "Failed to adjust inventory quantities.",
   );
-  return { mode: options.mode, updatedCount: options.items.length };
+  return {
+    mode: options.mode,
+    updatedCount: options.items.length,
+    quantityName: options.quantityName,
+    reason: options.reason,
+  };
 }

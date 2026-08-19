@@ -669,11 +669,7 @@
     </div>
 
     <!-- Edit Modal -->
-    <div
-      v-if="showEditModal"
-      class="modal-backdrop"
-      @click.self="showEditModal = false"
-    >
+    <div v-if="showEditModal" class="modal-backdrop" @click.self="closeEditModal">
       <div class="modal-card">
         <div class="modal-head">
           <h3 class="modal-title">{{ t("product.editTitle") }}</h3>
@@ -681,7 +677,7 @@
             class="btn-close"
             type="button"
             :aria-label="t('common.close')"
-            @click="showEditModal = false"
+            @click="closeEditModal"
           >
             <X aria-hidden="true" />
           </button>
@@ -692,7 +688,13 @@
               >{{ t("product.fieldTitle") }}
               <span class="required-marker" aria-hidden="true">*</span></label
             >
-            <input v-model="editProduct.title" type="text" class="inp" />
+            <input
+              v-model="editProduct.title"
+              type="text"
+              class="inp"
+              required
+              maxlength="255"
+            />
           </div>
           <div class="field-row">
             <div class="field">
@@ -816,27 +818,36 @@
           <div class="field-row">
             <div class="field">
               <label class="field-label">{{ t("product.seoTitle") }}</label>
-              <input v-model="editProduct.seo_title" class="inp" />
+              <input v-model="editProduct.seo_title" class="inp" maxlength="255" />
             </div>
             <div class="field">
               <label class="field-label">{{ t("product.seoDescription") }}</label>
-              <input v-model="editProduct.seo_description" class="inp" />
+              <input
+                v-model="editProduct.seo_description"
+                class="inp"
+                maxlength="320"
+              />
             </div>
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn-outline" @click="showEditModal = false">
+          <button class="btn-outline" type="button" @click="closeEditModal">
             <X aria-hidden="true" />
             {{ t("common.cancel") }}
           </button>
           <button
             class="btn-primary"
+            type="button"
             @click="saveEditProduct"
-            :disabled="productStore.isLoading"
+            :disabled="isAdvancedProductLoading || isSavingProductEdit"
           >
             <Save aria-hidden="true" />
             {{
-              productStore.isLoading ? t("product.saving") : t("product.saveChanges")
+              isAdvancedProductLoading
+                ? t("common.loading")
+                : isSavingProductEdit
+                  ? t("product.saving")
+                  : t("product.saveChanges")
             }}
           </button>
         </div>
@@ -991,7 +1002,9 @@ const showEditModal = ref(false);
 const publishingProductId = ref<ShopifyNumericId | null>(null);
 const showAdvancedFilters = ref(false);
 const isAdvancedProductLoading = ref(false);
+const isSavingProductEdit = ref(false);
 const duplicateProductSource = ref<ShopifyProduct | null>(null);
+let advancedProductRequestSequence = 0;
 const duplicateForm = ref({
   title: "",
   status: "DRAFT" as "ACTIVE" | "ARCHIVED" | "DRAFT" | "UNLISTED",
@@ -1312,6 +1325,7 @@ function formatProductStatus(status?: ShopifyProductStatus) {
   if (status === "active") return t("product.statusActive");
   if (status === "draft") return t("product.statusDraft");
   if (status === "archived") return t("product.statusArchived");
+  if (status === "unlisted") return t("product.statusUnlisted");
   return t("product.statusUnknown");
 }
 
@@ -1509,6 +1523,8 @@ async function createProduct() {
 }
 
 async function openEditModal(prod: ShopifyProduct) {
+  const requestId = ++advancedProductRequestSequence;
+  isSavingProductEdit.value = false;
   editProduct.value = {
     id: prod.id,
     title: prod.title || "",
@@ -1542,8 +1558,9 @@ async function openEditModal(prod: ShopifyProduct) {
     productStore.fetchManagementContext(sid, token),
     productStore.fetchAdvancedDetails(sid, token, prod.id),
   ]);
+  if (requestId !== advancedProductRequestSequence) return;
   isAdvancedProductLoading.value = false;
-  if (!advanced || editProduct.value.id !== prod.id) return;
+  if (!showEditModal.value || !advanced || editProduct.value.id !== prod.id) return;
   const collectionIds = advanced.collections.map((collection) => collection.id);
   editProduct.value.category_id = advanced.category?.id || "";
   editProduct.value.seo_title = advanced.seo.title || "";
@@ -1555,6 +1572,13 @@ async function openEditModal(prod: ShopifyProduct) {
   editProduct.value.original_collection_ids = [...collectionIds];
   editProduct.value.collections_truncated = advanced.collectionsTruncated;
   editProduct.value.selling_plan_groups = advanced.sellingPlanGroups;
+}
+
+function closeEditModal() {
+  if (isSavingProductEdit.value) return;
+  advancedProductRequestSequence += 1;
+  showEditModal.value = false;
+  isAdvancedProductLoading.value = false;
 }
 
 function toggleEditCollection(id: string) {
@@ -1569,6 +1593,12 @@ async function saveEditProduct() {
 
   if (!sid || !token || !editProduct.value.id) {
     feedback.error(t("product.credentialsMissing"));
+    return;
+  }
+
+  editProduct.value.title = editProduct.value.title.trim();
+  if (!editProduct.value.title) {
+    feedback.error(t("product.titleRequired"));
     return;
   }
 
@@ -1591,7 +1621,7 @@ async function saveEditProduct() {
     });
     if (!confirmed) return;
   }
-  isAdvancedProductLoading.value = true;
+  isSavingProductEdit.value = true;
   const advanced = await productStore.updateAdvancedDetails(
     sid,
     token,
@@ -1620,7 +1650,7 @@ async function saveEditProduct() {
     },
   );
   if (!advanced) {
-    isAdvancedProductLoading.value = false;
+    isSavingProductEdit.value = false;
     feedback.error(productStore.error, t("product.updateFailed"));
     return;
   }
@@ -1634,13 +1664,13 @@ async function saveEditProduct() {
     shouldPublish,
     onlineStorePublication ? [onlineStorePublication.id] : [],
   );
-  isAdvancedProductLoading.value = false;
+  isSavingProductEdit.value = false;
   if (publicationResult.failedIds.length) {
     feedback.warning(t("product.savedPublicationFailed"));
   } else {
     feedback.success(t("product.saved"));
   }
-  showEditModal.value = false;
+  closeEditModal();
 }
 
 async function toggleProductPublication(prod: ShopifyProduct) {

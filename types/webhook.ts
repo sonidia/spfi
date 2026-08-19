@@ -1,6 +1,9 @@
 export const SHOPIFY_WEBHOOK_TOPICS = [
+  "APP_UNINSTALLED",
+  "SHOP_UPDATE",
   "ORDERS_CREATE",
   "ORDERS_UPDATED",
+  "ORDERS_DELETE",
   "FULFILLMENTS_CREATE",
   "FULFILLMENTS_UPDATE",
   "REFUNDS_CREATE",
@@ -8,13 +11,23 @@ export const SHOPIFY_WEBHOOK_TOPICS = [
   "DISPUTES_UPDATE",
   "PRODUCTS_CREATE",
   "PRODUCTS_UPDATE",
+  "PRODUCTS_DELETE",
   "INVENTORY_LEVELS_UPDATE",
   "CUSTOMERS_CREATE",
+  "CUSTOMERS_DELETE",
 ] as const;
 
 export type ShopifyWebhookTopic = (typeof SHOPIFY_WEBHOOK_TOPICS)[number];
 export type WebhookNotificationKind =
-  "order" | "fulfillment" | "refund" | "dispute" | "product" | "inventory" | "customer";
+  | "app"
+  | "shop"
+  | "order"
+  | "fulfillment"
+  | "refund"
+  | "dispute"
+  | "product"
+  | "inventory"
+  | "customer";
 
 export type WebhookDeliveryStatus = "processing" | "succeeded" | "failed";
 
@@ -51,6 +64,18 @@ export interface WebhookRegistrationResponse {
   registeredTopics: ShopifyWebhookTopic[];
   warnings: string[];
   synchronizationError: string | null;
+  streamTokenVersion: number;
+  streamTokenIssuedAt: string;
+  streamTokenRotatedAt: string | null;
+}
+
+export interface WebhookStreamTokenRotationResponse {
+  storeId: string;
+  shopDomain: string;
+  streamToken: string;
+  streamTokenVersion: number;
+  streamTokenIssuedAt: string;
+  streamTokenRotatedAt: string;
 }
 
 export interface ShopifyWebhookSubscription {
@@ -77,6 +102,9 @@ export interface WebhookStoreStatusResponse {
   webhookUrl: string | null;
   subscriptions: ShopifyWebhookSubscription[];
   delivery: WebhookDeliveryHealth | null;
+  streamTokenVersion: number | null;
+  streamTokenIssuedAt: string | null;
+  streamTokenRotatedAt: string | null;
   error: string | null;
 }
 

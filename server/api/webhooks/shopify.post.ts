@@ -14,6 +14,7 @@ import {
   publishWebhookNotification,
   recordWebhookDeliveryHealth,
   releaseWebhookDelivery,
+  removeWebhookShop,
   saveWebhookNotification,
   withWebhookShopLock,
 } from "~~/server/utils/webhook-registry";
@@ -113,7 +114,10 @@ export default defineEventHandler(async (event) => {
     return { accepted: true, duplicate: true };
   }
 
-  publishWebhookNotification(notification);
+  await publishWebhookNotification(notification);
+  if (notification.topic === "APP_UNINSTALLED") {
+    await removeWebhookShop(shopDomain);
+  }
   setResponseStatus(event, 200);
   return { accepted: true, duplicate: false };
 });

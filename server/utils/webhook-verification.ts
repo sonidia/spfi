@@ -2,8 +2,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { WebhookNotification, ShopifyWebhookTopic } from "~~/types/webhook";
 
 const HEADER_TOPIC_MAP: Record<string, ShopifyWebhookTopic> = {
+  "app/uninstalled": "APP_UNINSTALLED",
+  "shop/update": "SHOP_UPDATE",
   "orders/create": "ORDERS_CREATE",
   "orders/updated": "ORDERS_UPDATED",
+  "orders/delete": "ORDERS_DELETE",
   "fulfillments/create": "FULFILLMENTS_CREATE",
   "fulfillments/update": "FULFILLMENTS_UPDATE",
   "refunds/create": "REFUNDS_CREATE",
@@ -11,8 +14,10 @@ const HEADER_TOPIC_MAP: Record<string, ShopifyWebhookTopic> = {
   "disputes/update": "DISPUTES_UPDATE",
   "products/create": "PRODUCTS_CREATE",
   "products/update": "PRODUCTS_UPDATE",
+  "products/delete": "PRODUCTS_DELETE",
   "inventory_levels/update": "INVENTORY_LEVELS_UPDATE",
   "customers/create": "CUSTOMERS_CREATE",
+  "customers/delete": "CUSTOMERS_DELETE",
 };
 
 interface NotificationInput {
@@ -69,7 +74,7 @@ export function buildWebhookNotification({
   const resourceId = resolveResourceId(kind, payload) || webhookId;
   const orderId = resolveOrderId(kind, payload, resourceId);
   const orderName = resolveNotificationName(kind, payload, resourceId, orderId);
-  const status = resolveNotificationStatus(kind, payload);
+  const status = resolveNotificationStatus(topic, kind, payload);
 
   return {
     id: webhookId,
@@ -97,11 +102,13 @@ function resolveNotificationKind(
   topic: ShopifyWebhookTopic,
 ): WebhookNotification["kind"] {
   if (topic.startsWith("FULFILLMENTS_")) return "fulfillment";
+  if (topic === "APP_UNINSTALLED") return "app";
+  if (topic === "SHOP_UPDATE") return "shop";
   if (topic === "REFUNDS_CREATE") return "refund";
   if (topic.startsWith("DISPUTES_")) return "dispute";
   if (topic.startsWith("PRODUCTS_")) return "product";
   if (topic === "INVENTORY_LEVELS_UPDATE") return "inventory";
-  if (topic === "CUSTOMERS_CREATE") return "customer";
+  if (topic.startsWith("CUSTOMERS_")) return "customer";
   return "order";
 }
 
@@ -136,6 +143,8 @@ function resolveNotificationName(
     .filter(Boolean)
     .join(" ");
   const labels: Record<WebhookNotification["kind"], string> = {
+    app: "Shopify app",
+    shop: readScalar(payload.name) || shopLabel(payload),
     order: orderId ? `#${orderId}` : "Order",
     fulfillment: orderId ? `#${orderId}` : "Fulfillment",
     refund: orderId ? `#${orderId}` : `Refund ${resourceId}`,
@@ -154,9 +163,11 @@ function resolveNotificationName(
 }
 
 function resolveNotificationStatus(
+  topic: ShopifyWebhookTopic,
   kind: WebhookNotification["kind"],
   payload: Record<string, unknown>,
 ) {
+  if (topic.endsWith("_DELETE")) return "deleted";
   if (kind === "fulfillment") {
     return readScalar(payload.shipment_status) || readScalar(payload.status);
   }
@@ -172,7 +183,13 @@ function resolveNotificationStatus(
   if (kind === "refund") {
     return readScalar(payload.note) || "refund created";
   }
+  if (kind === "app") return "uninstalled";
+  if (kind === "shop") return "shop updated";
   return readScalar(payload.status) || `${kind} updated`;
+}
+
+function shopLabel(payload: Record<string, unknown>) {
+  return readScalar(payload.myshopify_domain) || "Shop settings";
 }
 
 function decodeSignature(value: string) {

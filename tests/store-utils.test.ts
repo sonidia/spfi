@@ -63,3 +63,26 @@ test("per-store cache restores and evicts isolated snapshots", () => {
   assert.equal(value.value, 0);
   assert.equal(cache.hydrate("a"), false);
 });
+
+test("per-store cache evicts the least recently used inactive store", () => {
+  let value = 0;
+  const cache = usePerStoreCache({
+    capture: () => value,
+    restore: (snapshot) => {
+      value = snapshot;
+    },
+    reset: () => {
+      value = 0;
+    },
+    maxEntries: 2,
+  });
+
+  cache.set("alpha", 1);
+  cache.set("beta", 2);
+  assert.equal(cache.get("alpha"), 1);
+  cache.set("gamma", 3);
+
+  assert.equal(cache.get("beta"), undefined);
+  assert.equal(cache.get("alpha"), 1);
+  assert.equal(cache.get("gamma"), 3);
+});

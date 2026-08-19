@@ -219,7 +219,8 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 }
 
 .select-trigger {
-  width: fit-content;
+  width: 100%;
+  max-width: 100%;
   min-height: 38px;
   display: flex;
   align-items: center;
@@ -260,6 +261,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 .select-option > span {
   min-width: 0;
   display: grid;
+  flex: 1 1 auto;
   gap: 1px;
 }
 

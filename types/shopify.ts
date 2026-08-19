@@ -540,7 +540,18 @@ export interface ShopifyInventoryLevel {
   available: number | null;
   updated_at?: string;
   admin_graphql_api_id?: string;
+  quantities?: Partial<Record<ShopifyInventoryQuantityStateName, number>>;
 }
+
+export type ShopifyInventoryQuantityStateName =
+  | "available"
+  | "incoming"
+  | "committed"
+  | "damaged"
+  | "on_hand"
+  | "quality_control"
+  | "reserved"
+  | "safety_stock";
 
 export interface ShopifyAccessTokenResponse {
   access_token?: string;

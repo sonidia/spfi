@@ -33,6 +33,9 @@ interface StoredWebhookShop {
   shopDomain: string;
   encryptedClientSecret: EncryptedValue;
   encryptedStreamToken: EncryptedValue;
+  streamTokenVersion?: number;
+  streamTokenIssuedAt?: string;
+  streamTokenRotatedAt?: string | null;
   updatedAt: string;
 }
 
@@ -41,6 +44,9 @@ interface ResolvedWebhookShop {
   shopDomain: string;
   clientSecret: string;
   streamToken: string;
+  streamTokenVersion: number;
+  streamTokenIssuedAt: string;
+  streamTokenRotatedAt: string | null;
 }
 
 interface StoredDeliveryClaim {
@@ -54,6 +60,7 @@ interface StoredDeliveryClaim {
 interface LiveSubscriber {
   shopDomains: Set<string>;
   publish: (notification: WebhookNotification) => void | Promise<void>;
+  revoke?: (shopDomain: string) => void | Promise<void>;
 }
 
 export type WebhookDeliveryClaimResult = "claimed" | "duplicate" | "busy";
@@ -70,25 +77,31 @@ export async function upsertWebhookShop(input: {
   encryptionKey?: string;
 }) {
   const existing = await getWebhookShop(input.shopDomain, input.encryptionKey);
+  const issuedAt = existing?.streamTokenIssuedAt || new Date().toISOString();
   const streamToken = existing?.streamToken || randomBytes(32).toString("base64url");
   const shop: ResolvedWebhookShop = {
     storeId: input.storeId,
     shopDomain: input.shopDomain,
     clientSecret: input.clientSecret,
     streamToken,
+    streamTokenVersion: existing?.streamTokenVersion || 1,
+    streamTokenIssuedAt: issuedAt,
+    streamTokenRotatedAt: existing?.streamTokenRotatedAt || null,
   };
-  memoryShops.set(input.shopDomain, shop);
-
   if (input.encryptionKey) {
     const stored: StoredWebhookShop = {
       storeId: shop.storeId,
       shopDomain: shop.shopDomain,
       encryptedClientSecret: encryptValue(shop.clientSecret, input.encryptionKey),
       encryptedStreamToken: encryptValue(shop.streamToken, input.encryptionKey),
+      streamTokenVersion: shop.streamTokenVersion,
+      streamTokenIssuedAt: shop.streamTokenIssuedAt,
+      streamTokenRotatedAt: shop.streamTokenRotatedAt,
       updatedAt: new Date().toISOString(),
     };
     await webhookStorage().setItem(shopKey(shop.shopDomain), stored);
   }
+  memoryShops.set(input.shopDomain, shop);
 
   return shop;
 }
@@ -107,12 +120,66 @@ export async function getWebhookShop(shopDomain: string, encryptionKey?: string)
       shopDomain: stored.shopDomain,
       clientSecret: decryptValue(stored.encryptedClientSecret, encryptionKey),
       streamToken: decryptValue(stored.encryptedStreamToken, encryptionKey),
+      streamTokenVersion: stored.streamTokenVersion || 1,
+      streamTokenIssuedAt: stored.streamTokenIssuedAt || stored.updatedAt,
+      streamTokenRotatedAt: stored.streamTokenRotatedAt || null,
     };
     memoryShops.set(shopDomain, shop);
     return shop;
   } catch {
     return null;
   }
+}
+
+export async function rotateWebhookStreamToken(input: {
+  shopDomain: string;
+  encryptionKey?: string;
+}) {
+  const existing = await getWebhookShop(input.shopDomain, input.encryptionKey);
+  if (!existing) return null;
+
+  const rotatedAt = new Date().toISOString();
+  const rotated: ResolvedWebhookShop = {
+    ...existing,
+    streamToken: randomBytes(32).toString("base64url"),
+    streamTokenVersion: existing.streamTokenVersion + 1,
+    streamTokenIssuedAt: rotatedAt,
+    streamTokenRotatedAt: rotatedAt,
+  };
+  if (input.encryptionKey) {
+    await webhookStorage().setItem(shopKey(rotated.shopDomain), {
+      storeId: rotated.storeId,
+      shopDomain: rotated.shopDomain,
+      encryptedClientSecret: encryptValue(rotated.clientSecret, input.encryptionKey),
+      encryptedStreamToken: encryptValue(rotated.streamToken, input.encryptionKey),
+      streamTokenVersion: rotated.streamTokenVersion,
+      streamTokenIssuedAt: rotated.streamTokenIssuedAt,
+      streamTokenRotatedAt: rotated.streamTokenRotatedAt,
+      updatedAt: rotatedAt,
+    } satisfies StoredWebhookShop);
+  }
+  memoryShops.set(rotated.shopDomain, rotated);
+  revokeWebhookSubscribers(rotated.shopDomain);
+  return rotated;
+}
+
+export async function removeWebhookShop(shopDomain: string) {
+  const storage = webhookStorage();
+  const prefixes = [notificationPrefix(shopDomain), deliveryPrefix(shopDomain)];
+  const keys = (
+    await Promise.all(prefixes.map((prefix) => storage.getKeys(prefix)))
+  ).flat();
+  await storage.removeItem(shopKey(shopDomain));
+  memoryShops.delete(shopDomain);
+  await Promise.allSettled([
+    storage.removeItem(legacyNotificationsKey(shopDomain)),
+    storage.removeItem(deliveryHealthKey(shopDomain)),
+    ...keys.map((key) => storage.removeItem(key)),
+  ]);
+  for (const key of localDeliveryOwners.keys()) {
+    if (key.startsWith(`${shopDomain}:`)) localDeliveryOwners.delete(key);
+  }
+  revokeWebhookSubscribers(shopDomain);
 }
 
 export async function inspectWebhookEncryption(encryptionKey?: string) {
@@ -148,6 +215,8 @@ export function matchesWebhookStreamToken(expected: string, supplied: string) {
   const suppliedHash = createHash("sha256").update(supplied).digest();
   return timingSafeEqual(expectedHash, suppliedHash);
 }
+
+export const matchesWebhookClientSecret = matchesWebhookStreamToken;
 
 export async function claimWebhookDelivery(
   shopDomain: string,
@@ -332,9 +401,20 @@ export function subscribeToWebhookNotifications(input: LiveSubscriber) {
 }
 
 export function publishWebhookNotification(notification: WebhookNotification) {
+  const pending: Promise<void>[] = [];
   for (const subscriber of subscribers.values()) {
     if (!subscriber.shopDomains.has(notification.shopDomain)) continue;
-    void Promise.resolve(subscriber.publish(notification)).catch(() => undefined);
+    pending.push(
+      Promise.resolve(subscriber.publish(notification)).catch(() => undefined),
+    );
+  }
+  return Promise.all(pending).then(() => undefined);
+}
+
+function revokeWebhookSubscribers(shopDomain: string) {
+  for (const subscriber of subscribers.values()) {
+    if (!subscriber.shopDomains.has(shopDomain)) continue;
+    void Promise.resolve(subscriber.revoke?.(shopDomain)).catch(() => undefined);
   }
 }
 

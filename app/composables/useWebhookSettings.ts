@@ -7,6 +7,7 @@ import type {
   ShopifyWebhookSubscription,
   WebhookConfigurationResponse,
   WebhookStoreStatusResponse,
+  WebhookStreamTokenRotationResponse,
 } from "~~/types/webhook";
 import { getAppErrorMessage } from "~~/utils/error";
 import { mapSettledWithConcurrency, settlePromise } from "~~/utils/promise-concurrency";
@@ -157,6 +158,38 @@ export function useWebhookSettings() {
     }
   }
 
+  async function rotateStreamToken(storeId: string) {
+    const confirmed = await requestConfirmation({
+      title: t("webhook.rotateTitle"),
+      message: t("webhook.rotateMessage"),
+      confirmLabel: t("webhook.rotate"),
+    });
+    if (!confirmed) return;
+
+    const storeData = credentialVault.getStoreData(storeId);
+    const token = resolveStoreAccessToken(storeData);
+    const clientSecret = String(storeData.clientSecret || "").trim();
+    if (!token || !clientSecret) return;
+    actionKey.value = `rotate:${storeId}`;
+    try {
+      await $fetch<WebhookStreamTokenRotationResponse>(
+        "/api/webhooks/stream-token/rotate",
+        {
+          method: "POST",
+          body: { storeId, token, clientSecret },
+        },
+      );
+      notificationStore.invalidateRegistration(storeId);
+      await notificationStore.synchronize();
+      await refresh();
+      toast.success(t("webhook.rotateSuccess"));
+    } catch (error) {
+      toast.error(getAppErrorMessage(error, t("webhook.rotateFailed")));
+    } finally {
+      actionKey.value = "";
+    }
+  }
+
   return {
     actionKey,
     configuration,
@@ -166,6 +199,7 @@ export function useWebhookSettings() {
     stores,
     refresh,
     removeSubscription,
+    rotateStreamToken,
     synchronizeAndRefresh,
     testWebhook,
   };

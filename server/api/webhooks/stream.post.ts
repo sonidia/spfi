@@ -67,6 +67,7 @@ export default defineEventHandler(async (event) => {
   const unsubscribe = subscribeToWebhookNotifications({
     shopDomains,
     publish: pushNotification,
+    revoke: () => stream.close(),
   });
   let isPolling = false;
   const pollSharedStorage = async () => {

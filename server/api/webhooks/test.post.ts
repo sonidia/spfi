@@ -74,6 +74,6 @@ export default defineEventHandler(async (event) => {
     receivedAt: now,
   };
   await saveWebhookNotification(notification);
-  publishWebhookNotification(notification);
+  await publishWebhookNotification(notification);
   return { accepted: true, notification };
 });

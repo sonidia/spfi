@@ -5,42 +5,39 @@ import {
   requireShopifyExactResourceId,
   requireShopifyInteger,
 } from "~~/server/utils/shopify-admin-request";
-import { updateShopifyInventoryBulk } from "~~/server/utils/shopify-inventory-bulk";
+import { moveShopifyInventoryReservations } from "~~/server/utils/shopify-inventory-reservations";
 import type {
-  ShopifyInventoryBulkItemInput,
-  ShopifyInventoryBulkMode,
-  ShopifyInventoryQuantityName,
+  ShopifyInventoryReservationDirection,
+  ShopifyInventoryReservationItemInput,
 } from "~~/types/shopify-inventory";
 
-interface InventoryBulkBody {
+interface InventoryReservationBody {
   storeId?: string;
   token?: string;
   location_id?: string | number;
-  items?: ShopifyInventoryBulkItemInput[];
-  mode?: ShopifyInventoryBulkMode;
-  amount?: string | number;
-  quantity_name?: ShopifyInventoryQuantityName;
+  items?: ShopifyInventoryReservationItemInput[];
+  direction?: ShopifyInventoryReservationDirection;
+  quantity?: string | number;
   reason?: string;
 }
 
 export default defineEventHandler(async (event) => {
-  const body = (await readBody<InventoryBulkBody>(event)) || {};
+  const body = (await readBody<InventoryReservationBody>(event)) || {};
   if (
     !Array.isArray(body.items) ||
     !body.items.length ||
     body.items.length > 250 ||
-    (body.mode !== "SET" && body.mode !== "ADJUST")
+    (body.direction !== "RESERVE" && body.direction !== "RELEASE")
   ) {
     throw createApiErrorFromMessage(
-      "Provide a SET or ADJUST operation and 1 to 250 inventory items.",
+      "Provide a RESERVE or RELEASE operation and 1 to 250 inventory items.",
       400,
     );
   }
 
-  const seen = new Set<string>();
-  const quantityName = body.quantity_name || "available";
-  if (quantityName !== "available" && quantityName !== "on_hand") {
-    throw createApiErrorFromMessage("quantity_name must be available or on_hand.", 400);
+  const quantity = requireShopifyInteger(body.quantity, "quantity");
+  if (quantity <= 0) {
+    throw createApiErrorFromMessage("quantity must be greater than zero.", 400);
   }
   const reason = String(body.reason || "correction").trim();
   if (!/^[a-z][a-z0-9_]{0,63}$/.test(reason)) {
@@ -49,6 +46,8 @@ export default defineEventHandler(async (event) => {
       400,
     );
   }
+
+  const seen = new Set<string>();
   const items = body.items.map((item) => {
     const inventoryItemId = requireShopifyExactResourceId(
       item.inventory_item_id,
@@ -56,32 +55,28 @@ export default defineEventHandler(async (event) => {
     );
     if (seen.has(String(inventoryItemId))) {
       throw createApiErrorFromMessage(
-        "Each inventory item can only appear once per bulk update.",
+        "Each inventory item can only appear once per reservation move.",
         400,
       );
     }
     seen.add(String(inventoryItemId));
-    const changeFromQuantity =
-      item.change_from_quantity === null
-        ? null
-        : (item.change_from_quantity ?? item.compare_quantity);
     return {
       inventoryItemId,
-      changeFromQuantity:
-        changeFromQuantity === undefined
-          ? null
-          : requireShopifyInteger(changeFromQuantity, "change_from_quantity"),
+      currentAvailable: requireShopifyInteger(
+        item.current_available,
+        "current_available",
+      ),
+      currentReserved: requireShopifyInteger(item.current_reserved, "current_reserved"),
     };
   });
 
-  return updateShopifyInventoryBulk(
+  return moveShopifyInventoryReservations(
     { event, ...requireShopifyCredentials(body) },
     {
       locationId: requireShopifyExactResourceId(body.location_id, "Location"),
       items,
-      mode: body.mode,
-      amount: requireShopifyInteger(body.amount, "amount"),
-      quantityName,
+      direction: body.direction,
+      quantity,
       reason,
     },
   );

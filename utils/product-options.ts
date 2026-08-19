@@ -56,3 +56,15 @@ export function buildVariantsFromOptions(
 export function isValidProductPrice(value: unknown) {
   return /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(String(value ?? "").trim());
 }
+
+export function isProductPriceChanged(draft: unknown, current: unknown) {
+  return (
+    normalizeComparableProductPrice(draft) !== normalizeComparableProductPrice(current)
+  );
+}
+
+function normalizeComparableProductPrice(value: unknown) {
+  const price = String(value ?? "").trim();
+  if (!price) return "";
+  return isValidProductPrice(price) ? Number(price).toFixed(2) : price;
+}

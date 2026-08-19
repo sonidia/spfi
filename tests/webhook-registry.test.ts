@@ -6,7 +6,10 @@ import {
   getWebhookNotifications,
   getWebhookShop,
   releaseWebhookDelivery,
+  removeWebhookShop,
+  rotateWebhookStreamToken,
   saveWebhookNotification,
+  subscribeToWebhookNotifications,
   upsertWebhookShop,
   withWebhookShopLock,
 } from "../server/utils/webhook-registry.ts";
@@ -94,6 +97,52 @@ test("webhook secrets are encrypted at rest and decrypt only with the right key"
   unreadable.shopDomain = unreadableDomain;
   items.set(`shops:${unreadableDomain}`, unreadable);
   assert.equal(await getWebhookShop(unreadableDomain, "rotated-key"), null);
+});
+
+test("stream token rotation versions the token and revokes active subscribers", async () => {
+  const key = "rotation-deployment-key";
+  const shopDomain = "rotation-test.myshopify.com";
+  const original = await upsertWebhookShop({
+    storeId: "rotation-test",
+    shopDomain,
+    clientSecret: "rotation-client-secret",
+    encryptionKey: key,
+  });
+  let revokedDomain = "";
+  const unsubscribe = subscribeToWebhookNotifications({
+    shopDomains: new Set([shopDomain]),
+    publish: () => undefined,
+    revoke: (domain) => {
+      revokedDomain = domain;
+    },
+  });
+
+  const rotated = await rotateWebhookStreamToken({ shopDomain, encryptionKey: key });
+  assert.ok(rotated);
+  assert.notEqual(rotated.streamToken, original.streamToken);
+  assert.equal(rotated.streamTokenVersion, 2);
+  assert.equal(rotated.streamTokenRotatedAt, rotated.streamTokenIssuedAt);
+  assert.equal(revokedDomain, shopDomain);
+  assert.equal((await getWebhookShop(shopDomain, key))?.streamTokenVersion, 2);
+  unsubscribe();
+});
+
+test("removing an uninstalled shop purges credentials and delivery data", async () => {
+  const key = "uninstall-deployment-key";
+  const shopDomain = "uninstall-test.myshopify.com";
+  await upsertWebhookShop({
+    storeId: "uninstall-test",
+    shopDomain,
+    clientSecret: "uninstall-client-secret",
+    encryptionKey: key,
+  });
+  await saveWebhookNotification(makeNotification(shopDomain));
+  assert.equal((await getWebhookNotifications([shopDomain])).length, 1);
+
+  await removeWebhookShop(shopDomain);
+
+  assert.equal(await getWebhookShop(shopDomain, key), null);
+  assert.deepEqual(await getWebhookNotifications([shopDomain]), []);
 });
 
 test("notifications are idempotent per delivery ID", async () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildVariantsFromOptions,
+  isProductPriceChanged,
   isValidProductPrice,
   normalizeProductOptions,
 } from "../utils/product-options.ts";
@@ -45,4 +46,11 @@ test("product prices accept zero and up to two decimal places", () => {
   assert.equal(isValidProductPrice("19.99"), true);
   assert.equal(isValidProductPrice("19.999"), false);
   assert.equal(isValidProductPrice("-1"), false);
+});
+
+test("price change detection ignores display-only decimal formatting", () => {
+  assert.equal(isProductPriceChanged("19.9", "19.90"), false);
+  assert.equal(isProductPriceChanged("", null), false);
+  assert.equal(isProductPriceChanged("20.00", "19.90"), true);
+  assert.equal(isProductPriceChanged("invalid", "19.90"), true);
 });

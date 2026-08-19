@@ -35,29 +35,16 @@ export default defineEventHandler(
       throw createApiErrorFromMessage("A valid Shopify store ID is required.", 400);
     }
 
-    const shop = await upsertWebhookShop({
-      storeId,
-      shopDomain,
-      clientSecret,
-      encryptionKey: String(config.webhookEncryptionKey || "").trim() || undefined,
-    });
     const callbackInspection = inspectWebhookCallbackConfiguration(
       event,
       config.webhookPublicUrl,
     );
     const callbackUrl = callbackInspection.configuration?.callbackUrl || null;
     if (!callbackUrl) {
-      const synchronizationError =
-        callbackInspection.error || "Webhook callback URL is invalid.";
-      return {
-        storeId,
-        shopDomain,
-        streamToken: shop.streamToken,
-        webhookUrl: null,
-        registeredTopics: [],
-        warnings: [synchronizationError],
-        synchronizationError,
-      };
+      throw createApiErrorFromMessage(
+        callbackInspection.error || "Webhook callback URL is invalid.",
+        503,
+      );
     }
 
     const result = await synchronizeShopifyWebhookSubscriptions({
@@ -66,6 +53,17 @@ export default defineEventHandler(
       token,
       callbackUrl,
     });
+    if (result.error) {
+      throw createApiErrorFromMessage(result.error, 502);
+    }
+    // Persist credentials only after Shopify has authenticated the access token
+    // and accepted at least one managed subscription.
+    const shop = await upsertWebhookShop({
+      storeId,
+      shopDomain,
+      clientSecret,
+      encryptionKey: String(config.webhookEncryptionKey || "").trim() || undefined,
+    });
 
     return {
       storeId,
@@ -73,8 +71,11 @@ export default defineEventHandler(
       streamToken: shop.streamToken,
       webhookUrl: callbackUrl,
       registeredTopics: result.registeredTopics,
-      warnings: result.error ? [result.error, ...result.warnings] : result.warnings,
-      synchronizationError: result.error,
+      warnings: result.warnings,
+      synchronizationError: null,
+      streamTokenVersion: shop.streamTokenVersion,
+      streamTokenIssuedAt: shop.streamTokenIssuedAt,
+      streamTokenRotatedAt: shop.streamTokenRotatedAt,
     };
   },
 );

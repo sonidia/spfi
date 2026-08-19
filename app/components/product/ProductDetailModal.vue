@@ -42,23 +42,24 @@ const selectedInventoryItemIds = computed(() =>
 );
 
 const selectedInventoryItemIdSet = computed(
-  () => new Set(selectedInventoryItemIds.value),
+  () => new Set(selectedInventoryItemIds.value.map(String)),
 );
 
 const selectedInventoryLevels = computed(() =>
   inventoryLevels.value.filter((level) =>
-    selectedInventoryItemIdSet.value.has(level.inventory_item_id),
+    selectedInventoryItemIdSet.value.has(String(level.inventory_item_id)),
   ),
 );
 
 const inventoryByLocation = computed(() => {
   const summaries = new Map<
-    ShopifyNumericId,
+    string,
     { available: number; levelCount: number; hasUntracked: boolean }
   >();
 
   selectedInventoryLevels.value.forEach((level) => {
-    const current = summaries.get(level.location_id) || {
+    const locationKey = String(level.location_id);
+    const current = summaries.get(locationKey) || {
       available: 0,
       levelCount: 0,
       hasUntracked: false,
@@ -71,7 +72,7 @@ const inventoryByLocation = computed(() => {
       current.available += level.available;
     }
 
-    summaries.set(level.location_id, current);
+    summaries.set(locationKey, current);
   });
 
   return summaries;
@@ -81,10 +82,10 @@ const visibleLocations = computed(() => {
   if (!selectedInventoryLevels.value.length) return locations.value;
 
   const locationIds = new Set(
-    selectedInventoryLevels.value.map((level) => level.location_id),
+    selectedInventoryLevels.value.map((level) => String(level.location_id)),
   );
 
-  return locations.value.filter((location) => locationIds.has(location.id));
+  return locations.value.filter((location) => locationIds.has(String(location.id)));
 });
 
 const totalVariantInventory = computed(() =>
@@ -108,7 +109,16 @@ function formatProductStatus(status?: ShopifyProductStatus) {
   if (status === "active") return t("product.statusActive");
   if (status === "draft") return t("product.statusDraft");
   if (status === "archived") return t("product.statusArchived");
+  if (status === "unlisted") return t("product.statusUnlisted");
   return t("product.statusUnknown");
+}
+
+function formatVariantPrice(variant: ShopifyProduct["variants"][number]) {
+  const price = String(variant.price || "").trim();
+  if (!price) return "-";
+  return props.product.price_currency
+    ? `${price} ${props.product.price_currency}`
+    : price;
 }
 
 function formatVariantInventory(variant: ShopifyProduct["variants"][number]) {
@@ -139,7 +149,7 @@ function getLocationInventoryLabel(locationId: ShopifyNumericId) {
     return t("product.noInventoryItemId");
   }
 
-  const summary = inventoryByLocation.value.get(locationId);
+  const summary = inventoryByLocation.value.get(String(locationId));
   if (!summary) {
     return t("product.noInventoryLevel");
   }
@@ -332,9 +342,12 @@ onUnmounted(() => {
                   </span>
                 </div>
               </div>
-              <span class="variant-inventory">
-                {{ formatVariantInventory(variant) }}
-              </span>
+              <div class="variant-side">
+                <span class="variant-price">{{ formatVariantPrice(variant) }}</span>
+                <span class="variant-inventory">
+                  {{ formatVariantInventory(variant) }}
+                </span>
+              </div>
             </div>
           </div>
           <div v-else class="detail-empty">{{ t("product.noVariants") }}</div>
@@ -656,6 +669,21 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.variant-side {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.variant-price {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .location-main {
   min-width: 0;
 }
@@ -753,6 +781,10 @@ onUnmounted(() => {
   }
 
   .location-side {
+    align-items: flex-start;
+  }
+
+  .variant-side {
     align-items: flex-start;
   }
 }

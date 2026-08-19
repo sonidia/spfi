@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 
 const API_RATE_LIMIT_HEADER_PREFIX = "x-ratelimit-api";
 const FALLBACK_RATE_LIMIT_HEADER_PREFIX = "x-ratelimit";
+const MAX_GRAPHQL_COST_STORES = 12;
 
 interface HeaderReader {
   get(name: string): string | null;
@@ -59,10 +60,16 @@ export const useRateLimitStore = defineStore("rateLimit", () => {
     if (normalizedStoreId && graphqlCost) {
       const current = graphqlCosts.value[normalizedStoreId];
       if (!current || graphqlCost.requestSequence >= current.requestSequence) {
-        graphqlCosts.value = {
+        const nextCosts = {
           ...graphqlCosts.value,
           [normalizedStoreId]: graphqlCost,
         };
+        const staleStoreIds = Object.entries(nextCosts)
+          .sort((left, right) => right[1].observedAt - left[1].observedAt)
+          .slice(MAX_GRAPHQL_COST_STORES)
+          .map(([id]) => id);
+        for (const id of staleStoreIds) delete nextCosts[id];
+        graphqlCosts.value = nextCosts;
         didUpdate = true;
       }
     }

@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleOff,
   FlaskConical,
+  KeyRound,
   RefreshCw,
   Radio,
   ShieldAlert,
@@ -24,6 +25,7 @@ const {
   stores,
   refresh,
   removeSubscription,
+  rotateStreamToken,
   synchronizeAndRefresh,
   testWebhook,
 } = useWebhookSettings();
@@ -148,16 +150,28 @@ onMounted(() => void refresh());
             <strong>{{ store.storeId }}</strong>
             <small>{{ store.status?.shopDomain || t("webhook.loading") }}</small>
           </div>
-          <BaseButton
-            :loading="actionKey === `test:${store.storeId}`"
-            :disabled="
-              Boolean(actionKey) || !store.status || Boolean(store.status.error)
-            "
-            @click="testWebhook(store.storeId)"
-          >
-            <template #icon><FlaskConical /></template>
-            {{ t("webhook.test") }}
-          </BaseButton>
+          <div class="store-actions">
+            <BaseButton
+              :loading="actionKey === `rotate:${store.storeId}`"
+              :disabled="
+                Boolean(actionKey) || !store.status || !store.status.streamTokenVersion
+              "
+              @click="rotateStreamToken(store.storeId)"
+            >
+              <template #icon><KeyRound /></template>
+              {{ t("webhook.rotate") }}
+            </BaseButton>
+            <BaseButton
+              :loading="actionKey === `test:${store.storeId}`"
+              :disabled="
+                Boolean(actionKey) || !store.status || Boolean(store.status.error)
+              "
+              @click="testWebhook(store.storeId)"
+            >
+              <template #icon><FlaskConical /></template>
+              {{ t("webhook.test") }}
+            </BaseButton>
+          </div>
         </header>
 
         <p v-if="store.error || store.status?.error" class="store-error" role="alert">
@@ -185,6 +199,14 @@ onMounted(() => void refresh());
               </small>
               <small v-if="store.status.delivery?.error" class="is-failure">
                 {{ store.status.delivery.error }}
+              </small>
+              <small v-if="store.status.streamTokenVersion">
+                {{
+                  t("webhook.streamTokenMetadata", {
+                    version: store.status.streamTokenVersion,
+                    date: formatDate(store.status.streamTokenIssuedAt),
+                  })
+                }}
               </small>
             </div>
           </div>
@@ -402,6 +424,11 @@ onMounted(() => void refresh());
   gap: 3px;
 }
 
+.store-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .store-webhooks strong {
   font-size: 12px;
 }
@@ -524,6 +551,11 @@ onMounted(() => void refresh());
 
   .toolbar-actions {
     align-self: stretch;
+  }
+
+  .store-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .toolbar-actions :deep(.base-button) {

@@ -10,6 +10,16 @@ const notificationStore = useNotificationStore();
 const { t } = useLocalization();
 const confirmDialog = useConfirmDialog();
 
+function clearPageError(clearError: () => void) {
+  loading.value = false;
+  clearError();
+}
+
+async function leavePageError(clearError: () => void) {
+  clearPageError(clearError);
+  await navigateTo("/");
+}
+
 onMounted(() => {
   credentialVault.initialize();
   notificationStore.initialize();
@@ -40,7 +50,16 @@ useTokenRotation();
     <Nav />
     <div id="main-content" tabindex="-1">
       <NuxtLayout>
-        <NuxtPage :keepalive="{ max: 6 }" />
+        <NuxtErrorBoundary>
+          <NuxtPage :keepalive="{ max: 6 }" />
+          <template #error="{ error, clearError }">
+            <AppErrorState
+              :error="error"
+              @retry="clearPageError(clearError)"
+              @home="leavePageError(clearError)"
+            />
+          </template>
+        </NuxtErrorBoundary>
       </NuxtLayout>
     </div>
   </div>

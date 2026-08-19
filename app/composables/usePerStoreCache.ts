@@ -4,6 +4,7 @@ interface PerStoreCacheOptions<T> {
   reset: () => void;
   onStoreChange?: () => void;
   canRemember?: (storeId: string) => boolean;
+  maxEntries?: number;
 }
 
 export function usePerStoreCache<T>({
@@ -12,16 +13,25 @@ export function usePerStoreCache<T>({
   reset,
   onStoreChange,
   canRemember,
+  maxEntries = 6,
 }: PerStoreCacheOptions<T>) {
   const entries = new Map<string, T>();
+  const capacity = Math.max(1, Math.trunc(maxEntries));
   let activeStoreId = "";
 
   function get(storeId: string) {
-    return entries.get(storeId);
+    const snapshot = entries.get(storeId);
+    if (snapshot === undefined) return undefined;
+    entries.delete(storeId);
+    entries.set(storeId, snapshot);
+    return snapshot;
   }
 
   function set(storeId: string, snapshot: T) {
-    if (storeId) entries.set(storeId, snapshot);
+    if (!storeId) return;
+    entries.delete(storeId);
+    entries.set(storeId, snapshot);
+    prune();
   }
 
   function remember(storeId = activeStoreId) {
@@ -57,6 +67,17 @@ export function usePerStoreCache<T>({
 
   function isActive(storeId: string) {
     return Boolean(storeId) && activeStoreId === storeId;
+  }
+
+  function prune() {
+    while (entries.size > capacity) {
+      const oldestInactive = [...entries.keys()].find(
+        (storeId) => storeId !== activeStoreId,
+      );
+      const oldest = oldestInactive || entries.keys().next().value;
+      if (!oldest) return;
+      entries.delete(oldest);
+    }
   }
 
   return {

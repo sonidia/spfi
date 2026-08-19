@@ -54,8 +54,11 @@ function handleDocumentKeydown(event: KeyboardEvent) {
 
 function notificationTitle(notification: ClientWebhookNotification) {
   const key = {
+    APP_UNINSTALLED: "notification.appUninstalled",
+    SHOP_UPDATE: "notification.shopUpdated",
     ORDERS_CREATE: "notification.orderCreated",
     ORDERS_UPDATED: "notification.orderUpdated",
+    ORDERS_DELETE: "notification.orderDeleted",
     FULFILLMENTS_CREATE: "notification.fulfillmentCreated",
     FULFILLMENTS_UPDATE: "notification.fulfillmentUpdated",
     REFUNDS_CREATE: "notification.refundCreated",
@@ -63,8 +66,10 @@ function notificationTitle(notification: ClientWebhookNotification) {
     DISPUTES_UPDATE: "notification.disputeUpdated",
     PRODUCTS_CREATE: "notification.productCreated",
     PRODUCTS_UPDATE: "notification.productUpdated",
+    PRODUCTS_DELETE: "notification.productDeleted",
     INVENTORY_LEVELS_UPDATE: "notification.inventoryUpdated",
     CUSTOMERS_CREATE: "notification.customerCreated",
+    CUSTOMERS_DELETE: "notification.customerDeleted",
   }[notification.topic] as MessageKey;
   return t(key, { name: notification.orderName });
 }
@@ -214,6 +219,7 @@ onBeforeUnmount(() => {
               <Boxes v-else-if="notification.kind === 'inventory'" />
               <PackageOpen v-else-if="notification.kind === 'product'" />
               <UserRound v-else-if="notification.kind === 'customer'" />
+              <Bell v-else-if="['app', 'shop'].includes(notification.kind)" />
               <ShoppingBag v-else />
             </span>
             <span class="notification-copy">
