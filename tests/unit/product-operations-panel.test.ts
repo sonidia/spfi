@@ -1,5 +1,5 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import ProductOperationsPanel from "~/components/product/ProductOperationsPanel.vue";
 import type { ShopifyProduct } from "~~/types/shopify";
@@ -12,6 +12,16 @@ const mocks = vi.hoisted(() => ({
   fetchProductInventory: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
+}));
+const locationState = vi.hoisted(() => ({
+  inventoryLevels: [
+    {
+      inventory_item_id: 42,
+      location_id: "10",
+      available: 5,
+      quantities: { available: 5, on_hand: 5, reserved: 0 },
+    },
+  ],
 }));
 
 vi.mock("~/composables/useProductOperations", () => ({
@@ -50,14 +60,9 @@ vi.mock("~/composables/useProductOperations", () => ({
 vi.mock("~/composables/useLocations", () => ({
   useLocations: () => ({
     locations: ref([{ id: 10, name: "Main", active: true }]),
-    inventoryLevels: ref([
-      {
-        inventory_item_id: 42,
-        location_id: "10",
-        available: 5,
-        quantities: { available: 5, on_hand: 5, reserved: 0 },
-      },
-    ]),
+    inventoryLevels: ref(locationState.inventoryLevels),
+    isLoadingLocations: ref(false),
+    locationError: ref(null),
     fetchLocations: mocks.fetchLocations.mockResolvedValue(undefined),
     fetchProductInventory: mocks.fetchProductInventory.mockResolvedValue(undefined),
   }),
@@ -106,6 +111,18 @@ function mountPanel() {
 }
 
 describe("ProductOperationsPanel pricing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    locationState.inventoryLevels = [
+      {
+        inventory_item_id: 42,
+        location_id: "10",
+        available: 5,
+        quantities: { available: 5, on_hand: 5, reserved: 0 },
+      },
+    ];
+  });
+
   it("saves an edited price without invoking inventory updates", async () => {
     const wrapper = mountPanel();
     await flushPromises();
@@ -165,5 +182,24 @@ describe("ProductOperationsPanel pricing", () => {
     expect(updateInventory).toBeDefined();
     expect(updateInventory?.attributes("disabled")).toBeUndefined();
     expect(wrapper.find(".inventory-warning").exists()).toBe(false);
+  });
+
+  it("disables inventory updates and explains when a variant is not stocked", async () => {
+    locationState.inventoryLevels = [];
+    const wrapper = mountPanel();
+    await flushPromises();
+
+    const updateInventory = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("product.updateInventory"));
+    expect(updateInventory).toBeDefined();
+    expect(updateInventory?.attributes("disabled")).toBeDefined();
+    expect(wrapper.get(".inventory-warning").text()).toContain(
+      "product.inventoryLevelRequired",
+    );
+
+    await updateInventory?.trigger("click");
+    expect(mocks.updateInventoryBulk).not.toHaveBeenCalled();
+    expect(mocks.error).not.toHaveBeenCalled();
   });
 });

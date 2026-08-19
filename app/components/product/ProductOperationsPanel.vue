@@ -39,8 +39,14 @@ const toast = useToastStore();
 const operations = useProductOperations();
 const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
-const { locations, inventoryLevels, fetchLocations, fetchProductInventory } =
-  useLocations();
+const {
+  locations,
+  inventoryLevels,
+  isLoadingLocations,
+  locationError,
+  fetchLocations,
+  fetchProductInventory,
+} = useLocations();
 
 const editingVariantId = ref<ShopifyNumericId | null>(null);
 const variantForm = ref<ShopifyVariantInput>(emptyVariantForm());
@@ -179,6 +185,34 @@ const inventoryTargetsConnected = computed(
       hasActiveInventoryLevel(variant, inventoryLocationId.value!),
     ),
 );
+const inventoryConnectionMessage = computed(() => {
+  if (!inventoryTargets.value.length || isLoadingLocations.value) return "";
+  if (locationError.value) {
+    return t("product.inventoryLoadFailed", { error: locationError.value });
+  }
+
+  const visibleTargets = inventoryTargets.value.slice(0, 3);
+  const targetNames = visibleTargets
+    .map((variant) => variant.title || variant.sku || String(variant.id))
+    .join(", ");
+  const hiddenTargetCount = inventoryTargets.value.length - visibleTargets.length;
+  const variants = hiddenTargetCount
+    ? t("product.inventoryTargetNamesOverflow", {
+        variants: targetNames,
+        count: hiddenTargetCount,
+      })
+    : targetNames;
+  const location = locations.value.find(
+    (candidate) => String(candidate.id) === String(inventoryLocationId.value),
+  );
+
+  return location
+    ? t("product.inventoryLevelRequiredAtLocation", {
+        variants,
+        location: location.name || String(location.id),
+      })
+    : t("product.inventoryLevelRequired", { variants });
+});
 const inventoryAmountIsValid = computed(() => {
   const amount = Number(inventoryAmount.value);
   return (
@@ -816,7 +850,9 @@ async function updateInventory() {
           typeof getInventoryQuantity(level, "reserved") !== "number"),
     )
   ) {
-    toast.error(t("product.inventoryTargetsNotConnected"));
+    toast.error(
+      inventoryConnectionMessage.value || t("product.inventoryTargetsNotConnected"),
+    );
     return;
   }
   if (isReservationMove) {
@@ -1329,6 +1365,7 @@ async function afterMutation() {
             :model-value="inventoryLocationId"
             :options="inventoryLocationOptions"
             :aria-label="t('product.location')"
+            :disabled="isLoadingLocations"
             @update:model-value="inventoryLocationId = $event as ShopifyNumericId"
           />
         </label>
@@ -1383,7 +1420,8 @@ async function afterMutation() {
               : (getInventoryQuantity(
                   selectedInventoryLevel,
                   activeInventoryQuantityName,
-                ) ?? t("product.notConnected"))
+                ) ??
+                (isLoadingLocations ? t("common.loading") : t("product.notConnected")))
           }}</strong>
         </div>
         <BaseButton
@@ -1396,11 +1434,13 @@ async function afterMutation() {
           {{ t("product.updateInventory") }}
         </BaseButton>
         <div
-          v-if="inventoryTargets.length && !inventoryTargetsConnected"
+          v-if="
+            inventoryTargets.length && !inventoryTargetsConnected && !isLoadingLocations
+          "
           class="inventory-warning"
-          role="status"
+          :role="locationError ? 'alert' : 'status'"
         >
-          {{ t("product.inventoryTargetsNotConnected") }}
+          {{ inventoryConnectionMessage }}
         </div>
       </div>
       <InventoryItemEditor

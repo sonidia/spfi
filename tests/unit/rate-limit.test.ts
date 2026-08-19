@@ -1,12 +1,16 @@
 import { createPinia, setActivePinia } from "pinia";
-import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it } from "vitest";
+import { flushPromises, mount } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import BasePopover from "~/components/BasePopover.vue";
 import RateLimitQuota from "~/components/shop/RateLimitQuota.vue";
 import { useFormStore } from "~/stores/form";
 import { useRateLimitStore } from "~/stores/rateLimit";
 
 describe("rate limit store", () => {
   beforeEach(() => setActivePinia(createPinia()));
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
 
   it("uses the stable app-wide API quota headers", () => {
     const store = useRateLimitStore();
@@ -92,7 +96,7 @@ describe("rate limit store", () => {
     expect(store.graphqlCosts["shop-19"]).toBeDefined();
   });
 
-  it("renders a horizontal meter when expanded and a circumference ring when collapsed", async () => {
+  it("shows a compact request row and opens both quota meters in a popover", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const store = useRateLimitStore();
@@ -107,17 +111,28 @@ describe("rate limit store", () => {
 
     const wrapper = mount(RateLimitQuota, {
       props: { collapsed: false },
-      global: { plugins: [pinia] },
+      global: {
+        components: { BasePopover },
+        plugins: [pinia],
+      },
     });
 
-    expect(wrapper.text()).toContain("300 / 600 requests");
+    expect(wrapper.get(".quota-summary").text()).toContain("Request quota");
     expect(wrapper.text()).toContain("50%");
-    expect(wrapper.get(".quota-progress span").attributes("style")).toContain(
+    expect(wrapper.get(".quota-summary-progress span").attributes("style")).toContain(
       "width: 50%",
     );
-    expect(wrapper.text()).toContain("GraphQL cost");
-    expect(wrapper.text()).toContain("500 / 1,000 points");
-    expect(wrapper.findAll(".quota-progress")).toHaveLength(2);
+    expect(wrapper.text()).not.toContain("GraphQL cost");
+
+    await wrapper.get(".quota-summary").trigger("click");
+    await flushPromises();
+
+    const detail = document.body.querySelector<HTMLElement>(".quota-detail-panel");
+    expect(detail).not.toBeNull();
+    expect(detail?.textContent).toContain("300 / 600 requests");
+    expect(detail?.textContent).toContain("GraphQL cost");
+    expect(detail?.textContent).toContain("500 / 1,000 points");
+    expect(detail?.querySelectorAll(".quota-progress")).toHaveLength(2);
 
     await wrapper.setProps({ collapsed: true });
 

@@ -23,10 +23,10 @@
           </div>
           <div class="page-meta-actions">
             <CsvExportButton resource="products" />
-            <button class="btn-primary-sm" @click="showCreateModal = true">
-              <Plus :size="14" aria-hidden="true" />
+            <BaseButton variant="primary" @click="showCreateModal = true">
+              <template #icon><Plus aria-hidden="true" /></template>
               {{ t("product.addProduct") }}
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -90,25 +90,38 @@
             :aria-label="t('product.sortDirection')"
             @update:model-value="filterForm.reverse = $event !== 'ASC'"
           />
-          <button
-            class="btn-outline product-filter-toggle"
+          <BaseButton
+            class="product-filter-action product-filter-toggle"
+            size="medium"
             type="button"
             :aria-expanded="showAdvancedFilters"
             @click="showAdvancedFilters = !showAdvancedFilters"
           >
-            <SlidersHorizontal aria-hidden="true" />
-            {{ t("product.dateFilters") }}
-            <ChevronDown
-              aria-hidden="true"
-              :class="{ 'is-rotated': showAdvancedFilters }"
-            />
-          </button>
-          <button class="btn-primary-sm" type="submit">
+            <template #icon><SlidersHorizontal aria-hidden="true" /></template>
+            <span class="product-filter-toggle-label">
+              {{ t("product.dateFilters") }}
+              <ChevronDown
+                aria-hidden="true"
+                :class="{ 'is-rotated': showAdvancedFilters }"
+              />
+            </span>
+          </BaseButton>
+          <BaseButton
+            class="product-filter-action"
+            variant="primary"
+            size="medium"
+            type="submit"
+          >
             {{ t("product.search") }}
-          </button>
-          <button class="btn-outline filter-reset" type="button" @click="resetFilters">
+          </BaseButton>
+          <BaseButton
+            class="product-filter-action"
+            size="medium"
+            type="button"
+            @click="resetFilters"
+          >
             {{ t("product.resetFilters") }}
-          </button>
+          </BaseButton>
           <div v-if="showAdvancedFilters" class="product-date-filters">
             <label>
               <span>{{ t("product.createdFrom") }}</span>
@@ -683,34 +696,45 @@
             </h3>
             <p>{{ editProduct.title }}</p>
           </div>
-          <button
-            class="btn-close"
-            type="button"
+          <BaseButton
+            variant="ghost"
+            icon-only
+            size="medium"
             :aria-label="t('common.close')"
             @click="closeEditModal"
           >
-            <X aria-hidden="true" />
-          </button>
+            <template #icon><X aria-hidden="true" /></template>
+          </BaseButton>
         </div>
-        <nav class="product-edit-nav" :aria-label="t('product.editSections')">
-          <button
-            type="button"
+        <nav
+          class="product-edit-nav"
+          role="tablist"
+          :aria-label="t('product.editSections')"
+        >
+          <BaseButton
+            class="product-edit-nav-button"
+            size="medium"
+            :variant="editSection === 'details' ? 'secondary' : 'ghost'"
             :class="{ 'is-active': editSection === 'details' }"
-            :aria-current="editSection === 'details' ? 'page' : undefined"
+            role="tab"
+            :aria-selected="editSection === 'details'"
             @click="editSection = 'details'"
           >
-            <FileText aria-hidden="true" />
-            <span>{{ t("product.editInformation") }}</span>
-          </button>
-          <button
-            type="button"
+            <template #icon><FileText aria-hidden="true" /></template>
+            {{ t("product.editInformation") }}
+          </BaseButton>
+          <BaseButton
+            class="product-edit-nav-button"
+            size="medium"
+            :variant="editSection === 'catalog' ? 'secondary' : 'ghost'"
             :class="{ 'is-active': editSection === 'catalog' }"
-            :aria-current="editSection === 'catalog' ? 'page' : undefined"
+            role="tab"
+            :aria-selected="editSection === 'catalog'"
             @click="editSection = 'catalog'"
           >
-            <Boxes aria-hidden="true" />
-            <span>{{ t("product.editCatalog") }}</span>
-          </button>
+            <template #icon><Boxes aria-hidden="true" /></template>
+            {{ t("product.editCatalog") }}
+          </BaseButton>
         </nav>
         <div
           class="modal-body"
@@ -742,14 +766,13 @@
                   "
                 />
               </div>
-              <label class="field checkbox-field">
-                <input
+              <div class="field checkbox-field edit-checkbox-field">
+                <BaseCheckbox
                   v-model="editProduct.published"
-                  type="checkbox"
+                  :label="t('product.publishedToOnlineStore')"
                   :disabled="editProduct.status !== 'active'"
                 />
-                {{ t("product.publishedToOnlineStore") }}
-              </label>
+              </div>
             </div>
             <div class="field-row">
               <div class="field">
@@ -787,13 +810,13 @@
                       : t("product.standardProduct")
                   }}</strong>
                 </div>
-                <label class="field checkbox-field compact-checkbox">
+                <div class="field checkbox-field compact-checkbox">
                   <BaseCheckbox
                     v-model="editProduct.requires_selling_plan"
                     :label="t('product.subscriptionOnly')"
                     :description="t('product.subscriptionOnlyHint')"
                   />
-                </label>
+                </div>
               </div>
               <div class="field">
                 <label class="field-label">{{ t("product.collections") }}</label>
@@ -895,17 +918,17 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn-outline" type="button" @click="closeEditModal">
-            <X aria-hidden="true" />
+          <BaseButton size="medium" @click="closeEditModal">
+            <template #icon><X aria-hidden="true" /></template>
             {{ t("common.cancel") }}
-          </button>
-          <button
-            class="btn-primary"
-            type="button"
+          </BaseButton>
+          <BaseButton
+            variant="primary"
+            size="medium"
+            :loading="isAdvancedProductLoading || isSavingProductEdit"
             @click="saveEditProduct"
-            :disabled="isAdvancedProductLoading || isSavingProductEdit"
           >
-            <Save aria-hidden="true" />
+            <template #icon><Save aria-hidden="true" /></template>
             {{
               isAdvancedProductLoading
                 ? t("common.loading")
@@ -913,7 +936,7 @@
                   ? t("product.saving")
                   : t("product.saveProductInformation")
             }}
-          </button>
+          </BaseButton>
         </div>
       </section>
     </div>
@@ -1893,30 +1916,46 @@ async function refreshProducts() {
   grid-column: span 2;
 }
 .product-filters .inp {
+  min-height: 36px;
   padding: 7px 9px;
   font-size: 12px;
 }
 .product-filters :deep(.select-trigger),
 .product-form-select :deep(.select-trigger) {
   width: 100%;
-  min-height: 34px;
+  min-height: 36px;
 }
 .product-filters :deep(.select-dropdown),
 .product-form-select :deep(.select-dropdown) {
   min-width: min(280px, calc(100vw - 32px));
 }
+.product-filter-action {
+  width: 100%;
+  min-width: 0;
+}
 .product-filter-toggle {
   justify-content: center;
   white-space: nowrap;
 }
-.product-filter-toggle :deep(svg) {
+.product-filter-toggle-label {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.product-filter-toggle :deep(svg),
+.product-filter-toggle-label svg {
   width: 14px;
   height: 14px;
+  flex: 0 0 14px;
 }
-.product-filter-toggle :deep(svg:last-child) {
+.product-filter-toggle-label svg {
   transition: transform 0.16s ease;
 }
-.product-filter-toggle :deep(svg:last-child.is-rotated) {
+.product-filter-toggle-label svg.is-rotated {
   transform: rotate(180deg);
 }
 .product-date-filters {
@@ -1948,9 +1987,6 @@ async function refreshProducts() {
   color: var(--text);
   font-size: 12px;
   overflow-wrap: anywhere;
-}
-.filter-reset {
-  padding: 6px 12px;
 }
 
 .bulk-toolbar {
@@ -2001,7 +2037,6 @@ async function refreshProducts() {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   overflow: hidden;
 }
 .table-card {
@@ -2197,23 +2232,6 @@ async function refreshProducts() {
   color: var(--green);
 }
 
-.btn-primary-sm {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--green);
-  color: var(--on-accent);
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.btn-primary-sm:hover {
-  filter: brightness(0.94);
-}
-
 .btn-ghost-sm {
   display: inline-flex;
   align-items: center;
@@ -2340,39 +2358,28 @@ async function refreshProducts() {
   border-bottom: 1px solid var(--border);
   background: var(--surface-soft);
 }
-.product-edit-nav button {
+.product-edit-nav-button {
+  width: 100%;
   min-width: 0;
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 8px 12px;
-  border: 1px solid transparent;
   border-radius: 8px;
-  background: transparent;
   color: var(--text-sub);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
 }
-.product-edit-nav button:hover {
+.product-edit-nav-button:hover {
   background: var(--surface-raised);
   color: var(--text);
 }
-.product-edit-nav button.is-active {
+.product-edit-nav-button.is-active {
   border-color: var(--border);
   background: var(--surface-raised);
   color: var(--text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
-.product-edit-nav svg {
+.product-edit-nav-button :deep(svg) {
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
 }
-.product-edit-nav span {
+.product-edit-nav-button :deep(.button-label) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2493,6 +2500,10 @@ async function refreshProducts() {
 .checkbox-field:has(input:disabled) {
   color: var(--text-muted);
   cursor: not-allowed;
+}
+.edit-checkbox-field :deep(.base-checkbox),
+.compact-checkbox :deep(.base-checkbox) {
+  width: 100%;
 }
 .field-label {
   display: block;

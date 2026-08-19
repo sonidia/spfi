@@ -369,7 +369,13 @@ const messages: Record<MessageKey, string> = {
   "product.inventoryTargetCount": "Số biến thể đã chọn:",
   "product.inventoryTargetsNotConnected":
     "Mọi biến thể đích phải có inventory level đang hoạt động tại địa điểm này.",
-  "product.inventoryLocationUnavailable": "Không có inventory level hoạt động",
+  "product.inventoryLocationUnavailable": "Chưa được lưu kho tại địa điểm này",
+  "product.inventoryLevelRequired":
+    "Chưa thể cập nhật tồn kho cho {variants}. Hãy kích hoạt tồn kho của biến thể tại một địa điểm trong Shopify rồi làm mới. Việc này không ảnh hưởng đến thay đổi giá.",
+  "product.inventoryLevelRequiredAtLocation":
+    "Chưa thể cập nhật tồn kho cho {variants} tại {location}. Hãy chọn địa điểm đang lưu kho hoặc kích hoạt biến thể tại đó trong Shopify. Việc này không ảnh hưởng đến thay đổi giá.",
+  "product.inventoryTargetNamesOverflow": "{variants} và {count} biến thể khác",
+  "product.inventoryLoadFailed": "Không thể tải địa điểm tồn kho: {error}",
   "product.inventoryReasonInvalid":
     "Hãy dùng lý do tồn kho Shopify hợp lệ (chữ thường, số và dấu gạch dưới).",
   "product.inventoryBulkUpdated": "Đã cập nhật tồn kho cho {count} biến thể.",
@@ -1326,6 +1332,8 @@ const messages: Record<MessageKey, string> = {
   "quota.inlineRemaining": "Còn {remaining} / {limit} request",
   "quota.noData": "Chưa có dữ liệu hạn mức",
   "quota.title": "Hạn mức request",
+  "quota.details": "Chi tiết hạn mức API",
+  "quota.openDetails": "Mở chi tiết hạn mức API. {details}",
   "quota.graphqlTitle": "GraphQL cost",
   "quota.graphqlRemaining": "Dung lượng GraphQL cost còn lại",
   "quota.graphqlInlineRemaining": "Còn {remaining} / {limit} điểm",

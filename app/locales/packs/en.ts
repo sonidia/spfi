@@ -1224,6 +1224,8 @@ const messages = {
   "quota.inlineRemaining": "Remain {remaining} / {limit} requests",
   "quota.noData": "No quota data yet",
   "quota.title": "Request quota",
+  "quota.details": "API quota details",
+  "quota.openDetails": "Show API quota details. {details}",
   "quota.graphqlTitle": "GraphQL cost",
   "quota.graphqlRemaining": "GraphQL cost capacity remaining",
   "quota.graphqlInlineRemaining": "Remain {remaining} / {limit} points",
@@ -1523,7 +1525,13 @@ const messages = {
   "product.inventoryTargetCount": "Variants selected:",
   "product.inventoryTargetsNotConnected":
     "Every target variant must have an active inventory level at this location.",
-  "product.inventoryLocationUnavailable": "No active inventory level",
+  "product.inventoryLocationUnavailable": "Not stocked at this location",
+  "product.inventoryLevelRequired":
+    "Inventory is unavailable for {variants}. Activate inventory for the variant at a Shopify location, then refresh. This does not affect price changes.",
+  "product.inventoryLevelRequiredAtLocation":
+    "Inventory is unavailable for {variants} at {location}. Choose a stocked location or activate the variant there in Shopify. This does not affect price changes.",
+  "product.inventoryTargetNamesOverflow": "{variants} and {count} more",
+  "product.inventoryLoadFailed": "Inventory locations could not be loaded: {error}",
   "product.inventoryReasonInvalid":
     "Use a valid Shopify inventory reason (lowercase letters, numbers, and underscores).",
   "product.inventoryBulkUpdated": "Inventory updated for {count} variants.",
