@@ -2,6 +2,7 @@ import type { H3Event } from "h3";
 import { callShopifyGraphql } from "./callShopifyGraphql";
 import { createApiErrorFromMessage } from "./callShopifyApi";
 import { buildPublicationMutation } from "./shopify-product-publication-input.ts";
+import { isOnlineStorePublication } from "./shopify-publication";
 import type { ShopifyNumericId } from "~~/types/shopify";
 
 interface GraphqlUserError {
@@ -15,6 +16,7 @@ interface PublicationListData {
       id: string;
       name: string;
       catalog: { title: string } | null;
+      channels: { nodes: Array<{ handle: string }> } | null;
     }>;
   };
 }
@@ -63,11 +65,7 @@ export async function setShopifyProductsPublished(options: {
 
     productIds.forEach((productId, index) => {
       const publicationErrors = data[`publication${index}`]?.userErrors || [];
-      const activationErrors = options.publish
-        ? data[`activation${index}`]?.userErrors || []
-        : [];
-      if (publicationErrors.length || activationErrors.length)
-        failedIds.push(productId);
+      if (publicationErrors.length) failedIds.push(productId);
     });
   }
 
@@ -94,17 +92,14 @@ async function resolveOnlineStorePublicationId(options: {
             id
             name
             catalog { title }
+            channels(first: 10) { nodes { handle } }
           }
         }
       }
     `,
     operationName: "ProductPublications",
   });
-  const publication = data.publications.nodes.find((candidate) =>
-    [candidate.name, candidate.catalog?.title]
-      .filter(Boolean)
-      .some((name) => String(name).trim().toLowerCase() === "online store"),
-  );
+  const publication = data.publications.nodes.find(isOnlineStorePublication);
 
   if (!publication) {
     throw createApiErrorFromMessage(

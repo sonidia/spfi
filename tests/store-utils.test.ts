@@ -26,6 +26,7 @@ test("store token resolver applies one expiry policy", () => {
 test("money formatting honors ISO currency fraction digits", () => {
   assert.equal(formatMoneyInput(1234.4, "JPY"), "1234");
   assert.equal(formatMoneyInput(1.2344, "KWD"), "1.234");
+  assert.equal(formatMoneyInput(1.2344, "IQD"), "1.234");
   assert.equal(fmtMoney(1234, "JPY"), "JPY 1,234");
   assert.equal(fmtMoney(1.234, "KWD"), "KWD 1.234");
 });

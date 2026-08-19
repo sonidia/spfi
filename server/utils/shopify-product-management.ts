@@ -12,6 +12,7 @@ import type {
   ProductMediaResponse,
   ProductMediaSummary,
 } from "~~/types/shopify-product";
+import { isOnlineStorePublication } from "./shopify-publication";
 
 interface ProductRequestContext {
   event: H3Event;
@@ -121,6 +122,9 @@ async function fetchProductPublications(context: ProductRequestContext) {
           autoPublish: boolean;
           supportsFuturePublishing: boolean;
           catalog: { title: string } | null;
+          channels: {
+            nodes: Array<{ handle: string; name: string }>;
+          } | null;
         }>;
         pageInfo: { hasNextPage: boolean; endCursor: string | null };
       };
@@ -130,7 +134,14 @@ async function fetchProductPublications(context: ProductRequestContext) {
       query: `#graphql
         query ProductManagementPublications($first: Int!, $after: String) {
           publications(first: $first, after: $after) {
-            nodes { id name autoPublish supportsFuturePublishing catalog { title } }
+            nodes {
+              id
+              name
+              autoPublish
+              supportsFuturePublishing
+              catalog { title }
+              channels(first: 10) { nodes { handle name } }
+            }
             pageInfo { hasNextPage endCursor }
           }
         }
@@ -142,16 +153,18 @@ async function fetchProductPublications(context: ProductRequestContext) {
     });
     items.push(
       ...data.publications.nodes.map((publication) => {
-        const labels = [publication.name, publication.catalog?.title]
-          .filter(Boolean)
-          .map((value) => String(value).trim().toLowerCase());
+        const channelName = publication.channels?.nodes[0]?.name;
         return {
           id: publication.id,
-          name: publication.name || publication.catalog?.title || publication.id,
+          name:
+            channelName ||
+            publication.name ||
+            publication.catalog?.title ||
+            publication.id,
           catalogTitle: publication.catalog?.title || null,
           autoPublish: publication.autoPublish,
           supportsFuturePublishing: publication.supportsFuturePublishing,
-          onlineStore: labels.includes("online store"),
+          onlineStore: isOnlineStorePublication(publication),
         };
       }),
     );

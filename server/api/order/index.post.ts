@@ -23,6 +23,15 @@ export default defineEventHandler(async (event) => {
       400,
     );
   }
+  if (body.send_receipt !== undefined && typeof body.send_receipt !== "boolean") {
+    throw createApiErrorFromMessage("send_receipt must be a boolean.", 400);
+  }
+  if (
+    body.send_fulfillment_receipt !== undefined &&
+    typeof body.send_fulfillment_receipt !== "boolean"
+  ) {
+    throw createApiErrorFromMessage("send_fulfillment_receipt must be a boolean.", 400);
+  }
 
   const requestBody = {
     order: body.order,

@@ -6,6 +6,7 @@ import type {
   ReturnSummary,
 } from "~~/types/shopify-operations";
 import { assertNoGraphqlUserErrors, callShopifyGraphql } from "./callShopifyGraphql";
+import { createApiErrorFromMessage } from "./callShopifyApi";
 import { requireShopifyGid } from "./shopify-commerce-ops-id";
 
 interface ReturnContext {
@@ -19,132 +20,245 @@ interface UserError {
   message: string;
 }
 
+interface ReturnLineItemNode {
+  id: string;
+  quantity: number;
+  customerNote?: string | null;
+  returnReasonDefinition?: { name?: string | null } | null;
+  fulfillmentLineItem?: {
+    lineItem?: { name?: string | null } | null;
+  } | null;
+}
+
+interface ReturnNode {
+  id: string;
+  name: string;
+  status: string;
+  createdAt: string;
+  closedAt?: string | null;
+  totalQuantity: number;
+  returnLineItems: { nodes: ReturnLineItemNode[] };
+}
+
+interface ReturnConnection {
+  nodes: ReturnNode[];
+  pageInfo: { endCursor: string | null; hasNextPage: boolean };
+}
+
+interface ReturnOrderNode {
+  id: string;
+  name: string;
+  returns: ReturnConnection;
+}
+
+interface ReturnOrdersData {
+  orders: {
+    nodes: ReturnOrderNode[];
+    pageInfo: { endCursor: string | null; hasNextPage: boolean };
+  };
+}
+
+interface ReturnOrdersVariables extends Record<string, unknown> {
+  first: number;
+  after: string | null;
+  query: string;
+  returnsFirst: number;
+  lineItemsFirst: number;
+}
+
+const RETURN_ORDER_PAGE_SIZE = 25;
+const RETURN_PAGE_SIZE = 50;
+const RETURN_LINE_ITEM_PAGE_SIZE = 250;
+const RETURN_ORDER_SEARCH = "-return_status:no_return";
+
 export async function fetchReturns(
   context: ReturnContext,
 ): Promise<CommerceListResponse<ReturnSummary>> {
-  const orderData = await callShopifyGraphql<{
-    orders: {
-      nodes: Array<{
-        id: string;
-        name: string;
-        returnStatus: string;
-      }>;
-      pageInfo: { endCursor?: string | null; hasNextPage: boolean };
-    };
-  }>({
-    ...context,
-    operationName: "CommerceOpsReturnOrders",
-    query: `#graphql
-      query CommerceOpsReturnOrders($first: Int!) {
-        orders(first: $first, reverse: true, sortKey: UPDATED_AT) {
-          nodes { id name returnStatus }
-          pageInfo { endCursor hasNextPage }
-        }
-      }
-    `,
-    variables: { first: 50 },
-  });
+  const itemsById = new Map<string, ReturnSummary>();
+  const seenOrderCursors = new Set<string>();
+  let orderCursor: string | null = null;
 
-  const candidateIds = orderData.orders.nodes
-    .filter((order) => order.returnStatus !== "NO_RETURN")
-    .slice(0, 10)
-    .map((order) => order.id);
-  if (candidateIds.length === 0) {
-    return {
-      items: [],
-      pageInfo: {
-        endCursor: orderData.orders.pageInfo.endCursor || null,
-        hasNextPage: orderData.orders.pageInfo.hasNextPage,
-      },
-    };
-  }
-
-  const returnData = await callShopifyGraphql<{
-    nodes: Array<{
-      id: string;
-      name: string;
-      returns: {
-        nodes: Array<{
-          id: string;
-          name: string;
-          status: string;
-          createdAt: string;
-          closedAt?: string | null;
-          totalQuantity: number;
-          returnLineItems: {
-            nodes: Array<{
-              id: string;
-              quantity: number;
-              customerNote?: string | null;
-              returnReasonDefinition?: { name?: string | null } | null;
-              fulfillmentLineItem?: {
-                lineItem?: { name?: string | null } | null;
-              } | null;
-            }>;
-          };
-        }>;
-      };
-    } | null>;
-  }>({
-    ...context,
-    operationName: "CommerceOpsReturns",
-    query: `#graphql
-      query CommerceOpsReturns($ids: [ID!]!) {
-        nodes(ids: $ids) {
-          ... on Order {
-            id name
-            returns(first: 5, reverse: true) {
-              nodes {
-                id name status createdAt closedAt totalQuantity
-                returnLineItems(first: 10) {
-                  nodes {
-                    id quantity customerNote
-                    returnReasonDefinition { name }
-                    ... on ReturnLineItem {
-                      fulfillmentLineItem { lineItem { name } }
-                    }
-                  }
-                }
+  while (true) {
+    const data: ReturnOrdersData = await callShopifyGraphql<
+      ReturnOrdersData,
+      ReturnOrdersVariables
+    >({
+      ...context,
+      operationName: "CommerceOpsReturns",
+      query: `#graphql
+        query CommerceOpsReturns(
+          $first: Int!
+          $after: String
+          $query: String!
+          $returnsFirst: Int!
+          $lineItemsFirst: Int!
+        ) {
+          orders(
+            first: $first
+            after: $after
+            query: $query
+            reverse: true
+            sortKey: UPDATED_AT
+          ) {
+            nodes {
+              id
+              name
+              returns(first: $returnsFirst, reverse: true) {
+                nodes { ...ReturnSummaryFields }
+                pageInfo { endCursor hasNextPage }
               }
             }
+            pageInfo { endCursor hasNextPage }
           }
         }
-      }
-    `,
-    variables: { ids: candidateIds },
-  });
+        ${RETURN_SUMMARY_FRAGMENT}
+      `,
+      variables: {
+        first: RETURN_ORDER_PAGE_SIZE,
+        after: orderCursor,
+        query: RETURN_ORDER_SEARCH,
+        returnsFirst: RETURN_PAGE_SIZE,
+        lineItemsFirst: RETURN_LINE_ITEM_PAGE_SIZE,
+      },
+    });
 
-  const items = returnData.nodes
-    .filter((order) => order !== null)
-    .flatMap((order) =>
-      order.returns.nodes.map((item): ReturnSummary => ({
-        id: item.id,
-        name: item.name,
-        status: item.status,
-        createdAt: item.createdAt,
-        closedAt: item.closedAt || null,
-        totalQuantity: Number(item.totalQuantity || 0),
-        orderId: order.id,
-        orderName: order.name,
-        items: item.returnLineItems.nodes.map((lineItem) => ({
-          id: lineItem.id,
-          title: String(
-            lineItem.fulfillmentLineItem?.lineItem?.name || "Returned item",
-          ),
-          quantity: Number(lineItem.quantity || 0),
-          reason: String(lineItem.returnReasonDefinition?.name || "Unspecified"),
-          customerNote: String(lineItem.customerNote || ""),
-        })),
-      })),
-    );
+    for (const order of data.orders.nodes) {
+      addReturnSummaries(itemsById, order, order.returns.nodes);
+      let returnsCursor = order.returns.pageInfo.endCursor;
+      let hasNextReturns = order.returns.pageInfo.hasNextPage;
+      const seenReturnCursors = new Set<string>();
+
+      while (hasNextReturns) {
+        assertNextCursor(returnsCursor, seenReturnCursors, "return");
+        const nextPage = await fetchOrderReturnsPage(context, order.id, returnsCursor!);
+        addReturnSummaries(itemsById, order, nextPage.nodes);
+        returnsCursor = nextPage.pageInfo.endCursor;
+        hasNextReturns = nextPage.pageInfo.hasNextPage;
+      }
+    }
+
+    if (!data.orders.pageInfo.hasNextPage) break;
+    const nextCursor: string | null = data.orders.pageInfo.endCursor;
+    assertNextCursor(nextCursor, seenOrderCursors, "order");
+    orderCursor = nextCursor;
+  }
+
+  const items = [...itemsById.values()].sort(
+    (left, right) =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
 
   return {
     items,
     pageInfo: {
-      endCursor: orderData.orders.pageInfo.endCursor || null,
-      hasNextPage: orderData.orders.pageInfo.hasNextPage,
+      endCursor: null,
+      hasNextPage: false,
     },
   };
+}
+
+const RETURN_SUMMARY_FRAGMENT = `#graphql
+  fragment ReturnSummaryFields on Return {
+    id
+    name
+    status
+    createdAt
+    closedAt
+    totalQuantity
+    returnLineItems(first: $lineItemsFirst) {
+      nodes {
+        id
+        quantity
+        customerNote
+        returnReasonDefinition { name }
+        ... on ReturnLineItem {
+          fulfillmentLineItem { lineItem { name } }
+        }
+      }
+    }
+  }
+`;
+
+async function fetchOrderReturnsPage(
+  context: ReturnContext,
+  orderId: string,
+  after: string,
+) {
+  const data = await callShopifyGraphql<
+    { order: { returns: ReturnConnection } | null },
+    { id: string; first: number; after: string; lineItemsFirst: number }
+  >({
+    ...context,
+    operationName: "CommerceOpsOrderReturnsPage",
+    query: `#graphql
+      query CommerceOpsOrderReturnsPage(
+        $id: ID!
+        $first: Int!
+        $after: String!
+        $lineItemsFirst: Int!
+      ) {
+        order(id: $id) {
+          returns(first: $first, after: $after, reverse: true) {
+            nodes { ...ReturnSummaryFields }
+            pageInfo { endCursor hasNextPage }
+          }
+        }
+      }
+      ${RETURN_SUMMARY_FRAGMENT}
+    `,
+    variables: {
+      id: orderId,
+      first: RETURN_PAGE_SIZE,
+      after,
+      lineItemsFirst: RETURN_LINE_ITEM_PAGE_SIZE,
+    },
+  });
+  return (
+    data.order?.returns || {
+      nodes: [],
+      pageInfo: { endCursor: null, hasNextPage: false },
+    }
+  );
+}
+
+function addReturnSummaries(
+  target: Map<string, ReturnSummary>,
+  order: Pick<ReturnOrderNode, "id" | "name">,
+  returns: ReturnNode[],
+) {
+  for (const item of returns) {
+    target.set(item.id, {
+      id: item.id,
+      name: item.name,
+      status: item.status,
+      createdAt: item.createdAt,
+      closedAt: item.closedAt || null,
+      totalQuantity: Number(item.totalQuantity || 0),
+      orderId: order.id,
+      orderName: order.name,
+      items: item.returnLineItems.nodes.map((lineItem) => ({
+        id: lineItem.id,
+        title: String(lineItem.fulfillmentLineItem?.lineItem?.name || "Returned item"),
+        quantity: Number(lineItem.quantity || 0),
+        reason: String(lineItem.returnReasonDefinition?.name || "Unspecified"),
+        customerNote: String(lineItem.customerNote || ""),
+      })),
+    });
+  }
+}
+
+function assertNextCursor(
+  cursor: string | null,
+  seen: Set<string>,
+  resource: string,
+): asserts cursor is string {
+  if (!cursor || seen.has(cursor)) {
+    throw createApiErrorFromMessage(
+      `Shopify returned a missing or repeated ${resource} pagination cursor.`,
+      502,
+    );
+  }
+  seen.add(cursor);
 }
 
 export async function runReturnAction(

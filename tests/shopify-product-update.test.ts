@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeShopifyProductUpdate } from "../server/utils/shopify-product-update.ts";
 
-test("product updates keep supported REST fields and discard unknown fields", () => {
+test("product updates keep supported REST fields and separate metafields", () => {
   const update = normalizeShopifyProductUpdate({
     title: "Updated title",
     status: "draft",
@@ -28,14 +28,6 @@ test("product updates keep supported REST fields and discard unknown fields", ()
     options: [{ name: "Color", values: ["Black"] }],
     variants: [{ id: "11", price: "12.50" }],
     images: [{ src: "https://cdn.example/image.jpg" }],
-    metafields: [
-      {
-        namespace: "custom",
-        key: "material",
-        value: "Cotton",
-        type: "single_line_text_field",
-      },
-    ],
   });
 });
 

@@ -112,9 +112,15 @@ export interface ShopifyLineItem {
   sku?: string | null;
   price?: string;
   quantity?: number;
+  current_quantity?: number;
   fulfillable_quantity?: number;
   product_id?: ShopifyNumericId | null;
   variant_id?: ShopifyNumericId | null;
+  discount_allocations?: Array<{
+    amount?: string;
+    amount_set?: ShopifyMoneySet;
+    discount_application_index?: number;
+  }>;
 }
 
 export interface ShopifyFulfillment {
@@ -305,6 +311,13 @@ export interface ShopifyProductOption {
   name: string;
   position?: number;
   values: string[];
+  linkedMetafield?: { namespace: string; key: string } | null;
+  optionValues?: Array<{
+    id: ShopifyNumericId;
+    name: string;
+    linkedMetafieldValue?: string | null;
+    hasVariants?: boolean;
+  }>;
 }
 
 export interface ShopifyProductImage {
@@ -319,7 +332,7 @@ export interface ShopifyProductImage {
   admin_graphql_api_id?: string;
 }
 
-export type ShopifyProductStatus = "active" | "archived" | "draft";
+export type ShopifyProductStatus = "active" | "archived" | "draft" | "unlisted";
 
 export interface ShopifyProductInput {
   title: string;

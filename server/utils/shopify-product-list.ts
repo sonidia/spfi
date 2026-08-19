@@ -22,7 +22,7 @@ interface ProductListNode {
   vendor: string;
   productType: string;
   tags: string[];
-  status: "ACTIVE" | "ARCHIVED" | "DRAFT";
+  status: "ACTIVE" | "ARCHIVED" | "DRAFT" | "UNLISTED";
   handle: string;
   templateSuffix: string | null;
   createdAt: string;
@@ -44,6 +44,13 @@ interface ProductListNode {
     name: string;
     position: number;
     values: string[];
+    linkedMetafield: { namespace: string; key: string } | null;
+    optionValues: Array<{
+      id: string;
+      name: string;
+      linkedMetafieldValue: string | null;
+      hasVariants: boolean;
+    }>;
   }>;
   featuredMedia: {
     id: string;
@@ -153,7 +160,11 @@ export async function listShopifyProducts(options: {
               minVariantPrice { amount currencyCode }
               maxVariantPrice { amount currencyCode }
             }
-            options { id name position values }
+            options {
+              id name position values
+              linkedMetafield { namespace key }
+              optionValues { id name linkedMetafieldValue hasVariants }
+            }
             featuredMedia {
               ... on MediaImage {
                 id
@@ -255,6 +266,13 @@ function mapOption(option: ProductListNode["options"][number]): ShopifyProductOp
     name: option.name,
     position: option.position,
     values: option.values,
+    linkedMetafield: option.linkedMetafield,
+    optionValues: option.optionValues.map((value) => ({
+      id: legacyIdFromGid(value.id),
+      name: value.name,
+      linkedMetafieldValue: value.linkedMetafieldValue,
+      hasVariants: value.hasVariants,
+    })),
   };
 }
 

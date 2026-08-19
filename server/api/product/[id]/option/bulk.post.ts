@@ -6,12 +6,18 @@ import {
 } from "~~/server/utils/shopify-admin-request";
 import { isShopifyNumericId } from "~~/server/utils/shopify-id";
 import { updateShopifyProductOptions } from "~~/server/utils/shopify-product-options";
-import type { ShopifyProductOption } from "~~/types/shopify";
+import type {
+  ShopifyProductOptionCreateVariantStrategy,
+  ShopifyProductOptionMutationInput,
+  ShopifyProductOptionUpdateVariantStrategy,
+} from "~~/types/shopify-product";
 
 interface ProductOptionBulkBody {
   storeId?: string;
   token?: string;
-  options?: ShopifyProductOption[];
+  options?: ShopifyProductOptionMutationInput[];
+  updateVariantStrategy?: ShopifyProductOptionUpdateVariantStrategy;
+  createVariantStrategy?: ShopifyProductOptionCreateVariantStrategy;
 }
 
 export default defineEventHandler(async (event) => {
@@ -30,13 +36,28 @@ export default defineEventHandler(async (event) => {
   if (
     !options.length ||
     options.length > 3 ||
-    options.some((option) => !isShopifyNumericId(option.id) || !option.name) ||
+    options.some(
+      (option) =>
+        (option.id !== undefined && !isShopifyNumericId(option.id)) || !option.name,
+    ) ||
     uniqueNames.size !== options.length
   ) {
     throw createApiErrorFromMessage(
-      "Provide one to three existing options with unique, non-empty names.",
+      "Provide one to three options with valid IDs and unique, non-empty names.",
       400,
     );
+  }
+  if (
+    body.updateVariantStrategy !== undefined &&
+    !["LEAVE_AS_IS", "MANAGE"].includes(body.updateVariantStrategy)
+  ) {
+    throw createApiErrorFromMessage("Invalid option update variant strategy.", 400);
+  }
+  if (
+    body.createVariantStrategy !== undefined &&
+    !["LEAVE_AS_IS", "CREATE"].includes(body.createVariantStrategy)
+  ) {
+    throw createApiErrorFromMessage("Invalid option create variant strategy.", 400);
   }
 
   return {
@@ -46,6 +67,8 @@ export default defineEventHandler(async (event) => {
       token,
       productId,
       productOptions: options,
+      updateVariantStrategy: body.updateVariantStrategy,
+      createVariantStrategy: body.createVariantStrategy,
     }),
   };
 });

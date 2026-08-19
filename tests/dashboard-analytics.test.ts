@@ -21,6 +21,18 @@ test("dashboard periods follow the viewer timezone and start weeks on Monday", (
   assert.equal(period.todayKey, "2026-08-10");
 });
 
+test("dashboard periods use IANA timezone offsets across a DST boundary", () => {
+  const period = createDashboardPeriod(
+    new Date("2026-03-09T12:00:00.000Z"),
+    "America/New_York",
+  );
+
+  assert.equal(period.todayStartIso, "2026-03-09T04:00:00.000Z");
+  assert.equal(period.weekStartIso, "2026-03-09T04:00:00.000Z");
+  assert.equal(period.monthStartIso, "2026-03-01T05:00:00.000Z");
+  assert.equal(period.todayKey, "2026-03-09");
+});
+
 test("order analytics preserve currencies and rank products by units", () => {
   const period = createDashboardPeriod(new Date("2026-08-10T10:00:00.000Z"), -420);
   const orders = [
@@ -90,6 +102,38 @@ test("order analytics preserve currencies and rank products by units", () => {
     partial: 1,
     unfulfilled: 1,
   });
+});
+
+test("order analytics include authorized revenue and subtract line discounts", () => {
+  const period = createDashboardPeriod(
+    new Date("2026-08-10T10:00:00.000Z"),
+    "Asia/Bangkok",
+  );
+  const result = aggregateOrderAnalytics(
+    [
+      order({
+        financial_status: "authorized",
+        total_price: "15",
+        current_total_price: "15",
+        currency: "USD",
+        line_items: [
+          {
+            id: 1,
+            title: "Discounted item",
+            product_id: 10,
+            quantity: 2,
+            current_quantity: 2,
+            price: "10",
+            discount_allocations: [{ amount: "5" }],
+          },
+        ],
+      }),
+    ],
+    period,
+  );
+
+  assert.deepEqual(result.revenue.today, [{ currency: "USD", amount: 15 }]);
+  assert.deepEqual(result.topProducts[0]?.revenue, [{ currency: "USD", amount: 15 }]);
 });
 
 test("payment analytics exclude tests and transfer rows", () => {

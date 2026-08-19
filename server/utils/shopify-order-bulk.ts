@@ -13,6 +13,8 @@ import {
   toShopifyGid,
 } from "./callShopifyGraphql";
 import { buildShopifyFulfillmentGroups } from "./shopify-fulfillment";
+import { compareDecimal, subtractDecimal, sumDecimal } from "./shopify-order-money";
+import { buildRefundTransactionPlan } from "./shopify-order-refund-plan";
 
 interface BulkContext {
   event: H3Event;
@@ -219,15 +221,7 @@ async function refundRemainingOrder(context: BulkContext, orderId: string) {
     throw createApiErrorFromMessage("Shopify did not return the order.", 502);
   }
 
-  const amount = String(order.current_total_price ?? order.total_price ?? "0");
-  if (compareDecimal(amount, "0") <= 0) {
-    throw createApiErrorFromMessage(
-      "The order has no remaining amount to refund.",
-      422,
-    );
-  }
-
-  const refundableTransactions = buildRefundTransactions(orderId, amount, transactions);
+  const refundPlan = buildRefundTransactionPlan(orderId, transactions);
   const refundedByLineItem = new Map<string, number>();
   for (const refund of order.refunds || []) {
     for (const lineItem of refund.refund_line_items || []) {
@@ -259,9 +253,9 @@ async function refundRemainingOrder(context: BulkContext, orderId: string) {
   const input = {
     orderId: toShopifyGid("Order", orderId),
     refundLineItems,
-    transactions: refundableTransactions,
+    transactions: refundPlan.transactions,
     discrepancyReason: "OTHER",
-    currency: order.currency,
+    currency: refundPlan.currency,
     notify: context.notifyCustomer,
     note: "Full refund created from bulk order operations.",
   };
@@ -292,7 +286,7 @@ async function refundRemainingOrder(context: BulkContext, orderId: string) {
   if (!data.refundCreate.refund) {
     throw createApiErrorFromMessage("Shopify did not return the created refund.", 502);
   }
-  return `Refunded ${amount} ${order.currency} without changing inventory.`;
+  return `Refunded ${refundPlan.amount} ${refundPlan.currency} without changing inventory.`;
 }
 
 async function fetchTransactions(context: BulkContext, orderId: string) {
@@ -302,118 +296,6 @@ async function fetchTransactions(context: BulkContext, orderId: string) {
     preserveUnsafeIntegers: true,
   });
   return response.transactions || [];
-}
-
-function buildRefundTransactions(
-  orderId: string,
-  requestedAmount: string,
-  transactions: ShopifyOrderTransaction[],
-) {
-  let remaining = requestedAmount;
-  const refunds = transactions.filter(
-    (transaction) =>
-      transaction.kind.toLowerCase() === "refund" &&
-      transaction.status.toLowerCase() === "success",
-  );
-  const parents = transactions.filter(
-    (transaction) =>
-      ["sale", "capture"].includes(transaction.kind.toLowerCase()) &&
-      transaction.status.toLowerCase() === "success",
-  );
-  const output: Array<Record<string, string>> = [];
-
-  for (const parent of parents) {
-    const alreadyRefunded = sumDecimal(
-      refunds
-        .filter((refund) => String(refund.parent_id || "") === String(parent.id))
-        .map((refund) => refund.amount),
-    );
-    const available = subtractDecimal(parent.amount, alreadyRefunded);
-    if (compareDecimal(available, "0") <= 0) continue;
-
-    const amount = compareDecimal(available, remaining) <= 0 ? available : remaining;
-    output.push({
-      orderId: toShopifyGid("Order", orderId),
-      parentId: toShopifyGid("OrderTransaction", parent.id),
-      kind: "REFUND",
-      gateway: String(parent.gateway || "manual"),
-      amount,
-    });
-    remaining = subtractDecimal(remaining, amount);
-    if (compareDecimal(remaining, "0") <= 0) break;
-  }
-
-  if (!output.length || compareDecimal(remaining, "0") > 0) {
-    throw createApiErrorFromMessage(
-      "Successful payment transactions do not cover the remaining refund amount.",
-      422,
-    );
-  }
-  return output;
-}
-
-interface ParsedDecimal {
-  units: bigint;
-  scale: number;
-}
-
-const BIGINT_ZERO = BigInt(0);
-const BIGINT_TEN = BigInt(10);
-
-function parseDecimal(value: string): ParsedDecimal {
-  const normalized = String(value || "0").trim();
-  const match = normalized.match(/^(-?)(\d+)(?:\.(\d+))?$/);
-  if (!match)
-    throw createApiErrorFromMessage("Shopify returned an invalid amount.", 502);
-  const fraction = match[3] || "";
-  const units = BigInt(`${match[1] || ""}${match[2]}${fraction}`);
-  return { units, scale: fraction.length };
-}
-
-function alignDecimals(left: ParsedDecimal, right: ParsedDecimal) {
-  const scale = Math.max(left.scale, right.scale);
-  return {
-    left: left.units * BIGINT_TEN ** BigInt(scale - left.scale),
-    right: right.units * BIGINT_TEN ** BigInt(scale - right.scale),
-    scale,
-  };
-}
-
-function formatDecimal(units: bigint, scale: number) {
-  const negative = units < BIGINT_ZERO;
-  const digits = (negative ? -units : units).toString().padStart(scale + 1, "0");
-  const value = scale
-    ? `${digits.slice(0, -scale)}.${digits.slice(-scale)}`.replace(/\.?0+$/, "")
-    : digits;
-  return `${negative ? "-" : ""}${value || "0"}`;
-}
-
-function subtractDecimal(leftValue: string, rightValue: string) {
-  const { left, right, scale } = alignDecimals(
-    parseDecimal(leftValue),
-    parseDecimal(rightValue),
-  );
-  return formatDecimal(left - right, scale);
-}
-
-function sumDecimal(values: string[]) {
-  return values.reduce((total, value) => addDecimal(total, value), "0");
-}
-
-function addDecimal(leftValue: string, rightValue: string) {
-  const { left, right, scale } = alignDecimals(
-    parseDecimal(leftValue),
-    parseDecimal(rightValue),
-  );
-  return formatDecimal(left + right, scale);
-}
-
-function compareDecimal(leftValue: string, rightValue: string) {
-  const { left, right } = alignDecimals(
-    parseDecimal(leftValue),
-    parseDecimal(rightValue),
-  );
-  return left === right ? 0 : left > right ? 1 : -1;
 }
 
 function getServerErrorMessage(error: unknown, fallback: string) {

@@ -14,7 +14,6 @@ const PRODUCT_UPDATE_FIELDS = [
   "options",
   "variants",
   "images",
-  "metafields",
 ] as const satisfies readonly (keyof ShopifyProductUpdateInput)[];
 
 type LegacyProductUpdateInput = ShopifyProductUpdateInput & {

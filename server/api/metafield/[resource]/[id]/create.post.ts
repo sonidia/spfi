@@ -9,6 +9,7 @@ import {
   buildMetafieldPath,
   resolveMetafieldResource,
 } from "~~/server/utils/shopify-metafields";
+import { normalizeShopifyMetafieldInput } from "~~/server/utils/shopify-metafield-input";
 import type { MetafieldsResponse } from "~~/types/shopify";
 import type { ShopifyMetafieldInput } from "~~/types/shopify-product";
 
@@ -23,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const ownerId = String(event.context.params?.id || "").trim();
   const body = (await readBody<MetafieldCreateBody>(event)) || {};
   const { storeId, token } = requireShopifyCredentials(body);
-  const metafield = normalizeMetafield(body.metafield);
+  const metafield = normalizeShopifyMetafieldInput(body.metafield);
 
   if (!resource || !isShopifyNumericId(ownerId)) {
     throw createApiErrorFromMessage(
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  return callShopifyApi<MetafieldsResponse, { metafield: ShopifyMetafieldInput }>({
+  return callShopifyApi<MetafieldsResponse, { metafield: typeof metafield }>({
     event,
     storeId,
     token,
@@ -48,17 +49,3 @@ export default defineEventHandler(async (event) => {
     missingProxyMessage: "Missing sock proxy for this store.",
   });
 });
-
-function normalizeMetafield(input?: ShopifyMetafieldInput) {
-  if (!input) return null;
-  const metafield = {
-    namespace: String(input.namespace || "").trim(),
-    key: String(input.key || "").trim(),
-    value: typeof input.value === "string" ? input.value : "",
-    type: String(input.type || "").trim(),
-    ...(typeof input.description === "string"
-      ? { description: input.description.trim() || null }
-      : {}),
-  };
-  return metafield.namespace && metafield.key && metafield.type ? metafield : null;
-}

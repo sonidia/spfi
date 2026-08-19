@@ -6,11 +6,14 @@ import type {
   ShopifyVariant,
 } from "./shopify";
 
+export type ShopifyMetafieldValueInput =
+  string | number | boolean | null | unknown[] | Record<string, unknown>;
+
 export interface ShopifyMetafieldInput {
   id?: ShopifyNumericId;
   namespace: string;
   key: string;
-  value: string;
+  value: ShopifyMetafieldValueInput;
   type: string;
   description?: string | null;
 }
@@ -21,7 +24,7 @@ export interface ShopifyProductUpdateInput {
   vendor?: string;
   product_type?: string;
   tags?: string;
-  status?: "active" | "archived" | "draft";
+  status?: "active" | "archived" | "draft" | "unlisted";
   published_at?: string | null;
   handle?: string;
   template_suffix?: string | null;
@@ -31,6 +34,30 @@ export interface ShopifyProductUpdateInput {
   images?: ShopifyProductImageInput[];
   metafields?: ShopifyMetafieldInput[];
 }
+
+export interface ShopifyLinkedMetafieldInput {
+  namespace: string;
+  key: string;
+}
+
+export interface ShopifyProductOptionValueInput {
+  id?: ShopifyNumericId;
+  name?: string;
+  linkedMetafieldValue?: string | null;
+}
+
+export interface ShopifyProductOptionMutationInput {
+  id?: ShopifyNumericId;
+  name: string;
+  position?: number;
+  values?: string[];
+  optionValues?: ShopifyProductOptionValueInput[];
+  optionValueIdsToDelete?: ShopifyNumericId[];
+  linkedMetafield?: ShopifyLinkedMetafieldInput;
+}
+
+export type ShopifyProductOptionUpdateVariantStrategy = "LEAVE_AS_IS" | "MANAGE";
+export type ShopifyProductOptionCreateVariantStrategy = "LEAVE_AS_IS" | "CREATE";
 
 export interface ShopifyVariantInput {
   id?: ShopifyNumericId;
@@ -85,7 +112,7 @@ export interface ProductListQuery extends ProductCountQuery {
   page_info?: string;
   presentment_currencies?: string;
   since_id?: string | number;
-  status?: "active" | "archived" | "draft";
+  status?: "active" | "archived" | "draft" | "unlisted";
   title?: string;
   sort_key?: ProductSortKey;
   reverse?: boolean;

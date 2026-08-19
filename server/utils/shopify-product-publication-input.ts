@@ -10,15 +10,9 @@ export function buildPublicationMutation(
   definitions.push("$publicationInput: [PublicationInput!]!");
   const fields = productIds.flatMap((_, index) => {
     const publicationField = publish ? "publishablePublish" : "publishableUnpublish";
-    const operations = publish
-      ? [
-          `activation${index}: productUpdate(product: { id: $product${index}, status: ACTIVE }) { userErrors { field message } }`,
-        ]
-      : [];
-    operations.push(
+    return [
       `publication${index}: ${publicationField}(id: $product${index}, input: $publicationInput) { userErrors { field message } }`,
-    );
-    return operations;
+    ];
   });
   const operationName = publish ? "BulkPublishProducts" : "BulkUnpublishProducts";
 

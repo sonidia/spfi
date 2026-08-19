@@ -58,11 +58,26 @@ export async function fetchStoreDashboard({
   token,
   timezoneOffsetMinutes = 0,
 }: DashboardRequestContext): Promise<StoreDashboardSnapshot> {
-  const period = createDashboardPeriod(new Date(), timezoneOffsetMinutes);
   const common = { event, storeId, token };
+  const warnings: DashboardWarning[] = [];
+  const [profileResult] = await Promise.allSettled([
+    callShopifyApi<{ shop?: ShopifyShop }>({
+      ...common,
+      path: "/shop.json",
+      forwardResponseHeaders: false,
+    }),
+  ]);
+  const profile = settledValue(profileResult, { shop: undefined }, warnings, {
+    resource: "profile",
+    message: "Shop profile is temporarily unavailable.",
+  }).shop;
+  const period = createDashboardPeriod(
+    new Date(),
+    profile?.iana_timezone || timezoneOffsetMinutes,
+    timezoneOffsetMinutes,
+  );
 
   const [
-    profileResult,
     ordersResult,
     pendingCountResult,
     pendingOrdersResult,
@@ -73,11 +88,6 @@ export async function fetchStoreDashboard({
     transactionsResult,
     usersResult,
   ] = await Promise.allSettled([
-    callShopifyApi<{ shop?: ShopifyShop }>({
-      ...common,
-      path: "/shop.json",
-      forwardResponseHeaders: false,
-    }),
     callShopifyPaginatedApi<ShopifyOrder>({
       ...common,
       path: "/orders.json",
@@ -131,11 +141,6 @@ export async function fetchStoreDashboard({
     }),
   ]);
 
-  const warnings: DashboardWarning[] = [];
-  const profile = settledValue(profileResult, { shop: undefined }, warnings, {
-    resource: "profile",
-    message: "Shop profile is temporarily unavailable.",
-  }).shop;
   const monthOrders = settledValue(ordersResult, [], warnings, {
     resource: "orders",
     message: "Revenue and product rankings could not be refreshed.",
