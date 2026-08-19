@@ -110,7 +110,7 @@ describe("ProductOperationsPanel pricing", () => {
     const wrapper = mountPanel();
     await flushPromises();
 
-    await wrapper.find(".variant-price-fields input").setValue("20.00");
+    await wrapper.find(".variant-price-fields input").setValue("48,88");
     const savePrice = wrapper
       .findAll(".variant-price-fields button")
       .find((button) => button.text().includes("product.savePrice"));
@@ -122,10 +122,37 @@ describe("ProductOperationsPanel pricing", () => {
 
     expect(mocks.updateVariantsBulk).toHaveBeenCalledWith(
       1,
-      [{ id: "9007199254740993", price: "20", compare_at_price: null }],
+      [{ id: "9007199254740993", price: "48.88", compare_at_price: null }],
       ["Title"],
     );
     expect(mocks.updateInventoryBulk).not.toHaveBeenCalled();
+  });
+
+  it("normalizes comma decimals for both price fields before comparing and saving", async () => {
+    const wrapper = mountPanel();
+    await flushPromises();
+
+    const priceInputs = wrapper.findAll(".variant-price-fields input");
+    await priceInputs[0]!.setValue("48,88");
+    await priceInputs[1]!.setValue("50,00");
+    const savePrice = wrapper
+      .findAll(".variant-price-fields button")
+      .find((button) => button.text().includes("product.savePrice"));
+    await savePrice?.trigger("click");
+    await flushPromises();
+
+    expect(mocks.error).not.toHaveBeenCalledWith("product.validPricesRequired");
+    expect(mocks.updateVariantsBulk).toHaveBeenLastCalledWith(
+      1,
+      [
+        {
+          id: "9007199254740993",
+          price: "48.88",
+          compare_at_price: "50.00",
+        },
+      ],
+      ["Title"],
+    );
   });
 
   it("matches inventory levels when REST IDs use different number representations", async () => {

@@ -10,6 +10,7 @@ import {
   X,
 } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
+import LocalizedPriceInput from "./LocalizedPriceInput.vue";
 import { useLocations } from "~/composables/useLocations";
 import { useProductOperations } from "~/composables/useProductOperations";
 import { useToastStore } from "~/stores/toast";
@@ -26,7 +27,11 @@ import type {
   ShopifyMetafieldInput,
   ShopifyVariantInput,
 } from "~~/types/shopify-product";
-import { isProductPriceChanged, isValidProductPrice } from "~~/utils/product-options";
+import {
+  isProductPriceChanged,
+  isValidCompareAtPrice,
+  normalizeProductPriceInput,
+} from "~~/utils/product-options";
 
 const props = defineProps<{ product: ShopifyProduct }>();
 const emit = defineEmits<{ refreshed: [] }>();
@@ -419,7 +424,11 @@ function resetVariantForm() {
 }
 
 async function saveVariant() {
-  const price = String(variantForm.value.price || "").trim();
+  const price = normalizeProductPriceInput(variantForm.value.price);
+  const rawCompareAtPrice = String(variantForm.value.compare_at_price || "").trim();
+  const compareAtPrice = rawCompareAtPrice
+    ? normalizeProductPriceInput(rawCompareAtPrice)
+    : null;
   const optionValues = [
     variantForm.value.option1,
     variantForm.value.option2,
@@ -427,7 +436,9 @@ async function saveVariant() {
   ].slice(0, productOptionNames.value.length);
   if (
     optionValues.some((value) => !String(value || "").trim()) ||
-    !isValidProductPrice(price)
+    price === null ||
+    (rawCompareAtPrice &&
+      (compareAtPrice === null || !isValidCompareAtPrice(price, compareAtPrice)))
   ) {
     toast.error(t("product.variantRequired"));
     return;
@@ -438,6 +449,7 @@ async function saveVariant() {
     option2: optionValues[1] ? String(optionValues[1]).trim() : null,
     option3: optionValues[2] ? String(optionValues[2]).trim() : null,
     price,
+    compare_at_price: compareAtPrice,
   };
   const response = editingVariantId.value
     ? await operations.updateVariantsBulk(
@@ -485,12 +497,19 @@ function toggleAllVariants() {
 }
 
 function buildPriceUpdates(variants: ShopifyVariant[]) {
-  return variants.map((variant) => ({
-    id: variant.id,
-    price: String(variantPriceDrafts.value[String(variant.id)] || "").trim(),
-    compare_at_price:
-      String(variantCompareAtDrafts.value[String(variant.id)] || "").trim() || null,
-  }));
+  return variants.map((variant) => {
+    const rawPrice = String(variantPriceDrafts.value[String(variant.id)] || "").trim();
+    const rawCompareAtPrice = String(
+      variantCompareAtDrafts.value[String(variant.id)] || "",
+    ).trim();
+    return {
+      id: variant.id,
+      price: normalizeProductPriceInput(rawPrice) ?? rawPrice,
+      compare_at_price: rawCompareAtPrice
+        ? (normalizeProductPriceInput(rawCompareAtPrice) ?? rawCompareAtPrice)
+        : null,
+    };
+  });
 }
 
 async function savePriceVariants(targets: ShopifyVariant[]) {
@@ -499,10 +518,9 @@ async function savePriceVariants(targets: ShopifyVariant[]) {
     !variants.length ||
     variants.some(
       (variant) =>
-        !isValidProductPrice(variant.price) ||
+        normalizeProductPriceInput(variant.price) === null ||
         (variant.compare_at_price !== null &&
-          (!isValidProductPrice(variant.compare_at_price) ||
-            Number(variant.compare_at_price) <= Number(variant.price))),
+          !isValidCompareAtPrice(variant.price, variant.compare_at_price)),
     )
   ) {
     toast.error(t("product.validPricesRequired"));
@@ -948,7 +966,19 @@ async function afterMutation() {
         /></label>
         <label
           ><span>{{ t("product.price") }} *</span
-          ><input v-model="variantForm.price" type="number" min="0" step="0.01"
+          ><LocalizedPriceInput
+            v-model="variantForm.price"
+            :aria-label="t('product.price')"
+            placeholder="0.00 / 0,00"
+            :title="t('product.priceInputHint')"
+        /></label>
+        <label
+          ><span>{{ t("product.compareAtPrice") }}</span
+          ><LocalizedPriceInput
+            v-model="variantForm.compare_at_price"
+            :aria-label="t('product.compareAtPrice')"
+            placeholder="0.00 / 0,00"
+            :title="t('product.priceInputHint')"
         /></label>
         <label
           ><span>{{ t("product.sku") }}</span
@@ -1071,22 +1101,21 @@ async function afterMutation() {
           <div class="variant-price-fields" @click.stop>
             <label class="inline-price">
               <span>{{ t("product.price") }}</span>
-              <input
+              <LocalizedPriceInput
                 v-model="variantPriceDrafts[String(variant.id)]"
-                type="number"
-                min="0"
-                step="0.01"
+                :aria-label="t('product.price')"
+                placeholder="0.00 / 0,00"
+                :title="t('product.priceInputHint')"
                 @keydown.enter.prevent="saveVariantPrice(variant)"
               />
             </label>
             <label class="inline-price">
               <span>{{ t("product.compareAtPrice") }}</span>
-              <input
+              <LocalizedPriceInput
                 v-model="variantCompareAtDrafts[String(variant.id)]"
-                type="number"
-                min="0"
-                step="0.01"
-                :placeholder="t('product.none')"
+                :aria-label="t('product.compareAtPrice')"
+                placeholder="0.00 / 0,00"
+                :title="t('product.priceInputHint')"
                 @keydown.enter.prevent="saveVariantPrice(variant)"
               />
             </label>

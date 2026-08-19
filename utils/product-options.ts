@@ -53,8 +53,34 @@ export function buildVariantsFromOptions(
   }));
 }
 
+/**
+ * Accepts merchant-entered prices with either a period or comma decimal separator.
+ * Grouping separators are deliberately rejected because values such as `1,234` are
+ * ambiguous across locales. Shopify always receives the normalized period form.
+ */
+export function normalizeProductPriceInput(value: unknown): string | null {
+  const price = String(value ?? "").trim();
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(price)) return null;
+
+  const [wholePart = "0", decimalPart] = price.replace(",", ".").split(".");
+  const normalizedWholePart = wholePart.replace(/^0+(?=\d)/, "");
+  return decimalPart === undefined
+    ? normalizedWholePart
+    : `${normalizedWholePart}.${decimalPart}`;
+}
+
 export function isValidProductPrice(value: unknown) {
-  return /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(String(value ?? "").trim());
+  return normalizeProductPriceInput(value) !== null;
+}
+
+export function isValidCompareAtPrice(price: unknown, compareAtPrice: unknown) {
+  const normalizedPrice = normalizeProductPriceInput(price);
+  const normalizedCompareAtPrice = normalizeProductPriceInput(compareAtPrice);
+  if (normalizedPrice === null || normalizedCompareAtPrice === null) return false;
+  return (
+    toProductPriceMinorUnits(normalizedCompareAtPrice) >
+    toProductPriceMinorUnits(normalizedPrice)
+  );
 }
 
 export function isProductPriceChanged(draft: unknown, current: unknown) {
@@ -66,5 +92,13 @@ export function isProductPriceChanged(draft: unknown, current: unknown) {
 function normalizeComparableProductPrice(value: unknown) {
   const price = String(value ?? "").trim();
   if (!price) return "";
-  return isValidProductPrice(price) ? Number(price).toFixed(2) : price;
+  const normalized = normalizeProductPriceInput(price);
+  if (normalized === null) return price;
+  const [wholePart, decimalPart = ""] = normalized.split(".");
+  return `${wholePart}.${decimalPart.padEnd(2, "0")}`;
+}
+
+function toProductPriceMinorUnits(normalizedPrice: string) {
+  const [wholePart, decimalPart = ""] = normalizedPrice.split(".");
+  return BigInt(wholePart || "0") * 100n + BigInt(decimalPart.padEnd(2, "0"));
 }

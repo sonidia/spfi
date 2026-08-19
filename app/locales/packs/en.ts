@@ -1365,6 +1365,15 @@ const messages = {
   "product.empty": "No products found. Create one.",
   "product.createTitle": "Create product",
   "product.editTitle": "Edit product",
+  "product.editSections": "Product editor sections",
+  "product.editInformation": "Product information",
+  "product.editCatalog": "Variants, media & inventory",
+  "product.editCatalogDescription":
+    "Catalog changes use their own save actions and are applied independently from product information.",
+  "product.loadingCatalogEditor": "Loading the catalog editor...",
+  "product.editCatalogLoadFailed":
+    "The complete product data required by the catalog editor could not be loaded.",
+  "product.saveProductInformation": "Save product information",
   "product.fieldTitle": "Title",
   "product.titlePlaceholder": "Awesome product",
   "product.statusActive": "Active",
@@ -1650,7 +1659,9 @@ const messages = {
   "product.presentmentCurrenciesPlaceholder": "USD, EUR, VND",
   "product.loadMarketPrices": "Load market prices",
   "product.validPricesRequired":
-    "Enter valid prices with up to two decimals; compare-at price must exceed price.",
+    "Enter valid prices with up to two decimals using a comma or period; compare-at price must exceed price.",
+  "product.priceInputHint":
+    "Use a comma or period as the decimal separator, for example 48,88 or 48.88.",
   "product.bulkPricesUpdated": "Updated prices for {count} variants.",
   "product.priceUpdatePartial":
     "Updated {updated} of {total} prices before Shopify rejected the next batch. Your drafts remain; saving again is safe.",
@@ -1840,6 +1851,9 @@ const messages = {
   "product.media": "Product media",
   "product.mediaDescription":
     "Manage images, externally hosted videos, Shopify-hosted videos, and 3D models through the current product media API.",
+  "product.mediaReadOnlyDescription":
+    "View the images, videos, and 3D models attached to this product.",
+  "product.refreshMedia": "Refresh product media",
   "product.mediaType": "Media type",
   "product.mediaTypeImage": "Image",
   "product.mediaTypeExternalVideo": "External video",

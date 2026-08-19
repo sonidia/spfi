@@ -10,7 +10,10 @@ import type {
 import { getSafeExternalUrl } from "~~/utils/safe-url";
 import type { ShopifyNumericId } from "~~/types/shopify";
 
-const props = defineProps<{ productId: ShopifyNumericId }>();
+const props = withDefaults(
+  defineProps<{ productId: ShopifyNumericId; readOnly?: boolean }>(),
+  { readOnly: false },
+);
 const emit = defineEmits<{ refreshed: [] }>();
 const { storeId, token } = useActiveShopAuth();
 const { t } = useLocalization();
@@ -115,14 +118,26 @@ function getErrorMessage(value: unknown, fallback: string) {
     <div class="product-media-heading">
       <div>
         <div class="detail-section-title">{{ t("product.media") }}</div>
-        <p>{{ t("product.mediaDescription") }}</p>
+        <p>
+          {{
+            readOnly
+              ? t("product.mediaReadOnlyDescription")
+              : t("product.mediaDescription")
+          }}
+        </p>
       </div>
-      <BaseButton icon-only variant="ghost" :loading="isLoading" @click="load">
+      <BaseButton
+        icon-only
+        variant="ghost"
+        :aria-label="t('product.refreshMedia')"
+        :loading="isLoading"
+        @click="load"
+      >
         <template #icon><RefreshCw /></template>
       </BaseButton>
     </div>
 
-    <form class="product-media-create" @submit.prevent="create">
+    <form v-if="!readOnly" class="product-media-create" @submit.prevent="create">
       <label>
         <span>{{ t("product.mediaType") }}</span>
         <BaseSelect

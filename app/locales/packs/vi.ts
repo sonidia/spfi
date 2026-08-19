@@ -213,6 +213,15 @@ const messages: Record<MessageKey, string> = {
   "product.empty": "Chua co san pham. Hay tao mot san pham.",
   "product.createTitle": "Tao san pham",
   "product.editTitle": "Sua san pham",
+  "product.editSections": "Các phần chỉnh sửa sản phẩm",
+  "product.editInformation": "Thông tin sản phẩm",
+  "product.editCatalog": "Biến thể, media và tồn kho",
+  "product.editCatalogDescription":
+    "Các thay đổi catalog có nút lưu riêng và được áp dụng độc lập với thông tin sản phẩm.",
+  "product.loadingCatalogEditor": "Đang tải trình chỉnh sửa catalog...",
+  "product.editCatalogLoadFailed":
+    "Không thể tải đủ dữ liệu sản phẩm cần thiết cho trình chỉnh sửa catalog.",
+  "product.saveProductInformation": "Lưu thông tin sản phẩm",
   "product.fieldTitle": "Tieu de",
   "product.titlePlaceholder": "San pham moi",
   "product.statusActive": "Active",
@@ -1544,7 +1553,9 @@ const messages: Record<MessageKey, string> = {
   "product.presentmentCurrenciesPlaceholder": "USD, EUR, VND",
   "product.loadMarketPrices": "Tải giá theo market",
   "product.validPricesRequired":
-    "Hãy nhập giá hợp lệ với tối đa hai chữ số thập phân; giá so sánh phải lớn hơn giá bán.",
+    "Hãy nhập giá hợp lệ với tối đa hai chữ số thập phân bằng dấu phẩy hoặc dấu chấm; giá so sánh phải lớn hơn giá bán.",
+  "product.priceInputHint":
+    "Dùng dấu phẩy hoặc dấu chấm cho phần thập phân, ví dụ 48,88 hoặc 48.88.",
   "product.bulkPricesUpdated": "Đã cập nhật giá cho {count} biến thể.",
   "product.priceUpdatePartial":
     "Đã cập nhật {updated}/{total} mức giá trước khi Shopify từ chối batch tiếp theo. Bản nháp vẫn được giữ; bạn có thể lưu lại an toàn.",
@@ -1839,6 +1850,9 @@ const messages: Record<MessageKey, string> = {
   "product.media": "Media sản phẩm",
   "product.mediaDescription":
     "Quản lý ảnh, external video, video Shopify host và model 3D qua product media API hiện hành.",
+  "product.mediaReadOnlyDescription":
+    "Xem ảnh, video và model 3D đang được gắn với sản phẩm này.",
+  "product.refreshMedia": "Làm mới media sản phẩm",
   "product.mediaType": "Loại media",
   "product.mediaTypeImage": "Ảnh",
   "product.mediaTypeExternalVideo": "External video",

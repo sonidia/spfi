@@ -12,7 +12,6 @@ import type {
 const props = defineProps<{ product: ShopifyProduct }>();
 const emit = defineEmits<{
   close: [];
-  refreshed: [];
 }>();
 
 const { t, locale } = useLocalization();
@@ -421,8 +420,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <ProductMediaManager :product-id="product.id" @refreshed="emit('refreshed')" />
-        <ProductOperationsPanel :product="product" @refreshed="emit('refreshed')" />
+        <ProductMediaManager :product-id="product.id" read-only />
       </div>
     </section>
   </div>

@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   buildVariantsFromOptions,
   isProductPriceChanged,
+  isValidCompareAtPrice,
   isValidProductPrice,
+  normalizeProductPriceInput,
   normalizeProductOptions,
 } from "../utils/product-options.ts";
 
@@ -41,15 +43,22 @@ test("variant expansion rejects incomplete options and REST-limit overflow", () 
   assert.throws(() => buildVariantsFromOptions(options, {}, 100), /110 variants/i);
 });
 
-test("product prices accept zero and up to two decimal places", () => {
+test("product prices accept locale decimal separators and normalize for Shopify", () => {
   assert.equal(isValidProductPrice("0"), true);
   assert.equal(isValidProductPrice("19.99"), true);
+  assert.equal(isValidProductPrice("48,88"), true);
+  assert.equal(normalizeProductPriceInput("48,88"), "48.88");
+  assert.equal(normalizeProductPriceInput("00048,80"), "48.80");
   assert.equal(isValidProductPrice("19.999"), false);
   assert.equal(isValidProductPrice("-1"), false);
+  assert.equal(isValidProductPrice("1,234.56"), false);
+  assert.equal(isValidCompareAtPrice("48,88", "50,00"), true);
+  assert.equal(isValidCompareAtPrice("48,88", "48,88"), false);
 });
 
 test("price change detection ignores display-only decimal formatting", () => {
   assert.equal(isProductPriceChanged("19.9", "19.90"), false);
+  assert.equal(isProductPriceChanged("19,9", "19.90"), false);
   assert.equal(isProductPriceChanged("", null), false);
   assert.equal(isProductPriceChanged("20.00", "19.90"), true);
   assert.equal(isProductPriceChanged("invalid", "19.90"), true);

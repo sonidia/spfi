@@ -481,7 +481,6 @@
       v-if="detailProduct"
       :product="detailProduct"
       @close="detailProductId = null"
-      @refreshed="refreshProductDetail"
     />
 
     <!-- Create Modal -->
@@ -588,13 +587,14 @@
           <div class="field-row">
             <div class="field">
               <label class="field-label">{{ t("product.defaultPrice") }}</label>
-              <input
+              <LocalizedPriceInput
                 v-model="newProductDefaultPrice"
-                type="number"
-                min="0"
-                step="0.01"
                 class="inp"
+                :aria-label="t('product.defaultPrice')"
+                placeholder="0.00 / 0,00"
+                :title="t('product.priceInputHint')"
               />
+              <small>{{ t("product.priceInputHint") }}</small>
             </div>
             <div class="field">
               <label class="field-label">{{ t("product.initialImageUrl") }}</label>
@@ -670,9 +670,19 @@
 
     <!-- Edit Modal -->
     <div v-if="showEditModal" class="modal-backdrop" @click.self="closeEditModal">
-      <div class="modal-card">
+      <section
+        class="modal-card product-edit-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-edit-title"
+      >
         <div class="modal-head">
-          <h3 class="modal-title">{{ t("product.editTitle") }}</h3>
+          <div>
+            <h3 id="product-edit-title" class="modal-title">
+              {{ t("product.editTitle") }}
+            </h3>
+            <p>{{ editProduct.title }}</p>
+          </div>
           <button
             class="btn-close"
             type="button"
@@ -682,152 +692,206 @@
             <X aria-hidden="true" />
           </button>
         </div>
-        <div class="modal-body">
-          <div class="field">
-            <label class="field-label"
-              >{{ t("product.fieldTitle") }}
-              <span class="required-marker" aria-hidden="true">*</span></label
-            >
-            <input
-              v-model="editProduct.title"
-              type="text"
-              class="inp"
-              required
-              maxlength="255"
-            />
-          </div>
-          <div class="field-row">
+        <nav class="product-edit-nav" :aria-label="t('product.editSections')">
+          <button
+            type="button"
+            :class="{ 'is-active': editSection === 'details' }"
+            :aria-current="editSection === 'details' ? 'page' : undefined"
+            @click="editSection = 'details'"
+          >
+            <FileText aria-hidden="true" />
+            <span>{{ t("product.editInformation") }}</span>
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': editSection === 'catalog' }"
+            :aria-current="editSection === 'catalog' ? 'page' : undefined"
+            @click="editSection = 'catalog'"
+          >
+            <Boxes aria-hidden="true" />
+            <span>{{ t("product.editCatalog") }}</span>
+          </button>
+        </nav>
+        <div
+          class="modal-body"
+          :class="{ 'product-catalog-body': editSection === 'catalog' }"
+        >
+          <template v-if="editSection === 'details'">
             <div class="field">
-              <label class="field-label">{{ t("product.columnStatus") }}</label>
-              <BaseSelect
-                class-name="product-form-select"
-                :model-value="editProduct.status"
-                :options="productStatusOptions"
-                @update:model-value="
-                  editProduct.status = String($event) as ShopifyProductStatus
-                "
-              />
-            </div>
-            <label class="field checkbox-field">
+              <label class="field-label"
+                >{{ t("product.fieldTitle") }}
+                <span class="required-marker" aria-hidden="true">*</span></label
+              >
               <input
-                v-model="editProduct.published"
-                type="checkbox"
-                :disabled="editProduct.status !== 'active'"
-              />
-              {{ t("product.publishedToOnlineStore") }}
-            </label>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label class="field-label">{{ t("product.handle") }}</label>
-              <input v-model="editProduct.handle" type="text" class="inp" />
-            </div>
-            <div class="field">
-              <label class="field-label">{{ t("product.templateSuffix") }}</label>
-              <input v-model="editProduct.template_suffix" type="text" class="inp" />
-            </div>
-          </div>
-          <div class="advanced-product-fields">
-            <div class="advanced-product-heading">
-              <div>
-                <strong>{{ t("product.commerceSettings") }}</strong>
-                <p>{{ t("product.commerceSettingsDescription") }}</p>
-              </div>
-              <span v-if="isAdvancedProductLoading">{{ t("common.loading") }}</span>
-            </div>
-            <div class="field">
-              <label class="field-label">{{ t("product.shopifyCategory") }}</label>
-              <input
-                v-model.trim="editProduct.category_id"
+                v-model="editProduct.title"
+                type="text"
                 class="inp"
-                placeholder="gid://shopify/TaxonomyCategory/sg-..."
+                required
+                maxlength="255"
               />
-              <small>{{ t("product.shopifyCategoryHint") }}</small>
             </div>
-            <div class="field-row product-readonly-facts">
-              <div>
-                <span>{{ t("product.productKind") }}</span>
-                <strong>{{
-                  editProduct.is_gift_card
-                    ? t("product.giftCardProduct")
-                    : t("product.standardProduct")
-                }}</strong>
-              </div>
-              <label class="field checkbox-field compact-checkbox">
-                <BaseCheckbox
-                  v-model="editProduct.requires_selling_plan"
-                  :label="t('product.subscriptionOnly')"
-                  :description="t('product.subscriptionOnlyHint')"
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">{{ t("product.columnStatus") }}</label>
+                <BaseSelect
+                  class-name="product-form-select"
+                  :model-value="editProduct.status"
+                  :options="productStatusOptions"
+                  @update:model-value="
+                    editProduct.status = String($event) as ShopifyProductStatus
+                  "
                 />
+              </div>
+              <label class="field checkbox-field">
+                <input
+                  v-model="editProduct.published"
+                  type="checkbox"
+                  :disabled="editProduct.status !== 'active'"
+                />
+                {{ t("product.publishedToOnlineStore") }}
               </label>
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">{{ t("product.handle") }}</label>
+                <input v-model="editProduct.handle" type="text" class="inp" />
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.templateSuffix") }}</label>
+                <input v-model="editProduct.template_suffix" type="text" class="inp" />
+              </div>
+            </div>
+            <div class="advanced-product-fields">
+              <div class="advanced-product-heading">
+                <div>
+                  <strong>{{ t("product.commerceSettings") }}</strong>
+                  <p>{{ t("product.commerceSettingsDescription") }}</p>
+                </div>
+                <span v-if="isAdvancedProductLoading">{{ t("common.loading") }}</span>
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.shopifyCategory") }}</label>
+                <input
+                  v-model.trim="editProduct.category_id"
+                  class="inp"
+                  placeholder="gid://shopify/TaxonomyCategory/sg-..."
+                />
+                <small>{{ t("product.shopifyCategoryHint") }}</small>
+              </div>
+              <div class="field-row product-readonly-facts">
+                <div>
+                  <span>{{ t("product.productKind") }}</span>
+                  <strong>{{
+                    editProduct.is_gift_card
+                      ? t("product.giftCardProduct")
+                      : t("product.standardProduct")
+                  }}</strong>
+                </div>
+                <label class="field checkbox-field compact-checkbox">
+                  <BaseCheckbox
+                    v-model="editProduct.requires_selling_plan"
+                    :label="t('product.subscriptionOnly')"
+                    :description="t('product.subscriptionOnlyHint')"
+                  />
+                </label>
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.collections") }}</label>
+                <div
+                  v-if="productStore.managementContext?.collections.length"
+                  class="product-collection-picker"
+                >
+                  <BaseCheckbox
+                    v-for="collection in productStore.managementContext.collections"
+                    :key="collection.id"
+                    :model-value="editProduct.collection_ids.includes(collection.id)"
+                    :label="collection.title"
+                    :description="
+                      t('product.collectionProductCount', {
+                        count: collection.productsCount,
+                      })
+                    "
+                    @change="toggleEditCollection(collection.id)"
+                  />
+                </div>
+                <div v-else class="product-form-empty">
+                  {{ t("product.noCollectionsAvailable") }}
+                </div>
+                <small v-if="editProduct.collections_truncated">
+                  {{ t("product.assignedCollectionsTruncated") }}
+                </small>
+              </div>
+              <div v-if="editProduct.selling_plan_groups.length" class="field">
+                <label class="field-label">{{ t("product.sellingPlanGroups") }}</label>
+                <div class="product-plan-chips">
+                  <span
+                    v-for="group in editProduct.selling_plan_groups"
+                    :key="group.id"
+                  >
+                    {{ group.name }}
+                  </span>
+                </div>
+                <small>{{ t("product.sellingPlanOwnershipHint") }}</small>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">{{ t("product.vendor") }}</label>
+                <input v-model="editProduct.vendor" type="text" class="inp" />
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.productType") }}</label>
+                <input v-model="editProduct.product_type" type="text" class="inp" />
+              </div>
+            </div>
             <div class="field">
-              <label class="field-label">{{ t("product.collections") }}</label>
-              <div
-                v-if="productStore.managementContext?.collections.length"
-                class="product-collection-picker"
-              >
-                <BaseCheckbox
-                  v-for="collection in productStore.managementContext.collections"
-                  :key="collection.id"
-                  :model-value="editProduct.collection_ids.includes(collection.id)"
-                  :label="collection.title"
-                  :description="
-                    t('product.collectionProductCount', {
-                      count: collection.productsCount,
-                    })
-                  "
-                  @change="toggleEditCollection(collection.id)"
+              <label class="field-label">{{ t("product.tags") }}</label>
+              <input v-model="editProduct.tags" type="text" class="inp" />
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.descriptionHtml") }}</label>
+              <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">{{ t("product.seoTitle") }}</label>
+                <input v-model="editProduct.seo_title" class="inp" maxlength="255" />
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.seoDescription") }}</label>
+                <input
+                  v-model="editProduct.seo_description"
+                  class="inp"
+                  maxlength="320"
                 />
               </div>
-              <div v-else class="product-form-empty">
-                {{ t("product.noCollectionsAvailable") }}
-              </div>
-              <small v-if="editProduct.collections_truncated">
-                {{ t("product.assignedCollectionsTruncated") }}
-              </small>
             </div>
-            <div v-if="editProduct.selling_plan_groups.length" class="field">
-              <label class="field-label">{{ t("product.sellingPlanGroups") }}</label>
-              <div class="product-plan-chips">
-                <span v-for="group in editProduct.selling_plan_groups" :key="group.id">
-                  {{ group.name }}
-                </span>
-              </div>
-              <small>{{ t("product.sellingPlanOwnershipHint") }}</small>
+          </template>
+          <div v-else class="product-catalog-editor">
+            <div class="product-catalog-note">
+              <strong>{{ t("product.editCatalog") }}</strong>
+              <span>{{ t("product.editCatalogDescription") }}</span>
             </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label class="field-label">{{ t("product.vendor") }}</label>
-              <input v-model="editProduct.vendor" type="text" class="inp" />
+            <div v-if="isEditingProductDetailLoading" class="product-edit-loading">
+              <LoaderCircle class="loading-icon" aria-hidden="true" />
+              {{ t("product.loadingCatalogEditor") }}
             </div>
-            <div class="field">
-              <label class="field-label">{{ t("product.productType") }}</label>
-              <input v-model="editProduct.product_type" type="text" class="inp" />
+            <div v-else-if="editingProductDetailError" class="product-edit-error">
+              <span role="alert">{{ editingProductDetailError }}</span>
+              <BaseButton @click="loadEditingProductRecord">
+                {{ t("common.retry") }}
+              </BaseButton>
             </div>
-          </div>
-          <div class="field">
-            <label class="field-label">{{ t("product.tags") }}</label>
-            <input v-model="editProduct.tags" type="text" class="inp" />
-          </div>
-          <div class="field">
-            <label class="field-label">{{ t("product.descriptionHtml") }}</label>
-            <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label class="field-label">{{ t("product.seoTitle") }}</label>
-              <input v-model="editProduct.seo_title" class="inp" maxlength="255" />
-            </div>
-            <div class="field">
-              <label class="field-label">{{ t("product.seoDescription") }}</label>
-              <input
-                v-model="editProduct.seo_description"
-                class="inp"
-                maxlength="320"
+            <template v-else-if="editingProductRecord">
+              <ProductMediaManager
+                :product-id="editingProductRecord.id"
+                @refreshed="refreshEditingProduct"
               />
-            </div>
+              <ProductOperationsPanel
+                :product="editingProductRecord"
+                @refreshed="refreshEditingProduct"
+              />
+            </template>
           </div>
         </div>
         <div class="modal-actions">
@@ -847,11 +911,11 @@
                 ? t("common.loading")
                 : isSavingProductEdit
                   ? t("product.saving")
-                  : t("product.saveChanges")
+                  : t("product.saveProductInformation")
             }}
           </button>
         </div>
-      </div>
+      </section>
     </div>
 
     <div
@@ -914,10 +978,12 @@
 <script setup lang="ts">
 import {
   Archive,
+  Boxes,
   ChevronDown,
   Copy,
   Eye,
   EyeOff,
+  FileText,
   LoaderCircle,
   Pencil,
   Plus,
@@ -928,6 +994,7 @@ import {
   X,
 } from "@lucide/vue";
 import { computed, nextTick, ref, watch } from "vue";
+import LocalizedPriceInput from "~/components/product/LocalizedPriceInput.vue";
 import { useActiveShopAuth } from "~/composables/useActiveShopAuth";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useFormStore } from "~/stores/form";
@@ -941,7 +1008,7 @@ import type {
 import type { ProductListQuery, ProductSortKey } from "~~/types/shopify-product";
 import {
   buildVariantsFromOptions,
-  isValidProductPrice,
+  normalizeProductPriceInput,
   normalizeProductOptions,
   type ProductOptionDraft,
 } from "~~/utils/product-options";
@@ -999,6 +1066,10 @@ const detailProduct = computed(() =>
 // ── Local state for modals ──
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
+const editSection = ref<"details" | "catalog">("details");
+const editingProductRecord = ref<ShopifyProduct | null>(null);
+const isEditingProductDetailLoading = ref(false);
+const editingProductDetailError = ref("");
 const publishingProductId = ref<ShopifyNumericId | null>(null);
 const showAdvancedFilters = ref(false);
 const isAdvancedProductLoading = ref(false);
@@ -1029,6 +1100,7 @@ const productStatusOptions = computed(() => [
   { label: t("product.statusActive"), value: "active" },
   { label: t("product.statusDraft"), value: "draft" },
   { label: t("product.statusArchived"), value: "archived" },
+  { label: t("product.statusUnlisted"), value: "unlisted" },
 ]);
 const productStatusFilterOptions = computed(() => [
   { label: t("product.filterStatusAny"), value: "" },
@@ -1352,9 +1424,19 @@ function formatProductPrice(product: ShopifyProduct) {
 }
 
 async function loadProductDetail(productId: ShopifyNumericId) {
+  const product = await fetchProductDetailRecord(productId);
+  if (detailProductId.value === productId && product) {
+    detailProductRecord.value = {
+      ...(detailProductRecord.value || {}),
+      ...product,
+    } as ShopifyProduct;
+  }
+}
+
+async function fetchProductDetailRecord(productId: ShopifyNumericId) {
   const sid = formStore.storeId;
   const token = activeToken.value;
-  if (!sid || !token) return;
+  if (!sid || !token) return null;
   try {
     const response = await $fetch<{ product?: ShopifyProduct }>(
       `/api/product/${productId}`,
@@ -1363,20 +1445,10 @@ async function loadProductDetail(productId: ShopifyNumericId) {
         headers: { "X-Shopify-Access-Token": token },
       },
     );
-    if (detailProductId.value === productId && response.product) {
-      detailProductRecord.value = {
-        ...(detailProductRecord.value || {}),
-        ...response.product,
-      } as ShopifyProduct;
-    }
+    return response.product || null;
   } catch {
-    // Keep the list summary visible if the dedicated detail request fails.
+    return null;
   }
-}
-
-async function refreshProductDetail() {
-  await refreshProducts();
-  if (detailProductId.value) await loadProductDetail(detailProductId.value);
 }
 
 function addProductOption() {
@@ -1458,10 +1530,11 @@ async function createProduct() {
   let variants;
   const imageUrl = newProductImageUrl.value.trim();
   try {
-    if (!isValidProductPrice(newProductDefaultPrice.value)) throw new Error("price");
+    const defaultPrice = normalizeProductPriceInput(newProductDefaultPrice.value);
+    if (defaultPrice === null) throw new Error("price");
     options = normalizeProductOptions(newProductOptions.value);
     variants = buildVariantsFromOptions(options, {
-      price: newProductDefaultPrice.value.trim(),
+      price: defaultPrice,
     });
     if (imageUrl && !/^https?:\/\//i.test(imageUrl)) throw new Error("image");
   } catch {
@@ -1525,6 +1598,9 @@ async function createProduct() {
 async function openEditModal(prod: ShopifyProduct) {
   const requestId = ++advancedProductRequestSequence;
   isSavingProductEdit.value = false;
+  editSection.value = "details";
+  editingProductRecord.value = prod;
+  editingProductDetailError.value = "";
   editProduct.value = {
     id: prod.id,
     title: prod.title || "",
@@ -1552,14 +1628,28 @@ async function openEditModal(prod: ShopifyProduct) {
 
   const sid = formStore.storeId;
   const token = activeToken.value;
-  if (!sid || !token) return;
+  if (!sid || !token) {
+    editingProductDetailError.value = t("product.credentialsMissing");
+    return;
+  }
   isAdvancedProductLoading.value = true;
-  const [, advanced] = await Promise.all([
+  isEditingProductDetailLoading.value = true;
+  const [, advanced, detailedProduct] = await Promise.all([
     productStore.fetchManagementContext(sid, token),
     productStore.fetchAdvancedDetails(sid, token, prod.id),
+    fetchProductDetailRecord(prod.id),
   ]);
   if (requestId !== advancedProductRequestSequence) return;
   isAdvancedProductLoading.value = false;
+  isEditingProductDetailLoading.value = false;
+  if (detailedProduct) {
+    editingProductRecord.value = {
+      ...prod,
+      ...detailedProduct,
+    } as ShopifyProduct;
+  } else {
+    editingProductDetailError.value = t("product.editCatalogLoadFailed");
+  }
   if (!showEditModal.value || !advanced || editProduct.value.id !== prod.id) return;
   const collectionIds = advanced.collections.map((collection) => collection.id);
   editProduct.value.category_id = advanced.category?.id || "";
@@ -1579,6 +1669,41 @@ function closeEditModal() {
   advancedProductRequestSequence += 1;
   showEditModal.value = false;
   isAdvancedProductLoading.value = false;
+  isEditingProductDetailLoading.value = false;
+  editingProductDetailError.value = "";
+  editingProductRecord.value = null;
+}
+
+async function loadEditingProductRecord() {
+  const productId = editProduct.value.id;
+  if (!showEditModal.value || !productId || isEditingProductDetailLoading.value) return;
+  const requestId = advancedProductRequestSequence;
+  isEditingProductDetailLoading.value = true;
+  editingProductDetailError.value = "";
+  const product = await fetchProductDetailRecord(productId);
+  if (
+    requestId !== advancedProductRequestSequence ||
+    !showEditModal.value ||
+    editProduct.value.id !== productId
+  ) {
+    return;
+  }
+  isEditingProductDetailLoading.value = false;
+  if (!product) {
+    editingProductDetailError.value = t("product.editCatalogLoadFailed");
+    return;
+  }
+  editingProductRecord.value = {
+    ...(editingProductRecord.value || {}),
+    ...product,
+  } as ShopifyProduct;
+}
+
+async function refreshEditingProduct() {
+  const productId = editProduct.value.id;
+  if (!productId) return;
+  await refreshProducts();
+  await loadEditingProductRecord();
 }
 
 function toggleEditCollection(id: string) {
@@ -2204,6 +2329,98 @@ async function refreshProducts() {
   max-width: min(680px, calc(100vw - 28px));
   min-width: 0;
 }
+.product-edit-modal {
+  max-width: min(1120px, calc(100vw - 28px));
+}
+.product-edit-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.product-edit-nav button {
+  min-width: 0;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-sub);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.product-edit-nav button:hover {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+.product-edit-nav button.is-active {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.product-edit-nav svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+.product-edit-nav span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modal-body.product-catalog-body {
+  padding: 0;
+}
+.product-catalog-editor {
+  min-width: 0;
+  display: grid;
+}
+.product-catalog-note {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 14px 16px;
+  background: var(--blue-soft);
+}
+.product-catalog-note strong {
+  color: var(--text);
+  font-size: 12px;
+}
+.product-catalog-note span {
+  color: var(--text-sub);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.product-catalog-editor > :deep(.product-media-manager) {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.product-edit-loading,
+.product-edit-error {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 24px;
+  color: var(--text-sub);
+  font-size: 12px;
+  text-align: center;
+}
+.product-edit-error {
+  flex-direction: column;
+  color: var(--red);
+}
 .duplicate-modal {
   max-width: min(520px, calc(100vw - 28px));
 }
@@ -2462,6 +2679,14 @@ async function refreshProducts() {
     max-width: none;
     max-height: 94dvh;
     border-radius: 14px 14px 0 0;
+  }
+
+  .product-edit-modal {
+    max-width: none;
+  }
+
+  .product-edit-nav {
+    padding-inline: 12px;
   }
 
   .modal-actions {
