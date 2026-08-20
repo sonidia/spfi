@@ -77,6 +77,8 @@ useTokenRotation();
 :root {
   color-scheme: light;
   --footer-height: 36px;
+  --app-content-max-width: 1520px;
+  --app-shell-max-width: 1560px;
   --bg: #f5f7f4;
   --surface: #ffffff;
   --surface-low: #fbfcfb;
@@ -351,7 +353,7 @@ html[data-locale-direction="rtl"] {
 
 .layout,
 .page {
-  max-width: 1028px;
+  max-width: var(--app-content-max-width);
   min-width: 100%;
   margin: 0 auto;
 }

@@ -124,7 +124,7 @@ function formatCost(value: number) {
     :class="{ 'is-collapsed': collapsed }"
     :aria-label="t('quota.details')"
   >
-    <BasePopover class="quota-popover" position="right" align="bottom" role="dialog">
+    <BasePopover class="quota-popover" position="top" align="left" role="dialog">
       <template #trigger="{ isOpen, triggerProps }">
         <button
           v-if="!collapsed"

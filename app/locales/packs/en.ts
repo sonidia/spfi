@@ -1861,6 +1861,25 @@ const messages = {
     "Manage images, externally hosted videos, Shopify-hosted videos, and 3D models through the current product media API.",
   "product.mediaReadOnlyDescription":
     "View the images, videos, and 3D models attached to this product.",
+  "product.mediaLibrary": "All product media",
+  "product.mediaLibraryDescription":
+    "Browse the complete product media library, including videos and 3D models.",
+  "product.variantMediaTitle": "Variants and images",
+  "product.variantMediaDescription":
+    "Select a variant to see its assigned image and how product images are shared.",
+  "product.variantCount": "{count} variants",
+  "product.selectedVariant": "Selected variant",
+  "product.variantHasImage": "Image assigned",
+  "product.variantNoImage": "No image",
+  "product.assignedImage": "Assigned image",
+  "product.noAssignedImage": "No image assigned",
+  "product.noAssignedImageHint":
+    "This variant uses the product gallery without a dedicated preview image.",
+  "product.inventoryItem": "Inventory item",
+  "product.productImages": "Product image map",
+  "product.imageCount": "{count} images",
+  "product.usedByVariantCount": "Used by {count} variants",
+  "product.sharedProductImage": "Product-level image",
   "product.refreshMedia": "Refresh product media",
   "product.mediaType": "Media type",
   "product.mediaTypeImage": "Image",

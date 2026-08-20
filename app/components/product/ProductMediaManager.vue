@@ -11,8 +11,13 @@ import { getSafeExternalUrl } from "~~/utils/safe-url";
 import type { ShopifyNumericId } from "~~/types/shopify";
 
 const props = withDefaults(
-  defineProps<{ productId: ShopifyNumericId; readOnly?: boolean }>(),
-  { readOnly: false },
+  defineProps<{
+    productId: ShopifyNumericId;
+    readOnly?: boolean;
+    title?: string;
+    description?: string;
+  }>(),
+  { readOnly: false, title: "", description: "" },
 );
 const emit = defineEmits<{ refreshed: [] }>();
 const { storeId, token } = useActiveShopAuth();
@@ -33,6 +38,14 @@ const typeOptions = computed(() => [
   { label: t("product.mediaTypeVideo"), value: "VIDEO" },
   { label: t("product.mediaTypeModel"), value: "MODEL_3D" },
 ]);
+const visibleTitle = computed(() => props.title || t("product.media"));
+const visibleDescription = computed(
+  () =>
+    props.description ||
+    (props.readOnly
+      ? t("product.mediaReadOnlyDescription")
+      : t("product.mediaDescription")),
+);
 
 watch(
   () => props.productId,
@@ -117,14 +130,8 @@ function getErrorMessage(value: unknown, fallback: string) {
   <section class="product-media-manager detail-section">
     <div class="product-media-heading">
       <div>
-        <div class="detail-section-title">{{ t("product.media") }}</div>
-        <p>
-          {{
-            readOnly
-              ? t("product.mediaReadOnlyDescription")
-              : t("product.mediaDescription")
-          }}
-        </p>
+        <div class="detail-section-title">{{ visibleTitle }}</div>
+        <p>{{ visibleDescription }}</p>
       </div>
       <BaseButton
         icon-only

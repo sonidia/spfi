@@ -1,7 +1,7 @@
 .shop-layout-container {
   display: flex;
-  width: min(100%, 1440px);
-  max-width: 1440px;
+  width: min(100%, var(--app-shell-max-width));
+  max-width: var(--app-shell-max-width);
   min-height: calc(100vh - 64px);
   max-height: calc(100vh - 64px);
   margin: 0 auto;
@@ -11,7 +11,7 @@
 }
 
 .shop-layout-container.is-single-panel {
-  max-width: 1440px;
+  max-width: var(--app-shell-max-width);
 }
 
 .shop-layout-container.is-single-panel .main-content {

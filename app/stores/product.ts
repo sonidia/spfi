@@ -49,6 +49,7 @@ export const useProductStore = defineStore("product", () => {
   const error = ref<string | null>(null);
   const managementContext = ref<ProductManagementContext | null>(null);
   let storeScopeVersion = 0;
+  let fetchSequence = 0;
   const storeCache = usePerStoreCache<ProductStoreCache>({
     capture: () => ({
       products: [...products.value],
@@ -93,6 +94,7 @@ export const useProductStore = defineStore("product", () => {
 
     activateStore(storeId);
     const requestScope = storeScopeVersion;
+    const requestId = ++fetchSequence;
     isLoading.value = true;
     error.value = null;
 
@@ -109,6 +111,9 @@ export const useProductStore = defineStore("product", () => {
       });
 
       const nextProducts = response.products;
+      if (!isActiveRequest(storeId, requestScope) || requestId !== fetchSequence) {
+        return;
+      }
       storeCache.set(storeId, {
         products: [...nextProducts],
         hasFetchedAll: true,
@@ -119,7 +124,7 @@ export const useProductStore = defineStore("product", () => {
         loadedPageCount: 1,
         managementContext: managementContext.value,
       });
-      if (isActiveRequest(storeId, requestScope)) {
+      if (isActiveRequest(storeId, requestScope) && requestId === fetchSequence) {
         products.value = nextProducts;
         hasFetchedAll.value = true;
         totalCount.value = response.count;
@@ -129,11 +134,13 @@ export const useProductStore = defineStore("product", () => {
         loadedPageCount.value = 1;
       }
     } catch (err) {
-      if (isActiveRequest(storeId, requestScope)) {
+      if (isActiveRequest(storeId, requestScope) && requestId === fetchSequence) {
         error.value = getAppErrorMessage(err, localization.t("product.fetchFailed"));
       }
     } finally {
-      if (isActiveRequest(storeId, requestScope)) isLoading.value = false;
+      if (isActiveRequest(storeId, requestScope) && requestId === fetchSequence) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -443,6 +450,7 @@ export const useProductStore = defineStore("product", () => {
   }
 
   function resetState() {
+    fetchSequence += 1;
     products.value = [];
     hasFetchedAll.value = false;
     totalCount.value = 0;

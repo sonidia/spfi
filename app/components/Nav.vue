@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
   background: transparent;
   border-bottom: 1px solid transparent;
   min-height: 58px;
-  padding: 0 24px;
+  padding: 0 20px;
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
@@ -76,7 +76,7 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-soft);
 }
 .topbar-inner {
-  width: min(100%, 1400px);
+  width: min(100%, var(--app-content-max-width));
   min-height: 58px;
   margin: 0 auto;
   display: flex;

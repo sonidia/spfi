@@ -211,8 +211,12 @@ export async function listShopifyProducts(options: {
     products: data.products.nodes.map(mapProduct),
     count: data.productsCount.count,
     pageInfo: {
-      nextCursor: data.products.pageInfo.endCursor,
-      previousCursor: data.products.pageInfo.startCursor,
+      nextCursor: data.products.pageInfo.hasNextPage
+        ? data.products.pageInfo.endCursor
+        : null,
+      previousCursor: data.products.pageInfo.hasPreviousPage
+        ? data.products.pageInfo.startCursor
+        : null,
       hasNextPage: data.products.pageInfo.hasNextPage,
       hasPreviousPage: data.products.pageInfo.hasPreviousPage,
     },

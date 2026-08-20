@@ -40,6 +40,8 @@ describe("ProductDetailModal", () => {
       global: {
         stubs: {
           IconsRefresh: true,
+          ProductDescriptionPreview: true,
+          ProductVariantMediaOverview: true,
           ProductMediaManager: {
             props: { readOnly: Boolean },
             template: '<div data-test="product-media" :data-readonly="readOnly" />',

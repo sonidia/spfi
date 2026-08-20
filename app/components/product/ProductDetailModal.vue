@@ -112,24 +112,6 @@ function formatProductStatus(status?: ShopifyProductStatus) {
   return t("product.statusUnknown");
 }
 
-function formatVariantPrice(variant: ShopifyProduct["variants"][number]) {
-  const price = String(variant.price || "").trim();
-  if (!price) return "-";
-  return props.product.price_currency
-    ? `${price} ${props.product.price_currency}`
-    : price;
-}
-
-function formatVariantInventory(variant: ShopifyProduct["variants"][number]) {
-  if (typeof variant.inventory_quantity === "number") {
-    return t("product.availableCount", {
-      count: variant.inventory_quantity,
-    });
-  }
-
-  return variant.inventory_management ? t("product.tracked") : t("product.notTracked");
-}
-
 function formatLocationAddress(location: ShopifyLocation) {
   const parts = [
     location.address1,
@@ -318,39 +300,15 @@ onUnmounted(() => {
           </div>
           <div class="detail-description">
             <div class="detail-section-title">{{ t("product.description") }}</div>
-            <p>{{ product.body_html || t("product.noDescription") }}</p>
+            <ProductDescriptionPreview
+              v-if="product.body_html"
+              :content="product.body_html"
+            />
+            <div v-else class="detail-value">{{ t("product.noDescription") }}</div>
           </div>
         </div>
 
-        <div class="detail-section">
-          <div class="detail-section-title">{{ t("product.variants") }}</div>
-          <div v-if="product.variants?.length" class="variant-list">
-            <div
-              v-for="variant in product.variants"
-              :key="variant.id"
-              class="variant-row"
-            >
-              <div>
-                <div class="variant-title">
-                  {{ variant.title || t("product.defaultVariant") }}
-                </div>
-                <div class="variant-sub">
-                  {{ variant.sku || t("product.noSku") }}
-                  <span v-if="variant.inventory_item_id">
-                    - {{ t("product.itemId", { id: variant.inventory_item_id }) }}
-                  </span>
-                </div>
-              </div>
-              <div class="variant-side">
-                <span class="variant-price">{{ formatVariantPrice(variant) }}</span>
-                <span class="variant-inventory">
-                  {{ formatVariantInventory(variant) }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div v-else class="detail-empty">{{ t("product.noVariants") }}</div>
-        </div>
+        <ProductVariantMediaOverview :product="product" />
 
         <div class="detail-section">
           <div class="detail-section-head">
@@ -420,7 +378,12 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <ProductMediaManager :product-id="product.id" read-only />
+        <ProductMediaManager
+          :product-id="product.id"
+          :title="t('product.mediaLibrary')"
+          :description="t('product.mediaLibraryDescription')"
+          read-only
+        />
       </div>
     </section>
   </div>
@@ -451,7 +414,7 @@ onUnmounted(() => {
 }
 
 .product-detail-modal {
-  width: min(960px, 100%);
+  width: min(1120px, 100%);
   max-height: min(900px, calc(100vh - 48px));
   overflow: hidden;
 }
@@ -583,7 +546,6 @@ onUnmounted(() => {
   grid-column: 1 / -1;
 }
 
-.detail-description p,
 .detail-value {
   color: var(--text-sub);
   font-size: 12px;
@@ -626,14 +588,12 @@ onUnmounted(() => {
   font-size: 11px;
 }
 
-.variant-list,
 .location-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.variant-row,
 .location-row {
   display: flex;
   justify-content: space-between;
@@ -644,14 +604,12 @@ onUnmounted(() => {
   background: var(--surface);
 }
 
-.variant-title,
 .location-name {
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
 }
 
-.variant-sub,
 .location-address {
   margin-top: 3px;
   color: var(--text-sub);
@@ -659,24 +617,8 @@ onUnmounted(() => {
   overflow-wrap: anywhere;
 }
 
-.variant-inventory,
 .inventory-count {
   color: var(--green);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.variant-side {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.variant-price {
-  color: var(--text);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -772,17 +714,12 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .variant-row,
   .location-row {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .location-side {
-    align-items: flex-start;
-  }
-
-  .variant-side {
     align-items: flex-start;
   }
 }

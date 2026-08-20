@@ -1860,6 +1860,25 @@ const messages: Record<MessageKey, string> = {
     "Quản lý ảnh, external video, video Shopify host và model 3D qua product media API hiện hành.",
   "product.mediaReadOnlyDescription":
     "Xem ảnh, video và model 3D đang được gắn với sản phẩm này.",
+  "product.mediaLibrary": "Toàn bộ media sản phẩm",
+  "product.mediaLibraryDescription":
+    "Xem toàn bộ thư viện media của sản phẩm, bao gồm video và model 3D.",
+  "product.variantMediaTitle": "Biến thể và ảnh",
+  "product.variantMediaDescription":
+    "Chọn một biến thể để xem ảnh được gán và cách các ảnh sản phẩm được dùng chung.",
+  "product.variantCount": "{count} biến thể",
+  "product.selectedVariant": "Biến thể đang chọn",
+  "product.variantHasImage": "Đã gán ảnh",
+  "product.variantNoImage": "Chưa có ảnh",
+  "product.assignedImage": "Ảnh được gán",
+  "product.noAssignedImage": "Chưa gán ảnh",
+  "product.noAssignedImageHint":
+    "Biến thể này dùng thư viện ảnh chung của sản phẩm và chưa có ảnh đại diện riêng.",
+  "product.inventoryItem": "Mục tồn kho",
+  "product.productImages": "Sơ đồ ảnh sản phẩm",
+  "product.imageCount": "{count} ảnh",
+  "product.usedByVariantCount": "Được dùng bởi {count} biến thể",
+  "product.sharedProductImage": "Ảnh dùng chung của sản phẩm",
   "product.refreshMedia": "Làm mới media sản phẩm",
   "product.mediaType": "Loại media",
   "product.mediaTypeImage": "Ảnh",

@@ -30,10 +30,10 @@
           </div>
         </div>
 
-        <form class="product-filters" @submit.prevent="applyProductFilters">
+        <PaymentFilterPanel :active-count="activeProductFilterCount">
           <input
             v-model="filterForm.title"
-            class="inp"
+            class="inp product-filter-search"
             :placeholder="t('product.searchPlaceholder')"
           />
           <BaseSelect
@@ -58,12 +58,12 @@
           />
           <input
             v-model="filterForm.vendor"
-            class="inp"
+            class="inp product-filter-input"
             :placeholder="t('product.filterVendorPlaceholder')"
           />
           <input
             v-model="filterForm.product_type"
-            class="inp"
+            class="inp product-filter-input"
             :placeholder="t('product.filterTypePlaceholder')"
           />
           <BaseSelect
@@ -106,49 +106,62 @@
               />
             </span>
           </BaseButton>
-          <BaseButton
-            class="product-filter-action"
-            variant="primary"
-            size="medium"
-            type="submit"
-          >
-            {{ t("product.search") }}
-          </BaseButton>
-          <BaseButton
-            class="product-filter-action"
-            size="medium"
-            type="button"
-            @click="resetFilters"
-          >
-            {{ t("product.resetFilters") }}
-          </BaseButton>
           <div v-if="showAdvancedFilters" class="product-date-filters">
             <label>
               <span>{{ t("product.createdFrom") }}</span>
-              <input v-model="filterForm.created_at_min" class="inp" type="date" />
+              <input
+                v-model="filterForm.created_at_min"
+                class="inp product-filter-input"
+                type="date"
+              />
             </label>
             <label>
               <span>{{ t("product.createdThrough") }}</span>
-              <input v-model="filterForm.created_at_max" class="inp" type="date" />
+              <input
+                v-model="filterForm.created_at_max"
+                class="inp product-filter-input"
+                type="date"
+              />
             </label>
             <label>
               <span>{{ t("product.updatedFrom") }}</span>
-              <input v-model="filterForm.updated_at_min" class="inp" type="date" />
+              <input
+                v-model="filterForm.updated_at_min"
+                class="inp product-filter-input"
+                type="date"
+              />
             </label>
             <label>
               <span>{{ t("product.updatedThrough") }}</span>
-              <input v-model="filterForm.updated_at_max" class="inp" type="date" />
+              <input
+                v-model="filterForm.updated_at_max"
+                class="inp product-filter-input"
+                type="date"
+              />
             </label>
             <label>
               <span>{{ t("product.publishedFrom") }}</span>
-              <input v-model="filterForm.published_at_min" class="inp" type="date" />
+              <input
+                v-model="filterForm.published_at_min"
+                class="inp product-filter-input"
+                type="date"
+              />
             </label>
             <label>
               <span>{{ t("product.publishedThrough") }}</span>
-              <input v-model="filterForm.published_at_max" class="inp" type="date" />
+              <input
+                v-model="filterForm.published_at_max"
+                class="inp product-filter-input"
+                type="date"
+              />
             </label>
           </div>
-        </form>
+          <template #actions>
+            <BaseButton size="medium" type="button" @click="resetFilters">
+              {{ t("product.resetFilters") }}
+            </BaseButton>
+          </template>
+        </PaymentFilterPanel>
 
         <div
           v-for="warning in productStore.managementContext?.warnings || []"
@@ -479,7 +492,7 @@
               }}
             </span>
             <BaseButton
-              v-if="productStore.nextCursor"
+              v-if="canLoadMoreProducts"
               :loading="productStore.isLoadingMore"
               @click="loadMoreProducts"
             >
@@ -1064,6 +1077,10 @@ const totalPageCount = computed(() =>
       : 0,
   ),
 );
+const canLoadMoreProducts = computed(
+  () =>
+    Boolean(productStore.nextCursor) && products.value.length < productStore.totalCount,
+);
 const selectedProductId = ref<ShopifyNumericId | null>(null);
 const selectedProductIds = ref<Set<string>>(new Set());
 const selectAllCheckbox = ref<HTMLInputElement | null>(null);
@@ -1119,6 +1136,67 @@ const filterForm = ref({
   sort_key: "UPDATED_AT" as ProductSortKey,
   reverse: true,
 });
+const activeProductFilterCount = computed(() => {
+  const values = [
+    filterForm.value.title,
+    filterForm.value.status,
+    filterForm.value.published_status,
+    filterForm.value.vendor,
+    filterForm.value.product_type,
+    filterForm.value.collection_id,
+    filterForm.value.created_at_min,
+    filterForm.value.created_at_max,
+    filterForm.value.updated_at_min,
+    filterForm.value.updated_at_max,
+    filterForm.value.published_at_min,
+    filterForm.value.published_at_max,
+  ];
+  return (
+    values.filter((value) => String(value).trim()).length +
+    (filterForm.value.sort_key === "UPDATED_AT" ? 0 : 1) +
+    (filterForm.value.reverse ? 0 : 1)
+  );
+});
+const standardProductFilterSignature = computed(() =>
+  JSON.stringify([
+    filterForm.value.status,
+    filterForm.value.published_status,
+    filterForm.value.vendor,
+    filterForm.value.product_type,
+    filterForm.value.collection_id,
+    filterForm.value.created_at_min,
+    filterForm.value.created_at_max,
+    filterForm.value.updated_at_min,
+    filterForm.value.updated_at_max,
+    filterForm.value.published_at_min,
+    filterForm.value.published_at_max,
+    filterForm.value.sort_key,
+    filterForm.value.reverse,
+  ]),
+);
+let suppressAutomaticProductFilters = false;
+let cancelTitleAutoFilter = () => {};
+let cancelStandardAutoFilter = () => {};
+const titleAutoFilter = useDebouncedWatch(
+  () => filterForm.value.title,
+  () => {
+    if (suppressAutomaticProductFilters) return;
+    cancelStandardAutoFilter();
+    return applyProductFilters();
+  },
+  650,
+);
+cancelTitleAutoFilter = titleAutoFilter.cancel;
+const standardAutoFilter = useDebouncedWatch(
+  standardProductFilterSignature,
+  () => {
+    if (suppressAutomaticProductFilters) return;
+    cancelTitleAutoFilter();
+    return applyProductFilters();
+  },
+  250,
+);
+cancelStandardAutoFilter = standardAutoFilter.cancel;
 const productStatusOptions = computed(() => [
   { label: t("product.statusActive"), value: "active" },
   { label: t("product.statusDraft"), value: "draft" },
@@ -1493,6 +1571,7 @@ async function applyProductFilters() {
 }
 
 async function resetFilters() {
+  suppressAutomaticProductFilters = true;
   filterForm.value = {
     title: "",
     status: "",
@@ -1509,6 +1588,10 @@ async function resetFilters() {
     sort_key: "UPDATED_AT",
     reverse: true,
   };
+  await nextTick();
+  cancelTitleAutoFilter();
+  cancelStandardAutoFilter();
+  suppressAutomaticProductFilters = false;
   await applyProductFilters();
 }
 
@@ -1906,26 +1989,47 @@ async function refreshProducts() {
   font-size: 13px;
   color: var(--text-sub);
 }
-.product-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
-  gap: 8px;
+.products-tab :deep(.payment-filter-panel) {
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   margin-bottom: 12px;
 }
-.product-filters > input:first-child {
+
+.products-tab :deep(.payment-filter-fields) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 8px;
+}
+
+.product-filter-search {
   grid-column: span 2;
 }
-.product-filters .inp {
+
+.product-filter-search,
+.product-filter-input {
+  width: 100%;
+  min-width: 0;
   min-height: 36px;
   padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
   font-size: 12px;
 }
-.product-filters :deep(.select-trigger),
+
+.product-filter-search:focus,
+.product-filter-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
+}
+
+.product-filter-select :deep(.select-trigger),
 .product-form-select :deep(.select-trigger) {
   width: 100%;
   min-height: 36px;
 }
-.product-filters :deep(.select-dropdown),
+.product-filter-select :deep(.select-dropdown),
 .product-form-select :deep(.select-dropdown) {
   min-width: min(280px, calc(100vw - 32px));
 }
@@ -2665,12 +2769,12 @@ async function refreshProducts() {
     flex-direction: column;
   }
 
-  .product-filters,
+  .products-tab :deep(.payment-filter-fields),
   .option-row {
     grid-template-columns: 1fr;
   }
 
-  .product-filters > input:first-child,
+  .product-filter-search,
   .product-date-filters {
     grid-column: 1;
   }
