@@ -135,6 +135,7 @@ function getErrorMessage(value: unknown, fallback: string) {
       </div>
       <BaseButton
         icon-only
+        size="medium"
         variant="ghost"
         :aria-label="t('product.refreshMedia')"
         :loading="isLoading"
@@ -167,7 +168,7 @@ function getErrorMessage(value: unknown, fallback: string) {
         <span>{{ t("product.altText") }}</span>
         <input v-model="form.alt" maxlength="512" />
       </label>
-      <BaseButton type="submit" variant="primary" :loading="isLoading">
+      <BaseButton type="submit" variant="primary" size="medium" :loading="isLoading">
         <template #icon><ImagePlus /></template>{{ t("product.addMedia") }}
       </BaseButton>
     </form>

@@ -128,17 +128,15 @@ function emptyForm() {
           @update:model-value="form.weightUnit = $event as ShopifyWeightUnit"
         />
       </label>
-      <label class="check-field">
-        <input v-model="form.tracked" type="checkbox" />
-        <span>{{ t("product.trackInventory") }}</span>
-      </label>
-      <label class="check-field">
-        <input v-model="form.requiresShipping" type="checkbox" />
-        <span>{{ t("product.requiresShipping") }}</span>
-      </label>
+      <BaseCheckbox v-model="form.tracked" :label="t('product.trackInventory')" />
+      <BaseCheckbox
+        v-model="form.requiresShipping"
+        :label="t('product.requiresShipping')"
+      />
     </div>
     <BaseButton
       variant="primary"
+      size="medium"
       :loading="inventoryItem.isLoading.value"
       @click="save"
     >
@@ -191,7 +189,7 @@ header small {
   gap: 10px;
 }
 
-label:not(.check-field) {
+label {
   display: grid;
   gap: 5px;
 }
@@ -199,18 +197,23 @@ label:not(.check-field) {
 input[type="text"],
 input[type="number"] {
   width: 100%;
-  min-height: 34px;
-  padding: 7px 9px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 9px;
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--surface);
   color: var(--text);
 }
 
-.check-field {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+.inventory-item-editor :deep(.select-trigger) {
+  height: 36px;
+  min-height: 36px;
+  padding-block: 0;
+}
+
+.inventory-item-editor :deep(.base-checkbox) {
+  min-height: 36px;
 }
 
 .editor-error {

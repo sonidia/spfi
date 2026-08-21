@@ -377,13 +377,6 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-
-        <ProductMediaManager
-          :product-id="product.id"
-          :title="t('product.mediaLibrary')"
-          :description="t('product.mediaLibraryDescription')"
-          read-only
-        />
       </div>
     </section>
   </div>
@@ -506,7 +499,7 @@ onUnmounted(() => {
 
 .detail-meta-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);

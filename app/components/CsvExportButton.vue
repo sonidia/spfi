@@ -7,10 +7,12 @@ const props = withDefaults(
     resource: CsvExportResource;
     filters?: Record<string, unknown>;
     label?: string;
+    size?: "small" | "medium";
   }>(),
   {
     filters: () => ({}),
     label: "",
+    size: "small",
   },
 );
 
@@ -41,7 +43,12 @@ async function download() {
 </script>
 
 <template>
-  <BaseButton :loading="isExporting" :disabled="!isReady" @click="download">
+  <BaseButton
+    :size="size"
+    :loading="isExporting"
+    :disabled="!isReady"
+    @click="download"
+  >
     <template #icon><Download /></template>
     {{ isExporting ? t("export.exporting") : visibleLabel }}
   </BaseButton>

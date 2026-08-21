@@ -21,13 +21,13 @@ import {
 
 describe("Shopify Markets input validation", () => {
   it("keeps list, detail, context, and mutation refresh queries cost-bounded", () => {
-    expect(MARKET_LIST_QUERY).toContain("nodes { id }");
+    expect(MARKET_LIST_QUERY).toContain("id handle name status type");
     expect(MARKET_LIST_QUERY).toContain("query: $query");
     expect(MARKET_LIST_QUERY).toContain("type: $type");
     expect(MARKET_LIST_QUERY).toContain("sortKey: NAME");
-    expect(MARKET_LIST_QUERY).not.toMatch(
-      /regions\(|catalogs\(|webPresences\(|optionDefinitions\(/,
-    );
+    expect(MARKET_LIST_QUERY).toContain("regions(first: $regionFirst)");
+    expect(MARKET_LIST_QUERY).toContain("webPresences(first: 1)");
+    expect(MARKET_LIST_QUERY).not.toMatch(/catalogs\(|optionDefinitions\(/);
     expect(MARKET_DETAILS_QUERY).toContain("market(id: $id)");
     expect(MARKET_DETAILS_QUERY).toContain("discountsCount");
     expect(MARKET_DETAILS_QUERY).toContain("discounts(first: $discountFirst)");

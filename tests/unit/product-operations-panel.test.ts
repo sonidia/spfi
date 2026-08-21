@@ -83,7 +83,7 @@ const product = {
   variants: [],
 } as unknown as ShopifyProduct;
 
-function mountPanel() {
+function mountPanel(section?: "variants" | "metafields" | "inventory") {
   vi.stubGlobal("useLocalization", () => ({
     t: (key: string) => key,
   }));
@@ -92,7 +92,7 @@ function mountPanel() {
   }));
 
   return mount(ProductOperationsPanel, {
-    props: { product },
+    props: { product, ...(section ? { section } : {}) },
     global: {
       stubs: {
         BaseButton: {
@@ -201,5 +201,21 @@ describe("ProductOperationsPanel pricing", () => {
     await updateInventory?.trigger("click");
     expect(mocks.updateInventoryBulk).not.toHaveBeenCalled();
     expect(mocks.error).not.toHaveBeenCalled();
+  });
+
+  it("renders metafields and inventory as independent editor sections", async () => {
+    const metafields = mountPanel("metafields");
+    await flushPromises();
+
+    expect(metafields.text()).toContain("product.metafields");
+    expect(metafields.text()).not.toContain("product.imagesDescription");
+    expect(metafields.text()).not.toContain("product.inventoryDescription");
+
+    const inventory = mountPanel("inventory");
+    await flushPromises();
+
+    expect(inventory.text()).toContain("product.inventoryDescription");
+    expect(inventory.text()).not.toContain("product.metafields");
+    expect(inventory.text()).not.toContain("product.imagesDescription");
   });
 });

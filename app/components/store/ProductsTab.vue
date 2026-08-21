@@ -13,27 +13,53 @@
       <!-- ════════════════════════════════════════ SCREEN: LIST -->
       <div v-else>
         <div class="page-meta-header">
-          <div class="page-meta">
-            {{
-              t("product.showingProductCount", {
-                shown: products.length,
-                total: productStore.totalCount,
-              })
-            }}
+          <div class="page-meta-left">
+            <BaseButton
+              class="product-filter-header-button"
+              size="medium"
+              type="button"
+              :aria-expanded="showProductFilters"
+              aria-controls="product-filter-panel"
+              @click="showProductFilters = !showProductFilters"
+            >
+              <template #icon><SlidersHorizontal aria-hidden="true" /></template>
+              {{ showProductFilters ? t("filter.hide") : t("filter.show") }}
+              <span v-if="activeProductFilterCount" class="product-filter-count">
+                {{ activeProductFilterCount }}
+              </span>
+              <ChevronDown
+                class="product-filter-header-chevron"
+                :class="{ 'is-rotated': showProductFilters }"
+                aria-hidden="true"
+              />
+            </BaseButton>
+            <div class="page-meta">
+              {{
+                t("product.showingProductCount", {
+                  shown: products.length,
+                  total: productStore.totalCount,
+                })
+              }}
+            </div>
           </div>
           <div class="page-meta-actions">
-            <CsvExportButton resource="products" />
-            <BaseButton variant="primary" @click="showCreateModal = true">
+            <CsvExportButton resource="products" size="medium" />
+            <BaseButton variant="primary" size="medium" @click="showCreateModal = true">
               <template #icon><Plus aria-hidden="true" /></template>
               {{ t("product.addProduct") }}
             </BaseButton>
           </div>
         </div>
 
-        <PaymentFilterPanel :active-count="activeProductFilterCount">
+        <PaymentFilterPanel
+          v-model="showProductFilters"
+          hide-summary
+          panel-id="product-filter-panel"
+          :active-count="activeProductFilterCount"
+        >
           <input
             v-model="filterForm.title"
-            class="inp product-filter-search"
+            class="payment-filter-input"
             :placeholder="t('product.searchPlaceholder')"
           />
           <BaseSelect
@@ -58,12 +84,12 @@
           />
           <input
             v-model="filterForm.vendor"
-            class="inp product-filter-input"
+            class="payment-filter-input"
             :placeholder="t('product.filterVendorPlaceholder')"
           />
           <input
             v-model="filterForm.product_type"
-            class="inp product-filter-input"
+            class="payment-filter-input"
             :placeholder="t('product.filterTypePlaceholder')"
           />
           <BaseSelect
@@ -111,7 +137,7 @@
               <span>{{ t("product.createdFrom") }}</span>
               <input
                 v-model="filterForm.created_at_min"
-                class="inp product-filter-input"
+                class="payment-filter-input"
                 type="date"
               />
             </label>
@@ -119,7 +145,7 @@
               <span>{{ t("product.createdThrough") }}</span>
               <input
                 v-model="filterForm.created_at_max"
-                class="inp product-filter-input"
+                class="payment-filter-input"
                 type="date"
               />
             </label>
@@ -127,7 +153,7 @@
               <span>{{ t("product.updatedFrom") }}</span>
               <input
                 v-model="filterForm.updated_at_min"
-                class="inp product-filter-input"
+                class="payment-filter-input"
                 type="date"
               />
             </label>
@@ -135,7 +161,7 @@
               <span>{{ t("product.updatedThrough") }}</span>
               <input
                 v-model="filterForm.updated_at_max"
-                class="inp product-filter-input"
+                class="payment-filter-input"
                 type="date"
               />
             </label>
@@ -143,7 +169,7 @@
               <span>{{ t("product.publishedFrom") }}</span>
               <input
                 v-model="filterForm.published_at_min"
-                class="inp product-filter-input"
+                class="payment-filter-input"
                 type="date"
               />
             </label>
@@ -151,7 +177,7 @@
               <span>{{ t("product.publishedThrough") }}</span>
               <input
                 v-model="filterForm.published_at_max"
-                class="inp product-filter-input"
+                class="payment-filter-input"
                 type="date"
               />
             </label>
@@ -739,19 +765,43 @@
           <BaseButton
             class="product-edit-nav-button"
             size="medium"
-            :variant="editSection === 'catalog' ? 'secondary' : 'ghost'"
-            :class="{ 'is-active': editSection === 'catalog' }"
+            :variant="editSection === 'variants' ? 'secondary' : 'ghost'"
+            :class="{ 'is-active': editSection === 'variants' }"
             role="tab"
-            :aria-selected="editSection === 'catalog'"
-            @click="editSection = 'catalog'"
+            :aria-selected="editSection === 'variants'"
+            @click="editSection = 'variants'"
           >
             <template #icon><Boxes aria-hidden="true" /></template>
-            {{ t("product.editCatalog") }}
+            {{ t("product.editVariants") }}
+          </BaseButton>
+          <BaseButton
+            class="product-edit-nav-button"
+            size="medium"
+            :variant="editSection === 'metafields' ? 'secondary' : 'ghost'"
+            :class="{ 'is-active': editSection === 'metafields' }"
+            role="tab"
+            :aria-selected="editSection === 'metafields'"
+            @click="editSection = 'metafields'"
+          >
+            <template #icon><Database aria-hidden="true" /></template>
+            {{ t("product.editMetafields") }}
+          </BaseButton>
+          <BaseButton
+            class="product-edit-nav-button"
+            size="medium"
+            :variant="editSection === 'inventory' ? 'secondary' : 'ghost'"
+            :class="{ 'is-active': editSection === 'inventory' }"
+            role="tab"
+            :aria-selected="editSection === 'inventory'"
+            @click="editSection = 'inventory'"
+          >
+            <template #icon><Warehouse aria-hidden="true" /></template>
+            {{ t("product.editInventory") }}
           </BaseButton>
         </nav>
         <div
           class="modal-body"
-          :class="{ 'product-catalog-body': editSection === 'catalog' }"
+          :class="{ 'product-catalog-body': editSection !== 'details' }"
         >
           <template v-if="editSection === 'details'">
             <div class="field">
@@ -767,35 +817,33 @@
                 maxlength="255"
               />
             </div>
-            <div class="field-row">
-              <div class="field">
-                <label class="field-label">{{ t("product.columnStatus") }}</label>
-                <BaseSelect
-                  class-name="product-form-select"
-                  :model-value="editProduct.status"
-                  :options="productStatusOptions"
-                  @update:model-value="
-                    editProduct.status = String($event) as ShopifyProductStatus
-                  "
-                />
-              </div>
-              <div class="field checkbox-field edit-checkbox-field">
-                <BaseCheckbox
-                  v-model="editProduct.published"
-                  :label="t('product.publishedToOnlineStore')"
-                  :disabled="editProduct.status !== 'active'"
-                />
-              </div>
-            </div>
-            <div class="field-row">
+            <div class="field-row product-identity-row">
               <div class="field">
                 <label class="field-label">{{ t("product.handle") }}</label>
                 <input v-model="editProduct.handle" type="text" class="inp" />
               </div>
-              <div class="field">
-                <label class="field-label">{{ t("product.templateSuffix") }}</label>
-                <input v-model="editProduct.template_suffix" type="text" class="inp" />
+              <div class="field product-status-field">
+                <label class="field-label">{{ t("product.columnStatus") }}</label>
+                <div class="product-status-controls">
+                  <BaseSelect
+                    class-name="product-form-select product-status-select"
+                    :model-value="editProduct.status"
+                    :options="productStatusOptions"
+                    @update:model-value="
+                      editProduct.status = String($event) as ShopifyProductStatus
+                    "
+                  />
+                  <BaseCheckbox
+                    v-model="editProduct.published"
+                    :label="t('product.publishedToOnlineStore')"
+                    :disabled="editProduct.status !== 'active'"
+                  />
+                </div>
               </div>
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.templateSuffix") }}</label>
+              <input v-model="editProduct.template_suffix" type="text" class="inp" />
             </div>
             <div class="advanced-product-fields">
               <div class="advanced-product-heading">
@@ -805,14 +853,42 @@
                 </div>
                 <span v-if="isAdvancedProductLoading">{{ t("common.loading") }}</span>
               </div>
-              <div class="field">
-                <label class="field-label">{{ t("product.shopifyCategory") }}</label>
-                <input
-                  v-model.trim="editProduct.category_id"
-                  class="inp"
-                  placeholder="gid://shopify/TaxonomyCategory/sg-..."
-                />
-                <small>{{ t("product.shopifyCategoryHint") }}</small>
+              <div class="product-commerce-row">
+                <div class="field product-category-field">
+                  <label class="field-label">{{ t("product.shopifyCategory") }}</label>
+                  <input
+                    v-model.trim="editProduct.category_id"
+                    class="inp"
+                    placeholder="gid://shopify/TaxonomyCategory/sg-..."
+                  />
+                  <small>{{ t("product.shopifyCategoryHint") }}</small>
+                </div>
+                <div class="field product-collections-field">
+                  <label class="field-label">{{ t("product.collections") }}</label>
+                  <div
+                    v-if="productStore.managementContext?.collections.length"
+                    class="product-collection-picker"
+                  >
+                    <BaseCheckbox
+                      v-for="collection in productStore.managementContext.collections"
+                      :key="collection.id"
+                      :model-value="editProduct.collection_ids.includes(collection.id)"
+                      :label="collection.title"
+                      :description="
+                        t('product.collectionProductCount', {
+                          count: collection.productsCount,
+                        })
+                      "
+                      @change="toggleEditCollection(collection.id)"
+                    />
+                  </div>
+                  <div v-else class="product-form-empty">
+                    {{ t("product.noCollectionsAvailable") }}
+                  </div>
+                  <small v-if="editProduct.collections_truncated">
+                    {{ t("product.assignedCollectionsTruncated") }}
+                  </small>
+                </div>
               </div>
               <div class="field-row product-readonly-facts">
                 <div>
@@ -830,32 +906,6 @@
                     :description="t('product.subscriptionOnlyHint')"
                   />
                 </div>
-              </div>
-              <div class="field">
-                <label class="field-label">{{ t("product.collections") }}</label>
-                <div
-                  v-if="productStore.managementContext?.collections.length"
-                  class="product-collection-picker"
-                >
-                  <BaseCheckbox
-                    v-for="collection in productStore.managementContext.collections"
-                    :key="collection.id"
-                    :model-value="editProduct.collection_ids.includes(collection.id)"
-                    :label="collection.title"
-                    :description="
-                      t('product.collectionProductCount', {
-                        count: collection.productsCount,
-                      })
-                    "
-                    @change="toggleEditCollection(collection.id)"
-                  />
-                </div>
-                <div v-else class="product-form-empty">
-                  {{ t("product.noCollectionsAvailable") }}
-                </div>
-                <small v-if="editProduct.collections_truncated">
-                  {{ t("product.assignedCollectionsTruncated") }}
-                </small>
               </div>
               <div v-if="editProduct.selling_plan_groups.length" class="field">
                 <label class="field-label">{{ t("product.sellingPlanGroups") }}</label>
@@ -904,10 +954,6 @@
             </div>
           </template>
           <div v-else class="product-catalog-editor">
-            <div class="product-catalog-note">
-              <strong>{{ t("product.editCatalog") }}</strong>
-              <span>{{ t("product.editCatalogDescription") }}</span>
-            </div>
             <div v-if="isEditingProductDetailLoading" class="product-edit-loading">
               <LoaderCircle class="loading-icon" aria-hidden="true" />
               {{ t("product.loadingCatalogEditor") }}
@@ -920,11 +966,13 @@
             </div>
             <template v-else-if="editingProductRecord">
               <ProductMediaManager
+                v-if="editSection === 'variants'"
                 :product-id="editingProductRecord.id"
                 @refreshed="refreshEditingProduct"
               />
               <ProductOperationsPanel
                 :product="editingProductRecord"
+                :section="productOperationSection"
                 @refreshed="refreshEditingProduct"
               />
             </template>
@@ -936,6 +984,7 @@
             {{ t("common.cancel") }}
           </BaseButton>
           <BaseButton
+            v-if="editSection === 'details'"
             variant="primary"
             size="medium"
             :loading="isAdvancedProductLoading || isSavingProductEdit"
@@ -1017,6 +1066,7 @@ import {
   Boxes,
   ChevronDown,
   Copy,
+  Database,
   Eye,
   EyeOff,
   FileText,
@@ -1027,6 +1077,7 @@ import {
   Save,
   SlidersHorizontal,
   Trash2,
+  Warehouse,
   X,
 } from "@lucide/vue";
 import { computed, nextTick, ref, watch } from "vue";
@@ -1106,11 +1157,15 @@ const detailProduct = computed(() =>
 // ── Local state for modals ──
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
-const editSection = ref<"details" | "catalog">("details");
+const editSection = ref<"details" | "variants" | "metafields" | "inventory">("details");
+const productOperationSection = computed(() =>
+  editSection.value === "details" ? "variants" : editSection.value,
+);
 const editingProductRecord = ref<ShopifyProduct | null>(null);
 const isEditingProductDetailLoading = ref(false);
 const editingProductDetailError = ref("");
 const publishingProductId = ref<ShopifyNumericId | null>(null);
+const showProductFilters = ref(false);
 const showAdvancedFilters = ref(false);
 const isAdvancedProductLoading = ref(false);
 const isSavingProductEdit = ref(false);
@@ -1985,6 +2040,12 @@ async function refreshProducts() {
   align-items: center;
   margin-bottom: 20px;
 }
+.page-meta-left,
+.page-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .page-meta {
   font-size: 13px;
   color: var(--text-sub);
@@ -2001,27 +2062,27 @@ async function refreshProducts() {
   gap: 8px;
 }
 
-.product-filter-search {
-  grid-column: span 2;
+.product-filter-header-button {
+  flex: 0 0 auto;
 }
-
-.product-filter-search,
-.product-filter-input {
-  width: 100%;
-  min-width: 0;
-  min-height: 36px;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 12px;
+.product-filter-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--on-accent);
+  font-size: 10px;
+  line-height: 1;
 }
-
-.product-filter-search:focus,
-.product-filter-input:focus {
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
+.product-filter-header-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.16s ease;
+}
+.product-filter-header-chevron.is-rotated {
+  transform: rotate(180deg);
 }
 
 .product-filter-select :deep(.select-trigger),
@@ -2452,11 +2513,45 @@ async function refreshProducts() {
   min-width: 0;
 }
 .product-edit-modal {
+  height: min(820px, calc(100dvh - 28px));
   max-width: min(1120px, calc(100vw - 28px));
+}
+.product-edit-modal .inp:not(textarea) {
+  height: 38px;
+  min-height: 38px;
+  padding-block: 0;
+}
+.product-edit-modal :deep(.product-form-select .select-trigger),
+.product-edit-modal :deep(.base-checkbox) {
+  height: 38px;
+  min-height: 38px;
+}
+.product-identity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+.product-status-field {
+  width: fit-content;
+  max-width: 100%;
+}
+.product-status-controls {
+  width: fit-content;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.product-status-controls :deep(.product-status-select) {
+  width: 150px;
+  flex: 0 0 150px;
+}
+.product-status-controls :deep(.base-checkbox) {
+  width: fit-content;
 }
 .product-edit-nav {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 8px 20px;
   border-bottom: 1px solid var(--border);
@@ -2496,22 +2591,7 @@ async function refreshProducts() {
   min-width: 0;
   display: grid;
 }
-.product-catalog-note {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-  padding: 14px 16px;
-  background: var(--blue-soft);
-}
-.product-catalog-note strong {
-  color: var(--text);
-  font-size: 12px;
-}
-.product-catalog-note span {
-  color: var(--text-sub);
-  font-size: 11px;
-  overflow-wrap: anywhere;
-}
+
 .product-catalog-editor > :deep(.product-media-manager) {
   padding: 16px;
   border-top: 1px solid var(--border);
@@ -2574,6 +2654,8 @@ async function refreshProducts() {
   height: 16px;
 }
 .modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
   padding: 20px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -2649,6 +2731,20 @@ async function refreshProducts() {
   color: var(--text-sub);
   font-size: 11px;
 }
+.product-commerce-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) fit-content(460px);
+  gap: 12px;
+  align-items: start;
+}
+.product-commerce-row .field {
+  margin-bottom: 0;
+}
+.product-collections-field {
+  width: fit-content;
+  max-width: min(460px, 45vw);
+}
 .product-readonly-facts > div {
   min-width: 0;
   display: grid;
@@ -2670,8 +2766,8 @@ async function refreshProducts() {
 .product-collection-picker {
   max-height: 260px;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 7px;
   padding: 2px;
 }
@@ -2699,6 +2795,7 @@ async function refreshProducts() {
 }
 .inp {
   width: 100%;
+  min-height: 38px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -2769,18 +2866,36 @@ async function refreshProducts() {
     flex-direction: column;
   }
 
+  .product-identity-row {
+    grid-template-columns: 1fr;
+  }
+
+  .product-status-field,
+  .product-status-controls,
+  .product-collections-field {
+    width: 100%;
+    max-width: none;
+  }
+
+  .product-status-controls {
+    flex-wrap: wrap;
+  }
+
+  .product-commerce-row {
+    grid-template-columns: 1fr;
+  }
+
   .products-tab :deep(.payment-filter-fields),
   .option-row {
     grid-template-columns: 1fr;
   }
 
-  .product-filter-search,
   .product-date-filters {
     grid-column: 1;
   }
 
   .product-collection-picker {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .modal-backdrop {
@@ -2797,10 +2912,12 @@ async function refreshProducts() {
   }
 
   .product-edit-modal {
+    height: 94dvh;
     max-width: none;
   }
 
   .product-edit-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     padding-inline: 12px;
   }
 

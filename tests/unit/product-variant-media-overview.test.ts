@@ -47,6 +47,12 @@ describe("ProductVariantMediaOverview", () => {
     expect(wrapper.get(".variant-media-focus figure img").attributes("src")).toBe(
       "https://cdn.example/blue.jpg",
     );
+    expect(wrapper.get(".variant-media-focus figcaption a").attributes("href")).toBe(
+      "https://cdn.example/blue.jpg",
+    );
+    expect(wrapper.get(".variant-media-focus figcaption a").attributes("target")).toBe(
+      "_blank",
+    );
     expect(wrapper.get(".product-image-map-grid article small").text()).toContain(
       "Blue / Small",
     );

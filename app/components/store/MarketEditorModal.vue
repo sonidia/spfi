@@ -48,9 +48,16 @@ const sections = computed(() => [
   { id: "localization", label: t("markets.editor.navLocalization"), icon: Languages },
 ]);
 
-onMounted(async () => {
+async function loadEditorData(force = false) {
+  await Promise.all([
+    marketStore.fetchMarketDetail(storeId.value, token.value, props.marketId, force),
+    marketStore.fetchEditorContext(storeId.value, token.value, force),
+  ]);
+}
+
+onMounted(() => {
   marketStore.clearLocalization();
-  await marketStore.fetchEditorContext(storeId.value, token.value);
+  void loadEditorData();
 });
 </script>
 
@@ -89,6 +96,17 @@ onMounted(async () => {
 
         <div v-if="!market" class="market-editor-loading">
           {{ t("markets.editor.marketUnavailable") }}
+        </div>
+        <div v-else-if="market.detailsLoaded === false" class="market-editor-loading">
+          <template v-if="marketStore.marketDetailErrors[marketId]">
+            <span role="alert">{{ marketStore.marketDetailErrors[marketId] }}</span>
+            <BaseButton @click="loadEditorData(true)">{{
+              t("common.retry")
+            }}</BaseButton>
+          </template>
+          <template v-else>
+            <IconsSync class="spin" />{{ t("markets.editor.loadingWorkspace") }}
+          </template>
         </div>
         <div v-else class="market-editor-layout">
           <nav class="market-editor-nav" :aria-label="t('markets.editor.sections')">

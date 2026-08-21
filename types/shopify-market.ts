@@ -115,6 +115,8 @@ export interface ShopifyMarketShippingRateSummary {
 
 export interface ShopifyMarketSummary {
   id: string;
+  /** False when the record came from the lightweight Markets list query. */
+  detailsLoaded?: boolean;
   handle: string;
   name: string;
   status: ShopifyMarketStatus;

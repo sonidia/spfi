@@ -33,7 +33,12 @@ import {
   normalizeProductPriceInput,
 } from "~~/utils/product-options";
 
-const props = defineProps<{ product: ShopifyProduct }>();
+type ProductEditorSection = "all" | "variants" | "metafields" | "inventory";
+
+const props = withDefaults(
+  defineProps<{ product: ShopifyProduct; section?: ProductEditorSection }>(),
+  { section: "all" },
+);
 const emit = defineEmits<{ refreshed: [] }>();
 const toast = useToastStore();
 const operations = useProductOperations();
@@ -91,6 +96,15 @@ const dirtyPriceVariantIds = computed(
     ),
 );
 const dirtyPriceCount = computed(() => dirtyPriceVariantIds.value.size);
+const showVariants = computed(
+  () => props.section === "all" || props.section === "variants",
+);
+const showMetafields = computed(
+  () => props.section === "all" || props.section === "metafields",
+);
+const showInventory = computed(
+  () => props.section === "all" || props.section === "inventory",
+);
 
 const inventoryVariants = computed(() =>
   operations.variants.value.filter((variant) =>
@@ -683,15 +697,12 @@ async function addImage() {
   await afterMutation();
 }
 
-async function selectImageFile(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+async function selectImageFile(file: File | null) {
   if (!file) {
     imageUpload.value = null;
     return;
   }
   if (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024) {
-    input.value = "";
     imageUpload.value = null;
     toast.error(t("product.imageFileInvalid"));
     return;
@@ -703,7 +714,6 @@ async function selectImageFile(event: Event) {
       filename: file.name,
     };
   } catch {
-    input.value = "";
     imageUpload.value = null;
     toast.error(t("product.imageFileInvalid"));
   }
@@ -936,7 +946,7 @@ async function afterMutation() {
       {{ operations.error.value }}
     </div>
 
-    <div v-if="product.options?.length" class="operation-section">
+    <div v-if="showVariants && product.options?.length" class="operation-section">
       <div class="section-title">
         <div>
           <Boxes /><strong>{{ t("product.optionDefinitions") }}</strong>
@@ -966,7 +976,7 @@ async function afterMutation() {
       </div>
     </div>
 
-    <div class="operation-section">
+    <div v-if="showVariants" class="operation-section">
       <div class="section-title">
         <div>
           <Boxes /><strong>{{ t("product.variants") }}</strong>
@@ -1046,16 +1056,11 @@ async function afterMutation() {
             "
           />
         </label>
-        <label class="check"
-          ><input v-model="variantForm.taxable" type="checkbox" /><span>{{
-            t("product.taxable")
-          }}</span></label
-        >
-        <label class="check"
-          ><input v-model="variantForm.requires_shipping" type="checkbox" /><span>{{
-            t("product.requiresShipping")
-          }}</span></label
-        >
+        <BaseCheckbox v-model="variantForm.taxable" :label="t('product.taxable')" />
+        <BaseCheckbox
+          v-model="variantForm.requires_shipping"
+          :label="t('product.requiresShipping')"
+        />
         <div class="form-actions">
           <BaseButton v-if="editingVariantId" @click="resetVariantForm">
             <template #icon><X /></template>
@@ -1073,14 +1078,11 @@ async function afterMutation() {
       </div>
 
       <div v-if="operations.variants.value.length" class="variant-bulk-toolbar">
-        <label class="check">
-          <input
-            type="checkbox"
-            :checked="selectedVariantCount === operations.variants.value.length"
-            @change="toggleAllVariants"
-          />
-          <span>{{ t("product.selectAllVariants") }}</span>
-        </label>
+        <BaseCheckbox
+          :model-value="selectedVariantCount === operations.variants.value.length"
+          :label="t('product.selectAllVariants')"
+          @change="toggleAllVariants"
+        />
         <span>{{ t("product.bulkSelected", { count: selectedVariantCount }) }}</span>
         <div class="row-actions">
           <BaseButton
@@ -1110,10 +1112,10 @@ async function afterMutation() {
           :key="variant.id"
           :class="{ 'has-price-change': isVariantPriceDirty(variant) }"
         >
-          <input
+          <BaseCheckbox
             class="variant-select"
-            type="checkbox"
-            :checked="selectedVariantIds.has(String(variant.id))"
+            compact
+            :model-value="selectedVariantIds.has(String(variant.id))"
             :aria-label="
               t('product.selectVariant', { title: variant.title || variant.id })
             "
@@ -1188,7 +1190,7 @@ async function afterMutation() {
       </div>
     </div>
 
-    <div class="operation-section">
+    <div v-if="showVariants" class="operation-section">
       <div class="section-title">
         <div>
           <ImagePlus /><strong>{{ t("product.images") }}</strong>
@@ -1202,11 +1204,12 @@ async function afterMutation() {
           :placeholder="t('product.imageUrlPlaceholder')"
         />
         <input v-model="imageAlt" :placeholder="t('product.altText')" />
-        <label class="file-input">
-          <span>{{ t("product.uploadImage") }}</span>
-          <input type="file" accept="image/*" @change="selectImageFile" />
-          <small v-if="imageUpload">{{ imageUpload.filename }}</small>
-        </label>
+        <BaseFileInput
+          :label="t('product.uploadImage')"
+          accept="image/*"
+          :file-name="imageUpload?.filename || ''"
+          @select="selectImageFile"
+        />
         <BaseButton
           variant="primary"
           :loading="operations.isLoading.value"
@@ -1236,37 +1239,34 @@ async function afterMutation() {
               ><span>{{ t("product.altText") }}</span
               ><input v-model="imageDrafts[image.id]!.alt"
             /></label>
-            <fieldset>
-              <legend>{{ t("product.assignedVariants") }}</legend>
-              <label
-                v-for="variant in operations.variants.value"
-                :key="variant.id"
-                class="check"
-              >
-                <input
-                  type="checkbox"
-                  :checked="imageDrafts[image.id]!.variantIds.includes(variant.id)"
+            <div class="image-assignment-row">
+              <fieldset>
+                <legend>{{ t("product.assignedVariants") }}</legend>
+                <BaseCheckbox
+                  v-for="variant in operations.variants.value"
+                  :key="variant.id"
+                  :model-value="imageDrafts[image.id]!.variantIds.includes(variant.id)"
+                  :label="String(variant.title || variant.sku || variant.id)"
                   @change="toggleImageVariant(image.id!, variant.id)"
                 />
-                <span>{{ variant.title || variant.sku || variant.id }}</span>
-              </label>
-            </fieldset>
-            <div class="form-actions">
-              <BaseButton variant="danger-ghost" @click="removeImage(image)">
-                <template #icon><Trash2 /></template>
-                {{ t("common.delete") }}
-              </BaseButton>
-              <BaseButton variant="primary" @click="saveImage(image)">
-                <template #icon><Save /></template>
-                {{ t("common.save") }}
-              </BaseButton>
+              </fieldset>
+              <div class="form-actions">
+                <BaseButton variant="danger-ghost" @click="removeImage(image)">
+                  <template #icon><Trash2 /></template>
+                  {{ t("common.delete") }}
+                </BaseButton>
+                <BaseButton variant="primary" @click="saveImage(image)">
+                  <template #icon><Save /></template>
+                  {{ t("common.save") }}
+                </BaseButton>
+              </div>
             </div>
           </div>
         </article>
       </div>
     </div>
 
-    <div class="operation-section">
+    <div v-if="showMetafields" class="operation-section">
       <div class="section-title">
         <div>
           <Boxes /><strong>{{ t("product.metafields") }}</strong>
@@ -1330,7 +1330,7 @@ async function afterMutation() {
       </div>
     </div>
 
-    <div class="operation-section">
+    <div v-if="showInventory" class="operation-section">
       <div class="section-title">
         <div>
           <Boxes /><strong>{{ t("product.inventory") }}</strong>
@@ -1453,8 +1453,25 @@ async function afterMutation() {
 
 <style scoped>
 .operations-panel {
+  --product-editor-control-height: 36px;
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+.operations-panel :deep(.base-button) {
+  height: var(--product-editor-control-height);
+  min-height: var(--product-editor-control-height);
+}
+.operations-panel :deep(.base-checkbox) {
+  min-height: var(--product-editor-control-height);
+}
+.operations-panel :deep(.base-button.is-icon-only) {
+  width: var(--product-editor-control-height);
+}
+.operations-panel :deep(.select-trigger) {
+  height: var(--product-editor-control-height);
+  min-height: var(--product-editor-control-height);
+  padding-block: 0;
+  font-size: 11px;
 }
 header,
 .section-title,
@@ -1561,23 +1578,15 @@ legend {
 input,
 select {
   width: 100%;
-  min-height: 32px;
+  height: var(--product-editor-control-height);
+  min-height: var(--product-editor-control-height);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 0 8px;
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
   font-size: 11px;
-}
-.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.check input {
-  width: 15px;
-  min-height: 15px;
 }
 .form-actions {
   grid-column: 1 / -1;
@@ -1614,8 +1623,7 @@ select {
   gap: 4px;
 }
 .variant-select {
-  width: 15px;
-  min-height: 15px;
+  width: var(--product-editor-control-height);
   flex: 0 0 auto;
 }
 .inline-price {
@@ -1640,13 +1648,6 @@ select {
   grid-template-columns: 2fr 1fr 1fr auto;
   gap: 7px;
   margin-top: 10px;
-}
-.file-input small {
-  overflow: hidden;
-  color: var(--text-sub);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .metafield-list article > input {
   min-width: 160px;
@@ -1677,14 +1678,23 @@ select {
   gap: 7px;
 }
 .image-fields fieldset {
-  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 6px 12px;
   border: 0;
+  margin: 0;
+  padding: 0;
 }
-.image-fields .form-actions {
+.image-assignment-row {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.image-assignment-row .form-actions {
+  grid-column: auto;
+  align-self: end;
 }
 .inventory-form {
   display: grid;
@@ -1734,6 +1744,9 @@ select {
     grid-column: auto;
   }
   .image-card {
+    grid-template-columns: 1fr;
+  }
+  .image-assignment-row {
     grid-template-columns: 1fr;
   }
 }

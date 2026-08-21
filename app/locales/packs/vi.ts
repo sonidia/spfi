@@ -216,6 +216,9 @@ const messages: Record<MessageKey, string> = {
   "product.editSections": "Các phần chỉnh sửa sản phẩm",
   "product.editInformation": "Thông tin sản phẩm",
   "product.editCatalog": "Biến thể, media và tồn kho",
+  "product.editVariants": "Biến thể",
+  "product.editMetafields": "Metafield",
+  "product.editInventory": "Tồn kho",
   "product.editCatalogDescription":
     "Các thay đổi catalog có nút lưu riêng và được áp dụng độc lập với thông tin sản phẩm.",
   "product.loadingCatalogEditor": "Đang tải trình chỉnh sửa catalog...",
@@ -1871,6 +1874,7 @@ const messages: Record<MessageKey, string> = {
   "product.variantHasImage": "Đã gán ảnh",
   "product.variantNoImage": "Chưa có ảnh",
   "product.assignedImage": "Ảnh được gán",
+  "product.openSourceImage": "Mở ảnh nguồn",
   "product.noAssignedImage": "Chưa gán ảnh",
   "product.noAssignedImageHint":
     "Biến thể này dùng thư viện ảnh chung của sản phẩm và chưa có ảnh đại diện riêng.",

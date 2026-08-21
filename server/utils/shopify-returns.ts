@@ -37,7 +37,6 @@ interface ReturnNode {
   createdAt: string;
   closedAt?: string | null;
   totalQuantity: number;
-  returnLineItems: { nodes: ReturnLineItemNode[] };
 }
 
 interface ReturnConnection {
@@ -63,18 +62,75 @@ interface ReturnOrdersVariables extends Record<string, unknown> {
   after: string | null;
   query: string;
   returnsFirst: number;
-  lineItemsFirst: number;
 }
 
 const RETURN_ORDER_PAGE_SIZE = 25;
-const RETURN_PAGE_SIZE = 50;
-const RETURN_LINE_ITEM_PAGE_SIZE = 250;
+const RETURN_PAGE_SIZE = 25;
+const RETURN_LINE_ITEM_PAGE_SIZE = 50;
+const RETURN_DETAIL_CONCURRENCY = 4;
 const RETURN_ORDER_SEARCH = "-return_status:no_return";
+
+export const RETURN_ORDERS_QUERY = `#graphql
+  query CommerceOpsReturns(
+    $first: Int!
+    $after: String
+    $query: String!
+    $returnsFirst: Int!
+  ) {
+    orders(
+      first: $first
+      after: $after
+      query: $query
+      reverse: true
+      sortKey: UPDATED_AT
+    ) {
+      nodes {
+        id
+        name
+        returns(first: $returnsFirst, reverse: true) {
+          nodes { ...ReturnSummaryFields }
+          pageInfo { endCursor hasNextPage }
+        }
+      }
+      pageInfo { endCursor hasNextPage }
+    }
+  }
+  fragment ReturnSummaryFields on Return {
+    id
+    name
+    status
+    createdAt
+    closedAt
+    totalQuantity
+  }
+`;
+
+export const RETURN_LINE_ITEMS_QUERY = `#graphql
+  query CommerceOpsReturnLineItems($id: ID!, $first: Int!, $after: String) {
+    return(id: $id) {
+      returnLineItems(first: $first, after: $after) {
+        nodes {
+          id
+          quantity
+          customerNote
+          returnReasonDefinition { name }
+          ... on ReturnLineItem {
+            fulfillmentLineItem { lineItem { name } }
+          }
+        }
+        pageInfo { endCursor hasNextPage }
+      }
+    }
+  }
+`;
 
 export async function fetchReturns(
   context: ReturnContext,
 ): Promise<CommerceListResponse<ReturnSummary>> {
-  const itemsById = new Map<string, ReturnSummary>();
+  const recordsById = new Map<
+    string,
+    { order: Pick<ReturnOrderNode, "id" | "name">; item: ReturnNode }
+  >();
   const seenOrderCursors = new Set<string>();
   let orderCursor: string | null = null;
 
@@ -85,45 +141,17 @@ export async function fetchReturns(
     >({
       ...context,
       operationName: "CommerceOpsReturns",
-      query: `#graphql
-        query CommerceOpsReturns(
-          $first: Int!
-          $after: String
-          $query: String!
-          $returnsFirst: Int!
-          $lineItemsFirst: Int!
-        ) {
-          orders(
-            first: $first
-            after: $after
-            query: $query
-            reverse: true
-            sortKey: UPDATED_AT
-          ) {
-            nodes {
-              id
-              name
-              returns(first: $returnsFirst, reverse: true) {
-                nodes { ...ReturnSummaryFields }
-                pageInfo { endCursor hasNextPage }
-              }
-            }
-            pageInfo { endCursor hasNextPage }
-          }
-        }
-        ${RETURN_SUMMARY_FRAGMENT}
-      `,
+      query: RETURN_ORDERS_QUERY,
       variables: {
         first: RETURN_ORDER_PAGE_SIZE,
         after: orderCursor,
         query: RETURN_ORDER_SEARCH,
         returnsFirst: RETURN_PAGE_SIZE,
-        lineItemsFirst: RETURN_LINE_ITEM_PAGE_SIZE,
       },
     });
 
     for (const order of data.orders.nodes) {
-      addReturnSummaries(itemsById, order, order.returns.nodes);
+      addReturnRecords(recordsById, order, order.returns.nodes);
       let returnsCursor = order.returns.pageInfo.endCursor;
       let hasNextReturns = order.returns.pageInfo.hasNextPage;
       const seenReturnCursors = new Set<string>();
@@ -131,7 +159,7 @@ export async function fetchReturns(
       while (hasNextReturns) {
         assertNextCursor(returnsCursor, seenReturnCursors, "return");
         const nextPage = await fetchOrderReturnsPage(context, order.id, returnsCursor!);
-        addReturnSummaries(itemsById, order, nextPage.nodes);
+        addReturnRecords(recordsById, order, nextPage.nodes);
         returnsCursor = nextPage.pageInfo.endCursor;
         hasNextReturns = nextPage.pageInfo.hasNextPage;
       }
@@ -143,9 +171,16 @@ export async function fetchReturns(
     orderCursor = nextCursor;
   }
 
-  const items = [...itemsById.values()].sort(
+  const records = [...recordsById.values()].sort(
     (left, right) =>
-      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      new Date(right.item.createdAt).getTime() -
+      new Date(left.item.createdAt).getTime(),
+  );
+  const items = await mapWithConcurrency(
+    records,
+    RETURN_DETAIL_CONCURRENCY,
+    async ({ order, item }) =>
+      normalizeReturn(order, item, await fetchReturnLineItems(context, item.id)),
   );
 
   return {
@@ -157,28 +192,6 @@ export async function fetchReturns(
   };
 }
 
-const RETURN_SUMMARY_FRAGMENT = `#graphql
-  fragment ReturnSummaryFields on Return {
-    id
-    name
-    status
-    createdAt
-    closedAt
-    totalQuantity
-    returnLineItems(first: $lineItemsFirst) {
-      nodes {
-        id
-        quantity
-        customerNote
-        returnReasonDefinition { name }
-        ... on ReturnLineItem {
-          fulfillmentLineItem { lineItem { name } }
-        }
-      }
-    }
-  }
-`;
-
 async function fetchOrderReturnsPage(
   context: ReturnContext,
   orderId: string,
@@ -186,7 +199,7 @@ async function fetchOrderReturnsPage(
 ) {
   const data = await callShopifyGraphql<
     { order: { returns: ReturnConnection } | null },
-    { id: string; first: number; after: string; lineItemsFirst: number }
+    { id: string; first: number; after: string }
   >({
     ...context,
     operationName: "CommerceOpsOrderReturnsPage",
@@ -199,18 +212,16 @@ async function fetchOrderReturnsPage(
       ) {
         order(id: $id) {
           returns(first: $first, after: $after, reverse: true) {
-            nodes { ...ReturnSummaryFields }
+            nodes { id name status createdAt closedAt totalQuantity }
             pageInfo { endCursor hasNextPage }
           }
         }
       }
-      ${RETURN_SUMMARY_FRAGMENT}
     `,
     variables: {
       id: orderId,
       first: RETURN_PAGE_SIZE,
       after,
-      lineItemsFirst: RETURN_LINE_ITEM_PAGE_SIZE,
     },
   });
   return (
@@ -221,30 +232,97 @@ async function fetchOrderReturnsPage(
   );
 }
 
-function addReturnSummaries(
-  target: Map<string, ReturnSummary>,
+function addReturnRecords(
+  target: Map<
+    string,
+    { order: Pick<ReturnOrderNode, "id" | "name">; item: ReturnNode }
+  >,
   order: Pick<ReturnOrderNode, "id" | "name">,
   returns: ReturnNode[],
 ) {
   for (const item of returns) {
-    target.set(item.id, {
-      id: item.id,
-      name: item.name,
-      status: item.status,
-      createdAt: item.createdAt,
-      closedAt: item.closedAt || null,
-      totalQuantity: Number(item.totalQuantity || 0),
-      orderId: order.id,
-      orderName: order.name,
-      items: item.returnLineItems.nodes.map((lineItem) => ({
-        id: lineItem.id,
-        title: String(lineItem.fulfillmentLineItem?.lineItem?.name || "Returned item"),
-        quantity: Number(lineItem.quantity || 0),
-        reason: String(lineItem.returnReasonDefinition?.name || "Unspecified"),
-        customerNote: String(lineItem.customerNote || ""),
-      })),
-    });
+    target.set(item.id, { order, item });
   }
+}
+
+async function fetchReturnLineItems(context: ReturnContext, returnId: string) {
+  const items: ReturnLineItemNode[] = [];
+  const seenCursors = new Set<string>();
+  let after: string | null = null;
+
+  while (true) {
+    const data: ReturnLineItemsData = await callShopifyGraphql<
+      ReturnLineItemsData,
+      { id: string; first: number; after: string | null }
+    >({
+      ...context,
+      operationName: "CommerceOpsReturnLineItems",
+      query: RETURN_LINE_ITEMS_QUERY,
+      variables: { id: returnId, first: RETURN_LINE_ITEM_PAGE_SIZE, after },
+    });
+    const connection: GraphqlReturnLineItemConnection | undefined =
+      data.return?.returnLineItems;
+    if (!connection) return items;
+    items.push(...connection.nodes);
+    if (!connection.pageInfo.hasNextPage) return items;
+    assertNextCursor(connection.pageInfo.endCursor, seenCursors, "return line item");
+    after = connection.pageInfo.endCursor;
+  }
+}
+
+interface GraphqlReturnLineItemConnection {
+  nodes: ReturnLineItemNode[];
+  pageInfo: { endCursor: string | null; hasNextPage: boolean };
+}
+
+interface ReturnLineItemsData {
+  return: {
+    returnLineItems: GraphqlReturnLineItemConnection;
+  } | null;
+}
+
+function normalizeReturn(
+  order: Pick<ReturnOrderNode, "id" | "name">,
+  item: ReturnNode,
+  lineItems: ReturnLineItemNode[],
+): ReturnSummary {
+  return {
+    id: item.id,
+    name: item.name,
+    status: item.status,
+    createdAt: item.createdAt,
+    closedAt: item.closedAt || null,
+    totalQuantity: Number(item.totalQuantity || 0),
+    orderId: order.id,
+    orderName: order.name,
+    items: lineItems.map((lineItem) => ({
+      id: lineItem.id,
+      title: String(lineItem.fulfillmentLineItem?.lineItem?.name || "Returned item"),
+      quantity: Number(lineItem.quantity || 0),
+      reason: String(lineItem.returnReasonDefinition?.name || "Unspecified"),
+      customerNote: String(lineItem.customerNote || ""),
+    })),
+  };
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+) {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), values.length) },
+    async () => {
+      while (nextIndex < values.length) {
+        const index = nextIndex++;
+        results[index] = await mapper(values[index] as T);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 function assertNextCursor(

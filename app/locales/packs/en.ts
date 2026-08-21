@@ -1370,6 +1370,9 @@ const messages = {
   "product.editSections": "Product editor sections",
   "product.editInformation": "Product information",
   "product.editCatalog": "Variants, media & inventory",
+  "product.editVariants": "Variants",
+  "product.editMetafields": "Metafields",
+  "product.editInventory": "Inventory",
   "product.editCatalogDescription":
     "Catalog changes use their own save actions and are applied independently from product information.",
   "product.loadingCatalogEditor": "Loading the catalog editor...",
@@ -1872,6 +1875,7 @@ const messages = {
   "product.variantHasImage": "Image assigned",
   "product.variantNoImage": "No image",
   "product.assignedImage": "Assigned image",
+  "product.openSourceImage": "Open source image",
   "product.noAssignedImage": "No image assigned",
   "product.noAssignedImageHint":
     "This variant uses the product gallery without a dedicated preview image.",

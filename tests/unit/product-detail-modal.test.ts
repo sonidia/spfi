@@ -15,7 +15,7 @@ vi.mock("~/composables/useLocations", () => ({
 }));
 
 describe("ProductDetailModal", () => {
-  it("keeps product details read-only while rendering media in view mode", () => {
+  it("keeps product details read-only without rendering the media manager", () => {
     vi.stubGlobal("useLocalization", () => ({
       t: (key: string) => key,
       locale: ref("en-US"),
@@ -42,18 +42,13 @@ describe("ProductDetailModal", () => {
           IconsRefresh: true,
           ProductDescriptionPreview: true,
           ProductVariantMediaOverview: true,
-          ProductMediaManager: {
-            props: { readOnly: Boolean },
-            template: '<div data-test="product-media" :data-readonly="readOnly" />',
-          },
+          ProductMediaManager: { template: '<div data-test="product-media" />' },
         },
       },
     });
 
     expect(wrapper.find("form, input, textarea, select").exists()).toBe(false);
-    expect(
-      wrapper.find('[data-test="product-media"]').attributes("data-readonly"),
-    ).toBe("true");
+    expect(wrapper.find('[data-test="product-media"]').exists()).toBe(false);
     expect(wrapper.findComponent({ name: "ProductOperationsPanel" }).exists()).toBe(
       false,
     );

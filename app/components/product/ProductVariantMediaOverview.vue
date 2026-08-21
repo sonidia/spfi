@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Image as ImageIcon } from "@lucide/vue";
+import { ExternalLink, Image as ImageIcon } from "@lucide/vue";
 import { computed, ref, watch } from "vue";
 import type {
   ShopifyNumericId,
@@ -7,6 +7,7 @@ import type {
   ShopifyProductImage,
   ShopifyVariant,
 } from "~~/types/shopify";
+import { getSafeExternalUrl } from "~~/utils/safe-url";
 
 const props = defineProps<{ product: ShopifyProduct }>();
 const { t } = useLocalization();
@@ -69,6 +70,10 @@ function isSelectedVariantImage(image: ShopifyProductImage) {
   if (!selectedImage) return false;
   if (image.id && selectedImage.id) return sameId(image.id, selectedImage.id);
   return image.src === selectedImage.src;
+}
+
+function imageSourceUrl(image: ShopifyProductImage) {
+  return getSafeExternalUrl(image.src || "");
 }
 
 function sameId(left: ShopifyNumericId, right: ShopifyNumericId) {
@@ -166,6 +171,15 @@ function formatVariantInventory(variant: ShopifyVariant) {
               <span>{{
                 selectedVariantImage.alt || t("product.mediaWithoutAlt")
               }}</span>
+              <a
+                v-if="imageSourceUrl(selectedVariantImage)"
+                :href="imageSourceUrl(selectedVariantImage) || undefined"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ t("product.openSourceImage") }}
+                <ExternalLink aria-hidden="true" />
+              </a>
             </figcaption>
           </figure>
           <div v-else class="variant-media-empty">
@@ -175,6 +189,10 @@ function formatVariantInventory(variant: ShopifyVariant) {
           </div>
 
           <dl class="variant-media-facts">
+            <div>
+              <dt>{{ t("product.selectedVariant") }}</dt>
+              <dd>{{ selectedVariant.title || t("product.defaultVariant") }}</dd>
+            </div>
             <div>
               <dt>{{ t("product.price") }}</dt>
               <dd>{{ formatVariantPrice(selectedVariant) }}</dd>
@@ -429,6 +447,27 @@ function formatVariantInventory(variant: ShopifyVariant) {
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.variant-media-focus figcaption a {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  color: var(--text-link);
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.variant-media-focus figcaption a:hover {
+  text-decoration: underline;
+}
+
+.variant-media-focus figcaption a svg {
+  width: 12px;
+  height: 12px;
 }
 
 .variant-media-empty {

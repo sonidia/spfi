@@ -34,4 +34,30 @@ describe("PaymentFilterPanel", () => {
 
     expect(wrapper.emitted("submit")).toHaveLength(1);
   });
+
+  it("supports an external toggle without rendering a duplicate summary", async () => {
+    const wrapper = mount(PaymentFilterPanel, {
+      global: {
+        plugins: [createPinia()],
+      },
+      props: {
+        modelValue: false,
+        hideSummary: true,
+        panelId: "product-filter-panel",
+      },
+      slots: {
+        default: '<input class="payment-filter-input" />',
+      },
+    });
+
+    expect(wrapper.find(".payment-filter-summary").exists()).toBe(false);
+    expect(wrapper.get(".payment-filter-panel").attributes("style")).toContain(
+      "display: none",
+    );
+
+    await wrapper.setProps({ modelValue: true });
+
+    expect(wrapper.get("form").attributes("id")).toBe("product-filter-panel");
+    expect(wrapper.get(".payment-filter-panel").attributes("style")).toBeUndefined();
+  });
 });

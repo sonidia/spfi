@@ -6,12 +6,16 @@ const props = withDefaults(
     modelValue?: boolean;
     label?: string;
     description?: string;
+    ariaLabel?: string;
+    compact?: boolean;
     disabled?: boolean;
   }>(),
   {
     modelValue: false,
     label: "",
     description: "",
+    ariaLabel: "",
+    compact: false,
     disabled: false,
   },
 );
@@ -33,16 +37,17 @@ function toggle() {
   <button
     type="button"
     class="base-checkbox"
-    :class="{ 'is-checked': modelValue }"
+    :class="{ 'is-checked': modelValue, 'is-compact': compact }"
     role="checkbox"
     :aria-checked="modelValue"
+    :aria-label="ariaLabel || undefined"
     :disabled="disabled"
     @click="toggle"
   >
     <span class="checkbox-mark" aria-hidden="true">
       <Check v-if="modelValue" :size="13" />
     </span>
-    <span class="checkbox-copy">
+    <span v-if="label || description || $slots.default" class="checkbox-copy">
       <span v-if="label || $slots.default" class="checkbox-label">
         <slot>{{ label }}</slot>
       </span>
@@ -93,6 +98,13 @@ function toggle() {
   border-color: color-mix(in srgb, var(--green) 72%, var(--border));
   background: var(--green-soft);
   color: var(--green);
+}
+
+.base-checkbox.is-compact {
+  width: 32px;
+  min-height: 32px;
+  justify-content: center;
+  padding: 0;
 }
 
 .checkbox-mark {

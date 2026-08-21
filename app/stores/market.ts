@@ -46,6 +46,8 @@ export const useMarketStore = defineStore("market", () => {
   const editorContext = ref<ShopifyMarketEditorContext | null>(null);
   const isManaging = ref(false);
   const managerError = ref<string | null>(null);
+  const loadingMarketDetails = ref<string[]>([]);
+  const marketDetailErrors = ref<Record<string, string>>({});
   const localization = ref<ShopifyMarketLocalizationResource | null>(null);
   const localizationOverview = ref<ShopifyMarketLocalizationOverview | null>(null);
   let scopeVersion = 0;
@@ -247,6 +249,62 @@ export const useMarketStore = defineStore("market", () => {
       return null;
     } finally {
       if (isActive(storeId, requestVersion)) isManaging.value = false;
+    }
+  }
+
+  async function fetchMarketDetail(
+    storeId: string,
+    token: string,
+    id: string,
+    force = false,
+  ) {
+    if (!storeId || !token || !id) return null;
+    cache.activate(storeId);
+    const current =
+      markets.value.find((market) => market.id === id) ||
+      filteredResults.value?.find((market) => market.id === id);
+    if (current?.detailsLoaded !== false && !force) return current || null;
+    if (loadingMarketDetails.value.includes(id)) return null;
+
+    const requestVersion = scopeVersion;
+    loadingMarketDetails.value = [...loadingMarketDetails.value, id];
+    const remainingErrors = { ...marketDetailErrors.value };
+    delete remainingErrors[id];
+    marketDetailErrors.value = remainingErrors;
+    try {
+      const response = await $fetch<ShopifyMarketSummary>("/api/market/detail", {
+        method: "POST",
+        body: { storeId, token, id },
+      });
+      if (!isActive(storeId, requestVersion)) return null;
+
+      markets.value = markets.value.map((market) =>
+        market.id === response.id ? response : market,
+      );
+      if (filteredResults.value) {
+        filteredResults.value = filteredResults.value.map((market) =>
+          market.id === response.id ? response : market,
+        );
+      }
+      cache.remember(storeId);
+      return response;
+    } catch (requestError) {
+      if (isActive(storeId, requestVersion)) {
+        marketDetailErrors.value = {
+          ...marketDetailErrors.value,
+          [id]: getAppErrorMessage(
+            requestError,
+            localizationStore.t("markets.errorEditorLoad"),
+          ),
+        };
+      }
+      return null;
+    } finally {
+      if (isActive(storeId, requestVersion)) {
+        loadingMarketDetails.value = loadingMarketDetails.value.filter(
+          (marketId) => marketId !== id,
+        );
+      }
     }
   }
 
@@ -614,6 +672,8 @@ export const useMarketStore = defineStore("market", () => {
     resolutionError.value = null;
     isManaging.value = false;
     managerError.value = null;
+    loadingMarketDetails.value = [];
+    marketDetailErrors.value = {};
   }
 
   function clearLocalization() {
@@ -640,6 +700,8 @@ export const useMarketStore = defineStore("market", () => {
     editorContext,
     isManaging,
     managerError,
+    loadingMarketDetails,
+    marketDetailErrors,
     localization,
     localizationOverview,
     isStoreActive: cache.isActive,
@@ -651,6 +713,7 @@ export const useMarketStore = defineStore("market", () => {
     setStatus,
     resolveCountry,
     fetchEditorContext,
+    fetchMarketDetail,
     createMarket,
     deleteMarket,
     createCatalog,

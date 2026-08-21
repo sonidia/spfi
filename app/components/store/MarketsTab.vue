@@ -143,6 +143,16 @@ const suggestedCountryCodes = computed(() =>
     ),
   ).sort(),
 );
+const countryCodeOptions = computed(() =>
+  Array.from(
+    new Set([
+      ...(countryCode.value ? [countryCode.value.trim().toUpperCase()] : []),
+      ...suggestedCountryCodes.value,
+    ]),
+  )
+    .filter((code) => /^[A-Z]{2}$/.test(code))
+    .map((code) => ({ label: code, value: code })),
+);
 
 async function changeStatus(market: ShopifyMarketSummary) {
   const nextStatus: ShopifyMarketStatus =
@@ -204,31 +214,18 @@ function formatEnum(value: string) {
     .join(" ");
 }
 
-function formatPricingStrategy(value: string) {
-  if (value === "ADD_TAXES_AT_CHECKOUT") {
-    return t("markets.editor.taxCheckout");
-  }
-  if (value === "INCLUDES_TAXES_IN_PRICE") {
-    return t("markets.editor.taxIncluded");
-  }
-  if (value === "INCLUDES_TAXES_IN_PRICE_BASED_ON_COUNTRY") {
-    return t("markets.editor.taxCountry");
-  }
-  if (value === "ADD_DUTIES_AT_CHECKOUT") {
-    return t("markets.editor.dutyCheckout");
-  }
-  if (value === "INCLUDE_DUTIES_IN_PRICE") {
-    return t("markets.editor.dutyIncluded");
-  }
-  return formatEnum(value);
-}
-
 function safeExternalUrl(value: string) {
   return getSafeExternalUrl(value);
 }
 
 function openEditor(marketId: string) {
   editingMarketId.value = marketId;
+}
+
+function handleMarketDetailsToggle(event: Event, marketId: string) {
+  const details = event.currentTarget as HTMLDetailsElement;
+  if (!details.open) return;
+  void marketStore.fetchMarketDetail(storeId.value, token.value, marketId);
 }
 
 function handleCreated(marketId: string) {
@@ -259,14 +256,48 @@ async function removeMarket(market: ShopifyMarketSummary) {
 </script>
 
 <template>
-  <section class="markets-page" aria-labelledby="markets-title">
+  <section class="markets-page" :aria-label="t('markets.title')">
     <header class="markets-hero">
-      <div class="markets-hero-icon" aria-hidden="true"><Globe2 /></div>
-      <div>
-        <h1 id="markets-title">{{ t("markets.title") }}</h1>
-        <p>{{ t("markets.description") }}</p>
-        <small><ShieldCheck /> {{ t("markets.scopeHint") }}</small>
+      <div class="markets-summary" aria-label="Market summary">
+        <article>
+          <Globe2 />
+          <span>{{ t("markets.total") }}</span>
+          <strong>{{ summary.total }}</strong>
+        </article>
+        <article>
+          <ShieldCheck />
+          <span>{{ t("markets.active") }}</span>
+          <strong>{{ summary.active }}</strong>
+        </article>
+        <article>
+          <MapPinned />
+          <span>{{ t("markets.regions") }}</span>
+          <strong>{{ summary.regions }}</strong>
+        </article>
+        <article>
+          <Truck />
+          <span>{{ t("markets.shippingConfigured") }}</span>
+          <strong>{{ summary.shipping }}</strong>
+        </article>
       </div>
+      <form class="buyer-preview-form" @submit.prevent="resolveBuyerExperience">
+        <BaseSelect
+          class-name="buyer-country-select"
+          :model-value="countryCode"
+          :options="countryCodeOptions"
+          :placeholder="t('markets.countryPlaceholder')"
+          :aria-label="t('markets.countryPlaceholder')"
+          @update:model-value="countryCode = String($event || '')"
+        />
+        <BaseButton
+          type="submit"
+          variant="primary"
+          size="medium"
+          :loading="marketStore.isResolving"
+        >
+          {{ marketStore.isResolving ? t("markets.resolving") : t("markets.resolve") }}
+        </BaseButton>
+      </form>
       <BaseButton
         class="markets-create-button"
         variant="primary"
@@ -285,52 +316,11 @@ async function removeMarket(market: ShopifyMarketSummary) {
       {{ t("markets.listTruncated") }}
     </div>
 
-    <div class="markets-summary" aria-label="Market summary">
-      <article>
-        <Globe2 />
-        <span>{{ t("markets.total") }}</span>
-        <strong>{{ summary.total }}</strong>
-      </article>
-      <article>
-        <ShieldCheck />
-        <span>{{ t("markets.active") }}</span>
-        <strong>{{ summary.active }}</strong>
-      </article>
-      <article>
-        <MapPinned />
-        <span>{{ t("markets.regions") }}</span>
-        <strong>{{ summary.regions }}</strong>
-      </article>
-      <article>
-        <Truck />
-        <span>{{ t("markets.shippingConfigured") }}</span>
-        <strong>{{ summary.shipping }}</strong>
-      </article>
-    </div>
-
-    <section class="buyer-preview" aria-labelledby="buyer-preview-title">
-      <div>
-        <h2 id="buyer-preview-title">{{ t("markets.buyerPreviewTitle") }}</h2>
-        <p>{{ t("markets.buyerPreviewDescription") }}</p>
-        <small class="buyer-preview-hint">{{ t("markets.previewOnlyHint") }}</small>
-      </div>
-      <form class="buyer-preview-form" @submit.prevent="resolveBuyerExperience">
-        <input
-          v-model="countryCode"
-          list="market-country-codes"
-          maxlength="2"
-          autocomplete="country"
-          :placeholder="t('markets.countryPlaceholder')"
-          :aria-label="t('markets.countryPlaceholder')"
-        />
-        <datalist id="market-country-codes">
-          <option v-for="code in suggestedCountryCodes" :key="code" :value="code" />
-        </datalist>
-        <BaseButton type="submit" variant="primary" :loading="marketStore.isResolving">
-          {{ marketStore.isResolving ? t("markets.resolving") : t("markets.resolve") }}
-        </BaseButton>
-      </form>
-
+    <section
+      v-if="marketStore.resolutionError || marketStore.resolution"
+      class="buyer-preview"
+      :aria-label="t('markets.buyerPreviewTitle')"
+    >
       <div v-if="marketStore.resolutionError" class="markets-alert is-error">
         {{ marketStore.resolutionError }}
       </div>
@@ -476,6 +466,7 @@ async function removeMarket(market: ShopifyMarketSummary) {
           <div>
             <div class="market-title-row">
               <h2>{{ market.name }}</h2>
+              <code>({{ market.handle }})</code>
               <span class="market-status" :class="`is-${market.status.toLowerCase()}`">
                 {{
                   market.status === "ACTIVE" ? t("markets.active") : t("markets.draft")
@@ -483,7 +474,6 @@ async function removeMarket(market: ShopifyMarketSummary) {
               </span>
               <span class="market-type">{{ formatMarketType(market.type) }}</span>
             </div>
-            <code>{{ market.handle }}</code>
           </div>
           <div class="market-card-actions">
             <BaseButton @click="openEditor(market.id)">
@@ -545,9 +535,36 @@ async function removeMarket(market: ShopifyMarketSummary) {
           </div>
         </div>
 
-        <details>
-          <summary>{{ t("markets.details") }}</summary>
-          <div class="market-detail-grid">
+        <details @toggle="handleMarketDetailsToggle($event, market.id)">
+          <summary>
+            {{ t("markets.details") }}
+            <LoaderCircle
+              v-if="marketStore.loadingMarketDetails.includes(market.id)"
+              class="spin"
+              aria-hidden="true"
+            />
+          </summary>
+          <div
+            v-if="marketStore.marketDetailErrors[market.id]"
+            class="market-detail-message is-error"
+            role="alert"
+          >
+            <span>{{ marketStore.marketDetailErrors[market.id] }}</span>
+            <BaseButton
+              @click="marketStore.fetchMarketDetail(storeId, token, market.id, true)"
+            >
+              {{ t("common.retry") }}
+            </BaseButton>
+          </div>
+          <div
+            v-else-if="market.detailsLoaded === false"
+            class="market-detail-message"
+            role="status"
+          >
+            <LoaderCircle class="spin" aria-hidden="true" />
+            {{ t("common.loading") }}
+          </div>
+          <div v-else class="market-detail-grid">
             <section>
               <h3>{{ t("markets.editor.conditionsTitle") }}</h3>
               <div class="market-chips">
@@ -601,53 +618,6 @@ async function removeMarket(market: ShopifyMarketSummary) {
               >
                 {{ t("markets.editor.conditionsListTruncated") }}
               </small>
-            </section>
-
-            <section>
-              <h3>{{ t("markets.baseCurrency") }}</h3>
-              <dl v-if="market.currencySettings">
-                <div>
-                  <dt>{{ t("markets.baseCurrency") }}</dt>
-                  <dd>
-                    {{ market.currencySettings.baseCurrencyCode }} ·
-                    {{ market.currencySettings.baseCurrencyName }}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ t("markets.localCurrencies") }}</dt>
-                  <dd>
-                    {{
-                      market.currencySettings.localCurrencies
-                        ? t("markets.localCurrencies")
-                        : t("markets.singleCurrency")
-                    }}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ t("markets.rounding") }}</dt>
-                  <dd>
-                    {{
-                      market.currencySettings.roundingEnabled
-                        ? t("markets.roundingOn")
-                        : t("markets.roundingOff")
-                    }}
-                  </dd>
-                </div>
-              </dl>
-              <dl v-if="market.priceInclusions">
-                <div>
-                  <dt>{{ t("markets.taxStrategy") }}</dt>
-                  <dd>
-                    {{ formatPricingStrategy(market.priceInclusions.taxesStrategy) }}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{{ t("markets.dutyStrategy") }}</dt>
-                  <dd>
-                    {{ formatPricingStrategy(market.priceInclusions.dutiesStrategy) }}
-                  </dd>
-                </div>
-              </dl>
             </section>
 
             <section>
