@@ -7,42 +7,62 @@ const props = withDefaults(
   defineProps<{
     title?: string;
     activeCount?: number;
+    modelValue?: boolean;
+    hideSummary?: boolean;
+    panelId?: string;
   }>(),
   {
     title: "",
     activeCount: 0,
+    modelValue: undefined,
+    hideSummary: false,
+    panelId: "",
   },
 );
 
-defineEmits<{
+const emit = defineEmits<{
   submit: [];
+  "update:modelValue": [value: boolean];
 }>();
 
-const isOpen = ref(false);
-const panelId = useId();
+const localIsOpen = ref(false);
+const isOpen = computed({
+  get: () => props.modelValue ?? localIsOpen.value,
+  set: (value: boolean) => {
+    localIsOpen.value = value;
+    emit("update:modelValue", value);
+  },
+});
+const generatedPanelId = useId();
+const resolvedPanelId = computed(() => props.panelId || generatedPanelId);
 const { t } = useLocalization();
 const visibleTitle = computed(() => props.title || t("filter.filters"));
 const activeLabel = computed(() => t("filter.active", { count: props.activeCount }));
 </script>
 
 <template>
-  <section class="payment-filter-panel">
-    <div class="payment-filter-summary">
-      <button
+  <section
+    v-show="isOpen || !hideSummary"
+    class="payment-filter-panel"
+    :class="{ 'has-external-summary': hideSummary }"
+  >
+    <div v-if="!hideSummary" class="payment-filter-summary">
+      <BaseButton
         class="payment-filter-toggle"
+        size="medium"
         type="button"
         :aria-expanded="isOpen"
-        :aria-controls="panelId"
+        :aria-controls="resolvedPanelId"
         :aria-label="`${visibleTitle}. ${activeLabel}`"
         @click="isOpen = !isOpen"
       >
-        <Filter aria-hidden="true" />
+        <template #icon><Filter aria-hidden="true" /></template>
         <span>{{ isOpen ? t("filter.hide") : t("filter.show") }}</span>
         <span v-if="activeCount" class="payment-filter-count">
           {{ activeCount }}
         </span>
         <ChevronDown class="payment-filter-chevron" :class="{ 'is-open': isOpen }" />
-      </button>
+      </BaseButton>
 
       <div class="payment-filter-title">{{ visibleTitle }}</div>
 
@@ -53,7 +73,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 
     <form
       v-show="isOpen"
-      :id="panelId"
+      :id="resolvedPanelId"
       class="payment-filter-form"
       @submit.prevent="$emit('submit')"
     >
@@ -82,19 +102,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 }
 
 .payment-filter-toggle {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
   gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 0 10px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .payment-filter-toggle:hover {
@@ -111,6 +119,12 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
+}
+
+.payment-filter-toggle .button-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .payment-filter-count {
@@ -165,6 +179,10 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
   padding: 2px 14px 14px;
 }
 
+.payment-filter-panel.has-external-summary .payment-filter-form {
+  padding-top: 14px;
+}
+
 .payment-filter-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -187,9 +205,9 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 .payment-filter-input {
   width: 100%;
   min-width: 0;
-  height: 36px;
+  height: var(--control-height-md);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 0 9px;
   background: var(--surface);
   color: var(--text);
@@ -199,7 +217,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 
 .payment-filter-input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
+  box-shadow: var(--focus-ring);
   outline: none;
 }
 
@@ -209,7 +227,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 }
 
 .payment-filter-checkbox .base-checkbox {
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 
 .payment-filter-panel .custom-select,
@@ -219,7 +237,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 
 .payment-filter-panel .select-trigger {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   padding: 0 9px;
   background: var(--surface);
   font-size: 12px;

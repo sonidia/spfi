@@ -8,10 +8,6 @@ export function useLocalization() {
   const localization = useLocalizationStore();
   const { availableLocales, locale } = storeToRefs(localization);
 
-  if (import.meta.client) {
-    localization.initialize();
-  }
-
   return {
     locale,
     availableLocales,

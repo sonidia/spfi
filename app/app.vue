@@ -2,13 +2,28 @@
 import { useLoading } from "./composables/useLoading";
 import { useTokenRotation } from "./composables/useTokenRotation";
 import { useCredentialVaultStore } from "./stores/credentialVault";
+import { useNotificationStore } from "./stores/notifications";
 
 const { loading } = useLoading();
 const credentialVault = useCredentialVaultStore();
+const notificationStore = useNotificationStore();
 const { t } = useLocalization();
 const confirmDialog = useConfirmDialog();
 
-onMounted(() => credentialVault.initialize());
+function clearPageError(clearError: () => void) {
+  loading.value = false;
+  clearError();
+}
+
+async function leavePageError(clearError: () => void) {
+  clearPageError(clearError);
+  await navigateTo("/");
+}
+
+onMounted(() => {
+  credentialVault.initialize();
+  notificationStore.initialize();
+});
 useTokenRotation();
 </script>
 
@@ -35,7 +50,16 @@ useTokenRotation();
     <Nav />
     <div id="main-content" tabindex="-1">
       <NuxtLayout>
-        <NuxtPage :keepalive="{ max: 6 }" />
+        <NuxtErrorBoundary>
+          <NuxtPage :keepalive="{ max: 6 }" />
+          <template #error="{ error, clearError }">
+            <AppErrorState
+              :error="error"
+              @retry="clearPageError(clearError)"
+              @home="leavePageError(clearError)"
+            />
+          </template>
+        </NuxtErrorBoundary>
       </NuxtLayout>
     </div>
   </div>
@@ -53,6 +77,19 @@ useTokenRotation();
 :root {
   color-scheme: light;
   --footer-height: 36px;
+  --app-content-max-width: 1520px;
+  --app-shell-max-width: 1560px;
+  --control-height-sm: 32px;
+  --control-height-md: 38px;
+  --control-height-lg: 40px;
+  --control-radius-sm: 6px;
+  --control-radius: 7px;
+  --panel-radius: 12px;
+  --tabs-radius: 10px;
+  --dialog-radius: 12px;
+  --dialog-backdrop: rgba(10, 18, 14, 0.58);
+  --dialog-shadow: 0 24px 70px rgba(12, 20, 16, 0.28);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
   --bg: #f5f7f4;
   --surface: #ffffff;
   --surface-low: #fbfcfb;
@@ -179,6 +216,32 @@ textarea {
   background: var(--surface);
   color: var(--text);
   border-color: var(--border);
+}
+
+:where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="file"]
+    ),
+  select,
+  textarea
+) {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+:where(
+  button,
+  input:not([type="range"]):not([type="file"]),
+  select,
+  textarea
+):focus-visible {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: var(--focus-ring);
 }
 
 strong,
@@ -327,7 +390,7 @@ html[data-locale-direction="rtl"] {
 
 .layout,
 .page {
-  max-width: 1028px;
+  max-width: var(--app-content-max-width);
   min-width: 100%;
   margin: 0 auto;
 }

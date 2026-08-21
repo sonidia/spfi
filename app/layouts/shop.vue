@@ -2,6 +2,7 @@
 import { ArrowLeftToLine, ArrowRightToLine, Search, X } from "@lucide/vue";
 import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useMarketStore } from "~/stores/market";
 import { resolveStoreTab } from "~~/types/store";
 import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { useLoading } from "../composables/useLoading";
@@ -18,6 +19,7 @@ const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 const credentialVault = useCredentialVaultStore();
 const customerStore = useCustomerStore();
+const marketStore = useMarketStore();
 const commerceOpsStore = useCommerceOpsStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
 const orderStore = useOrderStore();
@@ -67,6 +69,9 @@ const isFetching = computed(() => {
       return customerStore.isLoading || customerStore.isLoadingDetail;
     }
     if (route.query.tab === "operations") return commerceOpsStore.isLoading;
+    if (route.query.tab === "markets") {
+      return marketStore.isLoading || marketStore.isMutating || marketStore.isResolving;
+    }
     if (route.query.tab === "profile") {
       return (
         shopProfileStore.isLoading || paymentStore.isLoading || orderStore.isLoading
@@ -411,36 +416,22 @@ async function deleteStoreOption(id: string) {
             v-if="formStore.storeId"
             class="btn-fetch"
             title="Refresh data for current store"
-            :disabled="isFetching"
+            :loading="isFetching"
             @click="fetchCurrent(true)"
           >
             <template #icon>
-              <svg
-                v-if="isFetching"
-                class="spin"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-              >
-                <path
-                  d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
-                />
-              </svg>
-              <IconsRefresh v-else />
+              <IconsRefresh />
             </template>
-            {{ isFetching ? "Loading…" : "Refresh" }}
+            {{ isFetching ? t("common.loading") : t("common.refresh") }}
           </BaseButton>
-          <button
-            class="btn-sidebar-add"
+          <BaseButton
+            variant="primary"
             title="Add new store"
             @click="isAddModalOpen = true"
           >
-            <IconsAdd />
-            <span>Add store</span>
-          </button>
+            <template #icon><IconsAdd /></template>
+            Add store
+          </BaseButton>
         </div>
       </div>
 
@@ -465,15 +456,15 @@ async function deleteStoreOption(id: string) {
           <h3 id="add-store-modal-title" class="modal-title">
             {{ t("store.connectNew") }}
           </h3>
-          <button
-            class="btn-ghost add-store-close"
-            type="button"
+          <BaseButton
+            variant="ghost"
+            icon-only
             :title="t('common.close')"
             :aria-label="t('common.close')"
             @click="isAddModalOpen = false"
           >
-            <X :size="16" />
-          </button>
+            <template #icon><X /></template>
+          </BaseButton>
         </div>
         <div class="modal-body add-store-modal-body">
           <StoreAddStoreForm

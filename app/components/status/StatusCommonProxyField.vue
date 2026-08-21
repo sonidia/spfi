@@ -141,11 +141,18 @@ function getErrorMessage(error: unknown, fallback: string) {
         placeholder="host:port:user:pass"
       />
 
-      <button type="button" :disabled="checking" @click="checkProxy">
-        <IconsSync v-if="checking" class="spin-icon" />
-        <IconsCheck v-else />
+      <BaseButton
+        size="large"
+        variant="primary"
+        :disabled="checking"
+        @click="checkProxy"
+      >
+        <template #icon>
+          <IconsSync v-if="checking" class="spin-icon" />
+          <IconsCheck v-else />
+        </template>
         {{ checking ? t("status.checkingProxy") : t("status.checkProxy") }}
-      </button>
+      </BaseButton>
 
       <div
         v-if="result?.success || errorMessage"
@@ -188,10 +195,10 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 .proxy-check-row input {
-  min-height: 40px;
+  min-height: var(--control-height-lg);
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   padding: 0 12px;
   color: var(--text);
   background: var(--surface-soft);
@@ -202,34 +209,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 .proxy-check-row input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 4px rgba(31, 122, 77, 0.12);
-}
-
-.proxy-check-row button {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 0;
-  border-radius: 8px;
-  padding: 0 12px;
-  background: var(--green);
-  color: var(--on-accent);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.proxy-check-row button:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.proxy-check-row button svg {
-  width: 15px;
-  height: 15px;
+  box-shadow: var(--focus-ring);
 }
 
 .spin-icon {
@@ -238,13 +218,13 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 .proxy-check-result {
   display: flex;
-  min-height: 40px;
+  min-height: var(--control-height-lg);
   min-width: 0;
   align-items: center;
   gap: 8px;
   overflow: hidden;
   border: 1px solid rgba(31, 122, 77, 0.18);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   padding: 0 10px;
   background: var(--green-soft);
   color: var(--green);

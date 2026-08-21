@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 
 const API_RATE_LIMIT_HEADER_PREFIX = "x-ratelimit-api";
 const FALLBACK_RATE_LIMIT_HEADER_PREFIX = "x-ratelimit";
+const MAX_GRAPHQL_COST_STORES = 12;
 
 interface HeaderReader {
   get(name: string): string | null;
@@ -14,27 +15,66 @@ interface RateLimitSnapshot {
   resetAt: number;
 }
 
+export interface GraphqlCostSnapshot {
+  limit: number;
+  remaining: number;
+  restoreRate: number;
+  requestedCost: number | null;
+  actualCost: number | null;
+  observedAt: number;
+  requestSequence: number;
+}
+
 export const useRateLimitStore = defineStore("rateLimit", () => {
   const limit = ref<number | null>(null);
   const remaining = ref<number | null>(null);
   const resetAt = ref<number | null>(null);
   const lastUpdatedAt = ref<number | null>(null);
+  const graphqlCosts = ref<Record<string, GraphqlCostSnapshot>>({});
 
   const isKnown = computed(
     () => limit.value !== null && remaining.value !== null && resetAt.value !== null,
   );
 
-  function updateFromHeaders(headers: HeaderReader, observedAt = Date.now()) {
+  function updateFromHeaders(
+    headers: HeaderReader,
+    observedAt = Date.now(),
+    storeId = "",
+    requestSequence = observedAt,
+  ) {
     const next =
       readSnapshot(headers, API_RATE_LIMIT_HEADER_PREFIX) ||
       readSnapshot(headers, FALLBACK_RATE_LIMIT_HEADER_PREFIX);
-    if (!next || !shouldAcceptSnapshot(next)) return false;
+    let didUpdate = false;
 
-    limit.value = next.limit;
-    remaining.value = next.remaining;
-    resetAt.value = next.resetAt;
-    lastUpdatedAt.value = observedAt;
-    return true;
+    if (next && shouldAcceptSnapshot(next)) {
+      limit.value = next.limit;
+      remaining.value = next.remaining;
+      resetAt.value = next.resetAt;
+      lastUpdatedAt.value = observedAt;
+      didUpdate = true;
+    }
+
+    const normalizedStoreId = String(storeId || "").trim();
+    const graphqlCost = readGraphqlCostSnapshot(headers, observedAt, requestSequence);
+    if (normalizedStoreId && graphqlCost) {
+      const current = graphqlCosts.value[normalizedStoreId];
+      if (!current || graphqlCost.requestSequence >= current.requestSequence) {
+        const nextCosts = {
+          ...graphqlCosts.value,
+          [normalizedStoreId]: graphqlCost,
+        };
+        const staleStoreIds = Object.entries(nextCosts)
+          .sort((left, right) => right[1].observedAt - left[1].observedAt)
+          .slice(MAX_GRAPHQL_COST_STORES)
+          .map(([id]) => id);
+        for (const id of staleStoreIds) delete nextCosts[id];
+        graphqlCosts.value = nextCosts;
+        didUpdate = true;
+      }
+    }
+
+    return didUpdate;
   }
 
   function shouldAcceptSnapshot(next: RateLimitSnapshot) {
@@ -61,6 +101,7 @@ export const useRateLimitStore = defineStore("rateLimit", () => {
     resetAt,
     lastUpdatedAt,
     isKnown,
+    graphqlCosts,
     updateFromHeaders,
   };
 });
@@ -89,4 +130,44 @@ function readPositiveInteger(value: string | null) {
 function readNonNegativeInteger(value: string | null) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function readGraphqlCostSnapshot(
+  headers: HeaderReader,
+  observedAt: number,
+  requestSequence: number,
+): GraphqlCostSnapshot | null {
+  const limit = readPositiveNumber(headers.get("x-shopify-graphql-maximum-available"));
+  const remaining = readNonNegativeNumber(
+    headers.get("x-shopify-graphql-currently-available"),
+  );
+  const restoreRate = readNonNegativeNumber(
+    headers.get("x-shopify-graphql-restore-rate"),
+  );
+
+  if (limit === null || remaining === null || restoreRate === null) return null;
+
+  return {
+    limit,
+    remaining: Math.min(remaining, limit),
+    restoreRate,
+    requestedCost: readNonNegativeNumber(
+      headers.get("x-shopify-graphql-requested-cost"),
+    ),
+    actualCost: readNonNegativeNumber(headers.get("x-shopify-graphql-actual-cost")),
+    observedAt,
+    requestSequence: Number.isSafeInteger(requestSequence)
+      ? requestSequence
+      : Math.trunc(observedAt),
+  };
+}
+
+function readPositiveNumber(value: string | null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function readNonNegativeNumber(value: string | null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }

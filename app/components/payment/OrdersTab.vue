@@ -128,7 +128,7 @@ function changePageSize(pageSize: number) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 34px;
+  min-height: var(--control-height-sm);
   padding: 0 12px;
   border: 0;
   border-radius: 6px;

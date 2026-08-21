@@ -18,3 +18,8 @@ test("resolveStoreTab uses transactions for missing or invalid query values", ()
 test("resolveStoreTab accepts the first value from repeated query params", () => {
   assert.equal(resolveStoreTab(["products", "orders"]), "products");
 });
+
+test("resolveStoreTab recognizes the Shopify Markets view", () => {
+  assert.equal(resolveStoreTab("markets"), "markets");
+  assert.ok(STORE_TABS.includes("markets"));
+});

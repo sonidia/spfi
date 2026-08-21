@@ -12,7 +12,6 @@ import type {
 const props = defineProps<{ product: ShopifyProduct }>();
 const emit = defineEmits<{
   close: [];
-  refreshed: [];
 }>();
 
 const { t, locale } = useLocalization();
@@ -42,23 +41,24 @@ const selectedInventoryItemIds = computed(() =>
 );
 
 const selectedInventoryItemIdSet = computed(
-  () => new Set(selectedInventoryItemIds.value),
+  () => new Set(selectedInventoryItemIds.value.map(String)),
 );
 
 const selectedInventoryLevels = computed(() =>
   inventoryLevels.value.filter((level) =>
-    selectedInventoryItemIdSet.value.has(level.inventory_item_id),
+    selectedInventoryItemIdSet.value.has(String(level.inventory_item_id)),
   ),
 );
 
 const inventoryByLocation = computed(() => {
   const summaries = new Map<
-    ShopifyNumericId,
+    string,
     { available: number; levelCount: number; hasUntracked: boolean }
   >();
 
   selectedInventoryLevels.value.forEach((level) => {
-    const current = summaries.get(level.location_id) || {
+    const locationKey = String(level.location_id);
+    const current = summaries.get(locationKey) || {
       available: 0,
       levelCount: 0,
       hasUntracked: false,
@@ -71,7 +71,7 @@ const inventoryByLocation = computed(() => {
       current.available += level.available;
     }
 
-    summaries.set(level.location_id, current);
+    summaries.set(locationKey, current);
   });
 
   return summaries;
@@ -81,10 +81,10 @@ const visibleLocations = computed(() => {
   if (!selectedInventoryLevels.value.length) return locations.value;
 
   const locationIds = new Set(
-    selectedInventoryLevels.value.map((level) => level.location_id),
+    selectedInventoryLevels.value.map((level) => String(level.location_id)),
   );
 
-  return locations.value.filter((location) => locationIds.has(location.id));
+  return locations.value.filter((location) => locationIds.has(String(location.id)));
 });
 
 const totalVariantInventory = computed(() =>
@@ -108,17 +108,8 @@ function formatProductStatus(status?: ShopifyProductStatus) {
   if (status === "active") return t("product.statusActive");
   if (status === "draft") return t("product.statusDraft");
   if (status === "archived") return t("product.statusArchived");
+  if (status === "unlisted") return t("product.statusUnlisted");
   return t("product.statusUnknown");
-}
-
-function formatVariantInventory(variant: ShopifyProduct["variants"][number]) {
-  if (typeof variant.inventory_quantity === "number") {
-    return t("product.availableCount", {
-      count: variant.inventory_quantity,
-    });
-  }
-
-  return variant.inventory_management ? t("product.tracked") : t("product.notTracked");
 }
 
 function formatLocationAddress(location: ShopifyLocation) {
@@ -139,7 +130,7 @@ function getLocationInventoryLabel(locationId: ShopifyNumericId) {
     return t("product.noInventoryItemId");
   }
 
-  const summary = inventoryByLocation.value.get(locationId);
+  const summary = inventoryByLocation.value.get(String(locationId));
   if (!summary) {
     return t("product.noInventoryLevel");
   }
@@ -221,14 +212,14 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <button
-          class="btn-close"
-          type="button"
+        <BaseButton
+          variant="ghost"
+          icon-only
           :aria-label="t('common.close')"
           @click="close"
         >
-          <X aria-hidden="true" />
-        </button>
+          <template #icon><X aria-hidden="true" /></template>
+        </BaseButton>
       </header>
 
       <div class="modal-body detail-body">
@@ -263,12 +254,40 @@ onUnmounted(() => {
             <span>{{ t("product.columnUpdated") }}</span>
             <strong>{{ formatDate(product.updated_at) }}</strong>
           </div>
+          <div class="detail-meta-item">
+            <span>{{ t("product.media") }}</span>
+            <strong>{{ product.media_count || 0 }}</strong>
+          </div>
+          <div class="detail-meta-item">
+            <span>{{ t("product.productKind") }}</span>
+            <strong>{{
+              product.is_gift_card
+                ? t("product.giftCardProduct")
+                : t("product.standardProduct")
+            }}</strong>
+          </div>
         </div>
 
-        <div class="detail-section detail-info-grid">
+         <div class="detail-section detail-info-grid">
           <div>
             <div class="detail-section-title">{{ t("product.productType") }}</div>
             <div class="detail-value">{{ product.product_type || "-" }}</div>
+          </div>
+          <div>
+            <div class="detail-section-title">{{ t("product.shopifyCategory") }}</div>
+            <div class="detail-value">
+              {{ product.category?.full_name || product.category?.name || "-" }}
+            </div>
+          </div>
+          <div>
+            <div class="detail-section-title">{{ t("product.subscriptionOnly") }}</div>
+            <div class="detail-value">
+              {{
+                product.requires_selling_plan
+                  ? t("product.required")
+                  : t("product.notRequired")
+              }}
+            </div>
           </div>
           <div>
             <div class="detail-section-title">{{ t("product.tags") }}</div>
@@ -281,35 +300,12 @@ onUnmounted(() => {
           </div>
           <div class="detail-description">
             <div class="detail-section-title">{{ t("product.description") }}</div>
-            <p>{{ product.body_html || t("product.noDescription") }}</p>
+            <ProductDescriptionPreview
+              v-if="product.body_html"
+              :content="product.body_html"
+            />
+            <div v-else class="detail-value">{{ t("product.noDescription") }}</div>
           </div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-section-title">{{ t("product.variants") }}</div>
-          <div v-if="product.variants?.length" class="variant-list">
-            <div
-              v-for="variant in product.variants"
-              :key="variant.id"
-              class="variant-row"
-            >
-              <div>
-                <div class="variant-title">
-                  {{ variant.title || t("product.defaultVariant") }}
-                </div>
-                <div class="variant-sub">
-                  {{ variant.sku || t("product.noSku") }}
-                  <span v-if="variant.inventory_item_id">
-                    - {{ t("product.itemId", { id: variant.inventory_item_id }) }}
-                  </span>
-                </div>
-              </div>
-              <span class="variant-inventory">
-                {{ formatVariantInventory(variant) }}
-              </span>
-            </div>
-          </div>
-          <div v-else class="detail-empty">{{ t("product.noVariants") }}</div>
         </div>
 
         <div class="detail-section">
@@ -380,7 +376,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <ProductOperationsPanel :product="product" @refreshed="emit('refreshed')" />
+        <ProductVariantMediaOverview :product="product" />
       </div>
     </section>
   </div>
@@ -394,16 +390,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
 }
 
 .modal-card {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--dialog-shadow);
 }
 
 .product-detail-backdrop {
@@ -411,7 +408,7 @@ onUnmounted(() => {
 }
 
 .product-detail-modal {
-  width: min(960px, 100%);
+  width: min(1120px, 100%);
   max-height: min(900px, calc(100vh - 48px));
   overflow: hidden;
 }
@@ -431,30 +428,6 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-
-.btn-close {
-  width: 32px;
-  height: 32px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-sub);
-  cursor: pointer;
-  font: inherit;
-  font-size: 15px;
-}
-
-.btn-close :deep(svg) {
-  width: 16px;
-  height: 16px;
-}
-
-.btn-close:hover {
-  background: var(--surface-soft);
-  color: var(--text);
 }
 
 .modal-body {
@@ -503,7 +476,7 @@ onUnmounted(() => {
 
 .detail-meta-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
@@ -535,7 +508,7 @@ onUnmounted(() => {
 
 .detail-info-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -543,7 +516,6 @@ onUnmounted(() => {
   grid-column: 1 / -1;
 }
 
-.detail-description p,
 .detail-value {
   color: var(--text-sub);
   font-size: 12px;
@@ -586,14 +558,12 @@ onUnmounted(() => {
   font-size: 11px;
 }
 
-.variant-list,
 .location-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.variant-row,
 .location-row {
   display: flex;
   justify-content: space-between;
@@ -604,14 +574,12 @@ onUnmounted(() => {
   background: var(--surface);
 }
 
-.variant-title,
 .location-name {
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
 }
 
-.variant-sub,
 .location-address {
   margin-top: 3px;
   color: var(--text-sub);
@@ -619,7 +587,6 @@ onUnmounted(() => {
   overflow-wrap: anywhere;
 }
 
-.variant-inventory,
 .inventory-count {
   color: var(--green);
   font-size: 12px;
@@ -717,7 +684,6 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .variant-row,
   .location-row {
     align-items: flex-start;
     flex-direction: column;

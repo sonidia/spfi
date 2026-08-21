@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Globe2 } from "@lucide/vue";
 import type { StoreTab } from "~~/types/store";
 
 defineProps<{
@@ -10,26 +11,10 @@ const emit = defineEmits<{
   select: [tab: StoreTab];
 }>();
 const { t } = useLocalization();
+const { handleTabKeydown } = useTabKeyboardNavigation();
 
 function selectTab(tab: StoreTab) {
   emit("select", tab);
-}
-
-function moveFocus(event: KeyboardEvent) {
-  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-  const tabs = Array.from(
-    (event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>(
-      '[role="tab"]',
-    ),
-  );
-  const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
-  let next = current;
-  if (event.key === "Home") next = 0;
-  else if (event.key === "End") next = tabs.length - 1;
-  else if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
-  else next = current <= 0 ? tabs.length - 1 : current - 1;
-  event.preventDefault();
-  tabs[next]?.focus();
 }
 </script>
 
@@ -38,7 +23,7 @@ function moveFocus(event: KeyboardEvent) {
     class="table-header store-tabs"
     role="tablist"
     :aria-label="t('store.views')"
-    @keydown="moveFocus"
+    @keydown="handleTabKeydown"
   >
     <button
       class="tab-btn"
@@ -119,6 +104,17 @@ function moveFocus(event: KeyboardEvent) {
     </button>
     <button
       class="tab-btn"
+      :class="{ active: activeTab === 'markets' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'markets'"
+      @click="selectTab('markets')"
+    >
+      <Globe2 />
+      {{ t("store.tabMarkets") }}
+    </button>
+    <button
+      class="tab-btn"
       :class="{ active: activeTab === 'operations' }"
       type="button"
       role="tab"
@@ -151,9 +147,9 @@ function moveFocus(event: KeyboardEvent) {
 }
 
 .tab-btn {
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   padding: 0 12px;
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -192,8 +188,8 @@ function moveFocus(event: KeyboardEvent) {
 }
 
 .tab-btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--green) 54%, transparent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .active-view-label {

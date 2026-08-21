@@ -6,12 +6,16 @@ const props = withDefaults(
     modelValue?: boolean;
     label?: string;
     description?: string;
+    ariaLabel?: string;
+    compact?: boolean;
     disabled?: boolean;
   }>(),
   {
     modelValue: false,
     label: "",
     description: "",
+    ariaLabel: "",
+    compact: false,
     disabled: false,
   },
 );
@@ -33,16 +37,17 @@ function toggle() {
   <button
     type="button"
     class="base-checkbox"
-    :class="{ 'is-checked': modelValue }"
+    :class="{ 'is-checked': modelValue, 'is-compact': compact }"
     role="checkbox"
     :aria-checked="modelValue"
+    :aria-label="ariaLabel || undefined"
     :disabled="disabled"
     @click="toggle"
   >
     <span class="checkbox-mark" aria-hidden="true">
       <Check v-if="modelValue" :size="13" />
     </span>
-    <span class="checkbox-copy">
+    <span v-if="label || description || $slots.default" class="checkbox-copy">
       <span v-if="label || $slots.default" class="checkbox-label">
         <slot>{{ label }}</slot>
       </span>
@@ -54,12 +59,12 @@ function toggle() {
 <style scoped>
 .base-checkbox {
   min-width: 0;
-  min-height: 34px;
+  min-height: var(--control-height-md);
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 0 10px;
   background: var(--surface);
   color: var(--text);
@@ -81,7 +86,7 @@ function toggle() {
 .base-checkbox:focus-visible {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 .base-checkbox:disabled {
@@ -93,6 +98,13 @@ function toggle() {
   border-color: color-mix(in srgb, var(--green) 72%, var(--border));
   background: var(--green-soft);
   color: var(--green);
+}
+
+.base-checkbox.is-compact {
+  width: var(--control-height-sm);
+  min-height: var(--control-height-sm);
+  justify-content: center;
+  padding: 0;
 }
 
 .checkbox-mark {

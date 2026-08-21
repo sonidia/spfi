@@ -1,7 +1,7 @@
 .shop-layout-container {
   display: flex;
-  width: min(100%, 1440px);
-  max-width: 1440px;
+  width: min(100%, var(--app-shell-max-width));
+  max-width: var(--app-shell-max-width);
   min-height: calc(100vh - 64px);
   max-height: calc(100vh - 64px);
   margin: 0 auto;
@@ -11,7 +11,7 @@
 }
 
 .shop-layout-container.is-single-panel {
-  max-width: 1440px;
+  max-width: var(--app-shell-max-width);
 }
 
 .shop-layout-container.is-single-panel .main-content {
@@ -320,8 +320,8 @@
 }
 
 .btn-fetch {
-  min-height: 30px;
-  border-radius: 8px;
+  min-height: var(--control-height-sm);
+  border-radius: var(--control-radius);
   color: var(--text-sub);
   font-size: 13px;
   transition: all 0.2s;
@@ -434,46 +434,12 @@
   }
 }
 
-/* Sidebar Add Button */
-.btn-sidebar-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 29.5px;
-  background: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--bg);
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-  font-size: 13px;
-  font-family: inherit;
-  padding: 0 8px;
-}
-
-.sidebar.is-collapsed .btn-sidebar-add {
-  width: 32px;
-}
-
-.btn-sidebar-add span {
-  margin-left: 2px;
-}
-
-.btn-sidebar-add:hover {
-  filter: brightness(1.3);
-}
-
-.btn-sidebar-add:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* Modal Styles adapted from manager.vue */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -483,8 +449,8 @@
   background: var(--surface);
   width: 100%;
   max-width: 500px;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--dialog-shadow);
   display: flex;
   flex-direction: column;
   max-height: 90vh;
@@ -506,31 +472,22 @@
   overflow-y: auto;
 }
 
-.btn-ghost {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: inline-grid;
-  place-items: center;
-}
-
 .add-store-backdrop {
   z-index: 2550;
   padding: 20px;
-  background: rgba(20, 34, 27, 0.46);
+  background: var(--dialog-backdrop);
   backdrop-filter: blur(3px);
 }
 
 .add-store-modal {
   width: min(760px, 100%);
+  height: min(480px, calc(100dvh - 40px));
   max-width: 760px;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--dialog-shadow);
 }
 
 .add-store-modal-head {
@@ -539,22 +496,10 @@
   padding: 14px 16px;
 }
 
-.add-store-close {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface-raised);
-  color: var(--text-sub);
-}
-
-.add-store-close:hover {
-  background: var(--surface-soft);
-  color: var(--text-primary);
-}
-
 .add-store-modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
   padding: 0;
 }
 

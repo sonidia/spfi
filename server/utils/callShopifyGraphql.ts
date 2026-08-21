@@ -19,6 +19,7 @@ import {
   blockShopifyThrottle,
   buildShopifyThrottleKey,
   capShopifyThrottleDelayMs,
+  getGraphqlCostSummary,
   getGraphqlThrottleDelayMs,
   getGraphqlThrottleStatus,
   isGraphqlThrottled,
@@ -27,6 +28,7 @@ import {
   type ShopifyGraphqlExtensions,
 } from "./shopify-throttle";
 import { resolveShopifyGraphqlTransportRetry } from "./shopify-transport-retry";
+import { buildShopifyGid } from "./shopify-gid.ts";
 
 interface ShopifyGraphqlError {
   message: string;
@@ -222,6 +224,22 @@ function forwardGraphqlThrottleHeaders(
     setResponseHeader(event, "x-shopify-api-version", String(apiVersion));
   }
 
+  const cost = getGraphqlCostSummary(extensions);
+  if (typeof cost?.requestedQueryCost === "number") {
+    setResponseHeader(
+      event,
+      "x-shopify-graphql-requested-cost",
+      String(cost.requestedQueryCost),
+    );
+  }
+  if (typeof cost?.actualQueryCost === "number") {
+    setResponseHeader(
+      event,
+      "x-shopify-graphql-actual-cost",
+      String(cost.actualQueryCost),
+    );
+  }
+
   const status = getGraphqlThrottleStatus(extensions);
   if (!status) return;
 
@@ -237,9 +255,7 @@ function forwardGraphqlThrottleHeaders(
 }
 
 export function toShopifyGid(resource: string, id: string | number) {
-  const value = String(id || "").trim();
-  if (value.startsWith("gid://shopify/")) return value;
-  return `gid://shopify/${resource}/${value}`;
+  return buildShopifyGid(resource, id);
 }
 
 export function assertNoGraphqlUserErrors(

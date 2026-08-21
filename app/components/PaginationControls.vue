@@ -68,6 +68,7 @@ function updatePageSize(value: unknown) {
         <span>{{ t("pagination.rows") }}</span>
         <BaseSelect
           class-name="page-size-select"
+          size="small"
           :model-value="pageSize"
           :options="pageSizeSelectOptions"
           @update:model-value="updatePageSize"
@@ -150,14 +151,11 @@ function updatePageSize(value: unknown) {
 }
 
 .page-size :deep(.select-trigger) {
-  min-height: 34px;
   background: var(--surface);
 }
 
 .pagination-actions :deep(.base-button) {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   background: var(--surface);
 }
 

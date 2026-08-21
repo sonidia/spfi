@@ -8,7 +8,8 @@
 
 <style scoped>
 .page-content {
-  max-width: 72rem;
+  width: 100%;
+  max-width: var(--app-content-max-width);
   margin: 0 auto;
   padding: 48px 24px;
 }

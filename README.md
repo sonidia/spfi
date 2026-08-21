@@ -24,19 +24,20 @@
 - Proxy-aware status checking supports direct, shared proxy, and per-row proxy modes.
 - Local-first shop profile workflows help reduce repeated credential and token handling.
 - Store Operations groups draft orders, discounts, abandoned checkout recovery, and returns into one per-store queue.
+- Shopify Markets auditing covers buyer conditions, currency and price inclusion, catalogs, localized URLs, market-driven shipping, and country resolution.
 - Automatic tracking uses Tracktaco API v2's search-and-reveal workflow, then submits the revealed tracking number to Shopify fulfillment.
 
 ## Core Workflows
 
-| Route        | Workflow        | What it does                                                                                                              |
-| ------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `/setup`     | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                                   |
-| `/manager`   | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                                |
-| `/store`     | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, and operations. |
-| `/dashboard` | Dashboard       | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.                |
-| `/payment`   | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.               |
-| `/status`    | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                           |
-| `/settings`  | Settings        | Manages Tracktaco v2 credentials, Pinia cache retention, and Google Sheets tabs and row previews.                         |
+| Route        | Workflow        | What it does                                                                                                                       |
+| ------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `/setup`     | Setup Guide     | Documents the Shopify custom app setup flow and required access scopes.                                                            |
+| `/manager`   | Shop Management | Stores Shopify credentials locally, tests proxies, and generates or rotates access tokens.                                         |
+| `/store`     | Store Console   | Opens one saved store profile with tabs for transactions, payouts, disputes, orders, products, customers, markets, and operations. |
+| `/dashboard` | Dashboard       | Aggregates month-to-date revenue, fulfillment, customer, product, and payment signals across saved stores.                         |
+| `/payment`   | Payments        | Reads Shopify Payments payouts, balance transactions, orders, and related product data through server APIs.                        |
+| `/status`    | Status Checker  | Batch-checks Shopify storefront availability with direct, common-proxy, or per-row proxy modes.                                    |
+| `/settings`  | Settings        | Manages Tracktaco, Google Sheets, cache retention, and per-store Shopify webhook diagnostics.                                      |
 
 ## Tech Stack
 
@@ -108,6 +109,67 @@ Shopify Admin requests are throttled from Shopify's own response metadata, not
 from a hard-coded store plan. REST requests honor `Retry-After` and share the
 upstream bucket state per app/store; GraphQL retries use
 `extensions.cost.throttleStatus.currentlyAvailable` and `restoreRate`.
+
+### Real-time Shopify webhooks
+
+For each connected store, the app registers shop-scoped GraphQL webhook
+subscriptions for orders, fulfillments, refunds, Shopify Payments disputes,
+products, inventory-level updates, and new customers. Topics for which a store's
+token lacks the required Shopify scope are reported as registration warnings.
+Shopify deliveries are accepted at
+`POST /api/webhooks/shopify`, verified against the exact raw request body with
+the store's client secret, durably claimed and deduplicated by
+`X-Shopify-Webhook-Id`, persisted as idempotent per-delivery records, and streamed
+to signed-in browser sessions over server-sent events. A received event updates
+the notification menu and triggers one debounced dashboard refresh. Processing
+leases expire after a crash so Shopify retries can take over instead of leaving a
+delivery permanently locked.
+
+The receiver must be reachable by Shopify over public HTTPS. Set an explicit
+origin when the browser-facing origin is not the callback origin (for example,
+when using a tunnel):
+
+```text
+NUXT_WEBHOOK_PUBLIC_URL=https://ops.example.com
+```
+
+Set a stable encryption key in production so per-store HMAC secrets can be
+reloaded safely after a server restart:
+
+```text
+NUXT_WEBHOOK_ENCRYPTION_KEY=replace-with-a-long-random-deployment-secret
+```
+
+Without that key, secrets stay in process memory only and are rehydrated when a
+browser with saved store credentials reconnects. Recent notifications and the
+delivery deduplication window use Nitro storage at
+`NITRO_WEBHOOK_STORAGE_PATH` (default `.data/webhooks`). Docker Compose mounts
+this path on the `webhook-data` volume. Settings reports encrypted records that
+the current key can no longer decrypt; restore the previous key or re-register
+every affected store after an intentional key rotation.
+
+The filesystem driver is appropriate for one app instance. For horizontal
+scaling, point every replica at the same Redis database:
+
+```text
+NITRO_WEBHOOK_REDIS_URL=redis://redis.internal:6379
+NITRO_WEBHOOK_REDIS_PREFIX=spf:webhooks
+```
+
+When Redis is configured, it replaces the filesystem webhook mount. SSE streams
+poll the shared event records in addition to receiving low-latency local publish
+events, so a webhook accepted by one replica reaches subscribers connected to
+another replica. The Settings webhook panel shows the callback URL, each Shopify
+subscription, receiver-observed delivery health, a local end-to-end pipeline test,
+and an unregister action. Shopify Admin GraphQL 2026-07 does not expose per-
+subscription delivery status or a webhook-test mutation, so those diagnostics
+come from the receiver rather than unsupported schema fields.
+
+Status and initial registration inspect stores with bounded concurrency. Expected
+Shopify connectivity, proxy, token, scope, and callback-configuration failures are
+returned as per-store diagnostics instead of generating a burst of development
+error pages; a failed synchronization remains retryable and does not prevent an
+already-registered store from connecting to the local notification stream.
 
 Expiring Shopify client-credential tokens rotate automatically in the browser.
 The scheduler derives each deadline from the saved `expiresTime`, refreshes
@@ -205,6 +267,17 @@ outside a single order detail page:
   the required return scopes.
 
 See `docs/shopify-commerce-operations.md` for endpoint and scope details.
+
+### Shopify Markets
+
+The Markets tab uses the Admin GraphQL 2026-07 Markets model. It reads
+country/subdivision buyer conditions from the non-deprecated conditions tree,
+shows currency, price inclusion, catalogs, localized URLs and market-driven
+shipping, resolves the effective buyer experience for a country, and allows a
+confirmed Active/Draft status change.
+
+See `docs/shopify-markets-api.md` for the endpoint matrix, deprecation audit,
+scope requirements, and recommended next-phase editors.
 
 ## Production
 

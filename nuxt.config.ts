@@ -33,6 +33,8 @@ export default defineNuxtConfig({
     allowPrivateProxyHosts: false,
     debugProxyEnabled: process.env.NODE_ENV !== "production",
     debugProxyAllowedHosts: "httpbin.org,api.ipify.org",
+    webhookPublicUrl: "",
+    webhookEncryptionKey: "",
     public: {
       sheetUrls: "",
       masterSheetUrl: "",
@@ -43,6 +45,12 @@ export default defineNuxtConfig({
     tokenRateLimitPerMinute: DEFAULT_TOKEN_RATE_LIMIT_PER_MINUTE,
   },
   nitro: {
+    storage: {
+      webhooks: {
+        driver: "fs",
+        base: process.env.NITRO_WEBHOOK_STORAGE_PATH || "./.data/webhooks",
+      },
+    },
     typescript: {
       tsConfig: {
         compilerOptions: {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   capShopifyThrottleDelayMs,
+  getGraphqlCostSummary,
   getGraphqlThrottleDelayMs,
   getRestCallLimitDelayMs,
   isGraphqlThrottled,
@@ -55,4 +56,14 @@ test("GraphQL retry delay is calculated from the returned throttle state", () =>
 test("GraphQL throttling is detected from Shopify's error code", () => {
   assert.equal(isGraphqlThrottled([{ extensions: { code: "THROTTLED" } }]), true);
   assert.equal(isGraphqlThrottled([{ extensions: { code: "ACCESS_DENIED" } }]), false);
+});
+
+test("GraphQL cost metadata exposes requested and actual query cost", () => {
+  assert.deepEqual(
+    getGraphqlCostSummary({
+      cost: { requestedQueryCost: "240", actualQueryCost: 37 },
+    }),
+    { requestedQueryCost: 240, actualQueryCost: 37 },
+  );
+  assert.equal(getGraphqlCostSummary(), null);
 });

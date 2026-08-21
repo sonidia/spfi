@@ -320,26 +320,26 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
     </template>
     <template #actions>
       <div class="mode-toggle" role="group" :aria-label="t('store.addMode')">
-        <button
-          type="button"
+        <BaseButton
+          :variant="addStoreMode === 'single' ? 'secondary' : 'ghost'"
           class="toggle-btn"
           :class="{ active: addStoreMode === 'single' }"
           :aria-pressed="addStoreMode === 'single'"
           @click="setAddStoreMode('single')"
         >
-          <IconsCheck />
+          <template #icon><IconsCheck /></template>
           {{ t("store.single") }}
-        </button>
-        <button
-          type="button"
+        </BaseButton>
+        <BaseButton
+          :variant="addStoreMode === 'bulking' ? 'secondary' : 'ghost'"
           class="toggle-btn"
           :class="{ active: addStoreMode === 'bulking' }"
           :aria-pressed="addStoreMode === 'bulking'"
           @click="setAddStoreMode('bulking')"
         >
-          <IconsBulking />
+          <template #icon><IconsBulking /></template>
           {{ t("store.bulk") }}
-        </button>
+        </BaseButton>
       </div>
     </template>
     <div class="token-page">
@@ -367,15 +367,15 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
             />
             <BasePopover align="right">
               <template #trigger="{ isOpen, triggerProps }">
-                <button
+                <BaseButton
                   v-bind="triggerProps"
-                  type="button"
                   class="btn-sort"
+                  icon-only
                   :class="{ 'is-active': isOpen }"
                   aria-label="Sort stores"
                 >
-                  <IconsSort />
-                </button>
+                  <template #icon><IconsSort /></template>
+                </BaseButton>
               </template>
               <template #default="{ close }">
                 <div class="popover-menu">
@@ -468,31 +468,31 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
             </span>
           </div>
           <div class="store-actions">
-            <button
-              class="btn-outline"
+            <BaseButton
               :disabled="testingProxies[store.id]"
               @click="testProxy(store.id)"
             >
-              <IconsSync v-if="testingProxies[store.id]" />
-              <IconsCheck v-else />
+              <template #icon>
+                <IconsSync v-if="testingProxies[store.id]" />
+                <IconsCheck v-else />
+              </template>
               {{ testingProxies[store.id] ? "Testing…" : "Check" }}
-            </button>
-            <button
-              class="btn-outline"
+            </BaseButton>
+            <BaseButton
               :disabled="rotatingIds[store.id]"
               @click="rotateToken(store.id)"
             >
-              <IconsSync />
+              <template #icon><IconsSync /></template>
               {{ rotatingIds[store.id] ? "Rotating…" : "Rotate" }}
-            </button>
-            <button class="btn-outline" @click="openEditModal(store.id)">
-              <IconsMore />
+            </BaseButton>
+            <BaseButton @click="openEditModal(store.id)">
+              <template #icon><IconsMore /></template>
               Edit
-            </button>
-            <button class="btn-danger" @click="deleteStore(store.id)">
-              <IconsDelete />
+            </BaseButton>
+            <BaseButton variant="danger-ghost" @click="deleteStore(store.id)">
+              <template #icon><IconsDelete /></template>
               Delete
-            </button>
+            </BaseButton>
           </div>
         </div>
       </section>
@@ -503,14 +503,14 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
         <div class="modal-card">
           <div class="modal-head">
             <h3 class="modal-title">Edit Store</h3>
-            <button
-              class="btn-ghost"
-              type="button"
+            <BaseButton
+              variant="ghost"
+              icon-only
               :aria-label="t('common.close')"
               @click="closeEditModal"
             >
-              <X aria-hidden="true" />
-            </button>
+              <template #icon><X aria-hidden="true" /></template>
+            </BaseButton>
           </div>
 
           <div class="modal-body">
@@ -551,14 +551,14 @@ function getProxyCheckErrorMessage(error?: ProxyCheckError) {
           </div>
 
           <div class="modal-actions_2">
-            <button class="btn-outline" @click="closeEditModal">
-              <IconsArrowRight class="icon-left" />
+            <BaseButton size="medium" @click="closeEditModal">
+              <template #icon><IconsArrowRight class="icon-left" /></template>
               Cancel
-            </button>
-            <button class="btn-primary" @click="saveEditedStore">
-              <IconsCheck />
+            </BaseButton>
+            <BaseButton size="medium" variant="primary" @click="saveEditedStore">
+              <template #icon><IconsCheck /></template>
               Save
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>

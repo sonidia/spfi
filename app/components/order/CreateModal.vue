@@ -107,14 +107,9 @@ async function submit() {
           <span class="eyebrow">Orders</span>
           <h2 id="create-order-title">Create order</h2>
         </div>
-        <button
-          class="icon-button"
-          type="button"
-          aria-label="Close"
-          @click="emit('close')"
-        >
-          <X :size="19" />
-        </button>
+        <BaseButton variant="ghost" icon-only aria-label="Close" @click="emit('close')">
+          <template #icon><X /></template>
+        </BaseButton>
       </header>
 
       <div class="modal-body">
@@ -126,14 +121,9 @@ async function submit() {
         <div class="line-items">
           <div class="section-heading">
             <span>Line items</span>
-            <button
-              type="button"
-              class="icon-command"
-              title="Add line item"
-              @click="addLineItem"
-            >
-              <IconsAdd />
-            </button>
+            <BaseButton icon-only title="Add line item" @click="addLineItem">
+              <template #icon><IconsAdd /></template>
+            </BaseButton>
           </div>
           <div v-for="(item, index) in lineItems" :key="index" class="line-item-row">
             <label class="field">
@@ -144,15 +134,15 @@ async function submit() {
               <span>Quantity</span>
               <input v-model.number="item.quantity" type="number" min="1" required />
             </label>
-            <button
-              class="icon-command is-danger"
-              type="button"
+            <BaseButton
+              variant="danger-ghost"
+              icon-only
               title="Remove line item"
               :disabled="lineItems.length === 1"
               @click="removeLineItem(index)"
             >
-              <IconsDelete />
-            </button>
+              <template #icon><IconsDelete /></template>
+            </BaseButton>
           </div>
         </div>
 
@@ -210,17 +200,20 @@ async function submit() {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(12, 20, 16, 0.5);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
 }
 
 .order-modal {
   width: min(620px, 100%);
   max-height: min(760px, calc(100vh - 40px));
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: 0 24px 70px rgba(12, 20, 16, 0.28);
+  box-shadow: var(--dialog-shadow);
 }
 
 header,
@@ -256,6 +249,8 @@ h2 {
   text-transform: uppercase;
 }
 .modal-body {
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
   gap: 14px;
   padding: 18px;
@@ -273,9 +268,9 @@ h2 {
 }
 input {
   width: 100%;
-  height: 38px;
+  height: var(--control-height-md);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius);
   padding: 0 10px;
   background: var(--surface-raised);
   color: var(--text);
@@ -284,7 +279,7 @@ input {
 input:focus {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
 }
 .line-items {
   display: grid;
@@ -302,30 +297,6 @@ input:focus {
 }
 .quantity-field {
   width: 110px;
-}
-.icon-button,
-.icon-command {
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-sub);
-  cursor: pointer;
-}
-.icon-button {
-  border: 0;
-  font-size: 24px;
-}
-.icon-command.is-danger {
-  color: var(--red);
-}
-.icon-command:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 .check-row {
   display: flex;

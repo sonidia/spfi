@@ -16,7 +16,7 @@
   justify-content: space-between;
   gap: 24px;
   padding: 20px;
-  border-radius: 14px;
+  border-radius: var(--panel-radius);
 }
 
 .ops-eyebrow {
@@ -61,18 +61,18 @@
   display: flex;
   gap: 6px;
   padding: 6px;
-  border-radius: 10px;
+  border-radius: var(--tabs-radius);
 }
 
 .ops-view-tabs button {
   flex: 1;
-  min-height: 38px;
+  min-height: var(--control-height-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: transparent;
   color: var(--text-sub);
   font: inherit;
@@ -101,7 +101,7 @@
 
 .ops-panel {
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: var(--panel-radius);
 }
 
 .ops-panel-toolbar {
@@ -254,18 +254,20 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(10, 18, 14, 0.58);
+  background: var(--dialog-backdrop);
   backdrop-filter: blur(2px);
 }
 
 .ops-modal {
   width: min(620px, 100%);
   max-height: calc(100vh - 40px);
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--dialog-shadow);
 }
 
 .ops-modal > header,
@@ -291,24 +293,13 @@
 }
 
 .ops-modal-close {
-  width: 32px;
-  height: 32px;
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
   color: var(--text-sub);
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.ops-modal-close svg {
-  width: 17px;
-  height: 17px;
 }
 
 .ops-form-grid {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
@@ -339,6 +330,12 @@
   color: var(--text);
   font: inherit;
   font-size: 13px;
+}
+
+.ops-form-grid input,
+.ops-form-grid select,
+.ops-form-grid .select-trigger {
+  min-height: var(--control-height-md);
 }
 
 .ops-form-grid input:focus,

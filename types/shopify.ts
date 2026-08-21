@@ -112,9 +112,15 @@ export interface ShopifyLineItem {
   sku?: string | null;
   price?: string;
   quantity?: number;
+  current_quantity?: number;
   fulfillable_quantity?: number;
   product_id?: ShopifyNumericId | null;
   variant_id?: ShopifyNumericId | null;
+  discount_allocations?: Array<{
+    amount?: string;
+    amount_set?: ShopifyMoneySet;
+    discount_application_index?: number;
+  }>;
 }
 
 export interface ShopifyFulfillment {
@@ -283,9 +289,35 @@ export interface ShopifyVariant {
   weight_unit?: string;
   inventory_item_id?: ShopifyNumericId;
   inventory_management?: string | null;
+  fulfillment_service?: string;
   inventory_policy?: string;
   inventory_quantity?: number;
+  presentment_prices?: Array<{
+    price: {
+      amount: string;
+      currency_code: string;
+    };
+    compare_at_price?: {
+      amount: string;
+      currency_code: string;
+    } | null;
+  }>;
   admin_graphql_api_id?: string;
+}
+
+export interface ShopifyProductOption {
+  id?: ShopifyNumericId;
+  product_id?: ShopifyNumericId;
+  name: string;
+  position?: number;
+  values: string[];
+  linkedMetafield?: { namespace: string; key: string } | null;
+  optionValues?: Array<{
+    id: ShopifyNumericId;
+    name: string;
+    linkedMetafieldValue?: string | null;
+    hasVariants?: boolean;
+  }>;
 }
 
 export interface ShopifyProductImage {
@@ -300,7 +332,7 @@ export interface ShopifyProductImage {
   admin_graphql_api_id?: string;
 }
 
-export type ShopifyProductStatus = "active" | "archived" | "draft";
+export type ShopifyProductStatus = "active" | "archived" | "draft" | "unlisted";
 
 export interface ShopifyProductInput {
   title: string;
@@ -310,16 +342,38 @@ export interface ShopifyProductInput {
   tags?: string;
   status?: ShopifyProductStatus;
   published?: boolean;
+  handle?: string;
+  template_suffix?: string | null;
+  options?: ShopifyProductOption[];
+  variants?: Array<Partial<ShopifyVariant>>;
+  images?: ShopifyProductImage[];
+  metafields?: Array<Partial<ShopifyMetafield> & Record<string, unknown>>;
 }
 
 export interface ShopifyProduct extends ShopifyProductInput {
   id: ShopifyNumericId;
+  admin_graphql_api_id?: string;
   status: ShopifyProductStatus;
   variants: ShopifyVariant[];
+  variants_count?: number;
+  total_inventory?: number;
+  min_price?: string;
+  max_price?: string;
+  price_currency?: string;
+  options?: ShopifyProductOption[];
   image?: ShopifyProductImage | null;
   images?: ShopifyProductImage[];
+  handle?: string;
+  template_suffix?: string | null;
+  published_scope?: "global" | "web";
   published_at?: string | null;
+  created_at?: string;
   updated_at?: string;
+  category?: { id: string; name: string; full_name: string } | null;
+  seo?: { title: string | null; description: string | null };
+  is_gift_card?: boolean;
+  requires_selling_plan?: boolean;
+  media_count?: number;
 }
 
 export interface ShopifyPayoutSummary {
@@ -486,7 +540,18 @@ export interface ShopifyInventoryLevel {
   available: number | null;
   updated_at?: string;
   admin_graphql_api_id?: string;
+  quantities?: Partial<Record<ShopifyInventoryQuantityStateName, number>>;
 }
+
+export type ShopifyInventoryQuantityStateName =
+  | "available"
+  | "incoming"
+  | "committed"
+  | "damaged"
+  | "on_hand"
+  | "quality_control"
+  | "reserved"
+  | "safety_stock";
 
 export interface ShopifyAccessTokenResponse {
   access_token?: string;

@@ -145,15 +145,15 @@
                 {{ t("profile.editCredentials") }}
               </h3>
             </div>
-            <button
-              class="credential-close"
-              type="button"
+            <BaseButton
+              variant="ghost"
+              icon-only
               :title="t('common.close')"
               :aria-label="t('common.close')"
               @click="closeCredentialModal"
             >
-              <X aria-hidden="true" />
-            </button>
+              <template #icon><X aria-hidden="true" /></template>
+            </BaseButton>
           </div>
 
           <div class="credential-modal-body">
@@ -211,18 +211,14 @@
           </div>
 
           <div class="credential-modal-actions">
-            <button class="profile-action" type="button" @click="closeCredentialModal">
-              <X aria-hidden="true" />
+            <BaseButton size="medium" @click="closeCredentialModal">
+              <template #icon><X aria-hidden="true" /></template>
               {{ t("common.cancel") }}
-            </button>
-            <button
-              class="profile-action primary"
-              type="button"
-              @click="saveCredentialEdits"
-            >
-              <IconsCheck />
+            </BaseButton>
+            <BaseButton size="medium" variant="primary" @click="saveCredentialEdits">
+              <template #icon><IconsCheck /></template>
               {{ t("common.save") }}
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -533,13 +529,13 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 }
 
 .profile-action {
-  min-height: 34px;
+  min-height: var(--control-height-md);
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 0 11px;
   border: 1px solid color-mix(in srgb, var(--green) 4%, var(--border));
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
   color: var(--green);
   cursor: pointer;
@@ -553,7 +549,6 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   border-color: var(--green);
   background: var(--green);
   color: var(--bg);
-  min-height: 32px;
 }
 
 .profile-action svg {
@@ -693,7 +688,7 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(20, 34, 27, 0.46);
+  background: var(--dialog-backdrop);
   backdrop-filter: blur(3px);
 }
 
@@ -704,9 +699,9 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--dialog-shadow);
 }
 
 .credential-modal-head {
@@ -735,29 +730,6 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   font-size: 12px;
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-
-.credential-close {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface-raised);
-  color: var(--text-sub);
-  cursor: pointer;
-}
-
-.credential-close:hover {
-  background: var(--surface-soft);
-  color: var(--text-primary);
-}
-
-.credential-close svg {
-  width: 15px;
-  height: 15px;
 }
 
 .credential-modal-body {
@@ -794,10 +766,10 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 
 .credential-input {
   width: 100%;
-  min-height: 38px;
+  min-height: var(--control-height-md);
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text-primary);
   font: inherit;
@@ -805,8 +777,8 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
 }
 
 .credential-input:focus {
-  border-color: color-mix(in srgb, var(--green) 45%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green-soft) 68%, transparent);
+  border-color: var(--green);
+  box-shadow: var(--focus-ring);
 }
 
 .credential-input:disabled {
@@ -829,9 +801,6 @@ const shopRows = computed(() => buildShopProfileRows(shop.value));
   background: var(--surface-low);
 }
 
-.credential-modal-actions .profile-action {
-  min-height: 32px;
-}
 @media (max-width: 900px) {
   .profile-hero {
     grid-template-columns: 1fr;

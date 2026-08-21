@@ -11,16 +11,16 @@
     <section class="page">
       <ShopEmptyState
         v-if="!formStore.storeId"
-        :title="paymentEmptyState.title"
-        :description="paymentEmptyState.description"
+        :title="storeEmptyState.title"
+        :description="storeEmptyState.description"
       >
         <template #icon>
-          <IconsHero v-if="paymentEmptyState.kind === 'no-stores'" />
+          <IconsHero v-if="storeEmptyState.kind === 'no-stores'" />
           <IconsCheck v-else />
         </template>
         <template #actions>
           <NuxtLink
-            v-if="paymentEmptyState.kind === 'no-stores'"
+            v-if="storeEmptyState.kind === 'no-stores'"
             to="/manager"
             class="shop-empty-action primary"
           >
@@ -53,17 +53,17 @@
           !hasPaymentData &&
           !paymentStore.error
         "
-        :title="paymentEmptyState.title"
-        :description="paymentEmptyState.description"
+        :title="storeEmptyState.title"
+        :description="storeEmptyState.description"
       >
         <template #icon>
-          <IconsHero v-if="paymentEmptyState.kind === 'no-stores'" />
-          <IconsCheck v-else-if="paymentEmptyState.kind === 'no-selection'" />
+          <IconsHero v-if="storeEmptyState.kind === 'no-stores'" />
+          <IconsCheck v-else-if="storeEmptyState.kind === 'no-selection'" />
           <IconsDate v-else />
         </template>
         <template #actions>
           <NuxtLink
-            v-if="paymentEmptyState.kind === 'no-stores'"
+            v-if="storeEmptyState.kind === 'no-stores'"
             to="/manager"
             class="shop-empty-action primary"
           >
@@ -95,7 +95,9 @@
           {{ paymentStore.error }}
         </div>
 
-        <StoreProductsTab v-if="activeTab === 'products'" />
+        <StoreMarketsTab v-if="activeTab === 'markets'" />
+
+        <StoreProductsTab v-else-if="activeTab === 'products'" />
 
         <div v-else-if="showsStoreSummary" class="card data-card">
           <PaymentPayoutsTab v-if="activeTab === 'payouts'" />
@@ -127,6 +129,7 @@ import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCustomerStore } from "~/stores/customers";
 import { useCommerceOpsStore } from "~/stores/commerceOps";
 import { useFormStore } from "~/stores/form";
+import { useMarketStore } from "~/stores/market";
 import { useOrderStore } from "~/stores/order";
 import { usePaymentStore } from "~/stores/payment";
 import { useProductStore } from "~/stores/product";
@@ -136,6 +139,7 @@ import { resolveStoreTab, type StoreTab } from "~~/types/store";
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
+const marketStore = useMarketStore();
 const customerStore = useCustomerStore();
 const commerceOpsStore = useCommerceOpsStore();
 const orderStore = useOrderStore();
@@ -205,6 +209,7 @@ const activeTabError = computed(() => {
   if (activeTab.value === "orders") return orderStore.error;
   if (activeTab.value === "products") return productStore.error;
   if (activeTab.value === "customers") return customerStore.error;
+  if (activeTab.value === "markets") return marketStore.error;
   if (activeTab.value === "operations") return commerceOpsStore.mutationError;
   return profileStore.error;
 });
@@ -218,24 +223,37 @@ const activeTabLabel = computed(
       orders: t("store.salesConnected"),
       products: t("store.catalog"),
       customers: t("store.customerDirectory"),
+      markets: t("store.marketConfiguration"),
       operations: "Commerce operations",
       profile: t("store.profileDetails"),
     })[activeTab.value],
 );
-const paymentEmptyState = computed(() => {
+const storeEmptyState = computed(() => {
+  const isMarketView = activeTab.value === "markets";
+
   if (!formStore.knownStores.length) {
     return {
       kind: "no-stores",
       title: t("store.noStoresTitle"),
-      description: t("store.noStoresPaymentDescription"),
+      description: t(
+        isMarketView
+          ? "store.noStoresMarketDescription"
+          : "store.noStoresPaymentDescription",
+      ),
     };
   }
 
   if (!formStore.storeId) {
     return {
       kind: "no-selection",
-      title: t("store.choosePaymentStoreTitle"),
-      description: t("store.choosePaymentStoreDescription"),
+      title: t(
+        isMarketView ? "store.chooseMarketStoreTitle" : "store.choosePaymentStoreTitle",
+      ),
+      description: t(
+        isMarketView
+          ? "store.chooseMarketStoreDescription"
+          : "store.choosePaymentStoreDescription",
+      ),
     };
   }
 

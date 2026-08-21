@@ -6,7 +6,7 @@
 /* Card */
 .card {
   background: var(--surface);
-  border-radius: var(--radius, 8px);
+  border-radius: var(--panel-radius);
   box-shadow: var(--shadow);
 }
 
@@ -39,7 +39,7 @@
 
 .toggle-btn {
   display: inline-flex;
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   align-items: center;
   gap: 6px;
   border: 0;
@@ -140,66 +140,27 @@
   display: flex;
   gap: 8px;
 }
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition:
-    background 0.15s,
-    opacity 0.15s;
-}
-.btn-outline:hover:not(:disabled) {
-  background: var(--surface-soft);
-}
-.btn-outline:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-danger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--red);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s;
-}
-.btn-danger:hover {
-  background: var(--red-soft);
-}
 /* Add form */
 .inp {
   width: 100%;
+  min-height: var(--control-height-md);
   border: 1px solid var(--border);
-  padding: 7px 10px;
-  border-radius: 6px;
+  padding: 0 10px;
+  border-radius: var(--control-radius);
   font-family: inherit;
   font-size: 13px;
   box-sizing: border-box;
 }
 .inp:focus {
-  outline: 2px solid var(--blue);
-  outline-offset: 1px;
+  border-color: var(--green);
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .search-inp {
+  min-height: var(--control-height-sm);
   border: 1px solid var(--border);
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   font-family: inherit;
   font-size: 12px;
   width: 180px;
@@ -209,20 +170,6 @@
 .search-inp:focus {
   outline: none;
   border-color: var(--blue);
-}
-.btn-sort {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
 }
 .btn-sort:hover,
 .btn-sort.is-active {
@@ -261,32 +208,6 @@
   margin-bottom: 4px;
   text-transform: uppercase;
 }
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 14px;
-  background: var(--text-primary, #1a1a1a);
-  color: var(--bg);
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-}
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.85;
-}
 /* Alerts */
 .alert {
   padding: 10px 14px;
@@ -313,7 +234,8 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -323,8 +245,8 @@
 .modal-card {
   width: min(640px, 100%);
   background: var(--surface);
-  border-radius: 10px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--dialog-shadow);
   overflow: hidden;
 }
 .modal-head {
@@ -339,27 +261,6 @@
   font-size: 15px;
   font-weight: 600;
 }
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-sub);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px 6px;
-  border-radius: 6px;
-}
-.btn-ghost:hover {
-  background: var(--surface-soft);
-}
-
-.btn-outline :deep(svg),
-.btn-danger :deep(svg),
-.btn-primary :deep(svg),
-.btn-ghost :deep(svg),
 .toggle-btn :deep(svg),
 .btn-sort :deep(svg) {
   width: 14px;

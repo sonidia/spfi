@@ -47,12 +47,12 @@ const emit = defineEmits<{
 
 .batch-run button {
   display: inline-flex;
-  min-height: 34px;
+  min-height: var(--control-height-sm);
   align-items: center;
   justify-content: center;
   gap: 6px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   padding: 0 12px;
   background: var(--green);
   color: var(--on-accent);

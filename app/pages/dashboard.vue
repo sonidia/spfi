@@ -348,9 +348,10 @@ onActivated(ensureLoaded);
               :dashboard="aggregate"
               :filter-description="filterDescription"
             />
-            <button
+            <BaseButton
               class="dashboard-refresh"
-              type="button"
+              size="medium"
+              variant="primary"
               :disabled="isLoading"
               :title="
                 lastUpdated
@@ -359,11 +360,13 @@ onActivated(ensureLoaded);
               "
               @click="refresh"
             >
-              <RefreshCw :class="{ 'is-spinning': isLoading }" />
+              <template #icon>
+                <RefreshCw :class="{ 'is-spinning': isLoading }" />
+              </template>
               {{
                 isLoading ? `${completedStores}/${totalStores}` : t("common.refresh")
               }}
-            </button>
+            </BaseButton>
           </div>
         </template>
       </DashboardToolbar>

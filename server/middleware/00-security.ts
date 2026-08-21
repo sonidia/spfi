@@ -15,6 +15,7 @@ import {
 } from "../utils/security-headers";
 
 const API_PATH_PREFIX = "/api/";
+const SHOPIFY_WEBHOOK_PATH = "/api/webhooks/shopify";
 
 export default defineEventHandler((event) => {
   const pathname = getRequestURL(event).pathname;
@@ -26,12 +27,16 @@ export default defineEventHandler((event) => {
 
   if (pathname.startsWith(API_PATH_PREFIX)) {
     setResponseHeader(event, "Cache-Control", "no-store");
-    const preflightHandled = enforceApiOrigin(event, {
-      allowedOrigins: config.allowedOrigins,
-      requireOrigin: readRuntimeBoolean(config.apiOriginRequired, true),
-      allowHostFallback: readRuntimeBoolean(config.allowHostOriginFallback, false),
-    });
-    if (preflightHandled) return sendNoContent(event, 204);
+    // Shopify is a non-browser caller and doesn't send Origin/Fetch Metadata.
+    // Its dedicated route authenticates the exact raw body with Shopify HMAC.
+    if (pathname !== SHOPIFY_WEBHOOK_PATH) {
+      const preflightHandled = enforceApiOrigin(event, {
+        allowedOrigins: config.allowedOrigins,
+        requireOrigin: readRuntimeBoolean(config.apiOriginRequired, true),
+        allowHostFallback: readRuntimeBoolean(config.allowHostOriginFallback, false),
+      });
+      if (preflightHandled) return sendNoContent(event, 204);
+    }
   }
 });
 

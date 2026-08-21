@@ -16,8 +16,17 @@ import type {
   ShopifyShop,
 } from "~~/types/shopify";
 import { addMoneyAmount, moneyRowsFromMap } from "../../utils/dashboard-money.ts";
+import {
+  addDashboardCalendarDays,
+  dashboardDateKey,
+  dashboardDateKeysBetween,
+  dashboardDateStartIso,
+  dashboardWeekday,
+  resolveDashboardTimeZone,
+} from "../../utils/dashboard-time.ts";
 
 export interface DashboardPeriod {
+  timeZone: string | null;
   timezoneOffsetMinutes: number;
   nowIso: string;
   todayStartIso: string;
@@ -39,6 +48,8 @@ interface ShopifyDashboardUserRecord {
 }
 
 const REVENUE_FINANCIAL_STATUSES = new Set([
+  "authorized",
+  "pending",
   "paid",
   "partially_paid",
   "partially_refunded",
@@ -47,32 +58,26 @@ const PENDING_PAYOUT_STATUSES = new Set(["scheduled", "in_transit"]);
 
 export function createDashboardPeriod(
   now = new Date(),
-  timezoneOffsetMinutes = 0,
+  timeZoneOrOffset: string | number = 0,
+  fallbackOffsetMinutes = 0,
 ): DashboardPeriod {
-  const safeOffset = Number.isFinite(timezoneOffsetMinutes)
-    ? Math.min(840, Math.max(-840, Math.trunc(timezoneOffsetMinutes)))
-    : 0;
-  const shifted = new Date(now.getTime() - safeOffset * 60_000);
-  const year = shifted.getUTCFullYear();
-  const month = shifted.getUTCMonth();
-  const day = shifted.getUTCDate();
-  const weekday = shifted.getUTCDay();
+  const zone = resolveDashboardTimeZone(timeZoneOrOffset, fallbackOffsetMinutes);
+  const todayKey = dashboardDateKey(now, zone);
+  const [year, month] = todayKey.split("-").map(Number);
+  const weekday = dashboardWeekday(todayKey);
   const daysSinceMonday = (weekday + 6) % 7;
-
-  const toUtcIso = (localWallTime: number) =>
-    new Date(localWallTime + safeOffset * 60_000).toISOString();
-  const todayWallTime = Date.UTC(year, month, day);
-  const monthStartWallTime = Date.UTC(year, month, 1);
+  const monthStartKey = `${year}-${String(month).padStart(2, "0")}-01`;
+  const weekStartKey = addDashboardCalendarDays(todayKey, -daysSinceMonday);
 
   return {
-    timezoneOffsetMinutes: safeOffset,
+    ...zone,
     nowIso: now.toISOString(),
-    todayStartIso: toUtcIso(todayWallTime),
-    weekStartIso: toUtcIso(todayWallTime - daysSinceMonday * 86_400_000),
-    monthStartIso: toUtcIso(monthStartWallTime),
-    monthStartKey: `${year}-${String(month + 1).padStart(2, "0")}-01`,
-    todayKey: localDateKey(now, safeOffset),
-    monthEndKey: localDateKey(now, safeOffset),
+    todayStartIso: dashboardDateStartIso(todayKey, zone),
+    weekStartIso: dashboardDateStartIso(weekStartKey, zone),
+    monthStartIso: dashboardDateStartIso(monthStartKey, zone),
+    monthStartKey,
+    todayKey,
+    monthEndKey: todayKey,
   };
 }
 
@@ -131,7 +136,7 @@ export function aggregateOrderAnalytics(
     const amount = finiteAmount(order.current_total_price ?? order.total_price);
     const currency = normalizeCurrency(order.currency);
     const createdIso = createdAt.toISOString();
-    const dateKey = localDateKey(createdAt, period.timezoneOffsetMinutes);
+    const dateKey = dashboardDateKey(createdAt, period);
     const dayEntry = daily.get(dateKey) || {
       orders: 0,
       orderCounts: new Map<string, number>(),
@@ -166,7 +171,10 @@ export function aggregateOrderAnalytics(
       const productId = item.product_id ? String(item.product_id) : null;
       const title = String(item.title || item.name || "Untitled product").trim();
       const key = productId || `title:${title.toLowerCase()}`;
-      const quantity = Math.max(0, Math.trunc(Number(item.quantity) || 0));
+      const quantity = Math.max(
+        0,
+        Math.trunc(Number(item.current_quantity ?? item.quantity) || 0),
+      );
       const entry = products.get(key) || {
         key,
         productId,
@@ -188,15 +196,22 @@ export function aggregateOrderAnalytics(
       currencyStat.units += quantity;
       currencyStat.orderIds.add(String(order.id));
       entry.stats.set(currency, currencyStat);
-      addMoneyAmount(entry.money, currency, finiteAmount(item.price) * quantity);
+      const discounts = (item.discount_allocations || []).reduce(
+        (total, allocation) => total + finiteAmount(allocation.amount),
+        0,
+      );
+      addMoneyAmount(
+        entry.money,
+        currency,
+        Math.max(0, finiteAmount(item.price) * quantity - discounts),
+      );
       products.set(key, entry);
     }
   }
 
-  const dailyPoints = dateKeysBetween(
-    period.monthStartIso,
+  const dailyPoints = dashboardDateKeysBetween(
+    period.monthStartKey,
     period.monthEndKey,
-    period.timezoneOffsetMinutes,
   ).map((date) => {
     const entry = daily.get(date);
     return {
@@ -426,29 +441,6 @@ function isRevenueOrder(order: ShopifyOrder) {
     !order.test &&
     REVENUE_FINANCIAL_STATUSES.has(String(order.financial_status || "").toLowerCase())
   );
-}
-
-function localDateKey(date: Date, timezoneOffsetMinutes: number) {
-  return new Date(date.getTime() - timezoneOffsetMinutes * 60_000)
-    .toISOString()
-    .slice(0, 10);
-}
-
-function dateKeysBetween(
-  monthStartIso: string,
-  endKey: string,
-  timezoneOffsetMinutes: number,
-) {
-  const keys: string[] = [];
-  let cursor = new Date(monthStartIso);
-
-  while (keys.length < 32) {
-    const key = localDateKey(cursor, timezoneOffsetMinutes);
-    if (key > endKey) break;
-    keys.push(key);
-    cursor = new Date(cursor.getTime() + 86_400_000);
-  }
-  return keys;
 }
 
 function normalizeCurrency(currency: unknown) {

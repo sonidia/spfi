@@ -1,0 +1,9 @@
+import { defineEventHandler, readBody } from "h3";
+import { requireShopifyCredentials } from "~~/server/utils/shopify-admin-request";
+import { resolveShopifyMarket } from "~~/server/utils/shopify-markets";
+
+export default defineEventHandler(async (event) => {
+  const body = (await readBody(event)) || {};
+  const auth = requireShopifyCredentials(body);
+  return resolveShopifyMarket({ event, ...auth }, body.countryCode);
+});

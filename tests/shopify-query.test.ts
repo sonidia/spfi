@@ -15,6 +15,12 @@ import {
   buildOrderRefundListParams,
 } from "../server/utils/shopify-order-query.ts";
 import {
+  buildProductListParams,
+  buildProductSearchQuery,
+  normalizeProductPageSize,
+  resolveProductSort,
+} from "../server/utils/shopify-product-query.ts";
+import {
   buildShopifyCursorPageParams,
   getShopifyPageInfo,
 } from "../server/utils/shopify-pagination.ts";
@@ -71,6 +77,65 @@ test("order list cursor requests discard incompatible filters", () => {
     }),
     { page_info: "opaque-cursor==", limit: 20, fields: "id,name" },
   );
+});
+
+test("product list queries clamp pages and never resend cursor-incompatible filters", () => {
+  assert.deepEqual(
+    buildProductListParams({
+      limit: 999,
+      title: "Snowboard",
+      status: "active",
+      vendor: "Burton",
+    }),
+    { limit: 100, title: "Snowboard", status: "active", vendor: "Burton" },
+  );
+  assert.deepEqual(
+    buildProductListParams({
+      page_info: "opaque==",
+      limit: 20,
+      fields: "id,title",
+      vendor: "must-not-be-resent",
+    }),
+    { page_info: "opaque==", limit: 20, fields: "id,title" },
+  );
+  assert.equal(normalizeProductPageSize(0), 1);
+});
+
+test("product GraphQL counts use escaped search terms for all visible filters", () => {
+  assert.equal(
+    buildProductSearchQuery({
+      title: 'A "quoted" product',
+      status: "draft",
+      product_type: "Board",
+      vendor: "Acme",
+      published_status: "unpublished",
+      created_at_min: "2026-01-01",
+    }),
+    'product_type:"Board" AND published_status:"unpublished" AND status:"draft" AND title:"A \\"quoted\\" product" AND vendor:"Acme" AND created_at:>="2026-01-01"',
+  );
+});
+
+test("product GraphQL filters include collections and full date ranges", () => {
+  assert.equal(
+    buildProductSearchQuery({
+      collection_id: "9007199254740993",
+      created_at_max: "2026-08-13T23:59:59.999Z",
+      updated_at_min: "2026-08-01T00:00:00.000Z",
+      published_at_max: "2026-08-12T23:59:59.999Z",
+    }),
+    'collection_id:"9007199254740993" AND created_at:<="2026-08-13T23:59:59.999Z" AND published_at:<="2026-08-12T23:59:59.999Z" AND updated_at:>="2026-08-01T00:00:00.000Z"',
+  );
+});
+
+test("product sorting only accepts Shopify ProductSortKeys", () => {
+  assert.deepEqual(resolveProductSort({ sort_key: "TITLE", reverse: false }), {
+    sortKey: "TITLE",
+    reverse: false,
+  });
+  assert.deepEqual(resolveProductSort({ sort_key: "PRICE" as never }), {
+    sortKey: "UPDATED_AT",
+    reverse: true,
+  });
 });
 
 test("Shopify Link headers expose opaque next and previous cursors", () => {

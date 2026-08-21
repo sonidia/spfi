@@ -74,6 +74,9 @@ export function getCurrencyFractionDigits(currency?: string | null) {
     .trim()
     .toUpperCase();
   if (!currencyCode) return 2;
+  // CLDR currently formats IQD with zero digits, while Shopify/ISO money values
+  // use the currency's three-decimal minor unit.
+  if (currencyCode === "IQD") return 3;
 
   try {
     return new Intl.NumberFormat("en-US", {

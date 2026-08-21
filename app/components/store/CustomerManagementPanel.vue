@@ -414,9 +414,9 @@ function addressSummary(address: ShopifyCustomerAddress) {
                   : "Add address"
             }}
           </h3>
-          <button type="button" aria-label="Close" @click="closeDialog">
-            <X />
-          </button>
+          <BaseButton variant="ghost" icon-only aria-label="Close" @click="closeDialog">
+            <template #icon><X /></template>
+          </BaseButton>
         </header>
 
         <div v-if="dialog === 'customer'" class="form-grid">
@@ -471,11 +471,12 @@ function addressSummary(address: ShopifyCustomerAddress) {
         </div>
 
         <footer>
-          <BaseButton type="button" @click="closeDialog">
+          <BaseButton type="button" size="medium" @click="closeDialog">
             <template #icon><X /></template>
             Cancel
           </BaseButton>
           <BaseButton
+            size="medium"
             variant="primary"
             :loading="isMutating"
             @click="dialog === 'customer' ? submitCustomer() : submitAddress()"
@@ -593,16 +594,19 @@ footer {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
 }
 .dialog {
   width: min(620px, 100%);
   max-height: calc(100vh - 40px);
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--dialog-shadow);
 }
 .dialog header {
   display: flex;
@@ -615,20 +619,9 @@ footer {
   color: var(--text);
   font-size: 15px;
 }
-.dialog header button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--text-sub);
-  cursor: pointer;
-}
-.dialog header svg {
-  width: 17px;
-}
 .form-grid {
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -649,8 +642,9 @@ footer {
 .form-grid input,
 .form-grid textarea {
   width: 100%;
+  min-height: var(--control-height-md);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius);
   padding: 8px 10px;
   background: var(--surface-raised);
   color: var(--text);

@@ -26,6 +26,7 @@ test("store token resolver applies one expiry policy", () => {
 test("money formatting honors ISO currency fraction digits", () => {
   assert.equal(formatMoneyInput(1234.4, "JPY"), "1234");
   assert.equal(formatMoneyInput(1.2344, "KWD"), "1.234");
+  assert.equal(formatMoneyInput(1.2344, "IQD"), "1.234");
   assert.equal(fmtMoney(1234, "JPY"), "JPY 1,234");
   assert.equal(fmtMoney(1.234, "KWD"), "KWD 1.234");
 });
@@ -61,4 +62,27 @@ test("per-store cache restores and evicts isolated snapshots", () => {
   cache.evict("a");
   assert.equal(value.value, 0);
   assert.equal(cache.hydrate("a"), false);
+});
+
+test("per-store cache evicts the least recently used inactive store", () => {
+  let value = 0;
+  const cache = usePerStoreCache({
+    capture: () => value,
+    restore: (snapshot) => {
+      value = snapshot;
+    },
+    reset: () => {
+      value = 0;
+    },
+    maxEntries: 2,
+  });
+
+  cache.set("alpha", 1);
+  cache.set("beta", 2);
+  assert.equal(cache.get("alpha"), 1);
+  cache.set("gamma", 3);
+
+  assert.equal(cache.get("beta"), undefined);
+  assert.equal(cache.get("alpha"), 1);
+  assert.equal(cache.get("gamma"), 3);
 });

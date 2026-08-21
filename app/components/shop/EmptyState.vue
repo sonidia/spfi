@@ -93,12 +93,12 @@ withDefaults(
 
 :deep(.shop-empty-action) {
   display: inline-flex;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   align-items: center;
   justify-content: center;
   gap: 7px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   padding: 0 14px;
   font-family: inherit;
   font-size: 0.85rem;

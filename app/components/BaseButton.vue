@@ -4,7 +4,7 @@ import { LoaderCircle } from "@lucide/vue";
 withDefaults(
   defineProps<{
     variant?: "secondary" | "primary" | "danger" | "danger-ghost" | "ghost";
-    size?: "small" | "medium";
+    size?: "small" | "medium" | "large";
     type?: "button" | "submit" | "reset";
     loading?: boolean;
     iconOnly?: boolean;
@@ -39,14 +39,14 @@ withDefaults(
 
 <style scoped>
 .base-button {
-  min-height: 32px;
+  min-height: var(--control-height-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   padding: 0 11px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
@@ -68,7 +68,7 @@ withDefaults(
 
 .base-button:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 .base-button:disabled {
@@ -77,8 +77,13 @@ withDefaults(
 }
 
 .base-button.is-medium {
-  min-height: 36px;
+  min-height: var(--control-height-md);
   padding: 0 14px;
+}
+
+.base-button.is-large {
+  min-height: var(--control-height-lg);
+  padding: 0 15px;
 }
 
 .base-button.is-primary {
@@ -107,12 +112,16 @@ withDefaults(
 }
 
 .base-button.is-icon-only {
-  width: 32px;
+  width: var(--control-height-sm);
   padding: 0;
 }
 
 .base-button.is-icon-only.is-medium {
-  width: 36px;
+  width: var(--control-height-md);
+}
+
+.base-button.is-icon-only.is-large {
+  width: var(--control-height-lg);
 }
 
 .button-icon,

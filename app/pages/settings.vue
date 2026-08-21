@@ -358,6 +358,8 @@ function restoreDeploymentSheetSettings() {
           </div>
         </section>
 
+        <SettingsWebhookSettingsPanel />
+
         <section class="settings-card retention-card">
           <div class="card-heading retention-heading">
             <div class="card-icon"><Database /></div>
@@ -407,7 +409,7 @@ function restoreDeploymentSheetSettings() {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -646,10 +648,10 @@ function restoreDeploymentSheetSettings() {
 .field input,
 .field textarea {
   width: 100%;
-  min-height: 40px;
+  min-height: var(--control-height-md);
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
@@ -666,12 +668,12 @@ function restoreDeploymentSheetSettings() {
 }
 
 .fixed-endpoint code {
-  min-height: 40px;
+  min-height: var(--control-height-md);
   display: flex;
   align-items: center;
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--surface-soft);
   color: var(--text-link);
   font-family: var(--font-mono);
@@ -682,7 +684,7 @@ function restoreDeploymentSheetSettings() {
 .field input:focus,
 .field textarea:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
+  box-shadow: var(--focus-ring);
   outline: none;
 }
 
@@ -710,7 +712,7 @@ function restoreDeploymentSheetSettings() {
   height: 30px;
   place-items: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;

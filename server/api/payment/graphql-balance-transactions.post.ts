@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody } from "h3";
+import { defineEventHandler, readBody, setResponseHeader } from "h3";
 import { createApiErrorFromMessage } from "~~/server/utils/callShopifyApi";
 import { fetchShopifyPaymentsBalanceTransactions } from "~~/server/utils/shopify-payments-graphql";
 import type { ShopifyPaymentsBalanceTransactionSearchFilters } from "~~/types/shopify-payments-graphql";
@@ -23,5 +23,6 @@ export default defineEventHandler(async (event) => {
     body.filters || {},
   );
 
+  setResponseHeader(event, "x-spf-field-convention", "shopify-rest");
   return { transactions };
 });

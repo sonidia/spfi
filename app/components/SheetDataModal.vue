@@ -12,11 +12,10 @@ const emit = defineEmits<{
 }>();
 const { t } = useLocalization();
 const panelRef = ref<HTMLElement | null>(null);
-const closeRef = ref<HTMLButtonElement | null>(null);
 const titleId = `sheet-data-title-${useId()}`;
 const { handleKeydown } = useFocusTrap(panelRef, {
   active: toRef(props, "open"),
-  initialFocus: () => closeRef.value,
+  initialFocus: () => panelRef.value?.querySelector("button") || null,
   onEscape: () => emit("close"),
 });
 
@@ -47,15 +46,15 @@ function onOverlayClick(event: MouseEvent) {
           <h3 :id="titleId" class="modal-title">
             {{ title || t("sheet.dataTitle") }}
           </h3>
-          <button
-            ref="closeRef"
+          <BaseButton
             class="modal-close"
-            type="button"
+            variant="ghost"
+            icon-only
             :aria-label="t('common.close')"
             @click="emit('close')"
           >
-            <X aria-hidden="true" />
-          </button>
+            <template #icon><X aria-hidden="true" /></template>
+          </BaseButton>
         </div>
         <div class="modal-body">
           <slot />
@@ -70,7 +69,8 @@ function onOverlayClick(event: MouseEvent) {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,9 +81,9 @@ function onOverlayClick(event: MouseEvent) {
   width: min(1100px, 100%);
   max-height: 90vh;
   background: var(--surface, #fff);
-  border-radius: 12px;
+  border-radius: var(--dialog-radius);
   border: 1px solid var(--border, #e5e5e5);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--dialog-shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -102,29 +102,6 @@ function onOverlayClick(event: MouseEvent) {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary, #111);
-}
-
-.modal-close {
-  width: 30px;
-  height: 30px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--border, #e5e5e5);
-  border-radius: 6px;
-  background: var(--surface, #fff);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--text-primary, #333);
-}
-
-.modal-close :deep(svg) {
-  width: 16px;
-  height: 16px;
-}
-
-.modal-close:hover {
-  background: var(--surface-soft, #f6f6f6);
 }
 
 .modal-body {

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useDashboardStore } from "~/stores/dashboard";
 import { useFormStore } from "~/stores/form";
+import { useMarketStore } from "~/stores/market";
+import { useNotificationStore } from "~/stores/notifications";
 import { useOrderStore } from "~/stores/order";
 import { useProductStore } from "~/stores/product";
 import { KNOWN_STORES_STORAGE_KEY } from "~~/utils/known-stores";
@@ -55,6 +57,59 @@ describe("credential vault store", () => {
   });
 });
 
+describe("notification store", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+  });
+
+  it("keeps the live stream when token rotation does not change webhook configuration", async () => {
+    const form = useFormStore();
+    const vault = useCredentialVaultStore();
+    form.knownStores = ["shop-a"];
+    await vault.saveStoreData("shop-a", {
+      domain: "shop-a.myshopify.com",
+      clientSecret: "client-secret",
+      accessToken: "token-before-rotation",
+      expiresTime: Date.now() + 60_000,
+    });
+    const register = vi.fn().mockResolvedValue({
+      storeId: "shop-a",
+      shopDomain: "shop-a.myshopify.com",
+      streamToken: "stream-token",
+      webhookUrl: "https://ops.example/api/webhooks/shopify",
+      registeredTopics: [],
+      warnings: [],
+      synchronizationError: null,
+    });
+    vi.stubGlobal("$fetch", register);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode('event: connected\ndata: {"stores":1}\n\n'),
+            );
+          },
+        }),
+      }),
+    );
+
+    const notifications = useNotificationStore();
+    await notifications.synchronize();
+    await vault.patchStoreData("shop-a", {
+      accessToken: "token-after-rotation",
+      expiresTime: Date.now() + 120_000,
+    });
+    await notifications.synchronize();
+
+    expect(register).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("order store", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
@@ -80,10 +135,59 @@ describe("order store", () => {
 describe("product store", () => {
   beforeEach(() => setActivePinia(createPinia()));
 
+  it("tracks loaded cursor pages independently from the product count", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({
+        products: [{ id: 1, title: "First" }],
+        count: 75,
+        pageInfo: {
+          nextCursor: "page-2",
+          previousCursor: null,
+          hasNextPage: true,
+          hasPreviousPage: false,
+        },
+      })
+      .mockResolvedValueOnce({
+        products: [{ id: 2, title: "Second" }],
+        count: 75,
+        pageInfo: {
+          nextCursor: null,
+          previousCursor: "page-1",
+          hasNextPage: false,
+          hasPreviousPage: true,
+        },
+      });
+    vi.stubGlobal("$fetch", request);
+
+    const store = useProductStore();
+    await store.fetchAll("shop-a", "token", 50);
+    await store.fetchNext("shop-a", "token");
+
+    expect(store.loadedPageCount).toBe(2);
+    expect(store.products.map((product) => product.id)).toEqual([1, 2]);
+    expect(store.hydrate("shop-b")).toBe(false);
+    expect(store.loadedPageCount).toBe(0);
+    expect(store.hydrate("shop-a")).toBe(true);
+    expect(store.loadedPageCount).toBe(2);
+  });
+
   it("bulk publishes exact product IDs and refreshes the list once", async () => {
     const request = vi.fn().mockImplementation((url: string) => {
-      if (url === "/api/product/all") {
-        return Promise.resolve({ data: { products: [] } });
+      if (url === "/api/product/bulk-publication") {
+        return Promise.resolve({ total: 2, succeeded: 2, failedIds: [] });
+      }
+      if (url === "/api/product/page") {
+        return Promise.resolve({
+          products: [],
+          count: 0,
+          pageInfo: {
+            nextCursor: null,
+            previousCursor: null,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        });
       }
       return Promise.resolve({});
     });
@@ -98,10 +202,77 @@ describe("product store", () => {
     );
 
     expect(result).toEqual({ total: 2, succeeded: 2, failedIds: [] });
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(request.mock.calls[0]?.[0]).toBe("/api/product/9007199254740993");
-    expect(request.mock.calls[1]?.[0]).toBe("/api/product/42");
-    expect(request.mock.calls[2]?.[0]).toBe("/api/product/all");
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls[0]?.[0]).toBe("/api/product/bulk-publication");
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
+      body: {
+        productIds: ["9007199254740993", 42],
+        publish: true,
+      },
+    });
+    expect(request.mock.calls[1]?.[0]).toBe("/api/product/page");
+  });
+});
+
+describe("market store", () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it("caches market lists per store and updates status only after Shopify succeeds", async () => {
+    const request = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/market/status") {
+        return Promise.resolve({
+          id: "gid://shopify/Market/1",
+          status: "DRAFT",
+        });
+      }
+      return Promise.resolve({
+        items: [
+          {
+            id: "gid://shopify/Market/1",
+            handle: "us",
+            name: "United States",
+            status: "ACTIVE",
+            type: "REGION",
+            conditionTypes: ["REGION"],
+            conditionApplicationLevel: "SPECIFIC",
+            regions: [],
+            regionsTruncated: false,
+            currencySettings: null,
+            priceInclusions: null,
+            catalogCount: null,
+            catalogs: [],
+            catalogsTruncated: false,
+            webPresences: [],
+            webPresencesTruncated: false,
+            shipping: {
+              inherits: true,
+              enabled: null,
+              optionCount: null,
+              options: [],
+              optionsTruncated: false,
+            },
+          },
+        ],
+        fetchedAt: "2026-08-12T00:00:00.000Z",
+        truncated: false,
+      });
+    });
+    vi.stubGlobal("$fetch", request);
+
+    const store = useMarketStore();
+    await expect(store.fetchAll("shop-a", "token")).resolves.toBe(true);
+    await expect(store.fetchAll("shop-a", "token")).resolves.toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+
+    await expect(
+      store.setStatus("shop-a", "token", "gid://shopify/Market/1", "DRAFT"),
+    ).resolves.toBe(true);
+    expect(store.markets[0]?.status).toBe("DRAFT");
+
+    expect(store.hydrate("shop-b")).toBe(false);
+    expect(store.markets).toEqual([]);
+    expect(store.hydrate("shop-a")).toBe(true);
+    expect(store.markets[0]?.status).toBe("DRAFT");
   });
 });
 

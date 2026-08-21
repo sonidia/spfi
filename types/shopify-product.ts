@@ -2,8 +2,21 @@ import type {
   ShopifyNumericId,
   ShopifyProduct,
   ShopifyProductImage,
+  ShopifyProductOption,
   ShopifyVariant,
 } from "./shopify";
+
+export type ShopifyMetafieldValueInput =
+  string | number | boolean | null | unknown[] | Record<string, unknown>;
+
+export interface ShopifyMetafieldInput {
+  id?: ShopifyNumericId;
+  namespace: string;
+  key: string;
+  value: ShopifyMetafieldValueInput;
+  type: string;
+  description?: string | null;
+}
 
 export interface ShopifyProductUpdateInput {
   title?: string;
@@ -11,12 +24,40 @@ export interface ShopifyProductUpdateInput {
   vendor?: string;
   product_type?: string;
   tags?: string;
-  status?: "active" | "archived" | "draft";
+  status?: "active" | "archived" | "draft" | "unlisted";
   published_at?: string | null;
   handle?: string;
   template_suffix?: string | null;
   published_scope?: "global" | "web";
+  options?: ShopifyProductOption[];
+  variants?: ShopifyVariantInput[];
+  images?: ShopifyProductImageInput[];
+  metafields?: ShopifyMetafieldInput[];
 }
+
+export interface ShopifyLinkedMetafieldInput {
+  namespace: string;
+  key: string;
+}
+
+export interface ShopifyProductOptionValueInput {
+  id?: ShopifyNumericId;
+  name?: string;
+  linkedMetafieldValue?: string | null;
+}
+
+export interface ShopifyProductOptionMutationInput {
+  id?: ShopifyNumericId;
+  name: string;
+  position?: number;
+  values?: string[];
+  optionValues?: ShopifyProductOptionValueInput[];
+  optionValueIdsToDelete?: ShopifyNumericId[];
+  linkedMetafield?: ShopifyLinkedMetafieldInput;
+}
+
+export type ShopifyProductOptionUpdateVariantStrategy = "LEAVE_AS_IS" | "MANAGE";
+export type ShopifyProductOptionCreateVariantStrategy = "LEAVE_AS_IS" | "CREATE";
 
 export interface ShopifyVariantInput {
   id?: ShopifyNumericId;
@@ -63,6 +104,95 @@ export interface ProductCountQuery {
   vendor?: string;
 }
 
+export interface ProductListQuery extends ProductCountQuery {
+  fields?: string;
+  handle?: string;
+  ids?: string;
+  limit?: number;
+  page_info?: string;
+  presentment_currencies?: string;
+  since_id?: string | number;
+  status?: "active" | "archived" | "draft" | "unlisted";
+  title?: string;
+  sort_key?: ProductSortKey;
+  reverse?: boolean;
+}
+
+export type ProductSortKey =
+  | "CREATED_AT"
+  | "ID"
+  | "INVENTORY_TOTAL"
+  | "PRODUCT_TYPE"
+  | "PUBLISHED_AT"
+  | "TITLE"
+  | "UPDATED_AT"
+  | "VENDOR";
+
+export interface ProductCollectionOption {
+  id: string;
+  legacyResourceId: ShopifyNumericId;
+  title: string;
+  productsCount: number;
+}
+
+export interface ProductPublicationOption {
+  id: string;
+  name: string;
+  catalogTitle: string | null;
+  autoPublish: boolean;
+  supportsFuturePublishing: boolean;
+  onlineStore: boolean;
+}
+
+export interface ProductManagementContext {
+  collections: ProductCollectionOption[];
+  collectionsTruncated: boolean;
+  publications: ProductPublicationOption[];
+  publicationsTruncated: boolean;
+  warnings: string[];
+}
+
+export interface ProductAdvancedDetails {
+  id: string;
+  category: { id: string; name: string; fullName: string } | null;
+  seo: { title: string | null; description: string | null };
+  isGiftCard: boolean;
+  requiresSellingPlan: boolean;
+  collections: ProductCollectionOption[];
+  collectionsTruncated: boolean;
+  sellingPlanGroups: Array<{ id: string; name: string; merchantCode: string }>;
+  sellingPlanGroupsTruncated: boolean;
+}
+
+export type ProductMediaContentType = "EXTERNAL_VIDEO" | "IMAGE" | "MODEL_3D" | "VIDEO";
+
+export interface ProductMediaSummary {
+  id: string;
+  alt: string | null;
+  type: ProductMediaContentType;
+  status: string;
+  previewUrl: string | null;
+  originalUrl: string | null;
+  host: string | null;
+}
+
+export interface ProductMediaResponse {
+  items: ProductMediaSummary[];
+  truncated: boolean;
+}
+
+export interface BulkProductActionResult {
+  total: number;
+  succeeded: number;
+  failedIds: ShopifyNumericId[];
+}
+
+export interface ProductDuplicateResult {
+  queued: boolean;
+  operationId: string | null;
+  product: { id: ShopifyNumericId; title: string } | null;
+}
+
 export interface ProductCountResponse {
   count: number;
 }
@@ -79,4 +209,24 @@ export interface ProductImagesResponse {
 
 export interface ProductResponse {
   product?: ShopifyProduct;
+}
+
+export interface ProductPageResponse {
+  products: ShopifyProduct[];
+  count: number;
+  pageInfo: {
+    nextCursor: string | null;
+    previousCursor: string | null;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+export interface ProductVariantBulkResult {
+  variants?: ShopifyVariant[];
+  deletedIds?: ShopifyNumericId[];
+}
+
+export interface ProductOptionsUpdateResult {
+  options: ShopifyProductOption[];
 }

@@ -57,6 +57,9 @@ test("dashboard money helpers share deterministic rounding and ranking", () => {
   addMoneyAmount(totals, "JPY", -10);
 
   assert.equal(roundMoneyAmount(1.005), 1.01);
+  assert.equal(roundMoneyAmount(-1.005), -1.01);
+  assert.equal(roundMoneyAmount(1234.4, "JPY"), 1234);
+  assert.equal(roundMoneyAmount(1.2344, "KWD"), 1.234);
   assert.deepEqual(moneyRowsFromMap(totals), [
     { currency: "JPY", amount: -10 },
     { currency: "USD", amount: 0.3 },

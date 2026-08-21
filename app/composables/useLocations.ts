@@ -2,18 +2,19 @@ import { computed } from "vue";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
 import { useFormStore } from "~/stores/form";
 import { useLocationStore } from "~/stores/locations";
-import type { ShopifyProduct } from "~~/types/shopify";
+import type { ShopifyNumericId, ShopifyProduct } from "~~/types/shopify";
 import { resolveStoreAccessToken } from "~~/utils/shop-auth";
 import { markStoreResourceLoaded } from "~~/utils/store-resource-cache";
 
-function getProductInventoryItemIds(product?: ShopifyProduct | null) {
-  return Array.from(
-    new Set(
-      (product?.variants || [])
-        .map((variant) => variant.inventory_item_id)
-        .filter((id): id is number => typeof id === "number"),
-    ),
-  );
+export function getProductInventoryItemIds(product?: ShopifyProduct | null) {
+  const ids = new Map<string, ShopifyNumericId>();
+  for (const variant of product?.variants || []) {
+    const id = variant.inventory_item_id;
+    const key = String(id ?? "").trim();
+    if (!/^\d+$/.test(key) || ids.has(key)) continue;
+    ids.set(key, id as ShopifyNumericId);
+  }
+  return [...ids.values()];
 }
 
 export function useLocations() {

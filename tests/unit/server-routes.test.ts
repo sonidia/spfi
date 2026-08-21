@@ -1,6 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import checkProxyHandler from "~~/server/api/check-proxy.post";
 import generateTokenHandler from "~~/server/api/generate-token.post";
+import marketAllHandler from "~~/server/api/market/all.post";
+import marketAssignmentsHandler from "~~/server/api/market/assignments.post";
+import marketContextHandler from "~~/server/api/market/context.post";
+import marketConditionsHandler from "~~/server/api/market/conditions.post";
+import marketCreateHandler from "~~/server/api/market/create.post";
+import marketCatalogCreateHandler from "~~/server/api/market/catalog/create.post";
+import marketDeleteHandler from "~~/server/api/market/delete.post";
+import marketIdentityHandler from "~~/server/api/market/identity.post";
+import marketLocalizationReadHandler from "~~/server/api/market/localization/read.post";
+import marketLocalizationResourcesHandler from "~~/server/api/market/localization/resources.post";
+import marketLocalizationSaveHandler from "~~/server/api/market/localization/save.post";
+import marketPricingHandler from "~~/server/api/market/pricing.post";
+import marketRegionsHandler from "~~/server/api/market/regions.post";
+import marketResolveHandler from "~~/server/api/market/resolve.post";
+import marketShippingHandler from "~~/server/api/market/shipping.post";
+import marketStatusHandler from "~~/server/api/market/status.post";
+import marketWebPresenceCreateHandler from "~~/server/api/market/web-presence/create.post";
+import marketWebPresenceDeleteHandler from "~~/server/api/market/web-presence/delete.post";
+import marketWebPresenceUpdateHandler from "~~/server/api/market/web-presence/update.post";
 import batchUpdateHandler from "~~/server/api/sheet/batch-update.post";
 import metaHandler from "~~/server/api/sheet/meta.post";
 import updateHandler from "~~/server/api/sheet/update.post";
@@ -130,6 +149,37 @@ describe("diagnostic and credential routes", () => {
     await expect(generateTokenHandler({ body: {} } as never)).rejects.toMatchObject({
       statusCode: 400,
     });
+    await expect(marketAllHandler({ body: {} } as never)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    await expect(marketResolveHandler({ body: {} } as never)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    await expect(marketStatusHandler({ body: {} } as never)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+    for (const marketHandler of [
+      marketAssignmentsHandler,
+      marketContextHandler,
+      marketConditionsHandler,
+      marketCreateHandler,
+      marketCatalogCreateHandler,
+      marketDeleteHandler,
+      marketIdentityHandler,
+      marketLocalizationReadHandler,
+      marketLocalizationResourcesHandler,
+      marketLocalizationSaveHandler,
+      marketPricingHandler,
+      marketRegionsHandler,
+      marketShippingHandler,
+      marketWebPresenceCreateHandler,
+      marketWebPresenceDeleteHandler,
+      marketWebPresenceUpdateHandler,
+    ]) {
+      await expect(marketHandler({ body: {} } as never)).rejects.toMatchObject({
+        statusCode: 400,
+      });
+    }
     await expect(checkProxyHandler({ body: {} } as never)).rejects.toMatchObject({
       statusCode: 400,
     });

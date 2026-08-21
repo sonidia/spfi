@@ -22,6 +22,11 @@ services:
       NUXT_ALLOW_PRIVATE_PROXY_HOSTS: "${NUXT_ALLOW_PRIVATE_PROXY_HOSTS:-false}"
       NUXT_DEBUG_PROXY_ENABLED: "${NUXT_DEBUG_PROXY_ENABLED:-false}"
       NUXT_DEBUG_PROXY_ALLOWED_HOSTS: "${NUXT_DEBUG_PROXY_ALLOWED_HOSTS:-httpbin.org,api.ipify.org}"
+      NUXT_WEBHOOK_PUBLIC_URL: "${NUXT_WEBHOOK_PUBLIC_URL:-}"
+      NUXT_WEBHOOK_ENCRYPTION_KEY: "${NUXT_WEBHOOK_ENCRYPTION_KEY:-}"
+      NITRO_WEBHOOK_STORAGE_PATH: "/app/.data/webhooks"
+      NITRO_WEBHOOK_REDIS_URL: "${NITRO_WEBHOOK_REDIS_URL:-}"
+      NITRO_WEBHOOK_REDIS_PREFIX: "${NITRO_WEBHOOK_REDIS_PREFIX:-spf:webhooks}"
       NUXT_PUBLIC_SHEET_URLS: "${NUXT_PUBLIC_SHEET_URLS:-}"
       NUXT_PUBLIC_MASTER_SHEET_URL: "${NUXT_PUBLIC_MASTER_SHEET_URL:-}"
       NUXT_PUBLIC_MASTER_SHEET_TABS: "${NUXT_PUBLIC_MASTER_SHEET_TABS:-}"
@@ -32,6 +37,9 @@ services:
         source: ./server/service_account.json
         target: /app/server/service_account.json
         read_only: true
+      - type: volume
+        source: webhook-data
+        target: /app/.data
     healthcheck:
       test:
         [
@@ -75,3 +83,6 @@ services:
 networks:
   internal:
     driver: bridge
+
+volumes:
+  webhook-data:

@@ -7,15 +7,16 @@ import {
   type MaybeRefOrGetter,
 } from "vue";
 
-interface VirtualListOptions {
+interface VirtualListOptions<T> {
   itemHeight: number;
   overscan?: number;
   defaultViewportHeight?: number;
+  getItemKey?: (item: T) => string | number;
 }
 
 export function useVirtualList<T>(
   items: MaybeRefOrGetter<readonly T[]>,
-  options: VirtualListOptions,
+  options: VirtualListOptions<T>,
 ) {
   const container = ref<HTMLElement | null>(null);
   const scrollTop = ref(0);
@@ -65,9 +66,28 @@ export function useVirtualList<T>(
 
   watch(
     () => toValue(items),
-    () => {
-      if (container.value) container.value.scrollTop = 0;
-      scrollTop.value = 0;
+    (nextItems, previousItems) => {
+      const element = container.value;
+      const previousScrollTop = element?.scrollTop ?? scrollTop.value;
+      let nextScrollTop = 0;
+
+      if (options.getItemKey && previousItems.length && nextItems.length) {
+        const anchorIndex = Math.min(
+          previousItems.length - 1,
+          Math.max(0, Math.floor(previousScrollTop / itemHeight)),
+        );
+        const anchorKey = options.getItemKey(previousItems[anchorIndex] as T);
+        const nextAnchorIndex = nextItems.findIndex(
+          (item) => options.getItemKey?.(item as T) === anchorKey,
+        );
+        if (nextAnchorIndex >= 0) {
+          nextScrollTop =
+            nextAnchorIndex * itemHeight + (previousScrollTop % itemHeight);
+        }
+      }
+
+      if (element) element.scrollTop = nextScrollTop;
+      scrollTop.value = nextScrollTop;
       updateViewport();
     },
     { flush: "post" },
