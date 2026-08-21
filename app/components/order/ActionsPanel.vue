@@ -303,7 +303,7 @@ textarea {
   font: inherit;
 }
 input {
-  height: 38px;
+  height: var(--control-height-md);
 }
 input:focus,
 textarea:focus {
@@ -319,7 +319,7 @@ textarea {
   display: flex;
   align-items: center;
   align-self: end;
-  min-height: 38px;
+  min-height: var(--control-height-md);
   gap: 8px;
 }
 .check-row input {

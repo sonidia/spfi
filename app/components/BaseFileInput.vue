@@ -70,15 +70,15 @@ function handleChange(event: Event) {
 
 .file-input-trigger {
   width: 100%;
-  height: 36px;
-  min-height: 36px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   padding: 0 10px;
   border: 1px dashed color-mix(in srgb, var(--green) 55%, var(--border));
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--green-soft);
   color: var(--green);
   font: inherit;
@@ -94,7 +94,7 @@ function handleChange(event: Event) {
 
 .file-input-trigger:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 .file-input-trigger:disabled {

@@ -48,9 +48,9 @@ function selectMode(value: ProxyMode) {
 }
 
 .mode-option {
-  min-height: 30px;
+  min-height: var(--control-height-sm);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 0 10px;
   background: transparent;
   color: var(--muted);

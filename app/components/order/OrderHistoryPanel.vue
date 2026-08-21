@@ -211,8 +211,9 @@ header {
   border-bottom: 1px solid var(--border);
 }
 .tabs button {
+  min-height: var(--control-height-sm);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 7px 10px;
   background: transparent;
   color: var(--text-sub);

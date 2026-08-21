@@ -7,6 +7,7 @@ type View = "drafts" | "discounts" | "checkouts" | "returns";
 
 const store = useCommerceOpsStore();
 const { t } = useLocalization();
+const { handleTabKeydown } = useTabKeyboardNavigation();
 const activeView = ref<View>("drafts");
 const views = computed(() => [
   {
@@ -42,7 +43,12 @@ const views = computed(() => [
 
 <template>
   <section class="ops-workspace">
-    <div class="ops-view-tabs" role="tablist" :aria-label="t('operations.viewsAria')">
+    <div
+      class="ops-view-tabs"
+      role="tablist"
+      :aria-label="t('operations.viewsAria')"
+      @keydown="handleTabKeydown"
+    >
       <button
         v-for="view in views"
         :key="view.id"

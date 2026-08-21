@@ -24,6 +24,7 @@ const emit = defineEmits<{ close: [] }>();
 const marketStore = useMarketStore();
 const { storeId, token } = useActiveShopAuth();
 const { t } = useLocalization();
+const { handleTabKeydown } = useTabKeyboardNavigation("vertical");
 const modalRef = ref<HTMLElement | null>(null);
 const titleId = `market-editor-title-${useId()}`;
 const activeSection = ref("details");
@@ -109,11 +110,18 @@ onMounted(() => {
           </template>
         </div>
         <div v-else class="market-editor-layout">
-          <nav class="market-editor-nav" :aria-label="t('markets.editor.sections')">
+          <nav
+            class="market-editor-nav"
+            role="tablist"
+            :aria-label="t('markets.editor.sections')"
+            @keydown="handleTabKeydown"
+          >
             <button
               v-for="section in sections"
               :key="section.id"
               type="button"
+              role="tab"
+              :aria-selected="activeSection === section.id"
               :class="{ 'is-active': activeSection === section.id }"
               @click="activeSection = section.id"
             >

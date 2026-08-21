@@ -424,14 +424,14 @@ async function deleteStoreOption(id: string) {
             </template>
             {{ isFetching ? t("common.loading") : t("common.refresh") }}
           </BaseButton>
-          <button
-            class="btn-sidebar-add"
+          <BaseButton
+            variant="primary"
             title="Add new store"
             @click="isAddModalOpen = true"
           >
-            <IconsAdd />
-            <span>Add store</span>
-          </button>
+            <template #icon><IconsAdd /></template>
+            Add store
+          </BaseButton>
         </div>
       </div>
 
@@ -456,15 +456,15 @@ async function deleteStoreOption(id: string) {
           <h3 id="add-store-modal-title" class="modal-title">
             {{ t("store.connectNew") }}
           </h3>
-          <button
-            class="btn-ghost add-store-close"
-            type="button"
+          <BaseButton
+            variant="ghost"
+            icon-only
             :title="t('common.close')"
             :aria-label="t('common.close')"
             @click="isAddModalOpen = false"
           >
-            <X :size="16" />
-          </button>
+            <template #icon><X /></template>
+          </BaseButton>
         </div>
         <div class="modal-body add-store-modal-body">
           <StoreAddStoreForm

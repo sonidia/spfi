@@ -212,14 +212,14 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <button
-          class="btn-close"
-          type="button"
+        <BaseButton
+          variant="ghost"
+          icon-only
           :aria-label="t('common.close')"
           @click="close"
         >
-          <X aria-hidden="true" />
-        </button>
+          <template #icon><X aria-hidden="true" /></template>
+        </BaseButton>
       </header>
 
       <div class="modal-body detail-body">
@@ -268,7 +268,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="detail-section detail-info-grid">
+         <div class="detail-section detail-info-grid">
           <div>
             <div class="detail-section-title">{{ t("product.productType") }}</div>
             <div class="detail-value">{{ product.product_type || "-" }}</div>
@@ -307,8 +307,6 @@ onUnmounted(() => {
             <div v-else class="detail-value">{{ t("product.noDescription") }}</div>
           </div>
         </div>
-
-        <ProductVariantMediaOverview :product="product" />
 
         <div class="detail-section">
           <div class="detail-section-head">
@@ -377,6 +375,8 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+
+        <ProductVariantMediaOverview :product="product" />
       </div>
     </section>
   </div>
@@ -390,16 +390,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
 }
 
 .modal-card {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
-  box-shadow: var(--shadow);
+  box-shadow: var(--dialog-shadow);
 }
 
 .product-detail-backdrop {
@@ -427,30 +428,6 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 600;
   overflow-wrap: anywhere;
-}
-
-.btn-close {
-  width: 32px;
-  height: 32px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text-sub);
-  cursor: pointer;
-  font: inherit;
-  font-size: 15px;
-}
-
-.btn-close :deep(svg) {
-  width: 16px;
-  height: 16px;
-}
-
-.btn-close:hover {
-  background: var(--surface-soft);
-  color: var(--text);
 }
 
 .modal-body {
@@ -531,7 +508,7 @@ onUnmounted(() => {
 
 .detail-info-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 

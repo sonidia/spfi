@@ -148,14 +148,6 @@ function formatVariantInventory(variant: ShopifyVariant) {
       </div>
 
       <div v-if="selectedVariant" class="variant-media-detail" role="tabpanel">
-        <div class="variant-media-detail-heading">
-          <div>
-            <span>{{ t("product.selectedVariant") }}</span>
-            <strong>{{ selectedVariant.title || t("product.defaultVariant") }}</strong>
-          </div>
-          <span>{{ selectedVariant.sku || t("product.noSku") }}</span>
-        </div>
-
         <div class="variant-media-focus">
           <figure v-if="selectedVariantImage">
             <img
@@ -167,10 +159,6 @@ function formatVariantInventory(variant: ShopifyVariant) {
               "
             />
             <figcaption>
-              <strong>{{ t("product.assignedImage") }}</strong>
-              <span>{{
-                selectedVariantImage.alt || t("product.mediaWithoutAlt")
-              }}</span>
               <a
                 v-if="imageSourceUrl(selectedVariantImage)"
                 :href="imageSourceUrl(selectedVariantImage) || undefined"
@@ -385,7 +373,7 @@ function formatVariantInventory(variant: ShopifyVariant) {
   display: grid;
   align-content: start;
   gap: 12px;
-  padding: 14px;
+  padding: 10px;
 }
 
 .variant-media-detail-heading > div {
@@ -423,7 +411,7 @@ function formatVariantInventory(variant: ShopifyVariant) {
 
 .variant-media-focus figure img {
   width: 100%;
-  height: 180px;
+  height: 220px;
   object-fit: contain;
 }
 

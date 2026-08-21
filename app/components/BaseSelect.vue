@@ -19,6 +19,7 @@ const props = withDefaults(
     ariaLabel?: string;
     disabled?: boolean;
     className?: string;
+    size?: "small" | "medium";
   }>(),
   {
     options: () => [],
@@ -26,6 +27,7 @@ const props = withDefaults(
     ariaLabel: undefined,
     disabled: false,
     className: "",
+    size: "medium",
   },
 );
 
@@ -146,7 +148,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
   <div
     ref="selectRef"
     class="custom-select"
-    :class="[{ 'is-open': isOpen, 'is-disabled': disabled }, className]"
+    :class="[{ 'is-open': isOpen, 'is-disabled': disabled }, `is-${size}`, className]"
     @keydown="handleKeydown"
   >
     <button
@@ -221,14 +223,14 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 .select-trigger {
   width: 100%;
   max-width: 100%;
-  min-height: 38px;
+  min-height: var(--control-height-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
@@ -249,7 +251,12 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 .is-open .select-trigger {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
+}
+
+.custom-select.is-small .select-trigger {
+  min-height: var(--control-height-sm);
+  padding-block: 5px;
 }
 
 .select-trigger:disabled {
@@ -315,14 +322,14 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
   overflow-y: auto;
   padding: 5px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   background: var(--surface-raised);
   box-shadow: var(--shadow-soft);
 }
 
 .select-option {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   display: flex;
   align-items: center;
   justify-content: space-between;

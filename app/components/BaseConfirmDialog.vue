@@ -30,7 +30,6 @@ const id = useId();
 const titleId = `confirm-title-${id}`;
 const messageId = `confirm-message-${id}`;
 const dialogRef = ref<HTMLElement | null>(null);
-const cancelRef = ref<HTMLButtonElement | null>(null);
 let previousFocus: HTMLElement | null = null;
 
 function cancel() {
@@ -69,7 +68,7 @@ watch(
     if (open) {
       previousFocus = document.activeElement as HTMLElement | null;
       await nextTick();
-      cancelRef.value?.focus();
+      dialogRef.value?.querySelector<HTMLButtonElement>("button")?.focus();
       return;
     }
 
@@ -102,27 +101,22 @@ onUnmounted(() => previousFocus?.focus());
           <h2 :id="titleId">{{ title }}</h2>
           <p :id="messageId">{{ message }}</p>
           <div class="confirm-actions">
-            <button
-              ref="cancelRef"
-              type="button"
-              class="btn-secondary"
-              :disabled="busy"
-              @click="cancel"
-            >
-              <X aria-hidden="true" />
+            <BaseButton size="medium" :disabled="busy" @click="cancel">
+              <template #icon><X aria-hidden="true" /></template>
               {{ cancelLabel || t("common.cancel") }}
-            </button>
-            <button
-              type="button"
-              class="btn-confirm"
-              :class="{ danger }"
+            </BaseButton>
+            <BaseButton
+              size="medium"
+              :variant="danger ? 'danger' : 'primary'"
               :disabled="busy"
               @click="emit('confirm')"
             >
-              <Trash2 v-if="danger" aria-hidden="true" />
-              <Check v-else aria-hidden="true" />
+              <template #icon>
+                <Trash2 v-if="danger" aria-hidden="true" />
+                <Check v-else aria-hidden="true" />
+              </template>
               {{ busy ? t("common.processing") : confirmLabel || t("common.delete") }}
-            </button>
+            </BaseButton>
           </div>
         </section>
       </div>
@@ -138,7 +132,7 @@ onUnmounted(() => previousFocus?.focus());
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(10, 18, 14, 0.58);
+  background: var(--dialog-backdrop);
   backdrop-filter: blur(2px);
 }
 
@@ -146,7 +140,7 @@ onUnmounted(() => previousFocus?.focus());
   width: min(440px, 100%);
   padding: 22px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--dialog-radius);
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow);
@@ -168,51 +162,6 @@ onUnmounted(() => previousFocus?.focus());
   justify-content: flex-end;
   gap: 10px;
   margin-top: 22px;
-}
-
-.confirm-actions button {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.confirm-actions button :deep(svg) {
-  width: 15px;
-  height: 15px;
-}
-
-.btn-secondary {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.btn-confirm {
-  border-color: var(--green);
-  background: var(--green);
-  color: var(--on-accent);
-}
-
-.btn-confirm.danger {
-  border-color: var(--red);
-  background: var(--red);
-}
-
-.confirm-actions button:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--green) 32%, transparent);
-  outline-offset: 2px;
-}
-
-.confirm-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .confirm-dialog-enter-active,

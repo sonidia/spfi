@@ -82,14 +82,15 @@ async function submit() {
             <p class="ops-eyebrow">{{ t("operations.drafts") }}</p>
             <h2 :id="titleId">{{ t("operations.draft.createTitle") }}</h2>
           </div>
-          <button
-            type="button"
+          <BaseButton
             class="ops-modal-close"
+            variant="ghost"
+            icon-only
             :aria-label="t('common.close')"
             @click="emit('close')"
           >
-            <X aria-hidden="true" />
-          </button>
+            <template #icon><X aria-hidden="true" /></template>
+          </BaseButton>
         </header>
         <div class="ops-form-grid">
           <label>
@@ -146,11 +147,21 @@ async function submit() {
         </div>
         <p v-if="localError" class="ops-form-error" role="alert">{{ localError }}</p>
         <footer>
-          <BaseButton type="button" :disabled="store.isMutating" @click="emit('close')">
+          <BaseButton
+            type="button"
+            size="medium"
+            :disabled="store.isMutating"
+            @click="emit('close')"
+          >
             <template #icon><X /></template>
             {{ t("common.cancel") }}
           </BaseButton>
-          <BaseButton type="submit" variant="primary" :loading="store.isMutating">
+          <BaseButton
+            type="submit"
+            size="medium"
+            variant="primary"
+            :loading="store.isMutating"
+          >
             <template #icon><FilePlus2 /></template>
             {{ t("operations.draft.create") }}
           </BaseButton>

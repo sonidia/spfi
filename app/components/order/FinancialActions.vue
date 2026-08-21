@@ -125,6 +125,48 @@ const refundOptions = computed(() =>
     }))
     .filter((option) => option.remaining > 0),
 );
+const captureSelectOptions = computed(() =>
+  captureOptions.value.map((option) => ({
+    value: String(option.transaction.id),
+    label: `${option.transaction.gateway || t("financial.payment")} · ${t(
+      "financial.remaining",
+      {
+        amount: fmtMoney(option.remaining, option.transaction.currency),
+      },
+    )}`,
+  })),
+);
+const voidSelectOptions = computed(() =>
+  voidOptions.value.map((option) => ({
+    value: String(option.transaction.id),
+    label: `${option.transaction.gateway || t("financial.payment")} · ${fmtMoney(
+      option.remaining,
+      option.transaction.currency,
+    )} ${t("financial.uncaptured")}`,
+  })),
+);
+const refundSelectOptions = computed(() =>
+  refundOptions.value.map((option) => ({
+    value: String(option.transaction.id),
+    label: `${option.transaction.gateway || t("financial.payment")} · ${t(
+      "financial.refundable",
+      {
+        amount: fmtMoney(option.remaining, option.transaction.currency),
+      },
+    )}`,
+  })),
+);
+const restockOptions = computed(() => [
+  { value: "NO_RESTOCK", label: t("financial.doNotRestock") },
+  { value: "CANCEL", label: t("financial.restockUnfulfilled") },
+  { value: "RETURN", label: t("financial.restockReturned") },
+]);
+const discrepancyReasonOptions = computed(() => [
+  { value: "OTHER", label: t("financial.reasonOther") },
+  { value: "CUSTOMER", label: t("financial.reasonCustomer") },
+  { value: "DAMAGE", label: t("financial.reasonDamage") },
+  { value: "RESTOCK", label: t("financial.reasonRestock") },
+]);
 
 const refundableLines = computed(() =>
   (props.order.line_items || [])
@@ -235,6 +277,35 @@ function selectDefaultTransactions() {
       outstandingAmount.value,
       props.order.currency,
     );
+  }
+}
+
+function updateCaptureAuthorization(value: unknown) {
+  selectedAuthorizationId.value = String(value || "");
+  syncCaptureAmount();
+}
+
+function updateVoidAuthorization(value: unknown) {
+  selectedVoidTransactionId.value = String(value || "");
+}
+
+function updateRefundTransaction(value: unknown) {
+  selectedRefundTransactionId.value = String(value || "");
+}
+
+function updateRestockType(lineItemId: string | number, value: unknown) {
+  if (["NO_RESTOCK", "CANCEL", "RETURN"].includes(String(value))) {
+    refundRestockTypes.value[String(lineItemId)] = String(
+      value,
+    ) as RefundLineItemRestockType;
+  }
+}
+
+function updateDiscrepancyReason(value: unknown) {
+  if (["CUSTOMER", "DAMAGE", "OTHER", "RESTOCK"].includes(String(value))) {
+    refundDiscrepancyReason.value = String(
+      value,
+    ) as typeof refundDiscrepancyReason.value;
   }
 }
 
@@ -526,20 +597,11 @@ function formatTransactionTime(value?: string | null) {
     <form v-if="mode === 'capture'" class="form-grid" @submit.prevent="capturePayment">
       <label>
         <span>{{ t("financial.authorization") }}</span>
-        <select v-model="selectedAuthorizationId" @change="syncCaptureAmount">
-          <option
-            v-for="option in captureOptions"
-            :key="option.transaction.id"
-            :value="String(option.transaction.id)"
-          >
-            {{ option.transaction.gateway || t("financial.payment") }} ·
-            {{
-              t("financial.remaining", {
-                amount: fmtMoney(option.remaining, option.transaction.currency),
-              })
-            }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="selectedAuthorizationId"
+          :options="captureSelectOptions"
+          @update:model-value="updateCaptureAuthorization"
+        />
       </label>
       <label>
         <span>Amount ({{ order.currency }})</span>
@@ -569,17 +631,11 @@ function formatTransactionTime(value?: string | null) {
     >
       <label>
         <span>{{ t("financial.uncapturedAuthorization") }}</span>
-        <select v-model="selectedVoidTransactionId">
-          <option
-            v-for="option in voidOptions"
-            :key="option.transaction.id"
-            :value="String(option.transaction.id)"
-          >
-            {{ option.transaction.gateway || t("financial.payment") }} ·
-            {{ fmtMoney(option.remaining, option.transaction.currency) }}
-            {{ t("financial.uncaptured") }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="selectedVoidTransactionId"
+          :options="voidSelectOptions"
+          @update:model-value="updateVoidAuthorization"
+        />
       </label>
       <p class="void-warning">
         {{ t("financial.voidWarning") }}
@@ -650,20 +706,11 @@ function formatTransactionTime(value?: string | null) {
     >
       <label>
         <span>{{ t("financial.refundFromTransaction") }}</span>
-        <select v-model="selectedRefundTransactionId">
-          <option
-            v-for="option in refundOptions"
-            :key="option.transaction.id"
-            :value="String(option.transaction.id)"
-          >
-            {{ option.transaction.gateway || t("financial.payment") }} ·
-            {{
-              t("financial.refundable", {
-                amount: fmtMoney(option.remaining, option.transaction.currency),
-              })
-            }}
-          </option>
-        </select>
+        <BaseSelect
+          :model-value="selectedRefundTransactionId"
+          :options="refundSelectOptions"
+          @update:model-value="updateRefundTransaction"
+        />
       </label>
 
       <div class="refund-lines">
@@ -687,14 +734,12 @@ function formatTransactionTime(value?: string | null) {
             step="1"
             :aria-label="t('financial.refundQuantity')"
           />
-          <select
-            v-model="refundRestockTypes[String(entry.lineItem.id)]"
+          <BaseSelect
+            :model-value="refundRestockTypes[String(entry.lineItem.id)]"
+            :options="restockOptions"
             :aria-label="t('financial.refundRestockAction')"
-          >
-            <option value="NO_RESTOCK">{{ t("financial.doNotRestock") }}</option>
-            <option value="CANCEL">{{ t("financial.restockUnfulfilled") }}</option>
-            <option value="RETURN">{{ t("financial.restockReturned") }}</option>
-          </select>
+            @update:model-value="updateRestockType(entry.lineItem.id, $event)"
+          />
         </div>
       </div>
 
@@ -712,12 +757,11 @@ function formatTransactionTime(value?: string | null) {
         </label>
         <label>
           <span>{{ t("financial.adjustmentReason") }}</span>
-          <select v-model="refundDiscrepancyReason">
-            <option value="OTHER">{{ t("financial.reasonOther") }}</option>
-            <option value="CUSTOMER">{{ t("financial.reasonCustomer") }}</option>
-            <option value="DAMAGE">{{ t("financial.reasonDamage") }}</option>
-            <option value="RESTOCK">{{ t("financial.reasonRestock") }}</option>
-          </select>
+          <BaseSelect
+            :model-value="refundDiscrepancyReason"
+            :options="discrepancyReasonOptions"
+            @update:model-value="updateDiscrepancyReason"
+          />
         </label>
         <label class="check-row">
           <input v-model="notifyCustomer" type="checkbox" />

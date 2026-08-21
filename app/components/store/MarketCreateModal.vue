@@ -28,6 +28,7 @@ const emit = defineEmits<{ close: []; created: [id: string] }>();
 const marketStore = useMarketStore();
 const { storeId, token } = useActiveShopAuth();
 const { t } = useLocalization();
+const { handleTabKeydown } = useTabKeyboardNavigation("vertical");
 const feedback = useStoreFeedback();
 const modalRef = ref<HTMLFormElement | null>(null);
 const titleId = `market-create-title-${useId()}`;
@@ -83,6 +84,34 @@ const sections = computed(() => [
     icon: Truck,
   },
 ]);
+const statusOptions = computed(() => [
+  { label: t("markets.draft"), value: "DRAFT" },
+  { label: t("markets.active"), value: "ACTIVE" },
+]);
+const taxStrategyOptions = computed(() => [
+  {
+    label: t("markets.editor.taxCheckout"),
+    value: "ADD_TAXES_AT_CHECKOUT",
+  },
+  {
+    label: t("markets.editor.taxIncluded"),
+    value: "INCLUDES_TAXES_IN_PRICE",
+  },
+  {
+    label: t("markets.editor.taxCountry"),
+    value: "INCLUDES_TAXES_IN_PRICE_BASED_ON_COUNTRY",
+  },
+]);
+const dutyStrategyOptions = computed(() => [
+  {
+    label: t("markets.editor.dutyCheckout"),
+    value: "ADD_DUTIES_AT_CHECKOUT",
+  },
+  {
+    label: t("markets.editor.dutyIncluded"),
+    value: "INCLUDE_DUTIES_IN_PRICE",
+  },
+]);
 const { handleKeydown } = useFocusTrap(modalRef, {
   initialFocus: () => modalRef.value?.querySelector("input") || null,
   onEscape: () => !marketStore.isManaging && emit("close"),
@@ -129,6 +158,18 @@ function toggle(list: string[], id: string) {
   const index = list.indexOf(id);
   if (index >= 0) list.splice(index, 1);
   else list.push(id);
+}
+
+function updateStatus(value: unknown) {
+  if (value === "ACTIVE" || value === "DRAFT") form.status = value;
+}
+
+function updateTaxStrategy(value: unknown) {
+  if (typeof value === "string") form.taxPricingStrategy = value;
+}
+
+function updateDutyStrategy(value: unknown) {
+  if (typeof value === "string") form.dutiesPricingStrategy = value;
 }
 
 function queueShippingOption(option: ShopifyMarketShippingOptionInput) {
@@ -241,12 +282,16 @@ async function submit() {
         <div class="market-create-layout">
           <nav
             class="market-editor-nav"
+            role="tablist"
             :aria-label="t('markets.editor.createSections')"
+            @keydown="handleTabKeydown"
           >
             <button
               v-for="section in sections"
               :key="section.id"
               type="button"
+              role="tab"
+              :aria-selected="activeSection === section.id"
               :class="{ 'is-active': activeSection === section.id }"
               @click="activeSection = section.id"
             >
@@ -311,10 +356,11 @@ async function submit() {
                   </label>
                   <label class="market-field">
                     <span>{{ t("markets.editor.initialStatus") }}</span>
-                    <select v-model="form.status">
-                      <option value="DRAFT">{{ t("markets.draft") }}</option>
-                      <option value="ACTIVE">{{ t("markets.active") }}</option>
-                    </select>
+                    <BaseSelect
+                      :model-value="form.status"
+                      :options="statusOptions"
+                      @update:model-value="updateStatus"
+                    />
                   </label>
                 </div>
                 <BaseCheckbox
@@ -462,28 +508,19 @@ async function submit() {
                   <div v-if="form.configurePriceInclusions" class="market-form-grid">
                     <label class="market-field">
                       <span>{{ t("markets.taxStrategy") }}</span>
-                      <select v-model="form.taxPricingStrategy">
-                        <option value="ADD_TAXES_AT_CHECKOUT">
-                          {{ t("markets.editor.taxCheckout") }}
-                        </option>
-                        <option value="INCLUDES_TAXES_IN_PRICE">
-                          {{ t("markets.editor.taxIncluded") }}
-                        </option>
-                        <option value="INCLUDES_TAXES_IN_PRICE_BASED_ON_COUNTRY">
-                          {{ t("markets.editor.taxCountry") }}
-                        </option>
-                      </select>
+                      <BaseSelect
+                        :model-value="form.taxPricingStrategy"
+                        :options="taxStrategyOptions"
+                        @update:model-value="updateTaxStrategy"
+                      />
                     </label>
                     <label class="market-field">
                       <span>{{ t("markets.dutyStrategy") }}</span>
-                      <select v-model="form.dutiesPricingStrategy">
-                        <option value="ADD_DUTIES_AT_CHECKOUT">
-                          {{ t("markets.editor.dutyCheckout") }}
-                        </option>
-                        <option value="INCLUDE_DUTIES_IN_PRICE">
-                          {{ t("markets.editor.dutyIncluded") }}
-                        </option>
-                      </select>
+                      <BaseSelect
+                        :model-value="form.dutiesPricingStrategy"
+                        :options="dutyStrategyOptions"
+                        @update:model-value="updateDutyStrategy"
+                      />
                     </label>
                     <BaseCheckbox
                       v-model="form.adaptivePricingEnabled"
@@ -637,7 +674,11 @@ async function submit() {
                 : t("markets.editor.completeRequiredFields")
             }}
           </span>
-          <BaseButton :disabled="marketStore.isManaging" @click="emit('close')">
+          <BaseButton
+            size="medium"
+            :disabled="marketStore.isManaging"
+            @click="emit('close')"
+          >
             {{ t("common.cancel") }}
           </BaseButton>
           <BaseButton

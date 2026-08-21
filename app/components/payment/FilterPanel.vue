@@ -205,9 +205,9 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 .payment-filter-input {
   width: 100%;
   min-width: 0;
-  height: 36px;
+  height: var(--control-height-md);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 0 9px;
   background: var(--surface);
   color: var(--text);
@@ -217,7 +217,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 
 .payment-filter-input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
+  box-shadow: var(--focus-ring);
   outline: none;
 }
 
@@ -227,7 +227,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 }
 
 .payment-filter-checkbox .base-checkbox {
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 
 .payment-filter-panel .custom-select,
@@ -237,7 +237,7 @@ const activeLabel = computed(() => t("filter.active", { count: props.activeCount
 
 .payment-filter-panel .select-trigger {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   padding: 0 9px;
   background: var(--surface);
   font-size: 12px;

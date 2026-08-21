@@ -209,13 +209,13 @@
           <div class="bulk-toolbar-actions">
             <BasePopover align="left">
               <template #trigger="{ isOpen, triggerProps }">
-                <button
+                <BaseButton
                   v-bind="triggerProps"
-                  class="btn-ghost-sm publication-picker-trigger"
+                  variant="ghost"
+                  class="publication-picker-trigger"
                   :class="{ 'is-active': isOpen }"
-                  type="button"
                 >
-                  <RadioTower aria-hidden="true" />
+                  <template #icon><RadioTower aria-hidden="true" /></template>
                   {{
                     selectedPublicationIds.length
                       ? t("product.publicationsSelected", {
@@ -224,7 +224,7 @@
                       : t("product.choosePublications")
                   }}
                   <ChevronDown aria-hidden="true" />
-                </button>
+                </BaseButton>
               </template>
               <div class="publication-picker" role="group">
                 <strong>{{ t("product.publicationChannels") }}</strong>
@@ -242,55 +242,50 @@
                 />
               </div>
             </BasePopover>
-            <button
-              class="btn-ghost-sm"
-              type="button"
+            <BaseButton
+              variant="ghost"
               :disabled="isBulkUpdating"
               @click="runBulkPublication(true)"
             >
-              <Eye aria-hidden="true" />
+              <template #icon><Eye aria-hidden="true" /></template>
               {{
                 isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkPublish")
               }}
-            </button>
-            <button
-              class="btn-ghost-sm"
-              type="button"
+            </BaseButton>
+            <BaseButton
+              variant="ghost"
               :disabled="isBulkUpdating"
               @click="runBulkProductAction('ARCHIVE')"
             >
-              <Archive aria-hidden="true" />
+              <template #icon><Archive aria-hidden="true" /></template>
               {{ t("product.bulkArchive") }}
-            </button>
-            <button
-              class="btn-ghost-sm text-danger"
-              type="button"
+            </BaseButton>
+            <BaseButton
+              variant="danger-ghost"
               :disabled="isBulkUpdating"
               @click="runBulkProductAction('DELETE')"
             >
-              <Trash2 aria-hidden="true" />
+              <template #icon><Trash2 aria-hidden="true" /></template>
               {{ t("product.bulkDelete") }}
-            </button>
-            <button
-              class="btn-ghost-sm"
-              type="button"
+            </BaseButton>
+            <BaseButton
+              variant="ghost"
               :disabled="isBulkUpdating"
               @click="runBulkPublication(false)"
             >
-              <EyeOff aria-hidden="true" />
+              <template #icon><EyeOff aria-hidden="true" /></template>
               {{
                 isBulkUpdating ? t("product.bulkUpdating") : t("product.bulkUnpublish")
               }}
-            </button>
-            <button
-              class="btn-ghost-sm"
-              type="button"
+            </BaseButton>
+            <BaseButton
+              variant="ghost"
               :disabled="isBulkUpdating"
               @click="clearBulkSelection"
             >
-              <X aria-hidden="true" />
+              <template #icon><X aria-hidden="true" /></template>
               {{ t("common.clear") }}
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -411,15 +406,15 @@
                     <div class="product-actions-cell" style="justify-content: flex-end">
                       <BasePopover align="right">
                         <template #trigger="{ isOpen, triggerProps }">
-                          <button
+                          <BaseButton
                             v-bind="triggerProps"
-                            class="btn-ghost-sm btn-icon"
+                            variant="ghost"
+                            icon-only
                             :class="{ 'is-active': isOpen }"
-                            type="button"
                             :aria-label="t('product.moreActions')"
                           >
-                            <IconsMore />
-                          </button>
+                            <template #icon><IconsMore /></template>
+                          </BaseButton>
                         </template>
                         <template #default="{ close }">
                           <div class="popover-menu popover-actions">
@@ -544,14 +539,14 @@
       <div class="modal-card">
         <div class="modal-head">
           <h3 class="modal-title">{{ t("product.createTitle") }}</h3>
-          <button
-            class="btn-close"
-            type="button"
+          <BaseButton
+            variant="ghost"
+            icon-only
             :aria-label="t('common.close')"
             @click="showCreateModal = false"
           >
-            <X aria-hidden="true" />
-          </button>
+            <template #icon><X aria-hidden="true" /></template>
+          </BaseButton>
         </div>
         <div class="modal-body">
           <div class="field">
@@ -656,14 +651,14 @@
           <div class="field option-editor">
             <div class="option-editor-head">
               <label class="field-label">{{ t("product.optionDefinitions") }}</label>
-              <button
-                class="btn-ghost-sm"
-                type="button"
+              <BaseButton
+                variant="ghost"
                 :disabled="newProductOptions.length >= 3"
                 @click="addProductOption"
               >
-                <Plus aria-hidden="true" />{{ t("product.addOption") }}
-              </button>
+                <template #icon><Plus aria-hidden="true" /></template>
+                {{ t("product.addOption") }}
+              </BaseButton>
             </div>
             <div
               v-for="(option, index) in newProductOptions"
@@ -680,14 +675,14 @@
                 class="inp"
                 :placeholder="t('product.optionValues')"
               />
-              <button
-                class="btn-ghost-sm text-danger"
-                type="button"
+              <BaseButton
+                variant="danger-ghost"
+                icon-only
                 :aria-label="t('product.removeOption')"
                 @click="removeProductOption(index)"
               >
-                <Trash2 aria-hidden="true" />
-              </button>
+                <template #icon><Trash2 aria-hidden="true" /></template>
+              </BaseButton>
             </div>
           </div>
           <div class="field-row">
@@ -702,20 +697,21 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button class="btn-outline" @click="showCreateModal = false">
-            <X aria-hidden="true" />
+          <BaseButton size="medium" @click="showCreateModal = false">
+            <template #icon><X aria-hidden="true" /></template>
             {{ t("common.cancel") }}
-          </button>
-          <button
-            class="btn-primary"
+          </BaseButton>
+          <BaseButton
+            size="medium"
+            variant="primary"
             @click="createProduct"
             :disabled="productStore.isLoading"
           >
-            <Plus aria-hidden="true" />
+            <template #icon><Plus aria-hidden="true" /></template>
             {{
               productStore.isLoading ? t("product.creating") : t("product.createTitle")
             }}
-          </button>
+          </BaseButton>
         </div>
       </div>
     </div>
@@ -738,7 +734,6 @@
           <BaseButton
             variant="ghost"
             icon-only
-            size="medium"
             :aria-label="t('common.close')"
             @click="closeEditModal"
           >
@@ -749,6 +744,7 @@
           class="product-edit-nav"
           role="tablist"
           :aria-label="t('product.editSections')"
+          @keydown="handleTabKeydown"
         >
           <BaseButton
             class="product-edit-nav-button"
@@ -845,6 +841,38 @@
               <label class="field-label">{{ t("product.templateSuffix") }}</label>
               <input v-model="editProduct.template_suffix" type="text" class="inp" />
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">{{ t("product.vendor") }}</label>
+                <input v-model="editProduct.vendor" type="text" class="inp" />
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.productType") }}</label>
+                <input v-model="editProduct.product_type" type="text" class="inp" />
+              </div>
+              <div class="field">
+              <label class="field-label">{{ t("product.tags") }}</label>
+              <input v-model="editProduct.tags" type="text" class="inp" />
+            </div>
+            </div>
+            <div class="field">
+              <label class="field-label">{{ t("product.descriptionHtml") }}</label>
+              <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">{{ t("product.seoTitle") }}</label>
+                <input v-model="editProduct.seo_title" class="inp" maxlength="255" />
+              </div>
+              <div class="field">
+                <label class="field-label">{{ t("product.seoDescription") }}</label>
+                <input
+                  v-model="editProduct.seo_description"
+                  class="inp"
+                  maxlength="320"
+                />
+              </div>
+            </div>
             <div class="advanced-product-fields">
               <div class="advanced-product-heading">
                 <div>
@@ -920,38 +948,6 @@
                 <small>{{ t("product.sellingPlanOwnershipHint") }}</small>
               </div>
             </div>
-            <div class="field-row">
-              <div class="field">
-                <label class="field-label">{{ t("product.vendor") }}</label>
-                <input v-model="editProduct.vendor" type="text" class="inp" />
-              </div>
-              <div class="field">
-                <label class="field-label">{{ t("product.productType") }}</label>
-                <input v-model="editProduct.product_type" type="text" class="inp" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">{{ t("product.tags") }}</label>
-              <input v-model="editProduct.tags" type="text" class="inp" />
-            </div>
-            <div class="field">
-              <label class="field-label">{{ t("product.descriptionHtml") }}</label>
-              <textarea v-model="editProduct.body_html" class="inp" rows="4"></textarea>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label class="field-label">{{ t("product.seoTitle") }}</label>
-                <input v-model="editProduct.seo_title" class="inp" maxlength="255" />
-              </div>
-              <div class="field">
-                <label class="field-label">{{ t("product.seoDescription") }}</label>
-                <input
-                  v-model="editProduct.seo_description"
-                  class="inp"
-                  maxlength="320"
-                />
-              </div>
-            </div>
           </template>
           <div v-else class="product-catalog-editor">
             <div v-if="isEditingProductDetailLoading" class="product-edit-loading">
@@ -965,14 +961,14 @@
               </BaseButton>
             </div>
             <template v-else-if="editingProductRecord">
-              <ProductMediaManager
-                v-if="editSection === 'variants'"
-                :product-id="editingProductRecord.id"
-                @refreshed="refreshEditingProduct"
-              />
               <ProductOperationsPanel
                 :product="editingProductRecord"
                 :section="productOperationSection"
+                @refreshed="refreshEditingProduct"
+              />
+              <ProductMediaManager
+                v-if="editSection === 'variants'"
+                :product-id="editingProductRecord.id"
                 @refreshed="refreshEditingProduct"
               />
             </template>
@@ -1014,14 +1010,14 @@
             <h3 class="modal-title">{{ t("product.duplicateTitle") }}</h3>
             <p>{{ duplicateProductSource.title }}</p>
           </div>
-          <button
-            class="btn-close"
-            type="button"
+          <BaseButton
+            variant="ghost"
+            icon-only
             :aria-label="t('common.close')"
             @click="duplicateProductSource = null"
           >
-            <X aria-hidden="true" />
-          </button>
+            <template #icon><X aria-hidden="true" /></template>
+          </BaseButton>
         </div>
         <div class="modal-body">
           <div class="field">
@@ -1044,16 +1040,18 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button
-            class="btn-outline"
-            type="button"
-            @click="duplicateProductSource = null"
-          >
+          <BaseButton size="medium" @click="duplicateProductSource = null">
             {{ t("common.cancel") }}
-          </button>
-          <button class="btn-primary" type="submit" :disabled="productStore.isLoading">
-            <Copy aria-hidden="true" />{{ t("product.duplicate") }}
-          </button>
+          </BaseButton>
+          <BaseButton
+            size="medium"
+            variant="primary"
+            type="submit"
+            :disabled="productStore.isLoading"
+          >
+            <template #icon><Copy aria-hidden="true" /></template>
+            {{ t("product.duplicate") }}
+          </BaseButton>
         </div>
       </form>
     </div>
@@ -1106,6 +1104,7 @@ const { token: activeToken } = useActiveShopAuth();
 const feedback = useStoreFeedback();
 const { t, locale } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
+const { handleTabKeydown } = useTabKeyboardNavigation();
 
 const products = computed(() => productStore.products);
 const {
@@ -2088,7 +2087,7 @@ async function refreshProducts() {
 .product-filter-select :deep(.select-trigger),
 .product-form-select :deep(.select-trigger) {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 .product-filter-select :deep(.select-dropdown),
 .product-form-select :deep(.select-dropdown) {
@@ -2397,24 +2396,6 @@ async function refreshProducts() {
   color: var(--green);
 }
 
-.btn-ghost-sm {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  color: var(--text-link);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-.btn-ghost-sm:hover {
-  background: var(--blue-soft);
-}
-
-.btn-ghost-sm :deep(svg),
 .popover-item :deep(svg),
 .modal-actions button :deep(svg) {
   width: 14px;
@@ -2422,12 +2403,6 @@ async function refreshProducts() {
   flex: 0 0 auto;
 }
 
-.btn-icon {
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .popover-actions {
   min-width: 120px;
   padding: 4px;
@@ -2494,7 +2469,8 @@ async function refreshProducts() {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--dialog-backdrop);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2504,8 +2480,9 @@ async function refreshProducts() {
   background: var(--surface);
   width: 100%;
   max-width: 680px;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--dialog-shadow);
   display: flex;
   flex-direction: column;
   max-height: 90vh;
@@ -2517,14 +2494,14 @@ async function refreshProducts() {
   max-width: min(1120px, calc(100vw - 28px));
 }
 .product-edit-modal .inp:not(textarea) {
-  height: 38px;
-  min-height: 38px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
   padding-block: 0;
 }
 .product-edit-modal :deep(.product-form-select .select-trigger),
 .product-edit-modal :deep(.base-checkbox) {
-  height: 38px;
-  min-height: 38px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
 }
 .product-identity-row {
   display: grid;
@@ -2560,7 +2537,7 @@ async function refreshProducts() {
 .product-edit-nav-button {
   width: 100%;
   min-width: 0;
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   color: var(--text-sub);
 }
 .product-edit-nav-button:hover {
@@ -2638,20 +2615,6 @@ async function refreshProducts() {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-}
-.btn-close {
-  display: inline-grid;
-  place-items: center;
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: var(--text-sub);
-}
-
-.btn-close :deep(svg) {
-  width: 16px;
-  height: 16px;
 }
 .modal-body {
   min-height: 0;
@@ -2795,16 +2758,17 @@ async function refreshProducts() {
 }
 .inp {
   width: 100%;
-  min-height: 38px;
+  min-height: var(--control-height-md);
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   font-family: inherit;
   font-size: 14px;
 }
 .inp:focus {
-  border-color: var(--text-link);
+  border-color: var(--green);
   outline: none;
+  box-shadow: var(--focus-ring);
 }
 .modal-actions {
   padding: 16px 20px;
@@ -2812,42 +2776,6 @@ async function refreshProducts() {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.btn-outline:hover {
-  background: var(--surface-soft);
-}
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 16px;
-  background: var(--green);
-  color: var(--on-accent);
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.btn-primary:hover {
-  background: var(--green);
-}
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 @media (max-width: 700px) {

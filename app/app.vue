@@ -79,6 +79,17 @@ useTokenRotation();
   --footer-height: 36px;
   --app-content-max-width: 1520px;
   --app-shell-max-width: 1560px;
+  --control-height-sm: 32px;
+  --control-height-md: 38px;
+  --control-height-lg: 40px;
+  --control-radius-sm: 6px;
+  --control-radius: 7px;
+  --panel-radius: 12px;
+  --tabs-radius: 10px;
+  --dialog-radius: 12px;
+  --dialog-backdrop: rgba(10, 18, 14, 0.58);
+  --dialog-shadow: 0 24px 70px rgba(12, 20, 16, 0.28);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
   --bg: #f5f7f4;
   --surface: #ffffff;
   --surface-low: #fbfcfb;
@@ -205,6 +216,32 @@ textarea {
   background: var(--surface);
   color: var(--text);
   border-color: var(--border);
+}
+
+:where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="file"]
+    ),
+  select,
+  textarea
+) {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+:where(
+  button,
+  input:not([type="range"]):not([type="file"]),
+  select,
+  textarea
+):focus-visible {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: var(--focus-ring);
 }
 
 strong,

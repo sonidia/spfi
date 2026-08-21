@@ -26,6 +26,14 @@ const form = reactive({
   usageLimit: "",
   appliesOncePerCustomer: false,
 });
+const valueTypeOptions = [
+  { label: t("operations.discount.percentage"), value: "percentage" },
+  { label: t("operations.discount.fixed"), value: "fixed" },
+];
+
+function updateValueType(value: unknown) {
+  if (value === "percentage" || value === "fixed") form.valueType = value;
+}
 const canSubmit = computed(() =>
   Boolean(form.title.trim() && form.code.trim() && Number(form.value) > 0),
 );
@@ -73,14 +81,15 @@ async function submit() {
             <p class="ops-eyebrow">{{ t("operations.discounts") }}</p>
             <h2 :id="titleId">{{ t("operations.discount.createTitle") }}</h2>
           </div>
-          <button
-            type="button"
+          <BaseButton
             class="ops-modal-close"
+            variant="ghost"
+            icon-only
             :aria-label="t('common.close')"
             @click="emit('close')"
           >
-            <X aria-hidden="true" />
-          </button>
+            <template #icon><X aria-hidden="true" /></template>
+          </BaseButton>
         </header>
         <div class="ops-form-grid">
           <label>
@@ -101,12 +110,11 @@ async function submit() {
           </label>
           <label>
             <span>{{ t("operations.discount.valueType") }}</span>
-            <select v-model="form.valueType">
-              <option value="percentage">
-                {{ t("operations.discount.percentage") }}
-              </option>
-              <option value="fixed">{{ t("operations.discount.fixed") }}</option>
-            </select>
+            <BaseSelect
+              :model-value="form.valueType"
+              :options="valueTypeOptions"
+              @update:model-value="updateValueType"
+            />
           </label>
           <label>
             <span>{{
@@ -142,11 +150,21 @@ async function submit() {
         <p class="ops-form-hint">{{ t("operations.discount.scopeHint") }}</p>
         <p v-if="localError" class="ops-form-error" role="alert">{{ localError }}</p>
         <footer>
-          <BaseButton type="button" :disabled="store.isMutating" @click="emit('close')">
+          <BaseButton
+            type="button"
+            size="medium"
+            :disabled="store.isMutating"
+            @click="emit('close')"
+          >
             <template #icon><X /></template>
             {{ t("common.cancel") }}
           </BaseButton>
-          <BaseButton type="submit" variant="primary" :loading="store.isMutating">
+          <BaseButton
+            type="submit"
+            size="medium"
+            variant="primary"
+            :loading="store.isMutating"
+          >
             <template #icon><BadgePlus /></template>
             {{ t("operations.discount.createCode") }}
           </BaseButton>

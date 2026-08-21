@@ -139,14 +139,14 @@
                 <h2>{{ getCustomerName(selectedCustomer) }}</h2>
               </span>
             </div>
-            <button
-              type="button"
-              class="close-button"
+            <BaseButton
+              variant="ghost"
+              icon-only
               aria-label="Close customer detail"
               @click="clearSelection"
             >
-              <X aria-hidden="true" />
-            </button>
+              <template #icon><X aria-hidden="true" /></template>
+            </BaseButton>
           </header>
 
           <div class="detail-grid">
@@ -509,24 +509,6 @@ function formatOrderTotal(value: string, currency = "USD") {
 .detail-header h2 {
   color: var(--text);
   font-size: 18px;
-}
-
-.close-button {
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-sub);
-  cursor: pointer;
-  font-size: 22px;
-}
-
-.close-button :deep(svg) {
-  width: 17px;
-  height: 17px;
 }
 
 .detail-grid {

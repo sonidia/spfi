@@ -52,9 +52,10 @@ const options = computed<
 <template>
   <BasePopover align="right">
     <template #trigger="{ triggerProps }">
-      <button v-bind="triggerProps" class="dashboard-export-trigger" type="button">
-        <Download /> {{ t("dashboard.export") }} <ChevronDown />
-      </button>
+      <BaseButton v-bind="triggerProps" class="dashboard-export-trigger" size="medium">
+        <template #icon><Download /></template>
+        {{ t("dashboard.export") }} <ChevronDown />
+      </BaseButton>
     </template>
     <template #default="{ close }">
       <div class="dashboard-export-menu">
@@ -81,19 +82,8 @@ const options = computed<
 
 <style scoped>
 .dashboard-export-trigger {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
   font-size: 11px;
-  font-weight: 600;
+  border-radius: var(--control-radius);
 }
 
 .dashboard-export-trigger:hover {
@@ -101,12 +91,13 @@ const options = computed<
   color: var(--green);
 }
 
-.dashboard-export-trigger svg {
-  width: 14px;
-  height: 14px;
+.dashboard-export-trigger :deep(.button-label) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
-.dashboard-export-trigger svg:last-child {
+.dashboard-export-trigger :deep(.button-label svg:last-child) {
   width: 11px;
 }
 

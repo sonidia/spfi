@@ -113,7 +113,7 @@
 }
 
 .buyer-preview-form :deep(.buyer-country-select .select-trigger) {
-  min-height: 36px;
+  min-height: var(--control-height-md);
   background: var(--surface-raised);
   font-size: 12px;
 }
@@ -206,7 +206,7 @@
 }
 
 .markets-toolbar {
-  --markets-toolbar-control-height: 38px;
+  --markets-toolbar-control-height: var(--control-height-md);
   display: grid;
   grid-template-columns: minmax(240px, 1fr) repeat(3, auto) auto;
   gap: 8px;
@@ -257,7 +257,7 @@
 .markets-search input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--green) 46%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 14%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 .markets-empty {

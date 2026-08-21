@@ -363,10 +363,10 @@ onMounted(initializeDefaultSheets);
 }
 
 .sheet-add-form input {
-  min-height: 36px;
+  min-height: var(--control-height-md);
   padding: 0 11px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
@@ -375,7 +375,7 @@ onMounted(initializeDefaultSheets);
 
 .sheet-add-form input:focus {
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 16%, transparent);
+  box-shadow: var(--focus-ring);
   outline: none;
 }
 

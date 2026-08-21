@@ -345,9 +345,9 @@ label > span {
 }
 input {
   width: 100%;
-  min-height: 34px;
+  min-height: var(--control-height-sm);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 7px 9px;
   background: var(--surface-raised);
   color: var(--text);

@@ -60,24 +60,26 @@ async function connect() {
       class="add-store-mode"
       :aria-label="t('store.addMode')"
     >
-      <button
-        type="button"
+      <BaseButton
+        size="medium"
+        :variant="selectedMode === 'single' ? 'secondary' : 'ghost'"
         :class="{ active: selectedMode === 'single' }"
         :aria-pressed="selectedMode === 'single'"
         @click="selectedMode = 'single'"
       >
-        <IconsCheck />
+        <template #icon><IconsCheck /></template>
         {{ t("store.single") }}
-      </button>
-      <button
-        type="button"
+      </BaseButton>
+      <BaseButton
+        size="medium"
+        :variant="selectedMode === 'bulking' ? 'secondary' : 'ghost'"
         :class="{ active: selectedMode === 'bulking' }"
         :aria-pressed="selectedMode === 'bulking'"
         @click="selectedMode = 'bulking'"
       >
-        <IconsBulking />
+        <template #icon><IconsBulking /></template>
         {{ t("store.bulk") }}
-      </button>
+      </BaseButton>
     </div>
 
     <div v-if="selectedMode === 'single'" class="add-store-grid">
@@ -177,6 +179,7 @@ async function connect() {
 
     <div class="add-store-actions">
       <BaseButton
+        size="medium"
         variant="ghost"
         :disabled="form.isConnecting.value"
         @click="form.clear"
@@ -186,11 +189,12 @@ async function connect() {
         </template>
         {{ t("common.clear") }}
       </BaseButton>
-      <BaseButton v-if="props.showCancel" @click="emit('cancel')">
+      <BaseButton v-if="props.showCancel" size="medium" @click="emit('cancel')">
         <template #icon><X /></template>
         {{ t("common.cancel") }}
       </BaseButton>
       <BaseButton
+        size="medium"
         variant="primary"
         :loading="form.isConnecting.value"
         :disabled="form.isConnecting.value"
@@ -223,22 +227,7 @@ async function connect() {
   justify-content: flex-end;
 }
 
-.add-store-mode button {
-  display: inline-flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-sub);
-  cursor: pointer;
-  padding: 0 12px;
-  font: inherit;
-  font-weight: 600;
-}
-
-.add-store-mode button.active {
+.add-store-mode :deep(.base-button.active) {
   border-color: var(--green);
   background: var(--green-soft);
   color: var(--green);
@@ -269,9 +258,9 @@ async function connect() {
 
 .inp {
   width: 100%;
-  min-height: 40px;
+  min-height: var(--control-height-md);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   padding: 9px 11px;
@@ -281,8 +270,8 @@ async function connect() {
 
 .inp:focus-visible {
   border-color: var(--green);
-  outline: 2px solid color-mix(in srgb, var(--green) 22%, transparent);
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .step-progress {

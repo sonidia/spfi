@@ -197,23 +197,23 @@ label {
 input[type="text"],
 input[type="number"] {
   width: 100%;
-  height: 36px;
-  min-height: 36px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
   padding: 0 9px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
 }
 
 .inventory-item-editor :deep(.select-trigger) {
-  height: 36px;
-  min-height: 36px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
   padding-block: 0;
 }
 
 .inventory-item-editor :deep(.base-checkbox) {
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 
 .editor-error {

@@ -402,7 +402,7 @@ label {
 }
 input {
   width: 100%;
-  height: 38px;
+  height: var(--control-height-md);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 9px;

@@ -70,29 +70,31 @@ label > span,
   font-size: 11px;
   font-weight: 600;
 }
-input,
-select {
+input {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 7px 9px;
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
 }
-input:focus,
-select:focus {
+input:focus {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
+}
+.form-actions :deep(.base-button),
+:deep(.select-trigger) {
+  min-height: var(--control-height-md);
 }
 .check-row {
   display: flex;
   align-items: center;
   align-self: end;
   gap: 8px;
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 .check-row input {
   width: 16px;
@@ -133,7 +135,7 @@ select:focus {
 .refund-line input {
   width: 76px;
 }
-.refund-line select {
+.refund-line :deep(.custom-select) {
   width: 155px;
 }
 .amount-help,

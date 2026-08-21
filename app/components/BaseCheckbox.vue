@@ -59,12 +59,12 @@ function toggle() {
 <style scoped>
 .base-checkbox {
   min-width: 0;
-  min-height: 34px;
+  min-height: var(--control-height-md);
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--control-radius-sm);
   padding: 0 10px;
   background: var(--surface);
   color: var(--text);
@@ -86,7 +86,7 @@ function toggle() {
 .base-checkbox:focus-visible {
   outline: none;
   border-color: var(--green);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 .base-checkbox:disabled {
@@ -101,8 +101,8 @@ function toggle() {
 }
 
 .base-checkbox.is-compact {
-  width: 32px;
-  min-height: 32px;
+  width: var(--control-height-sm);
+  min-height: var(--control-height-sm);
   justify-content: center;
   padding: 0;
 }

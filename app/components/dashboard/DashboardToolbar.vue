@@ -100,14 +100,15 @@ function selectValue(value: unknown, fallback: string) {
           <template #icon><SlidersHorizontal /></template>
         </BaseSelect>
 
-        <button
+        <BaseButton
           class="dashboard-reset-filters"
-          type="button"
+          size="medium"
           :disabled="!isFiltered"
           @click="emit('reset')"
         >
-          <RotateCcw /> {{ t("common.reset") }}
-        </button>
+          <template #icon><RotateCcw /></template>
+          {{ t("common.reset") }}
+        </BaseButton>
       </div>
     </div>
 
@@ -130,7 +131,7 @@ function selectValue(value: unknown, fallback: string) {
   overflow: visible;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--panel-radius);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
 }
@@ -155,14 +156,14 @@ function selectValue(value: unknown, fallback: string) {
 .dashboard-search-control {
   display: flex;
   min-width: 220px;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   max-width: 360px;
   flex: 1 1 250px;
   align-items: center;
   gap: 7px;
   padding: 0 10px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--muted);
   transition:
@@ -186,7 +187,7 @@ function selectValue(value: unknown, fallback: string) {
 
 .dashboard-search-control:focus-within {
   border-color: color-mix(in srgb, var(--green) 50%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 10%, transparent);
+  box-shadow: var(--focus-ring);
 }
 
 .dashboard-search-control > svg {
@@ -206,9 +207,9 @@ function selectValue(value: unknown, fallback: string) {
 }
 
 :deep(.dashboard-toolbar-select .select-trigger) {
-  min-height: 36px;
+  min-height: var(--control-height-md);
   padding: 0 9px;
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   font-size: 11px;
   font-weight: 600;
@@ -238,8 +239,8 @@ function selectValue(value: unknown, fallback: string) {
 }
 
 :deep(.dashboard-toolbar-select .select-option) {
-  min-height: 34px;
-  border-radius: 7px;
+  min-height: var(--control-height-md);
+  border-radius: var(--control-radius);
 }
 
 :deep(.dashboard-toolbar-select .select-option strong) {
@@ -247,35 +248,13 @@ function selectValue(value: unknown, fallback: string) {
 }
 
 .dashboard-reset-filters {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--surface);
   color: var(--muted);
-  cursor: pointer;
-  font: inherit;
   font-size: 10px;
-  font-weight: 600;
 }
 
 .dashboard-reset-filters:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--green) 40%, var(--border));
   color: var(--green);
-}
-
-.dashboard-reset-filters:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.dashboard-reset-filters svg {
-  width: 12px;
-  height: 12px;
 }
 
 :slotted(.dashboard-toolbar-actions) {

@@ -193,7 +193,6 @@ function getErrorMessage(value: unknown, fallback: string) {
           <span>{{ item.type.replaceAll("_", " ") }}</span>
         </div>
         <div class="product-media-copy">
-          <strong>{{ item.alt || t("product.mediaWithoutAlt") }}</strong>
           <small>{{ item.status }}</small>
           <a
             v-if="mediaUrl(item)"
@@ -247,10 +246,10 @@ function getErrorMessage(value: unknown, fallback: string) {
 .product-media-create input {
   width: 100%;
   min-width: 0;
-  min-height: 36px;
+  min-height: var(--control-height-md);
   padding: 7px 9px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--control-radius);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
@@ -258,7 +257,7 @@ function getErrorMessage(value: unknown, fallback: string) {
 }
 .product-media-select :deep(.select-trigger) {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-height-md);
 }
 .product-media-grid {
   display: grid;
@@ -304,8 +303,9 @@ function getErrorMessage(value: unknown, fallback: string) {
 }
 .product-media-copy {
   min-width: 0;
-  display: grid;
-  gap: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 9px;
 }
 .product-media-copy strong {

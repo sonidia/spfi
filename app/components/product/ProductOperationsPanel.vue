@@ -946,36 +946,6 @@ async function afterMutation() {
       {{ operations.error.value }}
     </div>
 
-    <div v-if="showVariants && product.options?.length" class="operation-section">
-      <div class="section-title">
-        <div>
-          <Boxes /><strong>{{ t("product.optionDefinitions") }}</strong>
-        </div>
-        <span>{{ t("product.optionValuesManagedByVariants") }}</span>
-      </div>
-      <div class="option-name-list">
-        <label
-          v-for="(option, index) in product.options"
-          :key="String(option.id || index)"
-          class="option-name-row"
-        >
-          <input
-            v-model="optionNameDrafts[String(option.id || index)]"
-            :aria-label="t('product.optionName')"
-          />
-          <span>{{ option.values.join(", ") }}</span>
-        </label>
-        <BaseButton
-          variant="primary"
-          :loading="operations.isLoading.value"
-          @click="saveOptionNames"
-        >
-          <template #icon><Save /></template>
-          {{ t("product.saveOptionNames") }}
-        </BaseButton>
-      </div>
-    </div>
-
     <div v-if="showVariants" class="operation-section">
       <div class="section-title">
         <div>
@@ -984,97 +954,6 @@ async function afterMutation() {
         <span>{{
           t("product.totalCount", { count: operations.variants.value.length })
         }}</span>
-      </div>
-
-      <div class="presentment-controls">
-        <label>
-          <span>{{ t("product.presentmentCurrencies") }}</span>
-          <input
-            v-model="presentmentCurrencyInput"
-            :placeholder="t('product.presentmentCurrenciesPlaceholder')"
-          />
-        </label>
-        <BaseButton :loading="operations.isLoading.value" @click="refreshAll">
-          <template #icon><RefreshCw /></template>
-          {{ t("product.loadMarketPrices") }}
-        </BaseButton>
-      </div>
-
-      <div class="variant-form form-grid">
-        <label
-          v-for="(optionName, optionIndex) in productOptionNames"
-          :key="`${optionName}-${optionIndex}`"
-          ><span>{{ optionName }} *</span
-          ><input
-            :value="getVariantOption(optionIndex)"
-            :placeholder="t('product.defaultTitle')"
-            @input="setVariantOption(optionIndex, $event)"
-        /></label>
-        <label
-          ><span>{{ t("product.price") }} *</span
-          ><LocalizedPriceInput
-            v-model="variantForm.price"
-            :aria-label="t('product.price')"
-            placeholder="0.00 / 0,00"
-            :title="t('product.priceInputHint')"
-        /></label>
-        <label
-          ><span>{{ t("product.compareAtPrice") }}</span
-          ><LocalizedPriceInput
-            v-model="variantForm.compare_at_price"
-            :aria-label="t('product.compareAtPrice')"
-            placeholder="0.00 / 0,00"
-            :title="t('product.priceInputHint')"
-        /></label>
-        <label
-          ><span>{{ t("product.sku") }}</span
-          ><input v-model="variantForm.sku"
-        /></label>
-        <label
-          ><span>{{ t("product.barcode") }}</span
-          ><input v-model="variantForm.barcode"
-        /></label>
-        <label>
-          <span>{{ t("product.image") }}</span>
-          <BaseSelect
-            :model-value="variantForm.image_id || null"
-            :options="variantImageOptions"
-            :aria-label="t('product.image')"
-            @update:model-value="
-              variantForm.image_id = ($event as ShopifyNumericId | null) || null
-            "
-          />
-        </label>
-        <label>
-          <span>{{ t("product.inventoryPolicy") }}</span>
-          <BaseSelect
-            :model-value="variantForm.inventory_policy || 'deny'"
-            :options="inventoryPolicyOptions"
-            :aria-label="t('product.inventoryPolicy')"
-            @update:model-value="
-              variantForm.inventory_policy = String($event) as 'continue' | 'deny'
-            "
-          />
-        </label>
-        <BaseCheckbox v-model="variantForm.taxable" :label="t('product.taxable')" />
-        <BaseCheckbox
-          v-model="variantForm.requires_shipping"
-          :label="t('product.requiresShipping')"
-        />
-        <div class="form-actions">
-          <BaseButton v-if="editingVariantId" @click="resetVariantForm">
-            <template #icon><X /></template>
-            {{ t("common.cancel") }}
-          </BaseButton>
-          <BaseButton
-            variant="primary"
-            :loading="operations.isLoading.value"
-            @click="saveVariant"
-          >
-            <template #icon><Save v-if="editingVariantId" /><Plus v-else /></template>
-            {{ editingVariantId ? t("product.saveVariant") : t("product.addVariant") }}
-          </BaseButton>
-        </div>
       </div>
 
       <div v-if="operations.variants.value.length" class="variant-bulk-toolbar">
@@ -1188,6 +1067,17 @@ async function afterMutation() {
           </div>
         </article>
       </div>
+
+      <div class="section-title">
+        <div>
+          <Boxes /><strong>{{ t("product.variants") }}</strong>
+        </div>
+        <span>{{
+          t("product.totalCount", { count: operations.variants.value.length })
+        }}</span>
+      </div>
+
+      
     </div>
 
     <div v-if="showVariants" class="operation-section">
@@ -1330,130 +1220,132 @@ async function afterMutation() {
       </div>
     </div>
 
-    <div v-if="showInventory" class="operation-section">
+    <div v-if="showVariants && product.options?.length" class="operation-section">
       <div class="section-title">
         <div>
-          <Boxes /><strong>{{ t("product.inventory") }}</strong>
+          <Boxes /><strong>{{ t("product.optionDefinitions") }}</strong>
         </div>
-        <span>{{ t("product.inventoryDescription") }}</span>
+        <span>{{ t("product.optionValuesManagedByVariants") }}</span>
       </div>
-      <div class="inventory-form">
-        <label>
-          <span>{{ t("product.inventoryTargets") }}</span>
-          <BaseSelect
-            :model-value="inventoryTargetMode"
-            :options="inventoryTargetOptions"
-            :aria-label="t('product.inventoryTargets')"
-            @update:model-value="
-              inventoryTargetMode = String($event) as 'single' | 'selected'
-            "
+      <div class="option-name-list">
+        <label
+          v-for="(option, index) in product.options"
+          :key="String(option.id || index)"
+          class="option-name-row"
+        >
+          <input
+            v-model="optionNameDrafts[String(option.id || index)]"
+            :aria-label="t('product.optionName')"
           />
+          <span>{{ option.values.join(", ") }}</span>
         </label>
-        <label>
-          <span>{{ t("product.variant") }}</span>
-          <BaseSelect
-            :model-value="inventoryVariantId"
-            :options="inventoryVariantOptions"
-            :aria-label="t('product.variant')"
-            :disabled="inventoryTargetMode === 'selected'"
-            @update:model-value="inventoryVariantId = $event as ShopifyNumericId"
-          />
-        </label>
-        <label>
-          <span>{{ t("product.location") }}</span>
-          <BaseSelect
-            :model-value="inventoryLocationId"
-            :options="inventoryLocationOptions"
-            :aria-label="t('product.location')"
-            :disabled="isLoadingLocations"
-            @update:model-value="inventoryLocationId = $event as ShopifyNumericId"
-          />
-        </label>
-        <label>
-          <span>{{ t("product.operation") }}</span>
-          <BaseSelect
-            :model-value="inventoryMode"
-            :options="inventoryModeOptions"
-            :aria-label="t('product.operation')"
-            @update:model-value="
-              inventoryMode = String($event) as 'set' | 'adjust' | 'reserve' | 'release'
-            "
-          />
-        </label>
-        <label>
-          <span>{{ t("product.quantityState") }}</span>
-          <BaseSelect
-            :model-value="inventoryQuantityName"
-            :options="inventoryQuantityOptions"
-            :aria-label="t('product.quantityState')"
-            :disabled="['reserve', 'release'].includes(inventoryMode)"
-            @update:model-value="
-              inventoryQuantityName = String($event) as 'available' | 'on_hand'
-            "
-          />
-        </label>
-        <label>
-          <span>{{ t("product.inventoryReason") }}</span>
-          <input v-model.trim="inventoryReason" type="text" maxlength="64" />
-        </label>
-        <label>
-          <span>{{
-            inventoryMode === "set"
-              ? t("product.available")
-              : inventoryMode === "adjust"
-                ? t("product.adjustment")
-                : t("product.quantity")
-          }}</span>
-          <input v-model.number="inventoryAmount" type="number" step="1" />
-        </label>
-        <div class="inventory-current">
-          {{
-            inventoryTargetMode === "selected"
-              ? t("product.inventoryTargetCount", {
-                  count: selectedInventoryVariants.length,
-                })
-              : `${t("product.current")}:`
-          }}
-          <strong>{{
-            inventoryTargetMode === "selected"
-              ? selectedInventoryVariants.length
-              : (getInventoryQuantity(
-                  selectedInventoryLevel,
-                  activeInventoryQuantityName,
-                ) ??
-                (isLoadingLocations ? t("common.loading") : t("product.notConnected")))
-          }}</strong>
-        </div>
         <BaseButton
           variant="primary"
-          :disabled="!canUpdateInventory"
           :loading="operations.isLoading.value"
-          @click="updateInventory"
+          @click="saveOptionNames"
         >
           <template #icon><Save /></template>
-          {{ t("product.updateInventory") }}
+          {{ t("product.saveOptionNames") }}
         </BaseButton>
-        <div
-          v-if="
-            inventoryTargets.length && !inventoryTargetsConnected && !isLoadingLocations
-          "
-          class="inventory-warning"
-          :role="locationError ? 'alert' : 'status'"
-        >
-          {{ inventoryConnectionMessage }}
+      </div>
+
+      <div class="presentment-controls">
+        <label>
+          <span>{{ t("product.presentmentCurrencies") }}</span>
+          <input
+            v-model="presentmentCurrencyInput"
+            :placeholder="t('product.presentmentCurrenciesPlaceholder')"
+          />
+        </label>
+        <BaseButton :loading="operations.isLoading.value" @click="refreshAll">
+          <template #icon><RefreshCw /></template>
+          {{ t("product.loadMarketPrices") }}
+        </BaseButton>
+      </div>
+
+      <div class="variant-form form-grid">
+        <label
+          v-for="(optionName, optionIndex) in productOptionNames"
+          :key="`${optionName}-${optionIndex}`"
+          ><span>{{ optionName }} *</span
+          ><input
+            :value="getVariantOption(optionIndex)"
+            :placeholder="t('product.defaultTitle')"
+            @input="setVariantOption(optionIndex, $event)"
+        /></label>
+        <label
+          ><span>{{ t("product.price") }} *</span
+          ><LocalizedPriceInput
+            v-model="variantForm.price"
+            :aria-label="t('product.price')"
+            placeholder="0.00 / 0,00"
+            :title="t('product.priceInputHint')"
+        /></label>
+        <label
+          ><span>{{ t("product.compareAtPrice") }}</span
+          ><LocalizedPriceInput
+            v-model="variantForm.compare_at_price"
+            :aria-label="t('product.compareAtPrice')"
+            placeholder="0.00 / 0,00"
+            :title="t('product.priceInputHint')"
+        /></label>
+        <label
+          ><span>{{ t("product.sku") }}</span
+          ><input v-model="variantForm.sku"
+        /></label>
+        <label
+          ><span>{{ t("product.barcode") }}</span
+          ><input v-model="variantForm.barcode"
+        /></label>
+        <label>
+          <span>{{ t("product.image") }}</span>
+          <BaseSelect
+            :model-value="variantForm.image_id || null"
+            :options="variantImageOptions"
+            :aria-label="t('product.image')"
+            @update:model-value="
+              variantForm.image_id = ($event as ShopifyNumericId | null) || null
+            "
+          />
+        </label>
+        <label>
+          <span>{{ t("product.inventoryPolicy") }}</span>
+          <BaseSelect
+            :model-value="variantForm.inventory_policy || 'deny'"
+            :options="inventoryPolicyOptions"
+            :aria-label="t('product.inventoryPolicy')"
+            @update:model-value="
+              variantForm.inventory_policy = String($event) as 'continue' | 'deny'
+            "
+          />
+        </label>
+        <BaseCheckbox v-model="variantForm.taxable" :label="t('product.taxable')" />
+        <BaseCheckbox
+          v-model="variantForm.requires_shipping"
+          :label="t('product.requiresShipping')"
+        />
+        <div class="form-actions">
+          <BaseButton v-if="editingVariantId" @click="resetVariantForm">
+            <template #icon><X /></template>
+            {{ t("common.cancel") }}
+          </BaseButton>
+          <BaseButton
+            variant="primary"
+            :loading="operations.isLoading.value"
+            @click="saveVariant"
+          >
+            <template #icon><Save v-if="editingVariantId" /><Plus v-else /></template>
+            {{ editingVariantId ? t("product.saveVariant") : t("product.addVariant") }}
+          </BaseButton>
         </div>
       </div>
-      <InventoryItemEditor
-        :inventory-item-id="selectedInventoryVariant?.inventory_item_id || null"
-        @saved="afterMutation"
-      />
     </div>
   </section>
 </template>
 
 <style scoped>
 .operations-panel {
-  --product-editor-control-height: 36px;
+  --product-editor-control-height: var(--control-height-md);
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
