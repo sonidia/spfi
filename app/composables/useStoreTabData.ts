@@ -1,4 +1,5 @@
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useCollectionStore } from "~/stores/collection";
 import { useCustomerStore } from "~/stores/customers";
 import { useCommerceOpsStore } from "~/stores/commerceOps";
 import { useDataRetentionStore } from "~/stores/dataRetention";
@@ -29,6 +30,7 @@ const TAB_RESOURCES: Record<StoreTab, StoreDataResource[]> = {
   disputes: ["payment", "disputes"],
   orders: ["orders", "payment"],
   products: ["products", "locations"],
+  collections: ["collections"],
   customers: ["customers"],
   markets: ["markets"],
   operations: ["commerceOps"],
@@ -37,6 +39,7 @@ const TAB_RESOURCES: Record<StoreTab, StoreDataResource[]> = {
 
 export function useStoreTabData() {
   const formStore = useFormStore();
+  const collectionStore = useCollectionStore();
   const credentialVault = useCredentialVaultStore();
   const dataRetention = useDataRetentionStore();
   const customerStore = useCustomerStore();
@@ -68,6 +71,7 @@ export function useStoreTabData() {
       paymentStore.evictStore(storeId);
     }
     if (expiredSet.has("products")) productStore.evictStore(storeId);
+    if (expiredSet.has("collections")) collectionStore.evictStore(storeId);
     if (expiredSet.has("locations")) locationStore.evictStore(storeId);
     if (expiredSet.has("markets")) marketStore.evictStore(storeId);
     if (expiredSet.has("customers")) customerStore.evictStore(storeId);
@@ -80,6 +84,7 @@ export function useStoreTabData() {
     orderStore.hydrate(storeId);
     paymentStore.hydrate(storeId);
     productStore.hydrate(storeId);
+    collectionStore.hydrate(storeId);
     locationStore.hydrate(storeId);
     marketStore.hydrate(storeId);
     customerStore.hydrate(storeId);
@@ -92,6 +97,7 @@ export function useStoreTabData() {
       orderStore.isStoreActive(storeId) &&
       paymentStore.isStoreActive(storeId) &&
       productStore.isStoreActive(storeId) &&
+      collectionStore.isStoreActive(storeId) &&
       locationStore.isStoreActive(storeId) &&
       marketStore.isStoreActive(storeId) &&
       customerStore.isStoreActive(storeId) &&
@@ -120,6 +126,8 @@ export function useStoreTabData() {
       orderStore.error = message;
     } else if (tab === "products") {
       productStore.error = message;
+    } else if (tab === "collections") {
+      collectionStore.error = message;
     } else if (tab === "customers") {
       customerStore.error = message;
     } else if (tab === "operations") {
@@ -154,6 +162,7 @@ export function useStoreTabData() {
     const hadPaymentError = Boolean(paymentStore.error);
     const hadOrderError = Boolean(orderStore.error);
     const hadProductError = Boolean(productStore.error);
+    const hadCollectionError = Boolean(collectionStore.error);
     const hadCustomerError = Boolean(customerStore.error);
     const hadMarketError = Boolean(marketStore.error);
     const hadProfileError = Boolean(profileStore.error);
@@ -217,6 +226,19 @@ export function useStoreTabData() {
         markResourceLoaded(storeId, "locations");
       }
       return !productStore.error;
+    }
+
+    if (tab === "collections") {
+      const collectionForce =
+        force || hadCollectionError || isResourceExpired(storeId, "collections");
+      if (collectionForce || !collectionStore.hasFetchedAll) {
+        await collectionStore.fetchAll(storeId, token);
+      }
+      if (force && collectionStore.activeJobs.length) {
+        collectionStore.retryActiveJobs(storeId, token);
+      }
+      if (!collectionStore.error) markResourceLoaded(storeId, "collections");
+      return !collectionStore.error;
     }
 
     if (tab === "customers") {

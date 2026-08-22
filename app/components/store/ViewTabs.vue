@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Globe2 } from "@lucide/vue";
+import { Boxes, Globe2 } from "@lucide/vue";
 import type { StoreTab } from "~~/types/store";
 
 defineProps<{
@@ -58,7 +58,7 @@ function selectTab(tab: StoreTab) {
       <IconsRefresh />
       {{ t("store.tabPayouts") }}
     </button>
-    <button
+    <!-- <button
       class="tab-btn"
       :class="{ active: activeTab === 'disputes' }"
       type="button"
@@ -68,7 +68,7 @@ function selectTab(tab: StoreTab) {
     >
       <IconsCheck />
       {{ t("store.tabDisputes") }}
-    </button>
+    </button> -->
     <button
       class="tab-btn"
       :class="{ active: activeTab === 'orders' }"
@@ -90,6 +90,17 @@ function selectTab(tab: StoreTab) {
     >
       <IconsBulking />
       {{ t("store.tabProducts") }}
+    </button>
+    <button
+      class="tab-btn"
+      :class="{ active: activeTab === 'collections' }"
+      type="button"
+      role="tab"
+      :aria-selected="activeTab === 'collections'"
+      @click="selectTab('collections')"
+    >
+      <Boxes aria-hidden="true" />
+      {{ t("store.tabCollections") }}
     </button>
     <button
       class="tab-btn"

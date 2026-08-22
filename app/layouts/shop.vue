@@ -2,6 +2,7 @@
 import { ArrowLeftToLine, ArrowRightToLine, Search, X } from "@lucide/vue";
 import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCredentialVaultStore } from "~/stores/credentialVault";
+import { useCollectionStore } from "~/stores/collection";
 import { useMarketStore } from "~/stores/market";
 import { resolveStoreTab } from "~~/types/store";
 import { resolveStoreAccessToken } from "~~/utils/shop-auth";
@@ -19,6 +20,7 @@ const { t } = useLocalization();
 const { requestConfirmation } = useConfirmDialog();
 const credentialVault = useCredentialVaultStore();
 const customerStore = useCustomerStore();
+const collectionStore = useCollectionStore();
 const marketStore = useMarketStore();
 const commerceOpsStore = useCommerceOpsStore();
 const paymentStore = usePaymentStore(); // Moved up and ensured it's available
@@ -75,6 +77,16 @@ const isFetching = computed(() => {
     if (route.query.tab === "profile") {
       return (
         shopProfileStore.isLoading || paymentStore.isLoading || orderStore.isLoading
+      );
+    }
+    if (
+      route.query.tab === "collections" ||
+      (route.query.tab === "products" && route.query.resource === "collections")
+    ) {
+      return (
+        collectionStore.isLoading ||
+        collectionStore.isLoadingDetail ||
+        collectionStore.isMutating
       );
     }
     if (route.query.tab === "products") return productStore.isLoading;
@@ -194,7 +206,11 @@ function fetchCurrent(force = false) {
 
   if (route.path === "/store") {
     if (force) {
-      void loadStoreTabData(resolveStoreTab(route.query.tab), sid, true);
+      void loadStoreTabData(
+        resolveStoreTab(route.query.tab, route.query.resource),
+        sid,
+        true,
+      );
     }
     return;
   }
@@ -418,11 +434,11 @@ async function deleteStoreOption(id: string) {
             title="Refresh data for current store"
             :loading="isFetching"
             @click="fetchCurrent(true)"
+            iconOnly
           >
             <template #icon>
               <IconsRefresh />
             </template>
-            {{ isFetching ? t("common.loading") : t("common.refresh") }}
           </BaseButton>
           <BaseButton
             variant="primary"

@@ -5,6 +5,7 @@ export type StoreDataResource =
   | "markets"
   | "orders"
   | "commerceOps"
+  | "collections"
   | "payment"
   | "products"
   | "profile";

@@ -23,3 +23,11 @@ test("resolveStoreTab recognizes the Shopify Markets view", () => {
   assert.equal(resolveStoreTab("markets"), "markets");
   assert.ok(STORE_TABS.includes("markets"));
 });
+
+test("legacy nested collection links resolve to the top-level collections tab", () => {
+  assert.equal(resolveStoreTab("products", "collections"), "collections");
+  assert.equal(
+    resolveStoreTab(["products", "orders"], ["collections", "products"]),
+    "collections",
+  );
+});

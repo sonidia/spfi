@@ -99,6 +99,8 @@
 
         <StoreProductsTab v-else-if="activeTab === 'products'" />
 
+        <StoreCatalogCollectionCollectionsTab v-else-if="activeTab === 'collections'" />
+
         <div v-else-if="showsStoreSummary" class="card data-card">
           <PaymentPayoutsTab v-if="activeTab === 'payouts'" />
 
@@ -127,6 +129,7 @@ import { useLocalization } from "~/composables/useLocalization";
 import { useStoreFeedback } from "~/composables/useStoreFeedback";
 import { useStoreTabData } from "~/composables/useStoreTabData";
 import { useCustomerStore } from "~/stores/customers";
+import { useCollectionStore } from "~/stores/collection";
 import { useCommerceOpsStore } from "~/stores/commerceOps";
 import { useFormStore } from "~/stores/form";
 import { useMarketStore } from "~/stores/market";
@@ -139,6 +142,7 @@ import { resolveStoreTab, type StoreTab } from "~~/types/store";
 definePageMeta({ layout: false });
 
 const formStore = useFormStore();
+const collectionStore = useCollectionStore();
 const marketStore = useMarketStore();
 const customerStore = useCustomerStore();
 const commerceOpsStore = useCommerceOpsStore();
@@ -153,8 +157,24 @@ const { loadStoreTabData } = useStoreTabData();
 const feedback = useStoreFeedback();
 const { t } = useLocalization();
 
-const activeTab = computed<StoreTab>(() => resolveStoreTab(route.query.tab));
+const activeTab = computed<StoreTab>(() =>
+  resolveStoreTab(route.query.tab, route.query.resource),
+);
 const isPageActive = ref(true);
+
+watch(
+  [() => route.query.tab, () => route.query.resource],
+  ([tab, resource]) => {
+    const tabValue = Array.isArray(tab) ? tab[0] : tab;
+    const resourceValue = Array.isArray(resource) ? resource[0] : resource;
+    if (tabValue !== "products" || resourceValue !== "collections") return;
+    void router.replace({
+      path: "/store",
+      query: { ...route.query, tab: "collections", resource: undefined },
+    });
+  },
+  { immediate: true },
+);
 
 function setActiveTab(tab: StoreTab) {
   void router.replace({
@@ -163,6 +183,8 @@ function setActiveTab(tab: StoreTab) {
       ...route.query,
       shop: route.query.shop || formStore.storeId || undefined,
       tab: tab === "transactions" ? undefined : tab,
+      resource: undefined,
+      collection: tab === "collections" ? route.query.collection : undefined,
     },
   });
 }
@@ -208,6 +230,7 @@ const activeTabError = computed(() => {
   }
   if (activeTab.value === "orders") return orderStore.error;
   if (activeTab.value === "products") return productStore.error;
+  if (activeTab.value === "collections") return collectionStore.error;
   if (activeTab.value === "customers") return customerStore.error;
   if (activeTab.value === "markets") return marketStore.error;
   if (activeTab.value === "operations") return commerceOpsStore.mutationError;
@@ -222,6 +245,7 @@ const activeTabLabel = computed(
       disputes: t("store.disputesDeadlines"),
       orders: t("store.salesConnected"),
       products: t("store.catalog"),
+      collections: t("store.collectionCatalog"),
       customers: t("store.customerDirectory"),
       markets: t("store.marketConfiguration"),
       operations: "Commerce operations",
@@ -317,14 +341,12 @@ watch([activeTabError, activeTab], ([message]) => {
 .card {
   background: var(--surface);
   border-radius: 14px;
-  box-shadow: var(--shadow);
   overflow: hidden;
   margin-bottom: 16px;
 }
 
 .data-card {
   border: 1px solid var(--border);
-  box-shadow: 0 16px 44px rgba(20, 34, 27, 0.075);
 }
 
 :deep(.badge) {

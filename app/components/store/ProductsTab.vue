@@ -2063,6 +2063,8 @@ async function refreshProducts() {
 
 .product-filter-header-button {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
 }
 .product-filter-count {
   display: inline-grid;
